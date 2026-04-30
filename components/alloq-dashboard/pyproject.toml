@@ -1,0 +1,25 @@
+[project]
+name = "alloq-dashboard"
+version = "0.1.0"
+description = "Dashboard component for Alloq, a Reflex.dev based app for resource management and planning for software teams"
+readme = "README.md"
+authors = [{ name = "Jens Rehpöhler", email = "jens.rehpoehler@bertelsmann.de" }]
+requires-python = ">=3.13"
+dependencies = [
+    "alloq-project",
+    "alloq-team",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.uv.sources]
+knai-common = { workspace = true }
+knowledgeai-commons-ui = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/alloq_dashboard"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -1,0 +1,37 @@
+services:
+  app:
+    container_name: alloq-dev
+    image: alloq/ui-dev
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+      args:
+        VARIANT: 3.14-bookworm
+    volumes:
+      - ../..:/workspaces:rw,cached
+    command: sleep infinity
+    networks:
+      - alloq-network
+
+  db:
+    container_name: alloq-db
+    image: pgvector/pgvector:pg15
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: alloq-db
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - 5433:5432
+    networks:
+      - alloq-network
+
+volumes:
+  postgres-data:
+    name: alloq-postgres-data
+
+networks:
+  alloq-network:
+    driver: bridge
