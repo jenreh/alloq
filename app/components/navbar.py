@@ -2,6 +2,7 @@ from typing import Final
 
 import reflex as rx
 
+import appkit_mantine as mn
 from appkit_commons.registry import service_registry
 
 from app.components.navbar_component import (
@@ -20,58 +21,48 @@ VERSION: Final[str] = (
 
 
 def navbar_header() -> rx.Component:
-    return rx.hstack(
-        rx.image(
-            "/img/logo.svg",
-            class_name="h-[54px]",
-            margin_top="1.2em",
-            margin_left="0px",
+    return mn.group(
+        mn.image(
+            src="/img/logo.svg",
+            h="54px",
+            fit="contain",
         ),
-        rx.heading("AppKit", size="8", margin_top="36px", margin_left="6px"),
-        rx.spacer(),
-        align="center",
+        mn.title("AppKit", order=1),
         justify="start",
-        width="100%",
-        padding="0.35em",
-        margin_bottom="0",
-        margin_top="-0.5em",
+        align="center",
+        wrap="nowrap",
+        gap="12px",
+        w="95%",
+        mt="0.5em",
     )
 
 
 def navbar_admin_items() -> rx.Component:
-    return rx.vstack(
-        rx.hstack(
+    return mn.stack(
+        mn.group(
             rx.icon("settings", size=18),
-            rx.text("Administration"),
+            mn.text("Administration"),
             align="center",
-            border_radius=border_radius,
-            width="100%",
-            spacing="2",
-            padding="0.35em",
-            margin_top="1em",
+            gap="sm",
+            w="100%",
+            style={"border_radius": border_radius, "padding": "0.35em"},
+            mt="1em",
         ),
         admin_sidebar_item(
             label="Benutzer",
             icon="users",
             url="/admin/users",
         ),
-        width="95%",
-        spacing="1",
+        w="95%",
+        gap="xs",
     )
 
 
 def navbar_items() -> rx.Component:
-    return rx.vstack(
-        # rx.text("Demos", size="2", weight="bold", style=sub_heading_styles),
-        # sidebar_item(
-        #     label="Assistent",
-        #     icon="bot-message-square",
-        #     url="/assistant",
-        # ),
-        rx.spacer(min_height="1em"),
-        spacing="1",
-        width="95%",
-        # margin_top="-1em",
+    return mn.stack(
+        mn.space(h="1em"),
+        gap="xs",
+        w="95%",
     )
 
 
@@ -81,4 +72,16 @@ def app_navbar() -> rx.Component:
         navbar_items=navbar_items(),
         navbar_admin_items=navbar_admin_items(),
         version=VERSION,
+    )
+
+
+def app_navbar_mobile() -> rx.Component:
+    return mn.stack(
+        navbar_header(),
+        navbar_items(),
+        navbar_admin_items(),
+        mn.text(f"Version: {VERSION}", size="xs", c="dimmed"),
+        gap="md",
+        p="1rem",
+        w="280px",
     )

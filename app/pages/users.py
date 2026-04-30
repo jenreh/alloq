@@ -1,31 +1,40 @@
+from collections.abc import Callable
+
 import reflex as rx
 
+import appkit_mantine as mn
 from appkit_ui.components.header import header
 from appkit_user.authentication.components.components import requires_admin
 from appkit_user.authentication.templates import authenticated
 from appkit_user.user_management.components.user import users_table
 from appkit_user.user_management.states.user_states import UserState
 
-from app.components.navbar import app_navbar
 from app.roles import ALL_ROLES
 
 
-@authenticated(
-    route="/admin/users",
-    title="Benutzerverwaltung",
-    navbar=app_navbar(),
-    admin_only=True,
-    on_load=[UserState.set_available_roles(ALL_ROLES)],
-)
-def users_page() -> rx.Component:
-    additional_components = []
+def create_users_page(
+    navbar: rx.Component,
+    route: str = "/admin/users",
+    title: str = "Benutzer",
+    additional_components: list[rx.Component] | None = None,
+) -> Callable:
 
-    return requires_admin(
-        rx.vstack(
-            header("Benutzer"),
-            users_table(additional_components=additional_components),
-            width="100%",
-            max_width="1200px",
-            spacing="6",
-        ),
+    @authenticated(
+        route=route,
+        title=title,
+        navbar=navbar,
+        admin_only=True,
+        on_load=[UserState.set_available_roles(ALL_ROLES)],
     )
+    def _users_page() -> rx.Component:
+        return requires_admin(
+            mn.stack(
+                header("Benutzer"),
+                users_table(additional_components=additional_components),
+                width="100%",
+                max_width="1200px",
+                spacing="6",
+            ),
+        )
+
+    return _users_page

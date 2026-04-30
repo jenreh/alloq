@@ -16,26 +16,27 @@ from appkit_user.user_management.pages import (
     create_profile_page,
 )
 
-from app.components.navbar import app_navbar
-from app.pages.users import users_page  # noqa: F401
+from app.components.navbar_collapsible import app_navbar_collapsible
+from app.pages.users import create_users_page
 from app.styles import base_style, base_stylesheets
 
 logging.basicConfig(level=logging.DEBUG)
 create_login_page()
 create_profile_page(
-    app_navbar(),
+    app_navbar_collapsible(),
     class_name="w-full gap-6 max-w-[800px]",
     padding="2rem",
 )
 create_password_reset_request_page()
 create_password_reset_confirm_page()
+create_users_page(app_navbar_collapsible())
 
 
 @navbar_layout(
     route="/index",
     title="ProjectKit",
     description="The ProjectKit Homepage",
-    navbar=app_navbar(),
+    navbar=app_navbar_collapsible(),
     with_header=False,
 )
 def index() -> rx.Component:

@@ -11,7 +11,6 @@ metadata:
 ## Quick reference
 
 **Import**: `import appkit_mantine as mn`
-**Mantine version**: 8.3.14 (`@mantine/core`)
 **All components use lowercase factory functions**: `mn.button()`, `mn.text_input()`, `mn.modal()`
 
 ## Inheritance hierarchy
