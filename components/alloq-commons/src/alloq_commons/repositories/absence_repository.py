@@ -26,7 +26,7 @@ class AbsenceRepository(BaseRepository[AbsenceEntity, AsyncSession]):
         statement = (
             select(AbsenceEntity)
             .where(AbsenceEntity.employee_id == employee_id)
-            .order_by(AbsenceEntity.start_date.desc())
+            .order_by(AbsenceEntity.start_date.asc())
         )
         result = await session.execute(statement)
         return list(result.scalars().all())

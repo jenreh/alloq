@@ -7,9 +7,18 @@
 			"command": "task format"
 		},
 		{
-			"label": "format",
+			"label": "task format",
 			"type": "shell",
-			"command": "task format"
+			"command": "task format",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "task format",
+			"type": "shell",
+			"command": "task format",
+			"isBackground": false,
+			"group": "build"
 		}
 	]
 }

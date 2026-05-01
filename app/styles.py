@@ -53,6 +53,7 @@ logo_font = {
 
 base_stylesheets = [
     "https://fonts.googleapis.com/css2?family=Roboto+Flex:wght@400;500;600;700;800&display=swap",
+    "https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600&display=swap",
     "https://fonts.googleapis.com/css2?family=Audiowide&family=Honk:SHLN@5&family=Major+Mono+Display&display=swap",
     "css/react-zoom.css",
     "css/appkit.css",

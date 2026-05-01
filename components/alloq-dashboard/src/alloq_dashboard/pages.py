@@ -21,6 +21,7 @@ def create_dashboard_page(
         route=route,
         title=title,
         navbar=navbar,
+        with_header=False,
         admin_only=True,
         on_load=[UserState.set_available_roles(ALL_ROLES)],
     )

@@ -20,6 +20,7 @@ def create_team_overview_page(
         route=route,
         title=title,
         navbar=navbar,
+        with_header=False,
         admin_only=True,
         on_load=[TeamState.load_employees],
     )
@@ -29,13 +30,15 @@ def create_team_overview_page(
                 team_toolbar(),
                 page_header(
                     title="Teamübersicht",
-                    description="Verwalten Sie Ihr Team und dessen Einstellungen.",
+                    description="Verwalten Sie Ihr Team und dessen Verfügbarkeit.",
                 ),
                 team_overview(),
                 width="100%",
                 gap="md",
                 pr="2rem",
                 pl="2rem",
+                pt="2rem",
+                pb="4rem",
             ),
         )
 

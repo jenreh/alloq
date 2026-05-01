@@ -1,3 +1,4 @@
+import datetime
 import enum
 import logging
 
@@ -50,9 +51,23 @@ class EmployeeEntity(Entity, Base):
     hours_per_week: Mapped[float] = mapped_column(Float, nullable=False, default=40.0)
 
     roles = relationship("RoleEntity", secondary=employee_roles, lazy="selectin")
+    absences = relationship(
+        "AbsenceEntity", lazy="selectin", cascade="all, delete-orphan"
+    )
 
     def to_dict(self) -> dict:
         """Convert entity to dictionary for Pydantic model creation."""
+
+        absences = []
+        if getattr(self, "absences", None):
+            today = datetime.datetime.now(datetime.UTC).date()
+            valid_absences = [
+                a
+                for a in self.absences
+                if a.start_date and a.end_date and a.end_date >= today
+            ]
+            valid_absences.sort(key=lambda a: a.start_date)
+            absences = [a.to_dict() for a in valid_absences]
         return {
             "id": self.id,
             "first_name": self.first_name,
@@ -62,6 +77,7 @@ class EmployeeEntity(Entity, Base):
             "location": self.location,
             "role_ids": [r.id for r in self.roles] if self.roles else [],
             "role_names": [r.name for r in self.roles] if self.roles else [],
+            "absences": absences,
             "hours_per_week": self.hours_per_week,
             "created": self.created,
             "updated": self.updated,

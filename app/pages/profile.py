@@ -31,6 +31,7 @@ def create_profile_page(
         route=route,
         title=title,
         navbar=navbar,
+        with_header=False,
     )
     def _profile_page() -> rx.Component:
         """The profile page.

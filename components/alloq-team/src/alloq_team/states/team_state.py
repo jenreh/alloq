@@ -147,6 +147,18 @@ class TeamState(rx.State):
                 yield
 
     @is_authenticated
+    async def select_employee_and_add_absence(
+        self, employee_id: int
+    ) -> AsyncGenerator[Any, None]:
+        """Select an employee and open the absence modal."""
+        async with get_asyncdb_session() as session:
+            entity = await employee_repo.find_by_id(session, employee_id)
+            if entity:
+                self.selected_employee = Employee(**entity.to_dict())
+                self.open_absence_modal()
+                yield
+
+    @is_authenticated
     async def create_employee(self, form_data: dict) -> AsyncGenerator[Any, None]:
         """Create a new employee from form submission."""
         self.is_loading = True

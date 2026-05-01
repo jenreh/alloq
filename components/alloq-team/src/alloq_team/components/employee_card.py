@@ -17,97 +17,204 @@ def _seniority_color(seniority: str) -> str:
     )
 
 
+class EmployeeCardState(rx.ComponentState):
+    """Local state for employee card expansion."""
+
+    is_expanded: bool = False
+
+    def toggle(self) -> None:
+        self.is_expanded = not self.is_expanded
+
+    @classmethod
+    def get_component(cls, employee: Employee, **props) -> rx.Component:
+        """Single employee card for grid view."""
+        return mn.box(
+            mn.card(
+                mn.stack(
+                    cls._card_header(employee),
+                    _productivity_indicator(),
+                    rx.cond(
+                        cls.is_expanded,
+                        mn.stack(
+                            _role_tags(employee),
+                            _absence_list(employee),
+                            gap="sm",
+                            w="100%",
+                        ),
+                    ),
+                    align="center",
+                    style={"width": "100%"},
+                    gap="sm",
+                ),
+                padding="lg",
+                radius="lg",
+                with_border=False,
+                bg="transparent",
+            ),
+            width="306px",
+            flex="0 0 auto",
+            style={
+                "background_color": "rgba(255, 255, 255, 0.5)",
+                "_hover": {"background_color": "rgba(255, 255, 255, 0.8)"},
+                "border_radius": "var(--mantine-radius-lg)",
+            },
+            **props,
+        )
+
+    @classmethod
+    def _card_header(cls, employee: Employee) -> rx.Component:
+        """Header containing avatar, name, job title, and actions."""
+        return mn.group(
+            _employee_initials(employee),
+            mn.stack(
+                mn.text(
+                    f"{employee.first_name} {employee.last_name}",
+                    # fw="400",
+                    size="md",
+                ),
+                mn.text(
+                    rx.cond(employee.job_title, employee.job_title, employee.seniority),
+                    size="sm",
+                    c="gray",
+                    # fw="400",
+                ),
+                gap="2px",
+                flex="1",
+                mt="2px",
+            ),
+            # Actions (Delete and Expand/Collapse)
+            mn.group(
+                mn.action_icon(
+                    rx.icon("trash", size=18, stroke_width=1.5),
+                    variant="subtle",
+                    color="red",
+                    on_click=TeamState.delete_employee(employee.id),
+                ),
+                mn.action_icon(
+                    rx.cond(
+                        cls.is_expanded,
+                        rx.icon("chevron-up", size=18, stroke_width=1.5),
+                        rx.icon("chevron-down", size=18, stroke_width=1.5),
+                    ),
+                    variant="subtle",
+                    color="gray",
+                    on_click=cls.toggle,
+                ),
+                gap="0",
+                align="flex-start",
+            ),
+            justify="space-between",
+            align="flex-start",
+            w="100%",
+            wrap="nowrap",
+            gap="md",
+        )
+
+
 def _employee_initials(employee: Employee) -> rx.Component:
     """Avatar with initials."""
-    return mn.indicator(
-        mn.avatar(
-            color="initials",
-            name=f"{employee.first_name} {employee.last_name}",
-            size="lg",
-            radius="xl",
-        ),
-        inline=False,
-        size=14,
-        offset=5,
-        position="bottom-end",
-        color="green",
-        with_border=True,
+    return mn.avatar(
+        name=f"{employee.first_name} {employee.last_name}",
+        color="var(--alloq-accent-strong)",
+        size="md",
+        radius="xl",
     )
 
 
-def _card_header(employee: Employee) -> rx.Component:
-    """Header containing avatar and options menu."""
-    return mn.group(
-        _employee_initials(employee),
-        mn.action_icon(
-            rx.icon("more-horizontal", size=20),
-            variant="subtle",
-            color="gray",
+def _role_tags(employee: Employee) -> rx.Component:
+    """Show roles as skills tags."""
+    return mn.stack(
+        mn.text("Rollen", size="sm", c="dimmed", fw="500"),
+        mn.group(
+            rx.foreach(
+                employee.role_names,
+                lambda r: mn.badge(
+                    r,
+                    variant="light",
+                    # color="yellow",
+                    size="sm",
+                    radius="sm",
+                    style={
+                        "textTransform": "none",
+                        "fontWeight": "normal",
+                        "backgroundColor": "#f3f4f6",
+                    },
+                ),
+            ),
+            gap="3px",
         ),
-        justify="space-between",
-        align="flex-start",
+        gap="sm",
         w="100%",
     )
 
 
-def _social_icons() -> rx.Component:
-    """Group of social media icons."""
-    return mn.group(
-        mn.action_icon(rx.icon("twitter", size=16), variant="default", size="sm"),
-        mn.action_icon(rx.icon("linkedin", size=16), variant="default", size="sm"),
-        mn.action_icon(rx.icon("instagram", size=16), variant="default", size="sm"),
-        gap="xs",
-    )
+def _format_date_de(date_var: rx.Var) -> rx.Var[str]:
+    """Format YYYY-MM-DD to DD.MM.YYYY."""
+    parts = date_var.to(str).split("-")
+    return parts[2] + "." + parts[1] + "." + parts[0]
 
 
-def _profile_info(employee: Employee) -> rx.Component:
-    """Employee name, seniority, job title and location."""
+def _absence_list(employee: Employee) -> rx.Component:
+    """Abwesenheiten als Liste mit farbigen Indikatoren."""
     return mn.stack(
-        mn.text(
-            f"{employee.first_name} {employee.last_name}",
-            fw="700",
-            size="xl",
-            style={"color": "#111827"},
-        ),
-        mn.text(
-            rx.cond(employee.job_title != "", employee.job_title, employee.seniority),
-            size="md",
-            c="dimmed",
-            fw="500",
-        ),
         mn.group(
-            mn.text(
-                rx.cond(employee.location != "", employee.location, "Kein Standort"),
-                size="md",
-                c="dimmed",
+            mn.text("Abwesenheiten", size="sm", c="dimmed", fw="500"),
+            mn.action_icon(
+                rx.icon("plus", size=14, stroke_width=2),
+                size="sm",
+                variant="subtle",
+                color="gray",
+                on_click=TeamState.select_employee_and_add_absence(employee.id),
             ),
-            _social_icons(),
+            align="center",
             justify="space-between",
-            w="100%",
-            mt="xs",
         ),
-        gap="2px",
-    )
-
-
-def _stat_item(label: str, value: str) -> rx.Component:
-    """Individual statistic item."""
-    return mn.stack(
-        mn.text(label, size="xs", c="dimmed", ta="center", fw="500"),
-        mn.text(value, size="lg", fw="700", ta="center", c="#111827"),
-        gap="4px",
-        align="center",
-    )
-
-
-def _stats_row(employee: Employee) -> rx.Component:
-    """Row of employee statistics."""
-    return mn.group(
-        _stat_item("Rollen", employee.role_ids.length().to_string()),
-        _stat_item("Projekte", "22"),
-        _stat_item("Aktiv", "3"),
-        grow=True,
-        mt="lg",
+        mn.stack(
+            rx.foreach(
+                employee.absences,
+                lambda absence: mn.group(
+                    mn.text(
+                        _format_date_de(absence.start_date)
+                        + " bis "
+                        + _format_date_de(absence.end_date),
+                        size="0.66rem",
+                        ff="'Roboto Mono', monospace",
+                        style={
+                            "color": "#4b5563",
+                            "fontWeight": "400",
+                        },
+                    ),
+                    align="center",
+                    gap="xs",
+                    style={
+                        "backgroundColor": "#ffffff",
+                        "padding": "8px 12px",
+                        "borderRadius": "6px",
+                    },
+                ),
+            ),
+            rx.cond(
+                employee.absences.length() == 0,
+                mn.group(
+                    mn.text(
+                        "Keine Abwesenheiten.",
+                        ff="'Roboto Mono', monospace",
+                        size="0.66rem",
+                        c="dimmed",
+                    ),
+                    align="center",
+                    gap="sm",
+                    style={
+                        "backgroundColor": "#ffffff",
+                        "padding": "8px 12px",
+                        "borderRadius": "6px",
+                    },
+                ),
+            ),
+            gap="3px",
+            w="100%",
+        ),
+        gap="xs",
         w="100%",
     )
 
@@ -116,43 +223,20 @@ def _productivity_indicator() -> rx.Component:
     """Productivity progress bar."""
     return mn.stack(
         mn.group(
-            mn.text("Productivity:", size="xs", c="dimmed", fw="500"),
-            mn.text("65%", size="xs", fw="700", style={"color": "#4b6bfb"}),
+            mn.text("Kapazität:", size="xs", c="dimmed", fw="500"),
+            mn.text("65%", size="xs", fw="700"),
             gap="4px",
-            justify="center",
+            justify="start",
         ),
-        mn.progress(value=65, size="sm", radius="xl", color="#4b6bfb"),
+        mn.progress(
+            value=65, size="sm", radius="xl", color="var(--alloq-accent-strong)"
+        ),
         gap="xs",
-        mt="md",
+        mt="xs",
         style={"width": "100%"},
     )
 
 
 def employee_card(employee: Employee) -> rx.Component:
     """Single employee card for grid view."""
-    return mn.box(
-        mn.card(
-            mn.stack(
-                _card_header(employee),
-                _profile_info(employee),
-                _stats_row(employee),
-                _productivity_indicator(),
-                align="center",
-                style={"width": "100%"},
-                gap="xs",
-            ),
-            padding="lg",
-            radius="lg",
-            with_border=False,
-            bg="transparent",
-        ),
-        width="306px",
-        flex="0 0 auto",
-        style={
-            "cursor": "pointer",
-            "background_color": "rgba(255, 255, 255, 0.5)",
-            "_hover": {"background_color": "rgba(255, 255, 255, 0.8)"},
-            "border_radius": "var(--mantine-radius-lg)",
-        },
-        on_click=lambda: TeamState.select_employee(employee.id),
-    )
+    return EmployeeCardState.create(employee=employee)

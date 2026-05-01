@@ -256,6 +256,7 @@ def employee_grid() -> rx.Component:
             gap="md",
             direction="row",
             justify="flex-start",
+            align="flex-start",
         ),
     )
 
