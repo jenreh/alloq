@@ -2,7 +2,6 @@
 name = "alloq-project"
 version = "0.1.0"
 description = "Project management component for Alloq, a Reflex.dev based app for resource management and planning for software teams"
-readme = "README.md"
 authors = [{ name = "Jens Rehpöhler", email = "jens.rehpoehler@bertelsmann.de" }]
 requires-python = ">=3.13"
 dependencies = [

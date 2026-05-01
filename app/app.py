@@ -1,6 +1,8 @@
 import logging
 
 import reflex as rx
+from alloq_project.pages import create_projects_overview_page
+from alloq_team.pages import create_team_overview_page
 from starlette.types import ASGIApp
 
 from appkit_commons.middleware import ForceHTTPSMiddleware
@@ -30,6 +32,8 @@ create_profile_page(
 create_password_reset_request_page()
 create_password_reset_confirm_page()
 create_users_page(app_navbar_collapsible())
+create_team_overview_page(app_navbar_collapsible())
+create_projects_overview_page(app_navbar_collapsible())
 
 
 @navbar_layout(

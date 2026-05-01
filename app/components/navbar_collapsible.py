@@ -48,9 +48,7 @@ VERSION: Final[str] = (
 )
 
 RAIL_WIDTH: Final[str] = "64px"
-# Push tooltips flush against the rail's right edge.
-# Rail is 64px; icon button is 40px → 12px gutter on the right side.
-_TOOLTIP_OFFSET: Final[int] = 18
+_TOOLTIP_OFFSET: Final[int] = 18  # flush against the rail's right edge
 PANEL_WIDTH: Final[str] = "240px"
 MOBILE_BREAKPOINT: Final[str] = "sm"
 
@@ -76,36 +74,14 @@ SECTIONS: Final[list[dict[str, Any]]] = [
     {
         "id": "projects",
         "label": "Projekte",
-        "icon": "folder",
-        "items": [
-            {"label": "Alle Projekte", "icon": "folder", "url": "/projects"},
-            {
-                "label": "Aktive Projekte",
-                "icon": "folder-open",
-                "url": "/projects/active",
-            },
-            {
-                "label": "Archiv",
-                "icon": "archive",
-                "url": "/projects/archive",
-                "requires_admin": True,
-            },
-        ],
+        "icon": "folder-open",
+        "url": "/projects",
     },
     {
         "id": "team",
         "label": "Team",
         "icon": "users",
         "url": "/team",
-        # "items": [
-        #     {"label": "Mitglieder", "icon": "users", "url": "/team"},
-        #     {
-        #         "label": "Rollen",
-        #         "icon": "shield",
-        #         "url": "/team/roles",
-        #         "requires_admin": True,
-        #     },
-        # ],
     },
 ]
 
@@ -117,8 +93,16 @@ FOOTER_SECTIONS: Final[list[dict[str, Any]]] = [
         "icon": "settings",
         "requires_admin": True,
         "items": [
-            {"label": "Benutzer", "icon": "users", "url": "/admin/users"},
-            {"label": "Rollen", "icon": "shield", "url": "/admin/roles"},
+            {
+                "label": "Benutzer",
+                "icon": "users",
+                "url": "/admin/users",
+            },
+            {
+                "label": "Rollen",
+                "icon": "shield",
+                "url": "/admin/roles",
+            },
         ],
     },
 ]
@@ -222,26 +206,17 @@ def _rail_section_button(section: dict[str, Any]) -> rx.Component:
     label = section["label"]
 
     if section.get("items"):
-        # Highlight rule:
-        #   * If the panel is OPEN  → only the section whose panel is open is
-        #     active. All other icons (including URL-only ones) are dimmed.
-        #   * If the panel is CLOSED → highlight when the current route
-        #     matches one of this section's child URLs.
-        child_active: Any = False
+        child_active: Any = None
         for item in section["items"]:
-            child_url = item.get("url")
-            if not child_url:
-                continue
-            child_match = _is_route_active(child_url)
-            child_active = (
-                child_match if child_active is False else child_active | child_match
-            )
+            if child_url := item.get("url"):
+                match = _is_route_active(child_url)
+                child_active = match if child_active is None else child_active | match
         panel_open = (~NavbarCollapseState.is_collapsed) & (
             NavbarCollapseState.active_section_id == section_id
         )
         route_active_when_closed = (
             NavbarCollapseState.is_collapsed
-            if child_active is False
+            if child_active is None
             else NavbarCollapseState.is_collapsed & child_active
         )
         is_active_section = panel_open | route_active_when_closed
@@ -368,6 +343,7 @@ def _user_avatar() -> rx.Component:
                         radius="xl",
                         size="md",
                         ml="3px",
+                        mb="6px",
                     ),
                     w="100%",
                     p="xs",
@@ -432,11 +408,10 @@ def _rail() -> rx.Component:
         ),
         _user_avatar(),
         gap="xs",
-        h="100dvh",
+        h="100%",
         w=RAIL_WIDTH,
-        bg="var(--gray-1)",
         style={
-            "border_right": _BORDER,
+            #            "border_right": _BORDER,
             "flex_shrink": "0",
         },
     )
@@ -451,6 +426,86 @@ def _panel_section_content(section: dict[str, Any]) -> rx.Component:
             _panel_section_items(section),
             rx.fragment(),
         ),
+    )
+
+
+def _panel_user_card() -> rx.Component:
+    """User info card at the bottom of the expanded panel."""
+    return mn.group(
+        mn.box(
+            mn.text(
+                LoginState.user.name,
+                size="sm",
+                fw="bold",
+                c=_TEXT_COLOR,
+                truncate=True,
+            ),
+            mn.text(
+                LoginState.user.email,
+                size="xs",
+                c=_DIM_COLOR,
+                truncate=True,
+            ),
+            flex="1",
+            min_width="0",
+            overflow="hidden",
+        ),
+        mn.hover_card(
+            mn.hover_card.target(
+                mn.action_icon(
+                    rx.icon("ellipsis-vertical", size=16),
+                    variant="subtle",
+                    color="gray",
+                    size="sm",
+                    aria_label="Optionen",
+                ),
+            ),
+            mn.hover_card.dropdown(
+                mn.stack(
+                    rx.link(
+                        mn.group(
+                            rx.icon("user", size=14),
+                            mn.text("Profil", size="sm"),
+                            gap="xs",
+                            align="center",
+                        ),
+                        href="/profile",
+                        underline="none",
+                        on_click=LoadingState.set_is_loading(True),
+                        style={"color": _TEXT_COLOR},
+                    ),
+                    mn.divider(),
+                    mn.group(
+                        rx.icon("log-out", size=14),
+                        mn.text("Abmelden", size="sm"),
+                        gap="xs",
+                        align="center",
+                        style={
+                            "cursor": "pointer",
+                            "color": "var(--red-9)",
+                        },
+                        on_click=[
+                            LoginState.terminate_session,
+                            LoginState.logout,
+                        ],
+                    ),
+                    gap="xs",
+                    p="xs",
+                ),
+                p="xs",
+            ),
+            open_delay=0,
+            close_delay=200,
+        ),
+        wrap="nowrap",
+        align="center",
+        gap="sm",
+        w="100%",
+        p="md",
+        style={
+            "border_top": _BORDER,
+            "flex_shrink": "0",
+        },
     )
 
 
@@ -498,11 +553,12 @@ def _panel() -> rx.Component:
             min_height="0",
             width="100%",
         ),
+        _panel_user_card(),
         gap="0",
-        h="100dvh",
-        bg="var(--gray-1)",
+        h="100%",
+        # bg="var(--gray-1)",
         style={
-            "border_right": _BORDER,
+            "border_left": rx.cond(NavbarCollapseState.is_collapsed, "none", _BORDER),
             "width": rx.cond(NavbarCollapseState.is_collapsed, "0px", PANEL_WIDTH),
             "overflow": "hidden",
             "transition": "width 0.3s ease",
@@ -519,29 +575,27 @@ def _panel() -> rx.Component:
 def app_navbar_collapsible() -> rx.Component:
     """Two-column desktop navbar: rail + collapsible section panel."""
     return mn.group(
-        _rail(),
+        mn.group(
+            _rail(),
+            align="stretch",
+            wrap="nowrap",
+            gap="0",
+            # border_radius="var(--radius-3)",
+            bg="var(--gray-1)",
+        ),
         _panel(),
         gap="0",
         wrap="nowrap",
         align="stretch",
-        h="100dvh",
+        h="calc(100dvh - 48px)",
         visible_from=MOBILE_BREAKPOINT,
-        style={"position": "sticky", "top": "0"},
-    )
-
-
-def app_navbar_collapsible_mobile() -> rx.Component:
-    """Full-width version intended for use inside a mobile drawer."""
-    return mn.stack(
-        mn.text(NavbarCollapseState.active_title, size="md", fw="bold", p="md"),
-        mn.stack(
-            *[_panel_section_content(s) for s in _SECTIONS_WITH_ITEMS],
-            gap="0",
-            w="100%",
-        ),
-        _user_avatar(),
-        gap="md",
-        w="280px",
-        h="100dvh",
-        bg="var(--gray-1)",
+        style={
+            "position": "sticky",
+            "top": "24px",
+            "margin": "18px 18px 18px 12px",
+            "border_radius": "var(--radius-3)",
+            "border": _BORDER,
+            # "box_shadow": "0 2px 8px rgba(0, 0, 0, 0.04)",
+            "overflow": "hidden",
+        },
     )

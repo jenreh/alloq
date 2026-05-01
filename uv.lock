@@ -31,6 +31,10 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
+    { name = "alloq-commons" },
+    { name = "alloq-dashboard" },
+    { name = "alloq-project" },
+    { name = "alloq-team" },
     { name = "appkit-mantine" },
     { name = "appkit-user" },
     { name = "psycopg", extra = ["binary", "pool"] },
@@ -53,6 +57,10 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.18.4" },
+    { name = "alloq-commons", editable = "components/alloq-commons" },
+    { name = "alloq-dashboard", editable = "components/alloq-dashboard" },
+    { name = "alloq-project", editable = "components/alloq-project" },
+    { name = "alloq-team", editable = "components/alloq-team" },
     { name = "appkit-mantine", editable = "../appkit/components/appkit-mantine" },
     { name = "appkit-user", editable = "../appkit/components/appkit-user" },
     { name = "psycopg", extras = ["binary", "pool"], specifier = "==3.3.3" },

@@ -6,6 +6,10 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.18.4",
+    "alloq-commons",
+    "alloq-dashboard",
+    "alloq-project",
+    "alloq-team",
     "appkit-user",
     "appkit-mantine",
     "psycopg[binary,pool]==3.3.3",
@@ -34,13 +38,7 @@ where = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = [
-    "app",
-    "alloq_dashboard",
-    "alloq_project",
-    "alloq_team",
-    "alloq_commons",
-]
+packages = ["app"]
 
 [tool.uv]
 cache-dir = ".cache/uv_cache"
