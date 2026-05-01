@@ -236,52 +236,57 @@ def _employee_initials(employee: Employee) -> rx.Component:
 
 def employee_card(employee: Employee) -> rx.Component:
     """Single employee card for grid view."""
-    return mn.card(
-        mn.flex(
-            _employee_initials(employee),
-            mn.stack(
-                mn.text(
-                    f"{employee.first_name} {employee.last_name}",
-                    fw="600",
-                    size="sm",
-                    line_clamp=1,
-                ),
-                mn.group(
-                    mn.badge(
-                        employee.seniority,
-                        color=_seniority_color(employee.seniority),
-                        size="xs",
-                        variant="light",
+    return rx.box(
+        mn.card(
+            mn.flex(
+                _employee_initials(employee),
+                mn.stack(
+                    mn.text(
+                        f"{employee.first_name} {employee.last_name}",
+                        fw="600",
+                        size="sm",
+                        line_clamp=1,
                     ),
-                    rx.foreach(
-                        employee.role_names,
-                        lambda rn: mn.badge(
-                            rn,
-                            color="gray",
+                    mn.group(
+                        mn.badge(
+                            employee.seniority,
+                            color=_seniority_color(employee.seniority),
                             size="xs",
-                            variant="outline",
+                            variant="light",
                         ),
+                        rx.foreach(
+                            employee.role_names,
+                            lambda rn: mn.badge(
+                                rn,
+                                color="gray",
+                                size="xs",
+                                variant="outline",
+                            ),
+                        ),
+                        gap="xs",
                     ),
-                    gap="xs",
+                    mn.text(
+                        f"{employee.hours_per_week} h/Woche",
+                        size="xs",
+                        c="dimmed",
+                    ),
+                    gap="4px",
                 ),
-                mn.text(
-                    f"{employee.hours_per_week} h/Woche",
-                    size="xs",
-                    c="dimmed",
-                ),
-                gap="4px",
+                gap="md",
+                align="center",
             ),
-            gap="md",
-            align="center",
+            padding="md",
+            with_border=False,
+            radius="lg",
+            bg="transparent",
         ),
-        padding="md",
-        with_border=False,
-        radius="md",
-        # shadow="xs",
+        width="306px",
+        flex="0 0 auto",
         style={
             "cursor": "pointer",
-            "background_color": "rgba(255, 255, 0, 0.7)",
-            "_hover": {"background_color": "rgba(255, 255, 255, 0.5)"},
+            "background_color": "rgba(255, 255, 255, 0.5)",
+            "_hover": {"background_color": "rgba(255, 255, 255, 0.8)"},
+            "border_radius": "var(--mantine-radius-lg)",
         },
         on_click=lambda: TeamState.select_employee(employee.id),
     )
@@ -300,13 +305,15 @@ def employee_grid() -> rx.Component:
             ),
             py="xl",
         ),
-        mn.simple_grid(
+        mn.flex(
             rx.foreach(
                 TeamState.filtered_employees,
                 employee_card,
             ),
-            cols={"base": 1, "sm": 2, "lg": 3},
-            spacing="md",
+            wrap="wrap",
+            gap="md",
+            direction="row",
+            justify="flex-start",
         ),
     )
 
