@@ -1,5 +1,10 @@
 import reflex as rx
 from alloq_commons.entities.employee import SeniorityLevel
+from alloq_team.components.employee_card import (
+    _employee_initials,
+    _seniority_color,
+    employee_card,
+)
 from alloq_team.models.employee import Absence, Employee
 from alloq_team.states.team_state import TeamState
 
@@ -46,6 +51,22 @@ def employee_form_fields(employee: Employee | None = None) -> rx.Component:
                 employee.seniority if is_edit else SeniorityLevel.ADVANCED.value
             ),
             required=True,
+        ),
+        mn.text_input(
+            name="job_title",
+            label="Job-Titel (z.B. Software Engineer)",
+            default_value=employee.job_title if is_edit else "",
+            required=False,
+            max_length=255,
+            left_section=rx.icon("briefcase", size=16),
+        ),
+        mn.text_input(
+            name="location",
+            label="Standort (z.B. New York, USA)",
+            default_value=employee.location if is_edit else "",
+            required=False,
+            max_length=255,
+            left_section=rx.icon("map-pin", size=16),
         ),
         mn.multi_select(
             name="role_ids",
@@ -213,85 +234,6 @@ def absence_modal() -> rx.Component:
 # --- Card View ---
 
 
-def _seniority_color(seniority: str) -> str:
-    """Map seniority to badge color."""
-    return rx.match(
-        seniority,
-        ("Advanced", "blue"),
-        ("Senior", "grape"),
-        ("Expert", "orange"),
-        "gray",
-    )
-
-
-def _employee_initials(employee: Employee) -> rx.Component:
-    """Avatar with initials."""
-    return mn.avatar(
-        color="initials",
-        name=f"{employee.first_name} {employee.last_name}",
-        size="lg",
-        radius="xl",
-    )
-
-
-def employee_card(employee: Employee) -> rx.Component:
-    """Single employee card for grid view."""
-    return rx.box(
-        mn.card(
-            mn.flex(
-                _employee_initials(employee),
-                mn.stack(
-                    mn.text(
-                        f"{employee.first_name} {employee.last_name}",
-                        fw="600",
-                        size="sm",
-                        line_clamp=1,
-                    ),
-                    mn.group(
-                        mn.badge(
-                            employee.seniority,
-                            color=_seniority_color(employee.seniority),
-                            size="xs",
-                            variant="light",
-                        ),
-                        rx.foreach(
-                            employee.role_names,
-                            lambda rn: mn.badge(
-                                rn,
-                                color="gray",
-                                size="xs",
-                                variant="outline",
-                            ),
-                        ),
-                        gap="xs",
-                    ),
-                    mn.text(
-                        f"{employee.hours_per_week} h/Woche",
-                        size="xs",
-                        c="dimmed",
-                    ),
-                    gap="4px",
-                ),
-                gap="md",
-                align="center",
-            ),
-            padding="md",
-            with_border=False,
-            radius="lg",
-            bg="transparent",
-        ),
-        width="306px",
-        flex="0 0 auto",
-        style={
-            "cursor": "pointer",
-            "background_color": "rgba(255, 255, 255, 0.5)",
-            "_hover": {"background_color": "rgba(255, 255, 255, 0.8)"},
-            "border_radius": "var(--mantine-radius-lg)",
-        },
-        on_click=lambda: TeamState.select_employee(employee.id),
-    )
-
-
 def employee_grid() -> rx.Component:
     """Card grid view of all employees."""
     return rx.cond(
@@ -334,6 +276,13 @@ def _employee_table_row(employee: Employee) -> rx.Component:
                 ),
                 gap="sm",
                 align="center",
+            ),
+        ),
+        mn.table.td(
+            rx.cond(
+                employee.job_title != "",
+                mn.text(employee.job_title, size="sm"),
+                mn.text(employee.seniority, size="sm", c="dimmed"),
             ),
         ),
         mn.table.td(
@@ -393,6 +342,7 @@ def employee_table() -> rx.Component:
         mn.table.thead(
             mn.table.tr(
                 mn.table.th(mn.text("Name", size="sm", fw="700")),
+                mn.table.th(mn.text("Job-Titel", size="sm", fw="700")),
                 mn.table.th(mn.text("Level", size="sm", fw="700")),
                 mn.table.th(mn.text("Rollen", size="sm", fw="700")),
                 mn.table.th(mn.text("Stunden", size="sm", fw="700")),

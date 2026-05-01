@@ -14,7 +14,7 @@ from alloq_commons.components.role import (
 from alloq_commons.entities.role import RoleEntity
 from alloq_commons.models.role import Role, RoleCreate
 from alloq_commons.repositories.role_repository import RoleRepository
-from alloq_team.states.role_states import RoleState
+from alloq_commons.state.role_states import RoleState
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -332,11 +332,11 @@ class TestRoleStateAsync:
 
         with (
             patch(
-                "alloq_commons.states.role_states.get_asyncdb_session",
+                "alloq_commons.state.role_states.get_asyncdb_session",
                 _mock_session_ctx(session),
             ),
             patch(
-                "alloq_commons.states.role_states.role_repo",
+                "alloq_commons.state.role_states.role_repo",
                 mock_repo,
             ),
         ):
@@ -355,11 +355,11 @@ class TestRoleStateAsync:
 
         with (
             patch(
-                "alloq_commons.states.role_states.get_asyncdb_session",
+                "alloq_commons.state.role_states.get_asyncdb_session",
                 _mock_session_ctx(session),
             ),
             patch(
-                "alloq_commons.states.role_states.role_repo",
+                "alloq_commons.state.role_states.role_repo",
                 mock_repo,
             ),
         ):
@@ -381,11 +381,11 @@ class TestRoleStateAsync:
 
         with (
             patch(
-                "alloq_commons.states.role_states.get_asyncdb_session",
+                "alloq_commons.state.role_states.get_asyncdb_session",
                 _mock_session_ctx(session),
             ),
             patch(
-                "alloq_commons.states.role_states.role_repo",
+                "alloq_commons.state.role_states.role_repo",
                 mock_repo,
             ),
         ):
@@ -412,11 +412,11 @@ class TestRoleStateAsync:
 
         with (
             patch(
-                "alloq_commons.states.role_states.get_asyncdb_session",
+                "alloq_commons.state.role_states.get_asyncdb_session",
                 _mock_session_ctx(session),
             ),
             patch(
-                "alloq_commons.states.role_states.role_repo",
+                "alloq_commons.state.role_states.role_repo",
                 mock_repo,
             ),
         ):
@@ -440,11 +440,11 @@ class TestRoleStateAsync:
         async with _patch_auth(state):
             with (
                 patch(
-                    "alloq_commons.states.role_states.get_asyncdb_session",
+                    "alloq_commons.state.role_states.get_asyncdb_session",
                     _mock_session_ctx(session),
                 ),
                 patch(
-                    "alloq_commons.states.role_states.role_repo",
+                    "alloq_commons.state.role_states.role_repo",
                     mock_repo,
                 ),
             ):
@@ -466,11 +466,11 @@ class TestRoleStateAsync:
         async with _patch_auth(state):
             with (
                 patch(
-                    "alloq_commons.states.role_states.get_asyncdb_session",
+                    "alloq_commons.state.role_states.get_asyncdb_session",
                     _mock_session_ctx(session),
                 ),
                 patch(
-                    "alloq_commons.states.role_states.role_repo",
+                    "alloq_commons.state.role_states.role_repo",
                     mock_repo,
                 ),
             ):
@@ -494,11 +494,11 @@ class TestRoleStateAsync:
         async with _patch_auth(state):
             with (
                 patch(
-                    "alloq_commons.states.role_states.get_asyncdb_session",
+                    "alloq_commons.state.role_states.get_asyncdb_session",
                     _mock_session_ctx(session),
                 ),
                 patch(
-                    "alloq_commons.states.role_states.role_repo",
+                    "alloq_commons.state.role_states.role_repo",
                     mock_repo,
                 ),
             ):
@@ -529,11 +529,11 @@ class TestRoleStateAsync:
         async with _patch_auth(state):
             with (
                 patch(
-                    "alloq_commons.states.role_states.get_asyncdb_session",
+                    "alloq_commons.state.role_states.get_asyncdb_session",
                     _mock_session_ctx(session),
                 ),
                 patch(
-                    "alloq_commons.states.role_states.role_repo",
+                    "alloq_commons.state.role_states.role_repo",
                     mock_repo,
                 ),
             ):
@@ -554,7 +554,7 @@ class TestRoleStateAsync:
 
         async with _patch_auth(state):
             with patch(
-                "alloq_commons.states.role_states.get_asyncdb_session",
+                "alloq_commons.state.role_states.get_asyncdb_session",
                 _mock_session_ctx(AsyncMock()),
             ):
                 results = []
@@ -575,11 +575,11 @@ class TestRoleStateAsync:
         async with _patch_auth(state):
             with (
                 patch(
-                    "alloq_commons.states.role_states.get_asyncdb_session",
+                    "alloq_commons.state.role_states.get_asyncdb_session",
                     _mock_session_ctx(session),
                 ),
                 patch(
-                    "alloq_commons.states.role_states.role_repo",
+                    "alloq_commons.state.role_states.role_repo",
                     mock_repo,
                 ),
             ):
@@ -601,11 +601,11 @@ class TestRoleStateAsync:
         async with _patch_auth(state):
             with (
                 patch(
-                    "alloq_commons.states.role_states.get_asyncdb_session",
+                    "alloq_commons.state.role_states.get_asyncdb_session",
                     _mock_session_ctx(session),
                 ),
                 patch(
-                    "alloq_commons.states.role_states.role_repo",
+                    "alloq_commons.state.role_states.role_repo",
                     mock_repo,
                 ),
             ):
@@ -632,11 +632,11 @@ class TestRoleStateAsync:
         async with _patch_auth(state):
             with (
                 patch(
-                    "alloq_commons.states.role_states.get_asyncdb_session",
+                    "alloq_commons.state.role_states.get_asyncdb_session",
                     _mock_session_ctx(session),
                 ),
                 patch(
-                    "alloq_commons.states.role_states.role_repo",
+                    "alloq_commons.state.role_states.role_repo",
                     mock_repo,
                 ),
             ):
@@ -657,11 +657,11 @@ class TestRoleStateAsync:
         async with _patch_auth(state):
             with (
                 patch(
-                    "alloq_commons.states.role_states.get_asyncdb_session",
+                    "alloq_commons.state.role_states.get_asyncdb_session",
                     _mock_session_ctx(session),
                 ),
                 patch(
-                    "alloq_commons.states.role_states.role_repo",
+                    "alloq_commons.state.role_states.role_repo",
                     mock_repo,
                 ),
             ):
@@ -687,11 +687,11 @@ class TestRoleStateAsync:
         async with _patch_auth(state):
             with (
                 patch(
-                    "alloq_commons.states.role_states.get_asyncdb_session",
+                    "alloq_commons.state.role_states.get_asyncdb_session",
                     _mock_session_ctx(session),
                 ),
                 patch(
-                    "alloq_commons.states.role_states.role_repo",
+                    "alloq_commons.state.role_states.role_repo",
                     mock_repo,
                 ),
             ):
@@ -711,11 +711,11 @@ class TestRoleStateAsync:
         async with _patch_auth(state):
             with (
                 patch(
-                    "alloq_commons.states.role_states.get_asyncdb_session",
+                    "alloq_commons.state.role_states.get_asyncdb_session",
                     _mock_session_ctx(session),
                 ),
                 patch(
-                    "alloq_commons.states.role_states.role_repo",
+                    "alloq_commons.state.role_states.role_repo",
                     mock_repo,
                 ),
             ):

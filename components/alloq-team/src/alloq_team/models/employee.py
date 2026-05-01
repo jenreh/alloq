@@ -11,6 +11,8 @@ class Employee(BaseModel):
     first_name: str = ""
     last_name: str = ""
     seniority: str = ""
+    job_title: str | None = None
+    location: str | None = None
     role_ids: list[int] = []
     role_names: list[str] = []
     hours_per_week: float = 40.0
@@ -24,6 +26,8 @@ class EmployeeCreate(BaseModel):
     first_name: str = Field(..., max_length=255)
     last_name: str = Field(..., max_length=255)
     seniority: SeniorityLevel
+    job_title: str | None = Field(default=None, max_length=255)
+    location: str | None = Field(default=None, max_length=255)
     role_ids: list[int]
     hours_per_week: float = Field(default=40.0, ge=0)
 
@@ -34,6 +38,8 @@ class EmployeeUpdate(BaseModel):
     first_name: str = Field(..., max_length=255)
     last_name: str = Field(..., max_length=255)
     seniority: SeniorityLevel
+    job_title: str | None = Field(default=None, max_length=255)
+    location: str | None = Field(default=None, max_length=255)
     role_ids: list[int]
     hours_per_week: float = Field(default=40.0, ge=0)
 

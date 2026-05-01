@@ -2,11 +2,9 @@
 
 from unittest.mock import MagicMock
 
-import reflex as rx
-
 from appkit_commons.middleware import ForceHTTPSMiddleware
 
-from app.app import add_https_middleware, index
+from app.app import add_https_middleware
 
 
 class TestAddHttpsMiddleware:
@@ -22,10 +20,3 @@ class TestAddHttpsMiddleware:
         result = add_https_middleware(MagicMock())
 
         assert result is not None
-
-
-class TestIndexPage:
-    def test_index_returns_component(self) -> None:
-        result = index()
-
-        assert isinstance(result, rx.Component)

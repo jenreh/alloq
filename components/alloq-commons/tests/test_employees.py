@@ -6,15 +6,15 @@ import pytest
 from alloq_commons.entities.absence import AbsenceEntity
 from alloq_commons.entities.employee import EmployeeEntity, SeniorityLevel
 from alloq_commons.entities.role import RoleEntity
-from alloq_commons.models.employee import (
+from alloq_commons.repositories.absence_repository import AbsenceRepository
+from alloq_commons.repositories.employee_repository import EmployeeRepository
+from alloq_team.models.employee import (
     Absence,
     AbsenceCreate,
     Employee,
     EmployeeCreate,
     EmployeeUpdate,
 )
-from alloq_commons.repositories.absence_repository import AbsenceRepository
-from alloq_commons.repositories.employee_repository import EmployeeRepository
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -43,6 +43,7 @@ class TestEmployeeEntity:
             first_name="Anna",
             last_name="Schmidt",
             seniority=SeniorityLevel.EXPERT.value,
+            job_title="Software Engineer",
             hours_per_week=32.0,
         )
         entity.id = 5
@@ -53,6 +54,7 @@ class TestEmployeeEntity:
         assert result["id"] == 5
         assert result["first_name"] == "Anna"
         assert result["last_name"] == "Schmidt"
+        assert result["job_title"] == "Software Engineer"
         assert result["seniority"] == "Expert"
         assert result["role_ids"] == []
         assert result["role_names"] == []
@@ -103,7 +105,7 @@ class TestSeniorityLevel:
         assert SeniorityLevel.EXPERT.value == "Expert"
 
     def test_enum_count(self) -> None:
-        assert len(SeniorityLevel) == 3
+        assert len(SeniorityLevel) == 4
 
 
 # ============================================================================

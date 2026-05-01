@@ -33,6 +33,7 @@ class SeniorityLevel(enum.StrEnum):
 
     ADVANCED = "Advanced"
     SENIOR = "Senior"
+    PROFESSIONAL = "Professional"
     EXPERT = "Expert"
 
 
@@ -44,6 +45,8 @@ class EmployeeEntity(Entity, Base):
     first_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     last_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     seniority: Mapped[str] = mapped_column(String(50), nullable=False)
+    job_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    location: Mapped[str | None] = mapped_column(String(255), nullable=True)
     hours_per_week: Mapped[float] = mapped_column(Float, nullable=False, default=40.0)
 
     roles = relationship("RoleEntity", secondary=employee_roles, lazy="selectin")
@@ -55,6 +58,8 @@ class EmployeeEntity(Entity, Base):
             "first_name": self.first_name,
             "last_name": self.last_name,
             "seniority": self.seniority,
+            "job_title": self.job_title,
+            "location": self.location,
             "role_ids": [r.id for r in self.roles] if self.roles else [],
             "role_names": [r.name for r in self.roles] if self.roles else [],
             "hours_per_week": self.hours_per_week,
