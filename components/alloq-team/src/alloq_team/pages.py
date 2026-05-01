@@ -1,13 +1,13 @@
 from collections.abc import Callable
 
 import reflex as rx
+from alloq_commons.components.page_header import page_header
 
 import appkit_mantine as mn
+from alloq_team.components.employee import team_overview, team_toolbar
+from alloq_team.states.team_state import TeamState
 from appkit_user.authentication.components.components import requires_admin
 from appkit_user.authentication.templates import authenticated
-from appkit_user.user_management.states.user_states import UserState
-
-from app.roles import ALL_ROLES
 
 
 def create_team_overview_page(
@@ -21,15 +21,21 @@ def create_team_overview_page(
         title=title,
         navbar=navbar,
         admin_only=True,
-        on_load=[UserState.set_available_roles(ALL_ROLES)],
+        on_load=[TeamState.load_employees],
     )
     def _team_overview_page() -> rx.Component:
         return requires_admin(
             mn.stack(
-                mn.title("Team Übersicht", order=1),
+                team_toolbar(),
+                page_header(
+                    title="Teamübersicht",
+                    description="Verwalten Sie Ihr Team und dessen Einstellungen.",
+                ),
+                team_overview(),
                 width="100%",
-                max_width="1200px",
-                spacing="6",
+                gap="md",
+                pr="2rem",
+                pl="2rem",
             ),
         )
 

@@ -2,10 +2,10 @@
 
 import reflex as rx
 
-accent_bg_color = rx.color("accent", 2)
-accent_color = rx.color("accent", 3)
-accent_text_color = rx.color("accent", 9)
-border = f"1px solid {rx.color('gray', 5)}"
+accent_bg_color = "var(--alloq-accent-soft)"
+accent_color = "var(--alloq-accent)"
+accent_text_color = "var(--alloq-accent-text)"
+border = "1px solid var(--alloq-border)"
 border_radius = "var(--radius-2)"
 box_shadow = "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)"
 box_shadow_right_light = "inset -5px -5px 15px -5px rgba(0, 0, 0, 0.1)"
@@ -13,10 +13,10 @@ box_shadow_right_dark = "inset -5px -5px 15px -5px rgba(0.9, 0.9, 0.9, 0.1)"
 box_shadow_light = "0 1px 10px -0.5px rgba(0, 0, 0, 0.1)"
 box_shadow_dark = "0 1px 10px -0.5px rgba(0.8, 0.8, 0.8, 0.1)"
 content_max_width = "1280px"
-gray_bg_color = rx.color("gray", 3)
+gray_bg_color = "var(--alloq-surface-muted)"
 max_width = "1480px"
-sidebar_bg = rx.color("gray", 2)
-text_color = rx.color("gray", 11)
+sidebar_bg = "var(--alloq-nav-bg)"
+text_color = "var(--alloq-text)"
 
 markdown_style = {
     "code": lambda text: rx.code(text, color_scheme="gray"),
@@ -56,7 +56,7 @@ base_stylesheets = [
     "https://fonts.googleapis.com/css2?family=Audiowide&family=Honk:SHLN@5&family=Major+Mono+Display&display=swap",
     "css/react-zoom.css",
     "css/appkit.css",
-    # "css/alloq-theme.css",
+    "css/alloq-theme.css",
 ]
 
 base_style = {

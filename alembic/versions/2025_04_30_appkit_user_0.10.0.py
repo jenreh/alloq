@@ -1,7 +1,7 @@
 """baseline
 
-Revision ID: d5521dc3737c
-Revises: 2cc0d832def5
+Revision ID: f2b5b9c0d1e2
+Revises: none
 Create Date: 2025-12-30 14:43:47.334328
 
 """
@@ -16,7 +16,7 @@ from alembic import op
 from app import configuration
 
 # revision identifiers, used by Alembic.
-revision: str = "appkit_user"
+revision: str = "f2b5b9c0d1e2"
 down_revision: str | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None

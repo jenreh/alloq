@@ -1,43 +1,43 @@
 from collections.abc import Callable
 
 import reflex as rx
-from alloq_commons.components.page_header import page_header
+from alloq_commons.components import page_header, roles_table
+from alloq_commons.state.role_states import RoleState
 
 import appkit_mantine as mn
 from appkit_user.authentication.components.components import requires_admin
 from appkit_user.authentication.templates import authenticated
-from appkit_user.user_management.states.user_states import UserState
-
-from app.roles import ALL_ROLES
 
 
-def create_projects_overview_page(
+def create_roles_page(
     navbar: rx.Component,
-    route: str = "/projects",
-    title: str = "Projekte",
+    route: str = "/admin/roles",
+    title: str = "Rollen",
 ) -> Callable:
+    """Page factory for role management."""
 
     @authenticated(
         route=route,
         title=title,
         navbar=navbar,
         admin_only=True,
-        on_load=[UserState.set_available_roles(ALL_ROLES)],
+        on_load=[RoleState.load_roles],
     )
-    def _projects_overview_page() -> rx.Component:
+    def _roles_page() -> rx.Component:
         return requires_admin(
             mn.stack(
                 page_header(
-                    nav_path="Projekte",
-                    title="Projektübersicht",
-                    description="Verwalten Sie Ihre Projekte und deren Einstellungen.",
+                    nav_path=["Administration", "Rollen"],
+                    title="Rollen verwalten",
+                    description="Rollen anlegen, bearbeiten und löschen.",
                 ),
+                roles_table(),
                 width="100%",
                 max_width="1200px",
-                gap="0",
+                spacing="6",
                 pr="2rem",
                 pl="2rem",
             ),
         )
 
-    return _projects_overview_page
+    return _roles_page

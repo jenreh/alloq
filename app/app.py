@@ -1,6 +1,7 @@
 import logging
 
 import reflex as rx
+from alloq_dashboard.pages import create_dashboard_page
 from alloq_project.pages import create_projects_overview_page
 from alloq_team.pages import create_team_overview_page
 from starlette.types import ASGIApp
@@ -10,15 +11,15 @@ from appkit_user.authentication.pages import (  # noqa: F401
     azure_oauth_callback_page,
     github_oauth_callback_page,
 )
-from appkit_user.authentication.templates import navbar_layout
 from appkit_user.user_management.pages import (
     create_login_page,
     create_password_reset_confirm_page,
     create_password_reset_request_page,
-    create_profile_page,
 )
 
 from app.components.navbar_collapsible import app_navbar_collapsible
+from app.pages.profile import create_profile_page
+from app.pages.roles import create_roles_page
 from app.pages.users import create_users_page
 from app.styles import base_style, base_stylesheets
 
@@ -32,26 +33,10 @@ create_profile_page(
 create_password_reset_request_page()
 create_password_reset_confirm_page()
 create_users_page(app_navbar_collapsible())
+create_roles_page(app_navbar_collapsible())
 create_team_overview_page(app_navbar_collapsible())
 create_projects_overview_page(app_navbar_collapsible())
-
-
-@navbar_layout(
-    route="/index",
-    title="ProjectKit",
-    description="The ProjectKit Homepage",
-    navbar=app_navbar_collapsible(),
-    with_header=False,
-)
-def index() -> rx.Component:
-    return rx.container(
-        rx.vstack(
-            rx.heading("Welcome to ProjectKit!", size="9"),
-            spacing="2",
-            justify="center",
-            margin_top="0",
-        ),
-    )
+create_dashboard_page(app_navbar_collapsible())
 
 
 # Middleware transformer for HTTPS redirect

@@ -1,0 +1,114 @@
+:root {
+    --alloq-bg-base: #faf9f3;
+    --alloq-bg-warm: #f6f3e5;
+    --alloq-bg-glow: #ead583;
+    --alloq-app-bg: radial-gradient(ellipse at 66% 0%, rgba(234, 213, 131, 0.13), rgba(250, 249, 243, 0) 44%),
+        linear-gradient(135deg, #fbfbf7 0%, #f8f7ef 56%, #fbf9f1 100%);
+    --alloq-surface: rgba(255, 255, 250, 0.88);
+    --alloq-surface-solid: #fffffa;
+    --alloq-surface-muted: #f8f5e8;
+    --alloq-surface-hover: #f5efd8;
+    --alloq-accent-soft: #f8eaa8;
+    --alloq-accent: #f1ca45;
+    --alloq-accent-strong: #d99f18;
+    --alloq-accent-text: #5e4312;
+    --alloq-text: #25231d;
+    --alloq-text-muted: #777062;
+    --alloq-border: #e7e2cf;
+    --alloq-border-strong: #d8cc9a;
+    --alloq-nav-bg: rgba(251, 250, 244, 0.9);
+    --alloq-nav-panel-bg: rgba(255, 255, 250, 0.84);
+    --alloq-nav-active-bg: #f6d94d;
+    --alloq-nav-hover-bg: #f7f1da;
+    --alloq-nav-active-text: #272014;
+    --alloq-shadow-soft: 0 12px 32px rgba(91, 76, 34, 0.07);
+}
+
+.dark {
+    --alloq-bg-base: #1c1710;
+    --alloq-bg-warm: #332614;
+    --alloq-bg-glow: #7a540d;
+    --alloq-app-bg: radial-gradient(circle at 56% 8%, rgba(122, 84, 13, 0.28), rgba(28, 23, 16, 0) 35%),
+        linear-gradient(180deg, #211a11 0%, #1a1712 58%, #171410 100%);
+    --alloq-surface: rgba(35, 29, 20, 0.92);
+    --alloq-surface-solid: #241d14;
+    --alloq-surface-muted: #302517;
+    --alloq-surface-hover: #3b2d18;
+    --alloq-accent-soft: #4a3512;
+    --alloq-accent: #d9a72e;
+    --alloq-accent-strong: #efb83d;
+    --alloq-accent-text: #ffd97a;
+    --alloq-text: #f5ead8;
+    --alloq-text-muted: #c7b79d;
+    --alloq-border: #4b3920;
+    --alloq-border-strong: #80622a;
+    --alloq-nav-bg: rgba(36, 29, 20, 0.92);
+    --alloq-nav-panel-bg: rgba(31, 25, 17, 0.9);
+    --alloq-nav-active-bg: #5a3f13;
+    --alloq-nav-hover-bg: #3f301d;
+    --alloq-nav-active-text: #fff2c2;
+    --alloq-shadow-soft: 0 12px 32px rgba(0, 0, 0, 0.22);
+}
+
+html,
+body,
+#root,
+#__next,
+.rx-App,
+.rx-app,
+.radix-themes,
+.mantine-AppShell-root,
+.mantine-AppShell-main {
+    background: var(--alloq-app-bg) !important;
+    background-attachment: fixed;
+    background-color: var(--alloq-bg-base) !important;
+    color: var(--alloq-text);
+}
+
+.rx-App,
+.rx-app,
+#root,
+#__next {
+    min-height: 100dvh;
+}
+
+.mantine-AppShell-root,
+.mantine-AppShell-main,
+.mantine-Container-root {
+    --mantine-color-body: transparent;
+}
+
+.mantine-Paper-root,
+.mantine-Card-root,
+.mantine-Modal-content,
+.rt-Card {
+    --mantine-color-body: var(--alloq-surface-solid);
+}
+
+.mantine-Container-root {
+    background: transparent;
+}
+
+.mantine-Paper-root,
+.mantine-Card-root,
+.rt-Card {
+    border-color: var(--alloq-border);
+    background-color: var(--alloq-surface);
+}
+
+.mantine-Button-root[data-variant="filled"] {
+    --button-color: var(--alloq-nav-active-text);
+    color: var(--alloq-nav-active-text);
+}
+
+.mantine-Button-root[style*="--button-color: var(--mantine-color-white)"] {
+    --button-color: var(--alloq-nav-active-text) !important;
+    color: var(--alloq-nav-active-text) !important;
+}
+
+.mantine-Button-root[data-variant="filled"] .mantine-Button-label,
+.mantine-Button-root[data-variant="filled"] .mantine-Button-section,
+.mantine-Button-root[style*="--button-color: var(--mantine-color-white)"] .mantine-Button-label,
+.mantine-Button-root[style*="--button-color: var(--mantine-color-white)"] .mantine-Button-section {
+    color: var(--alloq-nav-active-text) !important;
+}

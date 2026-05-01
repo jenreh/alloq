@@ -11,10 +11,10 @@ from appkit_user.user_management.states.user_states import UserState
 from app.roles import ALL_ROLES
 
 
-def create_projects_overview_page(
+def create_dashboard_page(
     navbar: rx.Component,
-    route: str = "/projects",
-    title: str = "Projekte",
+    route: str = "/",
+    title: str = "Dashboard",
 ) -> Callable:
 
     @authenticated(
@@ -24,13 +24,18 @@ def create_projects_overview_page(
         admin_only=True,
         on_load=[UserState.set_available_roles(ALL_ROLES)],
     )
-    def _projects_overview_page() -> rx.Component:
+    def _dashboard_page() -> rx.Component:
         return requires_admin(
             mn.stack(
                 page_header(
-                    nav_path="Projekte",
-                    title="Projektübersicht",
-                    description="Verwalten Sie Ihre Projekte und deren Einstellungen.",
+                    # TODO(jens): Dynamisch mit Username  # noqa: FIX002
+                    nav_path="Willkommnen zurück, Jens!",
+                    title="Aktuelle Team-Auslastung",
+                    description=(
+                        "Überwachen Sie wichtige Kennzahlen "
+                        "und verfügbare Kapazitäten, um die Ressourcenplanung "
+                        "optimal zu steuern."
+                    ),
                 ),
                 width="100%",
                 max_width="1200px",
@@ -40,4 +45,4 @@ def create_projects_overview_page(
             ),
         )
 
-    return _projects_overview_page
+    return _dashboard_page

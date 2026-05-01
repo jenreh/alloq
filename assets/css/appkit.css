@@ -7,7 +7,8 @@
 
     /* Splash container styles for login screens */
     .splash-container {
-        background: linear-gradient(99deg, var(--blue-4), var(--pink-3), var(--mauve-3));
+        background: var(--alloq-app-bg);
+        background-color: var(--alloq-bg-base, #faf9f3);
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
@@ -37,7 +38,7 @@
     .dialog {
         max-width: 540px;
         padding: 1.5em;
-        border: 2px solid var(--accent-9);
+        border: 2px solid var(--alloq-border-strong, #dec279);
         border-radius: 25px;
     }
 
@@ -50,7 +51,7 @@
 
     .mantine-Modal-content {
         border-radius: 9px !important;
-        border: 3px solid var(--mantine-primary-color-4) !important;
+        border: 3px solid var(--alloq-border-strong, var(--mantine-primary-color-4)) !important;
     }
 
     .mantine-Modal-title {
@@ -59,7 +60,7 @@
     }
 
     .mantine-Modal-header {
-        border-bottom: 1px solid var(--gray-5) !important;
+        border-bottom: 1px solid var(--alloq-border, var(--gray-5)) !important;
         margin-bottom: 12px !important;
     }
 
@@ -113,11 +114,11 @@
         width: 100%;
         height: 100%;
         background: linear-gradient(90deg,
-                #da5965,
-                #e5aa57,
-                #95f0b2,
-                #4476af,
-                #da5965);
+            #e7b830,
+            #f6d94d,
+            #d99f18,
+            #f8eaa8,
+            #e7b830);
         background-size: 200% 100%;
         animation: rotate-gradient 2s linear infinite;
     }
@@ -217,24 +218,24 @@
         width: .6em;
         height: .6em;
         margin: -2px;
-        background: var(--gray-6);
+        background: var(--alloq-accent-strong, #d99f18);
         border-radius: .6em;
         animation: loading 1s infinite alternate;
         margin-top: 7px;
     }
 
     .loading span:nth-of-type(2) {
-        background: var(--gray-5);
+        background: var(--alloq-accent, #f1ca45);
         animation-delay: 0.2s;
     }
 
     .loading span:nth-of-type(3) {
-        background: var(--gray-4);
+        background: var(--alloq-accent-soft, #f8eaa8);
         animation-delay: 0.4s;
     }
 
     .loading span:nth-of-type(4) {
-        background: var(--gray-5);
+        background: var(--alloq-accent, #f1ca45);
         animation-delay: 0.6s;
     }
 

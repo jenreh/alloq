@@ -1,9 +1,9 @@
 from collections.abc import Callable
 
 import reflex as rx
+from alloq_commons.components import page_header
 
 import appkit_mantine as mn
-from appkit_ui.components.header import header
 from appkit_user.authentication.components.components import requires_admin
 from appkit_user.authentication.templates import authenticated
 from appkit_user.user_management.components.user import users_table
@@ -29,11 +29,17 @@ def create_users_page(
     def _users_page() -> rx.Component:
         return requires_admin(
             mn.stack(
-                header("Benutzer"),
+                page_header(
+                    nav_path=["Administration", "Benutzer"],
+                    title="Benutzer verwalten",
+                    description="Benutzer anlegen, bearbeiten und löschen.",
+                ),
                 users_table(additional_components=additional_components),
                 width="100%",
                 max_width="1200px",
                 spacing="6",
+                pr="2rem",
+                pl="2rem",
             ),
         )
 

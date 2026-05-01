@@ -23,6 +23,7 @@ Layout:
 """
 
 import logging
+from collections.abc import Generator
 from typing import Any, Final
 
 import reflex as rx
@@ -52,11 +53,14 @@ _TOOLTIP_OFFSET: Final[int] = 18  # flush against the rail's right edge
 PANEL_WIDTH: Final[str] = "240px"
 MOBILE_BREAKPOINT: Final[str] = "sm"
 
-_TEXT_COLOR = "var(--gray-11)"
-_DIM_COLOR = "var(--gray-9)"
-_ACTIVE_BG = rx.color("gray", 3)
-_HOVER_BG = rx.color("gray", 2)
-_BORDER = "1px solid var(--gray-4)"
+_TEXT_COLOR = "var(--alloq-text)"
+_DIM_COLOR = "var(--alloq-text-muted)"
+_ACTIVE_BG = "var(--alloq-nav-active-bg)"
+_ACTIVE_TEXT = "var(--alloq-nav-active-text)"
+_HOVER_BG = "var(--alloq-nav-hover-bg)"
+_RAIL_BG = "var(--alloq-nav-bg)"
+_PANEL_BG = "var(--alloq-nav-panel-bg)"
+_BORDER = "1px solid var(--alloq-border)"
 
 
 # --------------------------------------------------------------------------- #
@@ -115,6 +119,9 @@ _SECTIONS_WITH_ITEMS: Final[list[dict[str, Any]]] = [
 _DEFAULT_SECTION_ID: Final[str] = (
     _SECTIONS_WITH_ITEMS[0]["id"] if _SECTIONS_WITH_ITEMS else SECTIONS[0]["id"]
 )
+_SECTION_FIRST_URL: Final[dict[str, str]] = {
+    s["id"]: s["items"][0]["url"] for s in _ALL_SECTIONS if s.get("items")
+}
 
 
 # --------------------------------------------------------------------------- #
@@ -155,14 +162,19 @@ class NavbarCollapseState(rx.State):
             self.collapsed = "1"
 
     @rx.event
-    def select_section(self, section_id: str) -> None:
-        """Select a section. If it's already active, toggle the panel."""
+    def select_section(self, section_id: str) -> Generator[Any, Any, None]:
+        """Select a section. If it's already active, toggle the panel.
+
+        When the panel opens, automatically navigates to the first sub-item.
+        """
         if section_id == self.active_section_id:
             self.collapsed = "0" if self.collapsed == "1" else "1"
         else:
             self.active_section_id = section_id
             self.collapsed = "0"
         logger.debug("Selected section %s (collapsed=%s)", section_id, self.collapsed)
+        if self.collapsed == "0" and section_id in _SECTION_FIRST_URL:
+            yield rx.redirect(_SECTION_FIRST_URL[section_id])
 
 
 # --------------------------------------------------------------------------- #
@@ -232,7 +244,7 @@ def _rail_section_button(section: dict[str, Any]) -> rx.Component:
                     "background_color": rx.cond(
                         is_active_section, _ACTIVE_BG, "transparent"
                     ),
-                    "color": _TEXT_COLOR,
+                    "color": rx.cond(is_active_section, _ACTIVE_TEXT, _TEXT_COLOR),
                     "transition": "background-color 0.2s ease",
                     "_hover": {"background_color": _HOVER_BG},
                 },
@@ -253,7 +265,7 @@ def _rail_section_button(section: dict[str, Any]) -> rx.Component:
                     style={
                         "border_radius": "var(--radius-2)",
                         "background_color": rx.cond(active, _ACTIVE_BG, "transparent"),
-                        "color": _TEXT_COLOR,
+                        "color": rx.cond(active, _ACTIVE_TEXT, _TEXT_COLOR),
                         "transition": "background-color 0.2s ease",
                         "_hover": {"background_color": _HOVER_BG},
                     },
@@ -294,7 +306,7 @@ def _panel_nav_item(label: str, icon: str, url: str) -> rx.Component:
             style={
                 "border_radius": "var(--radius-2)",
                 "background_color": rx.cond(active, _ACTIVE_BG, "transparent"),
-                "color": _TEXT_COLOR,
+                "color": rx.cond(active, _ACTIVE_TEXT, _TEXT_COLOR),
                 "transition": "background-color 0.2s ease",
                 "_hover": {"background_color": _HOVER_BG},
             },
@@ -413,6 +425,7 @@ def _rail() -> rx.Component:
         style={
             #            "border_right": _BORDER,
             "flex_shrink": "0",
+            "background_color": _RAIL_BG,
         },
     )
 
@@ -531,7 +544,10 @@ def _panel() -> rx.Component:
             align="center",
             w="100%",
             p="md",
-            style={"flex_shrink": "0", "border_bottom": _BORDER},
+            style={
+                "flex_shrink": "0",
+                # "border_bottom": _BORDER,
+            },
         ),
         rx.box(
             class_name=rx.cond(
@@ -556,7 +572,7 @@ def _panel() -> rx.Component:
         _panel_user_card(),
         gap="0",
         h="100%",
-        # bg="var(--gray-1)",
+        bg=_PANEL_BG,
         style={
             "border_left": rx.cond(NavbarCollapseState.is_collapsed, "none", _BORDER),
             "width": rx.cond(NavbarCollapseState.is_collapsed, "0px", PANEL_WIDTH),
@@ -581,7 +597,7 @@ def app_navbar_collapsible() -> rx.Component:
             wrap="nowrap",
             gap="0",
             # border_radius="var(--radius-3)",
-            bg="var(--gray-1)",
+            bg=_RAIL_BG,
         ),
         _panel(),
         gap="0",
@@ -595,7 +611,8 @@ def app_navbar_collapsible() -> rx.Component:
             "margin": "18px 18px 18px 12px",
             "border_radius": "var(--radius-3)",
             "border": _BORDER,
-            # "box_shadow": "0 2px 8px rgba(0, 0, 0, 0.04)",
+            "box_shadow": "var(--alloq-shadow-soft)",
             "overflow": "hidden",
+            "background_color": _RAIL_BG,
         },
     )
