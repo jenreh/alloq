@@ -174,6 +174,8 @@ class TeamState(rx.State):
                 first_name=form_data.get("first_name", "").strip(),
                 last_name=form_data.get("last_name", "").strip(),
                 seniority=form_data.get("seniority", "Advanced"),
+                job_title=form_data.get("job_title", "").strip() or None,
+                location=form_data.get("location", "").strip() or None,
                 role_ids=role_ids,
                 hours_per_week=float(form_data.get("hours_per_week", 40.0)),
             )
@@ -183,6 +185,8 @@ class TeamState(rx.State):
                     first_name=emp_data.first_name,
                     last_name=emp_data.last_name,
                     seniority=emp_data.seniority.value,
+                    job_title=emp_data.job_title,
+                    location=emp_data.location,
                     hours_per_week=emp_data.hours_per_week,
                 )
                 await employee_repo.create(session, entity)
@@ -227,6 +231,8 @@ class TeamState(rx.State):
                 first_name=form_data.get("first_name", "").strip(),
                 last_name=form_data.get("last_name", "").strip(),
                 seniority=form_data.get("seniority", "Advanced"),
+                job_title=form_data.get("job_title", "").strip() or None,
+                location=form_data.get("location", "").strip() or None,
                 role_ids=role_ids,
                 hours_per_week=float(form_data.get("hours_per_week", 40.0)),
             )
@@ -244,6 +250,8 @@ class TeamState(rx.State):
                 entity.first_name = emp_data.first_name
                 entity.last_name = emp_data.last_name
                 entity.seniority = emp_data.seniority.value
+                entity.job_title = emp_data.job_title
+                entity.location = emp_data.location
                 entity.hours_per_week = emp_data.hours_per_week
                 await employee_repo.set_roles(session, entity, emp_data.role_ids)
                 await employee_repo.update(session, entity)

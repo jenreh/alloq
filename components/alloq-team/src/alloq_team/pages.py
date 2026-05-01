@@ -4,7 +4,8 @@ import reflex as rx
 from alloq_commons.components.page_header import page_header
 
 import appkit_mantine as mn
-from alloq_team.components.employee import team_overview, team_toolbar
+from alloq_team.components.employee import team_overview
+from alloq_team.components.toolbar import team_toolbar
 from alloq_team.states.team_state import TeamState
 from appkit_user.authentication.components.components import requires_admin
 from appkit_user.authentication.templates import authenticated

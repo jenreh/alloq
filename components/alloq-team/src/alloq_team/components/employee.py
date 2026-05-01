@@ -3,7 +3,10 @@ from alloq_commons.entities.employee import SeniorityLevel
 from alloq_team.components.employee_card import (
     _employee_initials,
     _seniority_color,
-    employee_card,
+    employee_grid,
+)
+from alloq_team.components.employee_table import (
+    employee_table,
 )
 from alloq_team.models.employee import Absence, Employee
 from alloq_team.states.team_state import TeamState
@@ -11,7 +14,9 @@ from alloq_team.states.team_state import TeamState
 import appkit_mantine as mn
 from appkit_ui.components.dialogs import delete_dialog
 from appkit_ui.components.form_inputs import hidden_field
-from appkit_ui.styles import sticky_header_style
+
+HIGH_WORKLOAD_PERCENT = 75
+WORKLOAD_LIMIT_PERCENT = 100
 
 # --- Form Fields ---
 
@@ -231,153 +236,6 @@ def absence_modal() -> rx.Component:
     )
 
 
-# --- Card View ---
-
-
-def employee_grid() -> rx.Component:
-    """Card grid view of all employees."""
-    return rx.cond(
-        TeamState.is_loading,
-        mn.center(
-            rx.hstack(
-                rx.spinner(size="3"),
-                mn.text("Lade Team...", size="sm"),
-                align="center",
-                spacing="3",
-            ),
-            py="xl",
-        ),
-        mn.flex(
-            rx.foreach(
-                TeamState.filtered_employees,
-                employee_card,
-            ),
-            wrap="wrap",
-            gap="md",
-            direction="row",
-            justify="flex-start",
-            align="flex-start",
-        ),
-    )
-
-
-# --- Table View ---
-
-
-def _employee_table_row(employee: Employee) -> rx.Component:
-    """Render a single employee as a table row."""
-    return mn.table.tr(
-        mn.table.td(
-            mn.group(
-                _employee_initials(employee),
-                mn.text(
-                    f"{employee.first_name} {employee.last_name}",
-                    size="sm",
-                    fw="500",
-                ),
-                gap="sm",
-                align="center",
-            ),
-        ),
-        mn.table.td(
-            rx.cond(
-                employee.job_title != "",
-                mn.text(employee.job_title, size="sm"),
-                mn.text(employee.seniority, size="sm", c="dimmed"),
-            ),
-        ),
-        mn.table.td(
-            mn.badge(
-                employee.seniority,
-                color=_seniority_color(employee.seniority),
-                size="xs",
-                variant="light",
-            ),
-        ),
-        mn.table.td(
-            mn.group(
-                rx.foreach(
-                    employee.role_names,
-                    lambda rn: mn.badge(
-                        rn,
-                        color="gray",
-                        size="xs",
-                        variant="outline",
-                    ),
-                ),
-                gap="xs",
-            ),
-        ),
-        mn.table.td(
-            mn.text(f"{employee.hours_per_week} h", size="sm"),
-        ),
-        mn.table.td(
-            mn.group(
-                rx.icon_button(
-                    rx.icon("square-pen", size=16),
-                    variant="ghost",
-                    on_click=lambda: TeamState.select_employee_and_edit(employee.id),
-                ),
-                delete_dialog(
-                    title="Löschen bestätigen",
-                    content=f"{employee.first_name} {employee.last_name}",
-                    on_click=lambda: TeamState.delete_employee(employee.id),
-                    icon_button=True,
-                    color="red",
-                ),
-                gap="xs",
-                wrap="nowrap",
-                align="center",
-            ),
-            width="1%",
-            style={"whiteSpace": "nowrap"},
-        ),
-        style={"cursor": "pointer"},
-        on_click=lambda: TeamState.select_employee(employee.id),
-    )
-
-
-def employee_table() -> rx.Component:
-    """Table view of all employees."""
-    return mn.table(
-        mn.table.thead(
-            mn.table.tr(
-                mn.table.th(mn.text("Name", size="sm", fw="700")),
-                mn.table.th(mn.text("Job-Titel", size="sm", fw="700")),
-                mn.table.th(mn.text("Level", size="sm", fw="700")),
-                mn.table.th(mn.text("Rollen", size="sm", fw="700")),
-                mn.table.th(mn.text("Stunden", size="sm", fw="700")),
-                mn.table.th(mn.text("", size="sm")),
-                style=sticky_header_style,
-            ),
-        ),
-        mn.table.tbody(
-            rx.cond(
-                TeamState.is_loading,
-                mn.table.tr(
-                    mn.table.td(
-                        rx.hstack(
-                            rx.spinner(size="3"),
-                            mn.text("Lade Team...", size="sm"),
-                            align="center",
-                            justify="center",
-                            spacing="3",
-                        ),
-                        col_span=5,
-                        style={"textAlign": "center"},
-                    ),
-                ),
-                rx.foreach(
-                    TeamState.filtered_employees,
-                    _employee_table_row,
-                ),
-            ),
-        ),
-        highlight_on_hover=True,
-        width="100%",
-    )
-
-
 # --- Detail Drawer ---
 
 
@@ -503,74 +361,6 @@ def employee_detail_drawer() -> rx.Component:
     )
 
 
-# --- Toolbar ---
-
-
-def view_mode_toggle() -> rx.Component:
-    """Toggle between grid and table view."""
-    return mn.group(
-        mn.action_icon(
-            rx.icon("layout-grid", size=20, color="black"),
-            variant=rx.cond(TeamState.view_mode == "grid", "filled", "subtle"),
-            size="lg",
-            radius="md",
-            on_click=lambda: TeamState.set_view_mode("grid"),
-        ),
-        mn.action_icon(
-            rx.icon("list", size=20, color="black"),
-            variant=rx.cond(TeamState.view_mode == "table", "filled", "subtle"),
-            size="lg",
-            radius="md",
-            on_click=lambda: TeamState.set_view_mode("table"),
-        ),
-        gap="2px",
-    )
-
-
-def add_employee_button() -> rx.Component:
-    """Button to add a new employee."""
-    return mn.action_icon(
-        rx.icon("plus", size=20, color="black"),
-        variant="filled",
-        size="lg",
-        radius="md",
-        on_click=TeamState.open_add_modal,
-    )
-
-
-def employee_search_bar() -> rx.Component:
-    """Search input for filtering employees."""
-    return mn.text_input(
-        placeholder="Search by name",
-        left_section=rx.icon("search", size=16),
-        left_section_pointer_events="none",
-        value=TeamState.search_filter,
-        on_change=TeamState.set_search_filter,
-        size="sm",
-        w="18rem",
-    )
-
-
-def team_toolbar() -> rx.Component:
-    """Top-right team page toolbar."""
-    return rx.flex(
-        employee_search_bar(),
-        add_employee_button(),
-        mn.space(w="xs"),
-        view_mode_toggle(),
-        width="auto",
-        gap="12px",
-        align="center",
-        justify="end",
-        style={
-            "position": "fixed",
-            "top": "2.25rem",
-            "right": "2rem",
-            "z_index": "20",
-        },
-    )
-
-
 # --- Main Team Overview ---
 
 
@@ -581,7 +371,6 @@ def team_overview() -> rx.Component:
         edit_employee_modal(),
         absence_modal(),
         employee_detail_drawer(),
-        # Content
         rx.cond(
             TeamState.view_mode == "grid",
             employee_grid(),

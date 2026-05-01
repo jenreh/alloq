@@ -1,7 +1,10 @@
 from datetime import date, datetime
+from typing import Any
 
 from alloq_commons.entities.employee import SeniorityLevel
 from pydantic import BaseModel, Field
+
+STANDARD_WEEKLY_HOURS = 40.0
 
 
 class Absence(BaseModel):
@@ -36,8 +39,15 @@ class Employee(BaseModel):
     role_names: list[str] = []
     absences: list[Absence] = []
     hours_per_week: float = 40.0
+    workload_percent: int = 100
     created: datetime | None = None
     updated: datetime | None = None
+
+    def model_post_init(self, __context: Any, /) -> None:
+        """Calculate workload percentage from weekly working hours."""
+        self.workload_percent = round(
+            (self.hours_per_week / STANDARD_WEEKLY_HOURS) * 100
+        )
 
 
 class EmployeeCreate(BaseModel):

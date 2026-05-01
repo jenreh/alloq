@@ -69,18 +69,19 @@ class EmployeeCardState(rx.ComponentState):
             mn.stack(
                 mn.text(
                     f"{employee.first_name} {employee.last_name}",
-                    # fw="400",
                     size="md",
+                    truncate=True,
                 ),
                 mn.text(
                     rx.cond(employee.job_title, employee.job_title, employee.seniority),
                     size="sm",
                     c="gray",
-                    # fw="400",
+                    truncate=True,
                 ),
                 gap="2px",
                 flex="1",
                 mt="2px",
+                style={"minWidth": 0},
             ),
             # Actions (Delete and Expand/Collapse)
             mn.group(
@@ -102,6 +103,7 @@ class EmployeeCardState(rx.ComponentState):
                 ),
                 gap="0",
                 align="flex-start",
+                wrap="nowrap",
             ),
             justify="space-between",
             align="flex-start",
@@ -240,3 +242,30 @@ def _productivity_indicator() -> rx.Component:
 def employee_card(employee: Employee) -> rx.Component:
     """Single employee card for grid view."""
     return EmployeeCardState.create(employee=employee)
+
+
+def employee_grid() -> rx.Component:
+    """Card grid view of all employees."""
+    return rx.cond(
+        TeamState.is_loading,
+        mn.center(
+            rx.hstack(
+                rx.spinner(size="3"),
+                mn.text("Lade Team...", size="sm"),
+                align="center",
+                spacing="3",
+            ),
+            py="xl",
+        ),
+        mn.flex(
+            rx.foreach(
+                TeamState.filtered_employees,
+                employee_card,
+            ),
+            wrap="wrap",
+            gap="md",
+            direction="row",
+            justify="flex-start",
+            align="flex-start",
+        ),
+    )

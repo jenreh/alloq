@@ -22,6 +22,152 @@
     --alloq-nav-hover-bg: #f7f1da;
     --alloq-nav-active-text: #272014;
     --alloq-shadow-soft: 0 12px 32px rgba(91, 76, 34, 0.07);
+    --alloq-meter-track: #efede7;
+
+    --mantine-primary-color: yellow;
+    --mantine-color-blue-0: #eef4f7;
+    --mantine-color-blue-1: #dce9ee;
+    --mantine-color-blue-2: #bfd4dd;
+    --mantine-color-blue-3: #94b3c1;
+    --mantine-color-blue-4: #6f91a3;
+    --mantine-color-blue-5: #527487;
+    --mantine-color-blue-6: #3f6173;
+    --mantine-color-blue-7: #355263;
+    --mantine-color-blue-8: #2d4653;
+    --mantine-color-blue-9: #263945;
+    --mantine-color-blue-filled: var(--mantine-color-blue-6);
+    --mantine-color-blue-filled-hover: var(--mantine-color-blue-7);
+    --mantine-color-blue-light: rgba(63, 97, 115, 0.14);
+    --mantine-color-blue-light-hover: rgba(63, 97, 115, 0.2);
+    --mantine-color-blue-light-color: var(--mantine-color-blue-7);
+
+    --mantine-color-yellow-0: #fff7dc;
+    --mantine-color-yellow-1: #fdecb2;
+    --mantine-color-yellow-2: #f9df82;
+    --mantine-color-yellow-3: #f5cd56;
+    --mantine-color-yellow-4: #f2bd3d;
+    --mantine-color-yellow-5: #dca722;
+    --mantine-color-yellow-6: #c08d08;
+    --mantine-color-yellow-7: #9d7200;
+    --mantine-color-yellow-8: #7b5900;
+    --mantine-color-yellow-9: #5f4400;
+    --mantine-color-yellow-filled: var(--mantine-color-yellow-4);
+    --mantine-color-yellow-filled-hover: var(--mantine-color-yellow-5);
+    --mantine-color-yellow-light: rgba(245, 189, 61, 0.18);
+    --mantine-color-yellow-light-hover: rgba(245, 189, 61, 0.26);
+    --mantine-color-yellow-light-color: var(--mantine-color-yellow-7);
+
+    --mantine-color-orange-0: #fff1eb;
+    --mantine-color-orange-1: #f9ded4;
+    --mantine-color-orange-2: #efbba8;
+    --mantine-color-orange-3: #e09579;
+    --mantine-color-orange-4: #cf7b5e;
+    --mantine-color-orange-5: #b86448;
+    --mantine-color-orange-6: #9d5038;
+    --mantine-color-orange-7: #81412f;
+    --mantine-color-orange-8: #693729;
+    --mantine-color-orange-9: #532d24;
+    --mantine-color-orange-filled: var(--mantine-color-orange-4);
+    --mantine-color-orange-filled-hover: var(--mantine-color-orange-5);
+    --mantine-color-orange-light: rgba(207, 123, 94, 0.16);
+    --mantine-color-orange-light-hover: rgba(207, 123, 94, 0.24);
+    --mantine-color-orange-light-color: var(--mantine-color-orange-7);
+
+    --mantine-color-green-0: #eef6f1;
+    --mantine-color-green-1: #dcebe1;
+    --mantine-color-green-2: #bdd5c6;
+    --mantine-color-green-3: #98bba7;
+    --mantine-color-green-4: #7f9f8e;
+    --mantine-color-green-5: #668676;
+    --mantine-color-green-6: #526f60;
+    --mantine-color-green-7: #42594d;
+    --mantine-color-green-8: #35483f;
+    --mantine-color-green-9: #2a3932;
+    --mantine-color-green-filled: var(--mantine-color-green-4);
+    --mantine-color-green-filled-hover: var(--mantine-color-green-5);
+    --mantine-color-green-light: rgba(127, 159, 142, 0.16);
+    --mantine-color-green-light-hover: rgba(127, 159, 142, 0.24);
+    --mantine-color-green-light-color: var(--mantine-color-green-7);
+
+    --mantine-color-teal-0: #eef8f8;
+    --mantine-color-teal-1: #d9eeee;
+    --mantine-color-teal-2: #b9dddd;
+    --mantine-color-teal-3: #95c7c8;
+    --mantine-color-teal-4: #6f9fa5;
+    --mantine-color-teal-5: #5b858b;
+    --mantine-color-teal-6: #486d73;
+    --mantine-color-teal-7: #3c5a5f;
+    --mantine-color-teal-8: #32494e;
+    --mantine-color-teal-9: #293c40;
+    --mantine-color-teal-filled: var(--mantine-color-teal-4);
+    --mantine-color-teal-filled-hover: var(--mantine-color-teal-5);
+    --mantine-color-teal-light: rgba(111, 159, 165, 0.16);
+    --mantine-color-teal-light-hover: rgba(111, 159, 165, 0.24);
+    --mantine-color-teal-light-color: var(--mantine-color-teal-7);
+
+    --mantine-color-indigo-0: #edf3f8;
+    --mantine-color-indigo-1: #d8e6f1;
+    --mantine-color-indigo-2: #b5cde0;
+    --mantine-color-indigo-3: #8eafcb;
+    --mantine-color-indigo-4: #6f93b1;
+    --mantine-color-indigo-5: #5e80a0;
+    --mantine-color-indigo-6: #4c6b88;
+    --mantine-color-indigo-7: #3f5870;
+    --mantine-color-indigo-8: #34475c;
+    --mantine-color-indigo-9: #2b3a4a;
+    --mantine-color-indigo-filled: var(--mantine-color-indigo-5);
+    --mantine-color-indigo-filled-hover: var(--mantine-color-indigo-6);
+    --mantine-color-indigo-light: rgba(94, 128, 160, 0.16);
+    --mantine-color-indigo-light-hover: rgba(94, 128, 160, 0.24);
+    --mantine-color-indigo-light-color: var(--mantine-color-indigo-7);
+
+    --mantine-color-grape-0: #f3eef7;
+    --mantine-color-grape-1: #e5d9ed;
+    --mantine-color-grape-2: #ccb5dc;
+    --mantine-color-grape-3: #ad8bc5;
+    --mantine-color-grape-4: #936daa;
+    --mantine-color-grape-5: #805996;
+    --mantine-color-grape-6: #6b497f;
+    --mantine-color-grape-7: #583b68;
+    --mantine-color-grape-8: #483256;
+    --mantine-color-grape-9: #3a2945;
+    --mantine-color-grape-filled: var(--mantine-color-grape-5);
+    --mantine-color-grape-filled-hover: var(--mantine-color-grape-6);
+    --mantine-color-grape-light: rgba(128, 89, 150, 0.16);
+    --mantine-color-grape-light-hover: rgba(128, 89, 150, 0.24);
+    --mantine-color-grape-light-color: var(--mantine-color-grape-7);
+
+    --mantine-color-red-0: #fff0ee;
+    --mantine-color-red-1: #ffd9d3;
+    --mantine-color-red-2: #f7afa3;
+    --mantine-color-red-3: #ed8274;
+    --mantine-color-red-4: #e26254;
+    --mantine-color-red-5: #d14b3f;
+    --mantine-color-red-6: #b83c32;
+    --mantine-color-red-7: #993129;
+    --mantine-color-red-8: #7d2b25;
+    --mantine-color-red-9: #64241f;
+    --mantine-color-red-filled: var(--mantine-color-red-4);
+    --mantine-color-red-filled-hover: var(--mantine-color-red-5);
+    --mantine-color-red-light: rgba(226, 98, 84, 0.16);
+    --mantine-color-red-light-hover: rgba(226, 98, 84, 0.24);
+    --mantine-color-red-light-color: var(--mantine-color-red-7);
+
+    --mantine-color-gray-0: #f8f7f2;
+    --mantine-color-gray-1: #eeece4;
+    --mantine-color-gray-2: #ddd8ca;
+    --mantine-color-gray-3: #c4bdad;
+    --mantine-color-gray-4: #a69f92;
+    --mantine-color-gray-5: #878176;
+    --mantine-color-gray-6: #6f695f;
+    --mantine-color-gray-7: #59544d;
+    --mantine-color-gray-8: #45413b;
+    --mantine-color-gray-9: #33302b;
+    --mantine-color-gray-filled: var(--mantine-color-gray-6);
+    --mantine-color-gray-filled-hover: var(--mantine-color-gray-7);
+    --mantine-color-gray-light: rgba(111, 105, 95, 0.14);
+    --mantine-color-gray-light-hover: rgba(111, 105, 95, 0.2);
+    --mantine-color-gray-light-color: var(--mantine-color-gray-7);
 }
 
 .dark {
@@ -48,6 +194,300 @@
     --alloq-nav-hover-bg: #3f301d;
     --alloq-nav-active-text: #fff2c2;
     --alloq-shadow-soft: 0 12px 32px rgba(0, 0, 0, 0.22);
+    --alloq-meter-track: #3a332a;
+}
+
+:root,
+.radix-themes {
+    --accent-1: var(--mantine-color-yellow-0);
+    --accent-2: var(--mantine-color-yellow-1);
+    --accent-3: var(--mantine-color-yellow-2);
+    --accent-4: var(--mantine-color-yellow-3);
+    --accent-5: var(--mantine-color-yellow-4);
+    --accent-6: var(--mantine-color-yellow-5);
+    --accent-7: var(--mantine-color-yellow-6);
+    --accent-8: var(--mantine-color-yellow-7);
+    --accent-9: var(--mantine-color-yellow-4);
+    --accent-10: var(--mantine-color-yellow-5);
+    --accent-11: var(--mantine-color-yellow-7);
+    --accent-12: var(--mantine-color-yellow-9);
+    --accent-a1: rgba(242, 189, 61, 0.04);
+    --accent-a2: rgba(242, 189, 61, 0.08);
+    --accent-a3: rgba(242, 189, 61, 0.14);
+    --accent-a4: rgba(242, 189, 61, 0.22);
+    --accent-a5: rgba(242, 189, 61, 0.32);
+    --accent-a6: rgba(242, 189, 61, 0.42);
+    --accent-a7: rgba(242, 189, 61, 0.52);
+    --accent-a8: rgba(242, 189, 61, 0.64);
+    --accent-a9: rgba(242, 189, 61, 0.9);
+    --accent-a10: rgba(220, 167, 34, 0.9);
+    --accent-a11: rgba(157, 114, 0, 0.92);
+    --accent-a12: rgba(95, 68, 0, 0.96);
+    --accent-contrast: #ffffff;
+    --accent-surface: var(--mantine-color-yellow-light);
+    --accent-indicator: var(--accent-9);
+    --accent-track: var(--accent-9);
+
+    --blue-1: var(--mantine-color-blue-0);
+    --blue-2: var(--mantine-color-blue-1);
+    --blue-3: var(--mantine-color-blue-2);
+    --blue-4: var(--mantine-color-blue-3);
+    --blue-5: var(--mantine-color-blue-4);
+    --blue-6: var(--mantine-color-blue-5);
+    --blue-7: var(--mantine-color-blue-6);
+    --blue-8: var(--mantine-color-blue-7);
+    --blue-9: var(--mantine-color-blue-6);
+    --blue-10: var(--mantine-color-blue-7);
+    --blue-11: var(--mantine-color-blue-7);
+    --blue-12: var(--mantine-color-blue-9);
+    --blue-a1: rgba(63, 97, 115, 0.04);
+    --blue-a2: rgba(63, 97, 115, 0.08);
+    --blue-a3: rgba(63, 97, 115, 0.14);
+    --blue-a4: rgba(63, 97, 115, 0.22);
+    --blue-a5: rgba(63, 97, 115, 0.32);
+    --blue-a6: rgba(63, 97, 115, 0.42);
+    --blue-a7: rgba(63, 97, 115, 0.52);
+    --blue-a8: rgba(63, 97, 115, 0.64);
+    --blue-a9: rgba(63, 97, 115, 0.9);
+    --blue-a10: rgba(53, 82, 99, 0.9);
+    --blue-a11: rgba(53, 82, 99, 0.92);
+    --blue-a12: rgba(38, 57, 69, 0.96);
+    --blue-contrast: #ffffff;
+    --blue-surface: var(--mantine-color-blue-light);
+    --blue-indicator: var(--blue-9);
+    --blue-track: var(--blue-9);
+
+    --yellow-1: var(--mantine-color-yellow-0);
+    --yellow-2: var(--mantine-color-yellow-1);
+    --yellow-3: var(--mantine-color-yellow-2);
+    --yellow-4: var(--mantine-color-yellow-3);
+    --yellow-5: var(--mantine-color-yellow-4);
+    --yellow-6: var(--mantine-color-yellow-5);
+    --yellow-7: var(--mantine-color-yellow-6);
+    --yellow-8: var(--mantine-color-yellow-7);
+    --yellow-9: var(--mantine-color-yellow-4);
+    --yellow-10: var(--mantine-color-yellow-5);
+    --yellow-11: var(--mantine-color-yellow-7);
+    --yellow-12: var(--mantine-color-yellow-9);
+    --yellow-a1: var(--accent-a1);
+    --yellow-a2: var(--accent-a2);
+    --yellow-a3: var(--accent-a3);
+    --yellow-a4: var(--accent-a4);
+    --yellow-a5: var(--accent-a5);
+    --yellow-a6: var(--accent-a6);
+    --yellow-a7: var(--accent-a7);
+    --yellow-a8: var(--accent-a8);
+    --yellow-a9: var(--accent-a9);
+    --yellow-a10: var(--accent-a10);
+    --yellow-a11: var(--accent-a11);
+    --yellow-a12: var(--accent-a12);
+    --yellow-contrast: #ffffff;
+    --yellow-surface: var(--mantine-color-yellow-light);
+    --yellow-indicator: var(--yellow-9);
+    --yellow-track: var(--yellow-9);
+
+    --orange-1: var(--mantine-color-orange-0);
+    --orange-2: var(--mantine-color-orange-1);
+    --orange-3: var(--mantine-color-orange-2);
+    --orange-4: var(--mantine-color-orange-3);
+    --orange-5: var(--mantine-color-orange-4);
+    --orange-6: var(--mantine-color-orange-5);
+    --orange-7: var(--mantine-color-orange-6);
+    --orange-8: var(--mantine-color-orange-7);
+    --orange-9: var(--mantine-color-orange-4);
+    --orange-10: var(--mantine-color-orange-5);
+    --orange-11: var(--mantine-color-orange-7);
+    --orange-12: var(--mantine-color-orange-9);
+    --orange-a1: rgba(207, 123, 94, 0.04);
+    --orange-a2: rgba(207, 123, 94, 0.08);
+    --orange-a3: rgba(207, 123, 94, 0.14);
+    --orange-a4: rgba(207, 123, 94, 0.22);
+    --orange-a5: rgba(207, 123, 94, 0.32);
+    --orange-a6: rgba(207, 123, 94, 0.42);
+    --orange-a7: rgba(207, 123, 94, 0.52);
+    --orange-a8: rgba(207, 123, 94, 0.64);
+    --orange-a9: rgba(207, 123, 94, 0.9);
+    --orange-a10: rgba(184, 100, 72, 0.9);
+    --orange-a11: rgba(129, 65, 47, 0.92);
+    --orange-a12: rgba(83, 45, 36, 0.96);
+    --orange-contrast: #ffffff;
+    --orange-surface: var(--mantine-color-orange-light);
+    --orange-indicator: var(--orange-9);
+    --orange-track: var(--orange-9);
+
+    --green-1: var(--mantine-color-green-0);
+    --green-2: var(--mantine-color-green-1);
+    --green-3: var(--mantine-color-green-2);
+    --green-4: var(--mantine-color-green-3);
+    --green-5: var(--mantine-color-green-4);
+    --green-6: var(--mantine-color-green-5);
+    --green-7: var(--mantine-color-green-6);
+    --green-8: var(--mantine-color-green-7);
+    --green-9: var(--mantine-color-green-4);
+    --green-10: var(--mantine-color-green-5);
+    --green-11: var(--mantine-color-green-7);
+    --green-12: var(--mantine-color-green-9);
+    --green-a1: rgba(127, 159, 142, 0.04);
+    --green-a2: rgba(127, 159, 142, 0.08);
+    --green-a3: rgba(127, 159, 142, 0.14);
+    --green-a4: rgba(127, 159, 142, 0.22);
+    --green-a5: rgba(127, 159, 142, 0.32);
+    --green-a6: rgba(127, 159, 142, 0.42);
+    --green-a7: rgba(127, 159, 142, 0.52);
+    --green-a8: rgba(127, 159, 142, 0.64);
+    --green-a9: rgba(127, 159, 142, 0.9);
+    --green-a10: rgba(102, 134, 118, 0.9);
+    --green-a11: rgba(66, 89, 77, 0.92);
+    --green-a12: rgba(42, 57, 50, 0.96);
+    --green-contrast: #ffffff;
+    --green-surface: var(--mantine-color-green-light);
+    --green-indicator: var(--green-9);
+    --green-track: var(--green-9);
+
+    --teal-1: var(--mantine-color-teal-0);
+    --teal-2: var(--mantine-color-teal-1);
+    --teal-3: var(--mantine-color-teal-2);
+    --teal-4: var(--mantine-color-teal-3);
+    --teal-5: var(--mantine-color-teal-4);
+    --teal-6: var(--mantine-color-teal-5);
+    --teal-7: var(--mantine-color-teal-6);
+    --teal-8: var(--mantine-color-teal-7);
+    --teal-9: var(--mantine-color-teal-4);
+    --teal-10: var(--mantine-color-teal-5);
+    --teal-11: var(--mantine-color-teal-7);
+    --teal-12: var(--mantine-color-teal-9);
+    --teal-a1: rgba(111, 159, 165, 0.04);
+    --teal-a2: rgba(111, 159, 165, 0.08);
+    --teal-a3: rgba(111, 159, 165, 0.14);
+    --teal-a4: rgba(111, 159, 165, 0.22);
+    --teal-a5: rgba(111, 159, 165, 0.32);
+    --teal-a6: rgba(111, 159, 165, 0.42);
+    --teal-a7: rgba(111, 159, 165, 0.52);
+    --teal-a8: rgba(111, 159, 165, 0.64);
+    --teal-a9: rgba(111, 159, 165, 0.9);
+    --teal-a10: rgba(91, 133, 139, 0.9);
+    --teal-a11: rgba(60, 90, 95, 0.92);
+    --teal-a12: rgba(41, 60, 64, 0.96);
+    --teal-contrast: #ffffff;
+    --teal-surface: var(--mantine-color-teal-light);
+    --teal-indicator: var(--teal-9);
+    --teal-track: var(--teal-9);
+
+    --indigo-1: var(--mantine-color-indigo-0);
+    --indigo-2: var(--mantine-color-indigo-1);
+    --indigo-3: var(--mantine-color-indigo-2);
+    --indigo-4: var(--mantine-color-indigo-3);
+    --indigo-5: var(--mantine-color-indigo-4);
+    --indigo-6: var(--mantine-color-indigo-5);
+    --indigo-7: var(--mantine-color-indigo-6);
+    --indigo-8: var(--mantine-color-indigo-7);
+    --indigo-9: var(--mantine-color-indigo-5);
+    --indigo-10: var(--mantine-color-indigo-6);
+    --indigo-11: var(--mantine-color-indigo-7);
+    --indigo-12: var(--mantine-color-indigo-9);
+    --indigo-a1: rgba(94, 128, 160, 0.04);
+    --indigo-a2: rgba(94, 128, 160, 0.08);
+    --indigo-a3: rgba(94, 128, 160, 0.14);
+    --indigo-a4: rgba(94, 128, 160, 0.22);
+    --indigo-a5: rgba(94, 128, 160, 0.32);
+    --indigo-a6: rgba(94, 128, 160, 0.42);
+    --indigo-a7: rgba(94, 128, 160, 0.52);
+    --indigo-a8: rgba(94, 128, 160, 0.64);
+    --indigo-a9: rgba(94, 128, 160, 0.9);
+    --indigo-a10: rgba(76, 107, 136, 0.9);
+    --indigo-a11: rgba(63, 88, 112, 0.92);
+    --indigo-a12: rgba(43, 58, 74, 0.96);
+    --indigo-contrast: #ffffff;
+    --indigo-surface: var(--mantine-color-indigo-light);
+    --indigo-indicator: var(--indigo-9);
+    --indigo-track: var(--indigo-9);
+
+    --grape-1: var(--mantine-color-grape-0);
+    --grape-2: var(--mantine-color-grape-1);
+    --grape-3: var(--mantine-color-grape-2);
+    --grape-4: var(--mantine-color-grape-3);
+    --grape-5: var(--mantine-color-grape-4);
+    --grape-6: var(--mantine-color-grape-5);
+    --grape-7: var(--mantine-color-grape-6);
+    --grape-8: var(--mantine-color-grape-7);
+    --grape-9: var(--mantine-color-grape-5);
+    --grape-10: var(--mantine-color-grape-6);
+    --grape-11: var(--mantine-color-grape-7);
+    --grape-12: var(--mantine-color-grape-9);
+    --grape-a1: rgba(128, 89, 150, 0.04);
+    --grape-a2: rgba(128, 89, 150, 0.08);
+    --grape-a3: rgba(128, 89, 150, 0.14);
+    --grape-a4: rgba(128, 89, 150, 0.22);
+    --grape-a5: rgba(128, 89, 150, 0.32);
+    --grape-a6: rgba(128, 89, 150, 0.42);
+    --grape-a7: rgba(128, 89, 150, 0.52);
+    --grape-a8: rgba(128, 89, 150, 0.64);
+    --grape-a9: rgba(128, 89, 150, 0.9);
+    --grape-a10: rgba(107, 73, 127, 0.9);
+    --grape-a11: rgba(88, 59, 104, 0.92);
+    --grape-a12: rgba(58, 41, 69, 0.96);
+    --grape-contrast: #ffffff;
+    --grape-surface: var(--mantine-color-grape-light);
+    --grape-indicator: var(--grape-9);
+    --grape-track: var(--grape-9);
+
+    --red-1: var(--mantine-color-red-0);
+    --red-2: var(--mantine-color-red-1);
+    --red-3: var(--mantine-color-red-2);
+    --red-4: var(--mantine-color-red-3);
+    --red-5: var(--mantine-color-red-4);
+    --red-6: var(--mantine-color-red-5);
+    --red-7: var(--mantine-color-red-6);
+    --red-8: var(--mantine-color-red-7);
+    --red-9: var(--mantine-color-red-4);
+    --red-10: var(--mantine-color-red-5);
+    --red-11: var(--mantine-color-red-7);
+    --red-12: var(--mantine-color-red-9);
+    --red-a1: rgba(226, 98, 84, 0.04);
+    --red-a2: rgba(226, 98, 84, 0.08);
+    --red-a3: rgba(226, 98, 84, 0.14);
+    --red-a4: rgba(226, 98, 84, 0.22);
+    --red-a5: rgba(226, 98, 84, 0.32);
+    --red-a6: rgba(226, 98, 84, 0.42);
+    --red-a7: rgba(226, 98, 84, 0.52);
+    --red-a8: rgba(226, 98, 84, 0.64);
+    --red-a9: rgba(226, 98, 84, 0.9);
+    --red-a10: rgba(209, 75, 63, 0.9);
+    --red-a11: rgba(153, 49, 41, 0.92);
+    --red-a12: rgba(100, 36, 31, 0.96);
+    --red-contrast: #ffffff;
+    --red-surface: var(--mantine-color-red-light);
+    --red-indicator: var(--red-9);
+    --red-track: var(--red-9);
+
+    --gray-1: var(--mantine-color-gray-0);
+    --gray-2: var(--mantine-color-gray-1);
+    --gray-3: var(--mantine-color-gray-2);
+    --gray-4: var(--mantine-color-gray-3);
+    --gray-5: var(--mantine-color-gray-4);
+    --gray-6: var(--mantine-color-gray-5);
+    --gray-7: var(--mantine-color-gray-6);
+    --gray-8: var(--mantine-color-gray-7);
+    --gray-9: var(--mantine-color-gray-6);
+    --gray-10: var(--mantine-color-gray-7);
+    --gray-11: var(--mantine-color-gray-7);
+    --gray-12: var(--mantine-color-gray-9);
+    --gray-a1: rgba(111, 105, 95, 0.04);
+    --gray-a2: rgba(111, 105, 95, 0.08);
+    --gray-a3: rgba(111, 105, 95, 0.14);
+    --gray-a4: rgba(111, 105, 95, 0.22);
+    --gray-a5: rgba(111, 105, 95, 0.32);
+    --gray-a6: rgba(111, 105, 95, 0.42);
+    --gray-a7: rgba(111, 105, 95, 0.52);
+    --gray-a8: rgba(111, 105, 95, 0.64);
+    --gray-a9: rgba(111, 105, 95, 0.9);
+    --gray-a10: rgba(89, 84, 77, 0.9);
+    --gray-a11: rgba(89, 84, 77, 0.92);
+    --gray-a12: rgba(51, 48, 43, 0.96);
+    --gray-contrast: #ffffff;
+    --gray-surface: var(--mantine-color-gray-light);
+    --gray-indicator: var(--gray-9);
+    --gray-track: var(--gray-9);
 }
 
 html,
@@ -112,3 +552,45 @@ body,
 .mantine-Button-root[style*="--button-color: var(--mantine-color-white)"] .mantine-Button-section {
     color: var(--alloq-nav-active-text) !important;
 }
+
+/* .alloq-team-table {
+    border-collapse: collapse;
+    background: var(--alloq-surface-solid);
+    box-shadow: var(--alloq-shadow-soft);
+}
+
+.alloq-team-table thead tr {
+    background: var(--alloq-surface-muted) !important;
+}
+
+.alloq-team-table th {
+    color: var(--alloq-text-muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 1.15rem 1.75rem;
+}
+
+.alloq-team-table td {
+    padding: 1rem 1.75rem;
+    border-bottom: 1px solid var(--alloq-border);
+    vertical-align: middle;
+}
+
+.alloq-team-table-row {
+    height: 76px;
+    background: var(--alloq-surface-solid);
+}
+
+.alloq-team-table-row:hover {
+    background: var(--alloq-surface-hover) !important;
+}
+
+.alloq-team-table .mantine-Badge-root[data-variant="filled"] {
+    color: #ffffff;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+
+.alloq-team-table .mantine-Progress-root {
+    flex-shrink: 0;
+} */
