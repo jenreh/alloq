@@ -195,7 +195,12 @@ def add_employee_modal() -> rx.Component:
     """Modal for adding a new employee."""
     return mn.modal(
         _form_layout(
-            content=employee_form_fields(is_edit=False),
+            content=mn.flex(
+                employee_form_fields(is_edit=False),
+                mn.space(height="1.5rem"),
+                direction="column",
+                width="100%",
+            ),
             footer=_form_footer(
                 "Mitarbeiter speichern",
                 TeamState.close_add_modal,
@@ -207,7 +212,7 @@ def add_employee_modal() -> rx.Component:
         title="Mitarbeiter hinzufügen",
         opened=TeamState.add_modal_open,
         on_close=TeamState.close_add_modal,
-        size="md",
+        size="lg",
         centered=True,
         class_name="alloq-employee-detail-modal",
         overlay_props={"backgroundOpacity": 0.5, "blur": 4},
@@ -219,30 +224,33 @@ def absence_modal() -> rx.Component:
     return mn.modal(
         _form_layout(
             content=mn.flex(
-                mn.date_picker_input(
-                    label="Zeitraum",
-                    name="date_range",
-                    type="range",
-                    placeholder="Zeitraum wählen",
-                    min_date=TeamState.current_date,
-                    value=TeamState.absence_date_range,
-                    on_change=TeamState.set_absence_date_range,
-                    required=True,
-                    clearable=True,
-                    w="100%",
+                section(
+                    mn.date_picker_input(
+                        label="Zeitraum",
+                        name="date_range",
+                        type="range",
+                        placeholder="Zeitraum wählen",
+                        min_date=TeamState.current_date,
+                        value=TeamState.absence_date_range,
+                        on_change=TeamState.set_absence_date_range,
+                        required=True,
+                        clearable=True,
+                        w="100%",
+                    ),
                 ),
+                mn.space(height="2rem"),
                 direction="column",
                 gap="md",
                 width="100%",
             ),
-            footer=_form_footer("Abwesenheit speichern", TeamState.close_absence_modal),
+            footer=_form_footer("Speichern", TeamState.close_absence_modal),
             on_submit=TeamState.create_absence,
             reset_on_submit=True,
         ),
         title="Abwesenheit hinzufügen",
         opened=TeamState.absence_modal_open,
         on_close=TeamState.close_absence_modal,
-        size="sm",
+        size="md",
         centered=True,
         z_index=300,
         class_name="alloq-employee-detail-modal",

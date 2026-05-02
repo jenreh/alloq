@@ -220,9 +220,9 @@
     padding-left: 36px;
 }
 
-.alloq-employee-detail-drawer .mantine-Drawer-title,
-.alloq-employee-detail-modal .mantine-Modal-title {
+.alloq-employee-detail-drawer .mantine-Drawer-title {
     font-weight: bold;
+    font-size: 1.2rem;
 }
 
 .alloq-employee-detail-drawer .mantine-Drawer-close,
