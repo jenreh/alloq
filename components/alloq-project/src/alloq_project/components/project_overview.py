@@ -183,7 +183,7 @@ def project_detail_drawer() -> rx.Component:
 
 
 def project_grid() -> rx.Component:
-    """Grid view of all projects."""
+    """Grid view of all projects, split into 'my projects' and 'other projects'."""
     return rx.cond(
         ProjectState.is_loading,
         mn.center(
@@ -195,13 +195,46 @@ def project_grid() -> rx.Component:
             ),
             py="xl",
         ),
-        mn.flex(
-            rx.foreach(ProjectState.filtered_projects, project_card),
-            wrap="wrap",
-            gap="md",
-            direction="row",
-            justify="flex-start",
-            align="flex-start",
+        mn.stack(
+            rx.cond(
+                ProjectState.my_projects.length() > 0,
+                mn.stack(
+                    mn.text(
+                        "Meine Projekte",
+                        size="lg",
+                        fw="700",
+                    ),
+                    mn.flex(
+                        rx.foreach(ProjectState.my_projects, project_card),
+                        wrap="wrap",
+                        gap="md",
+                        direction="row",
+                        justify="flex-start",
+                        align="flex-start",
+                    ),
+                    gap="sm",
+                ),
+            ),
+            rx.cond(
+                ProjectState.other_projects.length() > 0,
+                mn.stack(
+                    mn.text(
+                        "Weitere Projekte",
+                        size="lg",
+                        fw="700",
+                    ),
+                    mn.flex(
+                        rx.foreach(ProjectState.other_projects, project_card),
+                        wrap="wrap",
+                        gap="md",
+                        direction="row",
+                        justify="flex-start",
+                        align="flex-start",
+                    ),
+                    gap="sm",
+                ),
+            ),
+            gap="xl",
         ),
     )
 

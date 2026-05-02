@@ -129,8 +129,7 @@ class Project(BaseModel):
     state: str = ProjectStateEnum.PLANNED
     budget: int = 0
     color: str = "#FFD43B"
-    created_by_id: int | None = None
-    created_by_name: str = ""
+    owner_ids: list[int] = []
     current_progress: int = 0
     current_spent: int = 0
     team_initials: list[str] = []
@@ -155,7 +154,7 @@ class ProjectCreate(BaseModel):
     state: str = Field(default=ProjectStateEnum.PLANNED, max_length=20)
     budget: int = Field(..., ge=0)
     color: str = Field(default="#FFD43B", max_length=7)
-    created_by_id: int | None = None
+    owner_ids: list[int] = []
     required_capacities: list[RequiredCapacityCreate] = []
 
     @model_validator(mode="after")

@@ -29,6 +29,7 @@ from alloq_commons.repositories import (
 
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_user.authentication.decorators import is_authenticated
+from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ PROJECT_COLORS = [
 ]
 
 
-class ProjectState(rx.State):
+class ProjectState(UserSession):
     """State for project management."""
 
     projects: list[Project] = []
@@ -59,6 +60,9 @@ class ProjectState(rx.State):
     available_roles: list[Role] = []
     available_employees: list[dict[str, str]] = []
     is_loading: bool = False
+
+    current_user_email: str = ""
+    current_employee_id: int | None = None
 
     add_modal_open: bool = False
     detail_drawer_open: bool = False
@@ -102,6 +106,26 @@ class ProjectState(rx.State):
             ]
 
         return projects
+
+    @rx.var
+    def my_projects(self) -> list[Project]:
+        """Return filtered projects where the current user is project lead."""
+        if not self.current_employee_id:
+            return []
+        return [
+            p for p in self.filtered_projects if self.current_employee_id in p.owner_ids
+        ]
+
+    @rx.var
+    def other_projects(self) -> list[Project]:
+        """Return filtered projects where the current user is NOT project lead."""
+        if not self.current_employee_id:
+            return self.filtered_projects
+        return [
+            p
+            for p in self.filtered_projects
+            if self.current_employee_id not in p.owner_ids
+        ]
 
     @rx.var
     def role_select_options(self) -> list[dict[str, str]]:
@@ -172,6 +196,12 @@ class ProjectState(rx.State):
         self.is_loading = True
         yield
         try:
+            user = await self.authenticated_user
+            if user and user.email:
+                self.current_user_email = user.email
+                async with get_asyncdb_session() as session:
+                    employee = await employee_repo.find_by_email(session, user.email)
+                    self.current_employee_id = employee.id if employee else None
             await self._load_projects()
             await self._load_reference_data()
         finally:
@@ -226,8 +256,14 @@ class ProjectState(rx.State):
                     state=project_data.state,
                     budget=project_data.budget,
                     color=project_data.color,
-                    created_by_id=project_data.created_by_id,
                 )
+
+                if project_data.owner_ids:
+                    for emp_id in project_data.owner_ids:
+                        employee = await employee_repo.find_by_id(session, emp_id)
+                        if employee:
+                            entity.owners.append(employee)
+
                 await project_repo.create(session, entity)
                 await status_repo.create(
                     session,
@@ -294,7 +330,16 @@ class ProjectState(rx.State):
 
     def _project_create_from_form(self, form_data: dict) -> ProjectCreate:
         """Convert form submission data into a create model."""
-        created_by_id = form_data.get("created_by_id") or None
+        raw_ids = form_data.get("owner_ids", [])
+        if isinstance(raw_ids, str):
+            raw_ids = [raw_ids]
+
+        owner_ids = []
+        for item in raw_ids:
+            owner_ids.extend(
+                int(emp_id.strip()) for emp_id in str(item).split(",") if emp_id.strip()
+            )
+
         required_capacities = self._required_capacities_from_form(form_data)
         return ProjectCreate(
             code=str(form_data.get("code", "")).strip(),
@@ -304,7 +349,7 @@ class ProjectState(rx.State):
             state=str(form_data.get("state", ProjectStateEnum.PLANNED.value)),
             budget=int(float(form_data.get("budget", 0) or 0)),
             color=str(form_data.get("color", DEFAULT_PROJECT_COLOR)),
-            created_by_id=int(created_by_id) if created_by_id else None,
+            owner_ids=owner_ids,
             required_capacities=required_capacities,
         )
 
@@ -340,7 +385,7 @@ class ProjectValidationState(rx.State):
     state: str = ProjectStateEnum.PLANNED.value
     budget: str = "0"
     color: str = DEFAULT_PROJECT_COLOR
-    created_by_id: str = ""
+    owner_ids: list[str] = []
 
     code_error: str = ""
     name_de_error: str = ""
@@ -358,7 +403,7 @@ class ProjectValidationState(rx.State):
             self.state = ProjectStateEnum.PLANNED.value
             self.budget = "0"
             self.color = DEFAULT_PROJECT_COLOR
-            self.created_by_id = ""
+            self.owner_ids = []
         else:
             self.code = project.code
             self.name_de = project.name_de
@@ -369,7 +414,7 @@ class ProjectValidationState(rx.State):
             self.state = project.state
             self.budget = str(project.budget)
             self.color = project.color
-            self.created_by_id = str(project.created_by_id or "")
+            self.owner_ids = [str(oid) for oid in project.owner_ids]
 
         self.code_error = ""
         self.name_de_error = ""
@@ -402,8 +447,8 @@ class ProjectValidationState(rx.State):
     def set_color(self, value: str) -> None:
         self.color = value
 
-    def set_created_by_id(self, value: str) -> None:
-        self.created_by_id = value or ""
+    def set_owner_ids(self, value: list[str]) -> None:
+        self.owner_ids = value or []
 
     @rx.event
     def validate_code(self) -> None:

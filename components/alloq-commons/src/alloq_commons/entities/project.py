@@ -2,7 +2,7 @@ import enum
 import logging
 from datetime import date
 
-from sqlalchemy import Date, ForeignKey, Integer, String
+from sqlalchemy import Column, Date, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from appkit_commons.database.entities import Base, Entity
@@ -17,6 +17,24 @@ class ProjectStateEnum(enum.StrEnum):
     ACTIVE = "Aktiv"
     AT_RISK = "Risiko"
     COMPLETED = "Abgeschlossen"
+
+
+project_owners_m2m = Table(
+    "project_owners",
+    Base.metadata,
+    Column(
+        "project_id",
+        Integer,
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "employee_id",
+        Integer,
+        ForeignKey("employees.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+)
 
 
 class ProjectEntity(Entity, Base):
@@ -35,14 +53,12 @@ class ProjectEntity(Entity, Base):
     )
     budget: Mapped[int] = mapped_column(Integer, nullable=False)
     color: Mapped[str] = mapped_column(String(7), nullable=False, default="#FFD43B")
-    created_by_id: Mapped[int | None] = mapped_column(
-        Integer,
-        ForeignKey("employees.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
 
-    created_by = relationship("EmployeeEntity", lazy="selectin")
+    owners = relationship(
+        "EmployeeEntity",
+        secondary=project_owners_m2m,
+        lazy="selectin",
+    )
     statuses = relationship(
         "ProjectStatusEntity",
         lazy="selectin",
@@ -81,8 +97,7 @@ class ProjectEntity(Entity, Base):
             "state": self.state,
             "budget": self.budget,
             "color": self.color,
-            "created_by_id": self.created_by_id,
-            "created_by_name": self._created_by_name(),
+            "owner_ids": [owner.id for owner in self.owners] if self.owners else [],
             "current_progress": latest_status.fortschritt if latest_status else 0,
             "current_spent": latest_status.budget_verbrauch if latest_status else 0,
             "team_initials": self._team_initials(),
@@ -95,12 +110,6 @@ class ProjectEntity(Entity, Base):
             "created": self.created,
             "updated": self.updated,
         }
-
-    def _created_by_name(self) -> str:
-        """Return the project lead display name."""
-        if not self.created_by:
-            return ""
-        return f"{self.created_by.first_name} {self.created_by.last_name}"
 
     def _team_initials(self) -> list[str]:
         """Return unique initials of employees with project capacity."""

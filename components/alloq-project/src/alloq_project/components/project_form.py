@@ -35,14 +35,15 @@ def project_form_fields() -> rx.Component:
                 required=True,
                 max_length=50,
             ),
-            mn.select(
-                name="created_by_id",
-                label="Projektleiter",
+            mn.multi_select(
+                name="owner_ids",
+                label="Projekt-Owner",
                 data=ProjectState.employee_select_options,
-                default_value=ProjectValidationState.created_by_id,
-                on_change=ProjectValidationState.set_created_by_id,
+                default_value=ProjectValidationState.owner_ids,
+                on_change=ProjectValidationState.set_owner_ids,
                 clearable=True,
                 searchable=True,
+                placeholder="Owner(s) auswählen",
             ),
         ),
         section(
