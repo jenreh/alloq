@@ -16,7 +16,7 @@ def create_profile_page(
     navbar: rx.Component,
     route: str = "/profile",
     title: str = "Profil",
-    **kwargs,
+    **kwargs,  # noqa: ARG001
 ) -> Callable:
     """Create the profile page with authentication.
 
@@ -43,10 +43,15 @@ def create_profile_page(
             page_header(
                 title="Kontoeinstellungen",
                 description="Verwalten Sie Ihre Kontoeinstellungen und das Passwort.",
-                pl="2rem",
             ),
-            user_profile_view(**kwargs),
+            user_profile_view(padding="0"),
             gap="0",
+            max_width="800px",
+            width="100%",
+            pr="2rem",
+            pl="2rem",
+            pt="2.1rem",
+            pb="4rem",
         )
 
     return _profile_page

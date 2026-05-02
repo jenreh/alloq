@@ -21,6 +21,17 @@ def project_search_bar() -> rx.Component:
         placeholder="Suchen...",
         left_section=rx.icon("search", size=16),
         left_section_pointer_events="none",
+        right_section=rx.cond(
+            ProjectState.search_filter != "",
+            mn.action_icon(
+                rx.icon("x", size=14),
+                variant="subtle",
+                color="gray",
+                size="sm",
+                on_click=ProjectState.set_search_filter(""),
+            ),
+            rx.fragment(),
+        ),
         value=ProjectState.search_filter,
         on_change=ProjectState.set_search_filter,
         size="sm",

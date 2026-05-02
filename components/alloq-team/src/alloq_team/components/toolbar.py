@@ -54,6 +54,17 @@ def employee_search_bar() -> rx.Component:
         placeholder="Search by name",
         left_section=rx.icon("search", size=16),
         left_section_pointer_events="none",
+        right_section=rx.cond(
+            TeamState.search_filter != "",
+            mn.action_icon(
+                rx.icon("x", size=14),
+                variant="subtle",
+                color="gray",
+                size="sm",
+                on_click=TeamState.set_search_filter(""),
+            ),
+            rx.fragment(),
+        ),
         value=TeamState.search_filter,
         on_change=TeamState.set_search_filter,
         size="sm",
