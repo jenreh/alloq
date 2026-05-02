@@ -207,32 +207,43 @@
 
 .alloq-employee-detail-drawer.mantine-Drawer-content,
 .alloq-employee-detail-drawer .mantine-Drawer-content,
+.alloq-project-detail-drawer.mantine-Drawer-content,
+.alloq-project-detail-drawer .mantine-Drawer-content,
 .alloq-employee-detail-modal.mantine-Modal-content,
-.alloq-employee-detail-modal .mantine-Modal-content {
+.alloq-employee-detail-modal .mantine-Modal-content,
+.alloq-project-detail-modal.mantine-Modal-content,
+.alloq-project-detail-modal .mantine-Modal-content {
     background-color: var(--alloq-surface-muted);
     border: 1px solid var(--alloq-accent);
     overflow: hidden;
 }
 
 .alloq-employee-detail-drawer .mantine-Drawer-header,
-.alloq-employee-detail-modal .mantine-Modal-header {
+.alloq-project-detail-drawer .mantine-Drawer-header,
+.alloq-employee-detail-modal .mantine-Modal-header,
+.alloq-project-detail-modal .mantine-Modal-header {
     background-color: var(--alloq-surface-muted);
     padding-left: 36px;
 }
 
-.alloq-employee-detail-drawer .mantine-Drawer-title {
+.alloq-employee-detail-drawer .mantine-Drawer-title,
+.alloq-project-detail-drawer .mantine-Drawer-title {
     font-weight: bold;
     font-size: 1.2rem;
 }
 
 .alloq-employee-detail-drawer .mantine-Drawer-close,
-.alloq-employee-detail-modal .mantine-Modal-close {
+.alloq-project-detail-drawer .mantine-Drawer-close,
+.alloq-employee-detail-modal .mantine-Modal-close,
+.alloq-project-detail-modal .mantine-Modal-close {
     border: none !important;
     outline: none !important;
 }
 
 .alloq-employee-detail-drawer .mantine-Drawer-body,
-.alloq-employee-detail-modal .mantine-Modal-body {
+.alloq-project-detail-drawer .mantine-Drawer-body,
+.alloq-employee-detail-modal .mantine-Modal-body,
+.alloq-project-detail-modal .mantine-Modal-body {
     background-color: var(--alloq-surface-muted);
     display: flex;
     flex-direction: column;
@@ -242,11 +253,13 @@
     padding: 0;
 }
 
-.alloq-employee-detail-drawer .mantine-Drawer-body {
+.alloq-employee-detail-drawer .mantine-Drawer-body,
+.alloq-project-detail-drawer .mantine-Drawer-body {
     height: calc(100dvh - var(--drawer-offset) * 2 - 60px);
 }
 
-.alloq-employee-detail-modal .mantine-Modal-body {
+.alloq-employee-detail-modal .mantine-Modal-body,
+.alloq-project-detail-modal .mantine-Modal-body {
     max-height: calc(100dvh - 200px);
 }
 

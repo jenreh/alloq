@@ -1,6 +1,38 @@
+from alloq_commons.models.project import (
+    Capacity,
+    CapacityCreate,
+    CapacityUpdate,
+    Project,
+    ProjectCreate,
+    ProjectStatus,
+    ProjectStatusCreate,
+    ProjectStatusUpdate,
+    ProjectUpdate,
+    RequiredCapacity,
+    RequiredCapacityCreate,
+    RequiredCapacityUpdate,
+    Risk,
+    RiskCreate,
+    RiskUpdate,
+)
 from alloq_commons.models.role import Role, RoleCreate
 
 __all__ = [
+    "Capacity",
+    "CapacityCreate",
+    "CapacityUpdate",
+    "Project",
+    "ProjectCreate",
+    "ProjectStatus",
+    "ProjectStatusCreate",
+    "ProjectStatusUpdate",
+    "ProjectUpdate",
+    "RequiredCapacity",
+    "RequiredCapacityCreate",
+    "RequiredCapacityUpdate",
+    "Risk",
+    "RiskCreate",
+    "RiskUpdate",
     "Role",
     "RoleCreate",
 ]

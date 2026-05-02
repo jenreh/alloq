@@ -192,7 +192,7 @@ known-first-party = ["appkit_*"]
 
 [tool.pytest.ini_options]
 cache_dir = ".cache/pytest"
-testpaths = ["tests", "components/alloq-commons/tests"]
+testpaths = ["tests", "components/alloq-commons/tests", "components/alloq-project/tests"]
 import_mode = "importlib"
 
 [tool.pylint.'MESSAGES CONTROL']

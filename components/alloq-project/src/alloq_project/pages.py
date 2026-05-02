@@ -4,11 +4,11 @@ import reflex as rx
 from alloq_commons.components.page_header import page_header
 
 import appkit_mantine as mn
+from alloq_project.components.project_overview import project_overview
+from alloq_project.components.project_toolbar import project_toolbar
+from alloq_project.states.project_state import ProjectState
 from appkit_user.authentication.components.components import requires_admin
 from appkit_user.authentication.templates import authenticated
-from appkit_user.user_management.states.user_states import UserState
-
-from app.roles import ALL_ROLES
 
 
 def create_projects_overview_page(
@@ -23,15 +23,20 @@ def create_projects_overview_page(
         navbar=navbar,
         with_header=False,
         admin_only=True,
-        on_load=[UserState.set_available_roles(ALL_ROLES)],
+        on_load=[ProjectState.load_projects],
     )
     def _projects_overview_page() -> rx.Component:
         return requires_admin(
             mn.stack(
+                project_toolbar(),
                 page_header(
-                    title="Projektübersicht",
-                    description="Verwalten Sie Ihre Projekte und deren Einstellungen.",
+                    title="Projekte",
+                    description=(
+                        "Alle laufenden und geplanten Projekte mit Budget und "
+                        "Fortschritt."
+                    ),
                 ),
+                project_overview(),
                 width="100%",
                 gap="md",
                 pr="2rem",
