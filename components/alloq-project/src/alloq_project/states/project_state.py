@@ -5,6 +5,7 @@ from typing import Any
 
 import reflex as rx
 from alloq_commons.entities import ProjectEntity, ProjectStatusEntity
+from alloq_commons.entities.project import ProjectStateEnum
 from alloq_commons.entities.required_capacity import RequiredCapacityEntity
 from alloq_commons.models.project import (
     Capacity,
@@ -92,17 +93,14 @@ class ProjectState(rx.State):
             projects = [
                 project
                 for project in projects
-                if search in project.code.lower()
-                or search in project.name_de.lower()
-                or search in project.name_en.lower()
+                if search in project.code.lower() or search in project.name_de.lower()
             ]
 
-        if self.status_filter == "active":
-            return [project for project in projects if project.current_progress > 0]
-        if self.status_filter == "planned":
-            return [project for project in projects if project.current_progress == 0]
-        if self.status_filter == "risk":
-            return [project for project in projects if project.risk_count > 0]
+        if self.status_filter != "all":
+            projects = [
+                project for project in projects if project.state == self.status_filter
+            ]
+
         return projects
 
     @rx.var
@@ -116,6 +114,13 @@ class ProjectState(rx.State):
     def employee_select_options(self) -> list[dict[str, str]]:
         """Return employees formatted for Mantine select data props."""
         return self.available_employees
+
+    @rx.var
+    def state_select_options(self) -> list[dict[str, str]]:
+        """Return project states formatted for Mantine select."""
+        return [
+            {"value": state.value, "label": state.value} for state in ProjectStateEnum
+        ]
 
     def open_add_modal(self) -> list[rx.event.EventSpec]:
         """Open the add project modal."""
@@ -148,9 +153,9 @@ class ProjectState(rx.State):
         """Load roles and employees for form controls."""
         async with get_asyncdb_session() as session:
             role_entities = await role_repo.find_all_paginated(session)
-            self.available_roles = [
-                Role(**entity.to_dict()) for entity in role_entities
-            ]
+            roles = [Role(**entity.to_dict()) for entity in role_entities]
+            roles.sort(key=lambda r: r.name)
+            self.available_roles = roles
 
             employee_entities = await employee_repo.find_all_paginated(session)
             self.available_employees = [
@@ -216,9 +221,9 @@ class ProjectState(rx.State):
                 entity = ProjectEntity(
                     code=project_data.code,
                     name_de=project_data.name_de,
-                    name_en=project_data.name_en,
                     start_date=project_data.start_date,
                     end_date=project_data.end_date,
+                    state=project_data.state,
                     budget=project_data.budget,
                     color=project_data.color,
                     created_by_id=project_data.created_by_id,
@@ -294,9 +299,9 @@ class ProjectState(rx.State):
         return ProjectCreate(
             code=str(form_data.get("code", "")).strip(),
             name_de=str(form_data.get("name_de", "")).strip(),
-            name_en=str(form_data.get("name_en", "")).strip(),
             start_date=date.fromisoformat(str(form_data.get("start_date", ""))[:10]),
             end_date=date.fromisoformat(str(form_data.get("end_date", ""))[:10]),
+            state=str(form_data.get("state", ProjectStateEnum.PLANNED.value)),
             budget=int(float(form_data.get("budget", 0) or 0)),
             color=str(form_data.get("color", DEFAULT_PROJECT_COLOR)),
             created_by_id=int(created_by_id) if created_by_id else None,
@@ -330,16 +335,15 @@ class ProjectValidationState(rx.State):
 
     code: str = ""
     name_de: str = ""
-    name_en: str = ""
     start_date: str = ""
     end_date: str = ""
+    state: str = ProjectStateEnum.PLANNED.value
     budget: str = "0"
     color: str = DEFAULT_PROJECT_COLOR
     created_by_id: str = ""
 
     code_error: str = ""
     name_de_error: str = ""
-    name_en_error: str = ""
     date_error: str = ""
     budget_error: str = ""
 
@@ -349,27 +353,26 @@ class ProjectValidationState(rx.State):
         if project is None:
             self.code = ""
             self.name_de = ""
-            self.name_en = ""
             self.start_date = ""
             self.end_date = ""
+            self.state = ProjectStateEnum.PLANNED.value
             self.budget = "0"
             self.color = DEFAULT_PROJECT_COLOR
             self.created_by_id = ""
         else:
             self.code = project.code
             self.name_de = project.name_de
-            self.name_en = project.name_en
             self.start_date = (
                 project.start_date.isoformat() if project.start_date else ""
             )
             self.end_date = project.end_date.isoformat() if project.end_date else ""
+            self.state = project.state
             self.budget = str(project.budget)
             self.color = project.color
             self.created_by_id = str(project.created_by_id or "")
 
         self.code_error = ""
         self.name_de_error = ""
-        self.name_en_error = ""
         self.date_error = ""
         self.budget_error = ""
 
@@ -381,10 +384,6 @@ class ProjectValidationState(rx.State):
         self.name_de = value
         self.validate_name_de()
 
-    def set_name_en(self, value: str) -> None:
-        self.name_en = value
-        self.validate_name_en()
-
     def set_start_date(self, value: str) -> None:
         self.start_date = value or ""
         self.validate_dates()
@@ -392,6 +391,9 @@ class ProjectValidationState(rx.State):
     def set_end_date(self, value: str) -> None:
         self.end_date = value or ""
         self.validate_dates()
+
+    def set_state(self, value: str) -> None:
+        self.state = value or ProjectStateEnum.PLANNED.value
 
     def set_budget(self, value: str | float) -> None:
         self.budget = str(value)
@@ -411,12 +413,6 @@ class ProjectValidationState(rx.State):
     def validate_name_de(self) -> None:
         self.name_de_error = (
             "" if self.name_de.strip() else "Name (DE) ist erforderlich."
-        )
-
-    @rx.event
-    def validate_name_en(self) -> None:
-        self.name_en_error = (
-            "" if self.name_en.strip() else "Name (EN) ist erforderlich."
         )
 
     @rx.event
@@ -449,7 +445,6 @@ class ProjectValidationState(rx.State):
         return bool(
             self.code_error
             or self.name_de_error
-            or self.name_en_error
             or self.date_error
             or self.budget_error
         )
@@ -471,7 +466,6 @@ class ProjectValidationState(rx.State):
         return bool(
             self.code.strip()
             and self.name_de.strip()
-            and self.name_en.strip()
             and budget_valid
             and dates_valid
             and not self.has_errors

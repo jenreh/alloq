@@ -1,3 +1,4 @@
+import enum
 import logging
 from datetime import date
 
@@ -9,6 +10,15 @@ from appkit_commons.database.entities import Base, Entity
 logger = logging.getLogger(__name__)
 
 
+class ProjectStateEnum(enum.StrEnum):
+    """State labels for a project."""
+
+    PLANNED = "Geplant"
+    ACTIVE = "Aktiv"
+    AT_RISK = "Risiko"
+    COMPLETED = "Abgeschlossen"
+
+
 class ProjectEntity(Entity, Base):
     """Project entity for resource planning and tracking."""
 
@@ -18,9 +28,11 @@ class ProjectEntity(Entity, Base):
         String(50), nullable=False, unique=True, index=True
     )
     name_de: Mapped[str] = mapped_column(String(255), nullable=False)
-    name_en: Mapped[str] = mapped_column(String(255), nullable=False)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
+    state: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=ProjectStateEnum.PLANNED
+    )
     budget: Mapped[int] = mapped_column(Integer, nullable=False)
     color: Mapped[str] = mapped_column(String(7), nullable=False, default="#FFD43B")
     created_by_id: Mapped[int | None] = mapped_column(
@@ -64,9 +76,9 @@ class ProjectEntity(Entity, Base):
             "id": self.id,
             "code": self.code,
             "name_de": self.name_de,
-            "name_en": self.name_en,
             "start_date": self.start_date,
             "end_date": self.end_date,
+            "state": self.state,
             "budget": self.budget,
             "color": self.color,
             "created_by_id": self.created_by_id,

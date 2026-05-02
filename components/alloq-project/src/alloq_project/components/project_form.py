@@ -16,6 +16,16 @@ def project_form_fields() -> rx.Component:
     return mn.flex(
         section(
             mn.text_input(
+                name="name_de",
+                label="Name",
+                placeholder="z.B. ML-Ops Plattform",
+                default_value=ProjectValidationState.name_de,
+                on_blur=ProjectValidationState.set_name_de,
+                error=ProjectValidationState.name_de_error,
+                required=True,
+                max_length=255,
+            ),
+            mn.text_input(
                 name="code",
                 label="Projekt-Code",
                 placeholder="z.B. ML-OPS",
@@ -36,47 +46,39 @@ def project_form_fields() -> rx.Component:
             ),
         ),
         section(
-            mn.text_input(
-                name="name_de",
-                label="Name (DE)",
-                placeholder="z.B. ML-Ops Plattform",
-                default_value=ProjectValidationState.name_de,
-                on_blur=ProjectValidationState.set_name_de,
-                error=ProjectValidationState.name_de_error,
-                required=True,
-                max_length=255,
+            mn.simple_grid(
+                mn.date_input(
+                    name="start_date",
+                    label="Start",
+                    value=ProjectValidationState.start_date,
+                    on_change=ProjectValidationState.set_start_date,
+                    error=ProjectValidationState.date_error,
+                    required=True,
+                    clearable=True,
+                    left_section=rx.icon("calendar", size=16),
+                ),
+                mn.date_input(
+                    name="end_date",
+                    label="Ende",
+                    value=ProjectValidationState.end_date,
+                    on_change=ProjectValidationState.set_end_date,
+                    error=ProjectValidationState.date_error,
+                    required=True,
+                    clearable=True,
+                    left_section=rx.icon("calendar", size=16),
+                ),
+                cols=2,
+                spacing="md",
+                w="100%",
             ),
-            mn.text_input(
-                name="name_en",
-                label="Name (EN)",
-                placeholder="e.g. ML-Ops Platform",
-                default_value=ProjectValidationState.name_en,
-                on_blur=ProjectValidationState.set_name_en,
-                error=ProjectValidationState.name_en_error,
+            mn.select(
+                name="state",
+                label="Status",
+                data=ProjectState.state_select_options,
+                default_value=ProjectValidationState.state,
+                on_change=ProjectValidationState.set_state,
                 required=True,
-                max_length=255,
-            ),
-        ),
-        section(
-            mn.date_input(
-                name="start_date",
-                label="Start",
-                value=ProjectValidationState.start_date,
-                on_change=ProjectValidationState.set_start_date,
-                error=ProjectValidationState.date_error,
-                required=True,
-                clearable=True,
-                left_section=rx.icon("calendar", size=16),
-            ),
-            mn.date_input(
-                name="end_date",
-                label="Ende",
-                value=ProjectValidationState.end_date,
-                on_change=ProjectValidationState.set_end_date,
-                error=ProjectValidationState.date_error,
-                required=True,
-                clearable=True,
-                left_section=rx.icon("calendar", size=16),
+                clearable=False,
             ),
         ),
         section(
@@ -95,38 +97,41 @@ def project_form_fields() -> rx.Component:
         _color_picker(),
         _required_capacity_fields(),
         direction="column",
-        gap="md",
+        gap="xs",
         width="100%",
     )
 
 
 def _color_picker() -> rx.Component:
     """Render a compact color picker with predefined project colors."""
-    return mn.stack(
-        mn.text("Farbe", size="sm", fw="700", c="dimmed"),
-        mn.group(
-            rx.foreach(PROJECT_COLORS, _color_swatch),
-            gap="8px",
-            wrap="wrap",
+    return section(
+        mn.stack(
+            mn.text("Farbe", size="sm", fw="700", c="dimmed"),
+            mn.group(
+                rx.foreach(PROJECT_COLORS, _color_swatch),
+                gap="8px",
+                wrap="wrap",
+            ),
+            hidden_field(
+                name="color",
+                default_value=ProjectValidationState.color,
+            ),
+            gap="xs",
+            w="100%",
         ),
-        hidden_field(
-            name="color",
-            default_value=ProjectValidationState.color,
-        ),
-        gap="xs",
-        w="100%",
     )
 
 
 def _color_swatch(color: str) -> rx.Component:
     """Render one selectable color swatch."""
-    return mn.action_icon(
-        variant="subtle",
-        radius="md",
-        size="42px",
+    return mn.box(
+        w="42px",
+        h="42px",
+        bg=color,
         on_click=lambda: ProjectValidationState.set_color(color),
         style={
-            "backgroundColor": color,
+            "borderRadius": "var(--mantine-radius-md)",
+            "cursor": "pointer",
             "border": rx.cond(
                 ProjectValidationState.color == color,
                 "4px solid var(--alloq-text)",
@@ -139,16 +144,18 @@ def _color_swatch(color: str) -> rx.Component:
 
 def _required_capacity_fields() -> rx.Component:
     """Render person-day inputs for all configured roles."""
-    return mn.stack(
-        mn.text("Benötigte Rollen (Personentage)", size="sm", fw="700", c="dimmed"),
-        mn.flex(
-            rx.foreach(ProjectState.available_roles, _required_capacity_input),
-            gap="12px",
-            wrap="wrap",
+    return section(
+        mn.stack(
+            mn.text("Benötigte Rollen (Personentage)", size="sm", fw="700", c="dimmed"),
+            mn.simple_grid(
+                rx.foreach(ProjectState.available_roles, _required_capacity_input),
+                cols=3,
+                spacing="md",
+                w="100%",
+            ),
+            gap="xs",
             w="100%",
         ),
-        gap="xs",
-        w="100%",
     )
 
 
@@ -157,32 +164,21 @@ def _required_capacity_input(role: Role) -> rx.Component:
     return mn.box(
         mn.stack(
             mn.group(
-                mn.box(
-                    w="8px",
-                    h="8px",
-                    bg="var(--alloq-accent-strong)",
-                    style={"borderRadius": "999px"},
-                ),
                 mn.text(role.name, size="xs", fw="700", c="dimmed", truncate=True),
                 gap="6px",
                 wrap="nowrap",
             ),
             mn.number_input(
                 name="required_capacity_" + role.id.to_string(),
-                placeholder="PD",
+                placeholder="Personentage",
                 min=0,
                 step=1,
-                w="110px",
-                right_section=mn.text("PD", size="xs", c="dimmed"),
+                w="100%",
+                right_section=mn.text(" PT ", size="xs", c="dimmed"),
             ),
             gap="xs",
         ),
-        p="10px",
-        style={
-            "backgroundColor": "var(--alloq-surface-muted)",
-            "borderRadius": "var(--mantine-radius-sm)",
-            "border": "1px solid var(--alloq-border)",
-        },
+        p="0px",
     )
 
 

@@ -33,9 +33,10 @@ def project_status_filter() -> rx.Component:
     return mn.select(
         data=[
             {"value": "all", "label": "Alle"},
-            {"value": "active", "label": "Aktiv"},
-            {"value": "planned", "label": "Geplant"},
-            {"value": "risk", "label": "Risiko"},
+            {"value": "Geplant", "label": "Geplant"},
+            {"value": "Aktiv", "label": "Aktiv"},
+            {"value": "Risiko", "label": "Risiko"},
+            {"value": "Abgeschlossen", "label": "Abgeschlossen"},
         ],
         value=ProjectState.status_filter,
         on_change=ProjectState.set_status_filter,

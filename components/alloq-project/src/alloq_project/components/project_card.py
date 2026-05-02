@@ -6,21 +6,37 @@ import appkit_mantine as mn
 from appkit_ui.components.dialogs import delete_dialog
 
 
-def _status_label(project: Project) -> rx.Var[str]:
-    """Return the project status label."""
-    return rx.cond(
-        project.risk_count > 0,
-        "Risiko",
-        rx.cond(project.current_progress > 0, "Aktiv", "Geplant"),
+def _format_date_de(date_var: rx.Var) -> rx.Var[str]:
+    """Format YYYY-MM-DD to DD.MM.YYYY."""
+    parts = date_var.to(str).split("-")
+    month_name = rx.match(
+        parts[1],
+        ("01", "Jan"),
+        ("02", "Feb"),
+        ("03", "März"),
+        ("04", "Apr"),
+        ("05", "Mai"),
+        ("06", "Juni"),
+        ("07", "Juli"),
+        ("08", "Aug"),
+        ("09", "Sep"),
+        ("10", "Okt"),
+        ("11", "Nov"),
+        ("12", "Dez"),
+        "",
     )
+    return f"{parts[2]}. {month_name} {parts[0]}"
 
 
-def _status_color(project: Project) -> rx.Var[str]:
+def _status_color(state: rx.Var[str]) -> rx.Var[str]:
     """Return the project status badge color."""
-    return rx.cond(
-        project.risk_count > 0,
-        "red",
-        rx.cond(project.current_progress > 0, "green", "gray"),
+    return rx.match(
+        state,
+        ("Geplant", "gray"),
+        ("Aktiv", "green"),
+        ("Risiko", "red"),
+        ("Abgeschlossen", "blue"),
+        "gray",
     )
 
 
@@ -39,7 +55,7 @@ def _project_initials(project: Project) -> rx.Component:
     )
 
 
-def _metric(label: str, value: str | rx.Var[str]) -> rx.Component:
+def _metric(label: str, value: str | rx.Var | rx.Component) -> rx.Component:
     """Render a project metric label/value pair."""
     return mn.stack(
         mn.text(label, size="0.65rem", fw="800", c="dimmed"),
@@ -64,61 +80,88 @@ def project_card(project: Project) -> rx.Component:
         mn.card(
             mn.stack(
                 mn.group(
-                    mn.group(
-                        _project_initials(project),
-                        mn.stack(
+                    _project_initials(project),
+                    mn.stack(
+                        mn.group(
                             mn.text(
                                 project.name_de,
                                 size="md",
                                 fw="800",
                                 c="var(--alloq-text)",
                                 truncate=True,
+                                style={"flex": 1},
                             ),
-                            mn.text(
-                                project.code,
-                                size="xs",
-                                c="dimmed",
-                                truncate=True,
+                            mn.group(
+                                mn.badge(
+                                    project.state,
+                                    color=_status_color(project.state),
+                                    variant="light",
+                                    radius="xl",
+                                    size="md",
+                                    left_section=mn.text("●", size="8px"),
+                                    style={
+                                        "textTransform": "none",
+                                        "fontWeight": "700",
+                                    },
+                                ),
+                                mn.box(
+                                    delete_dialog(
+                                        title="Projekt löschen",
+                                        content=project.name_de,
+                                        on_click=ProjectState.delete_project(
+                                            project.id
+                                        ),
+                                        icon_button=True,
+                                        color="red",
+                                        variant="subtle",
+                                    ),
+                                    on_click=rx.stop_propagation,
+                                ),
+                                gap="xs",
+                                align="center",
+                                wrap="nowrap",
                             ),
-                            gap="2px",
-                            style={"minWidth": 0},
+                            justify="space-between",
+                            align="center",
+                            wrap="nowrap",
+                            w="100%",
                         ),
-                        gap="md",
-                        wrap="nowrap",
-                        style={"minWidth": 0},
+                        mn.text(
+                            project.code
+                            + " \u00b7 "
+                            + _format_date_de(project.start_date)
+                            + " \u2192 "
+                            + _format_date_de(project.end_date),
+                            size="xs",
+                            c="dimmed",
+                            truncate=True,
+                        ),
+                        gap="2px",
+                        style={"minWidth": 0, "flex": 1},
                     ),
-                    mn.group(
-                        mn.badge(
-                            _status_label(project),
-                            color=_status_color(project),
-                            variant="light",
-                            radius="xl",
-                            size="sm",
-                        ),
-                        mn.box(
-                            delete_dialog(
-                                title="Projekt löschen",
-                                content=project.name_de,
-                                on_click=ProjectState.delete_project(project.id),
-                                icon_button=True,
-                                color="red",
-                                variant="subtle",
-                            ),
-                            on_click=rx.stop_propagation,
-                        ),
-                        gap="xs",
-                        align="flex-start",
-                        wrap="nowrap",
-                    ),
-                    justify="space-between",
-                    align="flex-start",
+                    gap="md",
                     wrap="nowrap",
+                    align="flex-start",
                     w="100%",
                 ),
                 mn.group(
-                    _metric("BUDGET", project.budget.to_string() + " €"),
-                    _metric("VERBRAUCHT", project.current_spent.to_string() + "%"),
-                    _metric("FORTSCHRITT", project.current_progress.to_string() + "%"),
+                    _metric(
+                        "BUDGET",
+                        mn.number_formatter(
+                            value=project.budget,
+                            thousand_separator=".",
+                            decimal_separator=",",
+                            suffix=" €",
+                        ),
+                    ),
+                    _metric(
+                        "VERBRAUCHT",
+                        mn.number_formatter(value=project.current_spent, suffix="%"),
+                    ),
+                    _metric(
+                        "FORTSCHRITT",
+                        mn.number_formatter(value=project.current_progress, suffix="%"),
+                    ),
                     justify="space-between",
                     w="100%",
                 ),
@@ -132,9 +175,11 @@ def project_card(project: Project) -> rx.Component:
                 ),
                 mn.group(
                     mn.group(
-                        rx.foreach(project.team_initials, _team_initial),
+                        mn.avatar.group(
+                            rx.foreach(project.team_initials, _team_initial),
+                        ),
                         mn.text(
-                            project.team_count.to_string() + " Mitarbeiter",
+                            project.team_initials.length().to_string() + " Mitarbeiter",
                             size="xs",
                             c="dimmed",
                             ml="xs",
@@ -167,7 +212,7 @@ def project_card(project: Project) -> rx.Component:
             with_border=False,
             bg="transparent",
         ),
-        width="306px",
+        width="420px",
         flex="0 0 auto",
         style={
             "backgroundColor": "var(--alloq-fade-bg)",

@@ -33,7 +33,6 @@ class ProjectRepository(BaseRepository[ProjectEntity, AsyncSession]):
                 or_(
                     ProjectEntity.code.ilike(search_pattern),
                     ProjectEntity.name_de.ilike(search_pattern),
-                    ProjectEntity.name_en.ilike(search_pattern),
                 )
             )
 

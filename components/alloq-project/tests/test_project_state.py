@@ -19,8 +19,8 @@ class TestProjectState:
     def test_filtered_projects_by_search(self) -> None:
         state = ProjectState()  # type: ignore[call-arg]
         state.projects = [
-            Project(code="CRM", name_de="CRM", name_en="CRM"),
-            Project(code="VISION", name_de="Computer Vision", name_en="Vision"),
+            Project(code="CRM", name_de="CRM"),
+            Project(code="VISION", name_de="Computer Vision"),
         ]
         state.search_filter = "vision"
 
@@ -29,13 +29,13 @@ class TestProjectState:
         assert len(result) == 1
         assert result[0].code == "VISION"
 
-    def test_filtered_projects_by_risk(self) -> None:
+    def test_filtered_projects_by_state(self) -> None:
         state = ProjectState()  # type: ignore[call-arg]
         state.projects = [
-            Project(code="SAFE", risk_count=0),
-            Project(code="RISK", risk_count=2),
+            Project(code="SAFE", state="Geplant"),
+            Project(code="RISK", state="Risiko"),
         ]
-        state.status_filter = "risk"
+        state.status_filter = "Risiko"
 
         result = state.filtered_projects
 
@@ -58,7 +58,6 @@ class TestProjectValidationState:
         state = ProjectValidationState()  # type: ignore[call-arg]
         state.code = "ML-OPS"
         state.name_de = "ML-Ops Plattform"
-        state.name_en = "ML-Ops Platform"
         state.start_date = date(2026, 6, 1).isoformat()
         state.end_date = date(2026, 12, 31).isoformat()
         state.budget = "300000"

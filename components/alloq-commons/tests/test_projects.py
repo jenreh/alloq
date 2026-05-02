@@ -32,7 +32,6 @@ class TestProjectEntity:
         entity = ProjectEntity(
             code="ML-OPS",
             name_de="ML-Ops Plattform",
-            name_en="ML-Ops Platform",
             start_date=date(2026, 6, 1),
             end_date=date(2026, 12, 31),
             budget=300000,
@@ -58,7 +57,6 @@ class TestProjectEntity:
         entity = ProjectEntity(
             code="ML-OPS",
             name_de="ML-Ops Plattform",
-            name_en="ML-Ops Platform",
             start_date=date(2026, 6, 1),
             end_date=date(2026, 12, 31),
             budget=300000,
@@ -86,7 +84,6 @@ class TestProjectModels:
         project = ProjectCreate(
             code="ML-OPS",
             name_de="ML-Ops Plattform",
-            name_en="ML-Ops Platform",
             start_date=date(2026, 6, 1),
             end_date=date(2026, 12, 31),
             budget=300000,
@@ -100,7 +97,6 @@ class TestProjectModels:
             ProjectCreate(
                 code="BAD",
                 name_de="Bad",
-                name_en="Bad",
                 start_date=date(2026, 12, 31),
                 end_date=date(2026, 6, 1),
                 budget=1,
@@ -120,7 +116,6 @@ class TestProjectRepository:
         entity = ProjectEntity(
             code="CRM-AI",
             name_de="CRM-Vorhersagemodell",
-            name_en="CRM Forecast Model",
             start_date=date(2026, 3, 2),
             end_date=date(2026, 8, 28),
             budget=480000,
@@ -144,7 +139,6 @@ class TestProjectRepository:
                 ProjectEntity(
                     code="CRM-AI",
                     name_de="CRM-Vorhersagemodell",
-                    name_en="CRM Forecast Model",
                     start_date=date(2026, 3, 2),
                     end_date=date(2026, 8, 28),
                     budget=480000,
@@ -153,7 +147,6 @@ class TestProjectRepository:
                 ProjectEntity(
                     code="VISION",
                     name_de="Computer-Vision Plattform",
-                    name_en="Computer Vision Platform",
                     start_date=date(2026, 1, 12),
                     end_date=date(2026, 9, 30),
                     budget=720000,
@@ -186,7 +179,6 @@ class TestCapacityRepositories:
         project = ProjectEntity(
             code="ARCH",
             name_de="Architektur",
-            name_en="Architecture",
             start_date=date(2026, 1, 1),
             end_date=date(2026, 12, 31),
             budget=100000,

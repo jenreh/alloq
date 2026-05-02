@@ -2,6 +2,8 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field, model_validator
 
+from alloq_commons.entities.project import ProjectStateEnum
+
 
 class RequiredCapacity(BaseModel):
     """Read model for required project staffing by role."""
@@ -122,9 +124,9 @@ class Project(BaseModel):
     id: int = 0
     code: str = ""
     name_de: str = ""
-    name_en: str = ""
     start_date: date | None = None
     end_date: date | None = None
+    state: str = ProjectStateEnum.PLANNED
     budget: int = 0
     color: str = "#FFD43B"
     created_by_id: int | None = None
@@ -148,9 +150,9 @@ class ProjectCreate(BaseModel):
 
     code: str = Field(..., min_length=1, max_length=50)
     name_de: str = Field(..., min_length=1, max_length=255)
-    name_en: str = Field(..., min_length=1, max_length=255)
     start_date: date
     end_date: date
+    state: str = Field(default=ProjectStateEnum.PLANNED, max_length=20)
     budget: int = Field(..., ge=0)
     color: str = Field(default="#FFD43B", max_length=7)
     created_by_id: int | None = None
