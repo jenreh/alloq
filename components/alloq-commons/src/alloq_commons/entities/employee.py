@@ -50,10 +50,19 @@ class EmployeeEntity(Entity, Base):
     email: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     location: Mapped[str | None] = mapped_column(String(255), nullable=True)
     hours_per_week: Mapped[float] = mapped_column(Float, nullable=False, default=40.0)
+    manager_id: Mapped[int | None] = mapped_column(
+        ForeignKey("employees.id", ondelete="SET NULL"), nullable=True
+    )
 
     roles = relationship("RoleEntity", secondary=employee_roles, lazy="selectin")
     absences = relationship(
         "AbsenceEntity", lazy="selectin", cascade="all, delete-orphan"
+    )
+    manager = relationship(
+        "EmployeeEntity",
+        remote_side="EmployeeEntity.id",
+        backref="direct_reports",
+        lazy="selectin",
     )
 
     def to_dict(self) -> dict:
@@ -77,6 +86,7 @@ class EmployeeEntity(Entity, Base):
             "seniority": self.seniority,
             "job_title": self.job_title,
             "location": self.location,
+            "manager_id": self.manager_id,
             "role_ids": [r.id for r in self.roles] if self.roles else [],
             "role_names": [r.name for r in self.roles] if self.roles else [],
             "absences": absences,

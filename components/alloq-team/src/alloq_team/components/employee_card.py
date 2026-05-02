@@ -279,6 +279,29 @@ def employee_card(employee: Employee) -> rx.Component:
     return EmployeeCardState.create(employee=employee)
 
 
+def _employee_section(title: str, employees: rx.Var) -> rx.Component:
+    """Helper to render a titled section of employee cards."""
+    return rx.cond(
+        employees.length() > 0,
+        mn.stack(
+            mn.text(
+                title,
+                size="lg",
+                fw="700",
+            ),
+            mn.flex(
+                rx.foreach(employees, employee_card),
+                wrap="wrap",
+                gap="md",
+                direction="row",
+                justify="flex-start",
+                align="flex-start",
+            ),
+            gap="sm",
+        ),
+    )
+
+
 def employee_grid() -> rx.Component:
     """Card grid view of all employees."""
     return rx.cond(
@@ -292,15 +315,9 @@ def employee_grid() -> rx.Component:
             ),
             py="xl",
         ),
-        mn.flex(
-            rx.foreach(
-                TeamState.filtered_employees,
-                employee_card,
-            ),
-            wrap="wrap",
-            gap="md",
-            direction="row",
-            justify="flex-start",
-            align="flex-start",
+        mn.stack(
+            _employee_section("Meine Mitarbeiter", TeamState.my_employees),
+            _employee_section("Weitere Mitarbeiter", TeamState.other_employees),
+            gap="xl",
         ),
     )

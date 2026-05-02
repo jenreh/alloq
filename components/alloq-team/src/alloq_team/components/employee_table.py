@@ -177,77 +177,95 @@ def _employee_table_row(employee: Employee) -> rx.Component:
     )
 
 
-def employee_table() -> rx.Component:
-    """Table view of all employees."""
-    return mn.box(
-        mn.table(
-            mn.table.thead(
-                mn.table.tr(
-                    mn.table.th(
-                        mn.text("Mitarbeiter", size="sm", fw="800"),
-                        style=TABLE_HEADER_STYLE,
-                        width="300px",
-                        min_width="240px",
-                    ),
-                    mn.table.th(
-                        mn.text("Standort", size="sm", fw="800"),
-                        style=TABLE_HEADER_STYLE,
-                        width="150px",
-                        min_width="120px",
-                    ),
-                    mn.table.th(
-                        mn.text("Level", size="sm", fw="800"),
-                        style=TABLE_HEADER_STYLE,
-                        width="120px",
-                        min_width="120px",
-                    ),
-                    mn.table.th(
-                        mn.text("Rollen", size="sm", fw="800"),
-                        style=TABLE_HEADER_STYLE,
-                    ),
-                    mn.table.th(
-                        mn.text("Stunden", size="sm", fw="800"),
-                        style=TABLE_HEADER_STYLE,
-                    ),
-                    mn.table.th(
-                        mn.text("Auslastung", size="sm", fw="800"),
-                        style=TABLE_HEADER_STYLE,
-                    ),
-                    mn.table.th(mn.text("", size="sm"), style=TABLE_HEADER_STYLE),
-                ),
+def _employee_table_section(title: str, employees: rx.Var) -> rx.Component:
+    """Helper to render a titled section of the employee table."""
+    return rx.cond(
+        employees.length() > 0,
+        mn.stack(
+            mn.text(
+                title,
+                size="lg",
+                fw="700",
             ),
-            mn.table.tbody(
-                rx.cond(
-                    TeamState.is_loading,
-                    mn.table.tr(
-                        mn.table.td(
-                            rx.hstack(
-                                rx.spinner(size="3"),
-                                mn.text("Lade Team...", size="sm"),
-                                align="center",
-                                justify="center",
-                                spacing="3",
+            mn.box(
+                mn.table(
+                    mn.table.thead(
+                        mn.table.tr(
+                            mn.table.th(
+                                mn.text("Mitarbeiter", size="sm", fw="800"),
+                                style=TABLE_HEADER_STYLE,
+                                width="300px",
+                                min_width="240px",
                             ),
-                            col_span=7,
-                            style={"textAlign": "center"},
+                            mn.table.th(
+                                mn.text("Standort", size="sm", fw="800"),
+                                style=TABLE_HEADER_STYLE,
+                                width="150px",
+                                min_width="120px",
+                            ),
+                            mn.table.th(
+                                mn.text("Level", size="sm", fw="800"),
+                                style=TABLE_HEADER_STYLE,
+                                width="120px",
+                                min_width="120px",
+                            ),
+                            mn.table.th(
+                                mn.text("Rollen", size="sm", fw="800"),
+                                style=TABLE_HEADER_STYLE,
+                            ),
+                            mn.table.th(
+                                mn.text("Stunden", size="sm", fw="800"),
+                                style=TABLE_HEADER_STYLE,
+                            ),
+                            mn.table.th(
+                                mn.text("Auslastung", size="sm", fw="800"),
+                                style=TABLE_HEADER_STYLE,
+                            ),
+                            mn.table.th(
+                                mn.text("", size="sm"), style=TABLE_HEADER_STYLE
+                            ),
                         ),
                     ),
-                    rx.foreach(
-                        TeamState.filtered_employees,
-                        _employee_table_row,
+                    mn.table.tbody(
+                        rx.foreach(
+                            employees,
+                            _employee_table_row,
+                        ),
                     ),
+                    sticky_header=True,
+                    sticky_header_offset="0px",
+                    striped=False,
+                    highlight_on_hover=True,
+                    highlight_on_hover_color="var(--alloq-surface-hover)",
+                    w="100%",
+                    style=TABLE_STYLE,
                 ),
+                width="100%",
+                m="0",
+                p="12px",
+                style=TABLE_WRAPPER_STYLE,
             ),
-            sticky_header=True,
-            sticky_header_offset="0px",
-            striped=False,
-            highlight_on_hover=True,
-            highlight_on_hover_color="var(--alloq-surface-hover)",
-            w="100%",
-            style=TABLE_STYLE,
+            gap="sm",
         ),
-        width="100%",
-        m="0",
-        p="12px",
-        style=TABLE_WRAPPER_STYLE,
+    )
+
+
+def employee_table() -> rx.Component:
+    """Table view of all employees."""
+    return rx.cond(
+        TeamState.is_loading,
+        mn.center(
+            rx.hstack(
+                rx.spinner(size="3"),
+                mn.text("Lade Team...", size="sm"),
+                align="center",
+                spacing="3",
+            ),
+            py="xl",
+        ),
+        mn.stack(
+            _employee_table_section("Meine Mitarbeiter", TeamState.my_employees),
+            _employee_table_section("Weitere Mitarbeiter", TeamState.other_employees),
+            gap="xl",
+        ),
     )

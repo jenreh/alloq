@@ -19,11 +19,12 @@ from alloq_team.models.employee import (
 )
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_user.authentication.decorators import is_authenticated
+from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)
 
 
-class TeamState(rx.State):
+class TeamState(UserSession):
     """State for team member management."""
 
     employees: list[Employee] = []
@@ -31,6 +32,9 @@ class TeamState(rx.State):
     absences: list[Absence] = []
     available_roles: list[Role] = []
     is_loading: bool = False
+
+    current_user_email: str = ""
+    current_employee_id: int | None = None
 
     add_modal_open: bool = False
     edit_modal_open: bool = False
@@ -73,9 +77,39 @@ class TeamState(rx.State):
         ]
 
     @rx.var
+    def my_employees(self) -> list[Employee]:
+        """Return employees reporting to the current user."""
+        if not self.current_employee_id:
+            return []
+        return [
+            e
+            for e in self.filtered_employees
+            if e.manager_id == self.current_employee_id
+        ]
+
+    @rx.var
+    def other_employees(self) -> list[Employee]:
+        """Return employees NOT reporting to the current user."""
+        if not self.current_employee_id:
+            return self.filtered_employees
+        return [
+            e
+            for e in self.filtered_employees
+            if e.manager_id != self.current_employee_id
+        ]
+
+    @rx.var
     def role_select_options(self) -> list[dict[str, str]]:
         """Return roles formatted for Mantine Select data prop."""
         return [{"value": str(r.id), "label": r.name} for r in self.available_roles]
+
+    @rx.var
+    def employee_select_options(self) -> list[dict[str, str]]:
+        """Return employees formatted for Mantine Select data prop."""
+        return [
+            {"value": str(e.id), "label": f"{e.first_name} {e.last_name}"}
+            for e in self.employees
+        ]
 
     @rx.var
     def form_role_ids(self) -> list[str]:
@@ -136,6 +170,12 @@ class TeamState(rx.State):
         self.is_loading = True
         yield
         try:
+            user = await self.authenticated_user
+            if user and user.email:
+                self.current_user_email = user.email
+                async with get_asyncdb_session() as session:
+                    employee = await employee_repo.find_by_email(session, user.email)
+                    self.current_employee_id = employee.id if employee else None
             await self._load_employees()
             await self._load_available_roles()
         finally:
@@ -199,6 +239,9 @@ class TeamState(rx.State):
             else:
                 role_ids = [int(x) for x in raw_roles]
 
+            manager_id_raw = form_data.get("manager_id")
+            manager_id = int(manager_id_raw) if manager_id_raw else None
+
             emp_data = EmployeeCreate(
                 first_name=form_data.get("first_name", "").strip(),
                 last_name=form_data.get("last_name", "").strip(),
@@ -206,6 +249,7 @@ class TeamState(rx.State):
                 seniority=form_data.get("seniority", "Advanced"),
                 job_title=form_data.get("job_title", "").strip() or None,
                 location=form_data.get("location", "").strip() or None,
+                manager_id=manager_id,
                 role_ids=role_ids,
                 hours_per_week=float(form_data.get("hours_per_week", 40.0)),
             )
@@ -218,6 +262,7 @@ class TeamState(rx.State):
                     seniority=emp_data.seniority.value,
                     job_title=emp_data.job_title,
                     location=emp_data.location,
+                    manager_id=emp_data.manager_id,
                     hours_per_week=emp_data.hours_per_week,
                 )
                 await employee_repo.create(session, entity)
@@ -258,6 +303,9 @@ class TeamState(rx.State):
             else:
                 role_ids = [int(x) for x in raw_roles]
 
+            manager_id_raw = form_data.get("manager_id")
+            manager_id = int(manager_id_raw) if manager_id_raw else None
+
             emp_data = EmployeeCreate(
                 first_name=form_data.get("first_name", "").strip(),
                 last_name=form_data.get("last_name", "").strip(),
@@ -265,6 +313,7 @@ class TeamState(rx.State):
                 seniority=form_data.get("seniority", "Advanced"),
                 job_title=form_data.get("job_title", "").strip() or None,
                 location=form_data.get("location", "").strip() or None,
+                manager_id=manager_id,
                 role_ids=role_ids,
                 hours_per_week=float(form_data.get("hours_per_week", 40.0)),
             )
@@ -285,6 +334,7 @@ class TeamState(rx.State):
                 entity.seniority = emp_data.seniority.value
                 entity.job_title = emp_data.job_title
                 entity.location = emp_data.location
+                entity.manager_id = emp_data.manager_id
                 entity.hours_per_week = emp_data.hours_per_week
                 await employee_repo.set_roles(session, entity, emp_data.role_ids)
                 await employee_repo.update(session, entity)
@@ -431,6 +481,7 @@ class EmployeeValidationState(rx.State):
     email: str = ""
     job_title: str = ""
     location: str = ""
+    manager_id: str = ""
     seniority: str = ""
     role_ids: list[str] = []
     hours_per_week: str = "40.0"
@@ -454,6 +505,7 @@ class EmployeeValidationState(rx.State):
             self.email = ""
             self.job_title = ""
             self.location = ""
+            self.manager_id = ""
             self.seniority = "Advanced"
             self.role_ids = []
             self.hours_per_week = "40.0"
@@ -463,6 +515,11 @@ class EmployeeValidationState(rx.State):
             self.email = employee.email or ""
             self.job_title = employee.job_title or ""
             self.location = employee.location or ""
+            self.manager_id = (
+                str(employee.manager_id)
+                if getattr(employee, "manager_id", None)
+                else ""
+            )
             self.seniority = employee.seniority
             self.role_ids = default_role_ids or []
             self.hours_per_week = str(employee.hours_per_week)
@@ -492,6 +549,9 @@ class EmployeeValidationState(rx.State):
 
     def set_location(self, value: str) -> None:
         self.location = value
+
+    def set_manager_id(self, value: str | None) -> None:
+        self.manager_id = value or ""
 
     def set_seniority(self, value: str) -> None:
         self.seniority = value
