@@ -90,7 +90,12 @@ def _workload_cell(employee: Employee) -> rx.Component:
             bg="var(--alloq-meter-track)",
         ),
         mn.text(
-            f"{employee.workload_percent}%",
+            mn.number_formatter(
+                value=employee.workload_percent,
+                suffix="%",
+                decimal_separator=",",
+                thousand_separator=".",
+            ),
             size="sm",
             c=rx.cond(
                 employee.workload_percent > WORKLOAD_LIMIT_PERCENT,
@@ -133,7 +138,13 @@ def _employee_table_row(employee: Employee) -> rx.Component:
             ),
         ),
         mn.table.td(
-            f"{employee.hours_per_week} h/Woche",
+            mn.number_formatter(
+                value=employee.hours_per_week,
+                suffix=" h/Woche",
+                decimal_scale=1,
+                decimal_separator=",",
+                thousand_separator=".",
+            ),
             style=NO_WRAP_CELL_STYLE,
         ),
         mn.table.td(_workload_cell(employee), style=NO_WRAP_CELL_STYLE),

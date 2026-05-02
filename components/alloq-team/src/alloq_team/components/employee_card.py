@@ -68,15 +68,52 @@ class EmployeeCardState(rx.ComponentState):
 
     @classmethod
     def _card_header(cls, employee: Employee) -> rx.Component:
-        """Header containing avatar, name, job title, and actions."""
+        """Header: avatar on left, two rows (name+actions, job title) on right."""
         return mn.group(
             _employee_initials(employee),
             mn.stack(
-                mn.text(
-                    f"{employee.first_name} {employee.last_name}",
-                    size="md",
-                    truncate=True,
+                # Row 1: Name + delete + collapse
+                mn.group(
+                    mn.text(
+                        f"{employee.first_name} {employee.last_name}",
+                        size="md",
+                        truncate=True,
+                        flex="1",
+                        style={"minWidth": 0},
+                    ),
+                    mn.group(
+                        mn.box(
+                            delete_dialog(
+                                title="Mitarbeiter löschen",
+                                content=f"{employee.first_name} {employee.last_name}",
+                                on_click=TeamState.delete_employee(employee.id),
+                                icon_button=True,
+                                color="red",
+                                variant="subtle",
+                            ),
+                            on_click=rx.stop_propagation,
+                        ),
+                        mn.action_icon(
+                            rx.cond(
+                                cls.is_expanded,
+                                rx.icon("chevron-up", size=18, stroke_width=1.5),
+                                rx.icon("chevron-down", size=18, stroke_width=1.5),
+                            ),
+                            variant="subtle",
+                            color="gray",
+                            on_click=[rx.stop_propagation, cls.toggle],
+                        ),
+                        gap="0",
+                        align="center",
+                        wrap="nowrap",
+                    ),
+                    justify="space-between",
+                    align="center",
+                    w="100%",
+                    wrap="nowrap",
+                    gap="md",
                 ),
+                # Row 2: Job title
                 mn.text(
                     rx.cond(employee.job_title, employee.job_title, employee.seniority),
                     size="sm",
@@ -85,37 +122,8 @@ class EmployeeCardState(rx.ComponentState):
                 ),
                 gap="2px",
                 flex="1",
-                mt="2px",
                 style={"minWidth": 0},
             ),
-            # Actions (Delete and Expand/Collapse)
-            mn.group(
-                mn.box(
-                    delete_dialog(
-                        title="Mitarbeiter löschen",
-                        content=f"{employee.first_name} {employee.last_name}",
-                        on_click=TeamState.delete_employee(employee.id),
-                        icon_button=True,
-                        color="red",
-                        variant="subtle",
-                    ),
-                    on_click=rx.stop_propagation,
-                ),
-                mn.action_icon(
-                    rx.cond(
-                        cls.is_expanded,
-                        rx.icon("chevron-up", size=18, stroke_width=1.5),
-                        rx.icon("chevron-down", size=18, stroke_width=1.5),
-                    ),
-                    variant="subtle",
-                    color="gray",
-                    on_click=[rx.stop_propagation, cls.toggle],
-                ),
-                gap="0",
-                align="flex-start",
-                wrap="nowrap",
-            ),
-            justify="space-between",
             align="flex-start",
             w="100%",
             wrap="nowrap",
