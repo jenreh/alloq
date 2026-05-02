@@ -3,6 +3,7 @@ from alloq_team.models.employee import Employee
 from alloq_team.states.team_state import TeamState
 
 import appkit_mantine as mn
+from appkit_ui.components.dialogs import delete_dialog
 
 
 def _seniority_color(seniority: str) -> str:
@@ -55,9 +56,13 @@ class EmployeeCardState(rx.ComponentState):
             flex="0 0 auto",
             style={
                 "background_color": "rgba(255, 255, 255, 0.5)",
-                "_hover": {"background_color": "rgba(255, 255, 255, 0.8)"},
+                "_hover": {
+                    "background_color": "rgba(255, 255, 255, 0.8)",
+                    "cursor": "pointer",
+                },
                 "border_radius": "var(--mantine-radius-lg)",
             },
+            on_click=TeamState.select_employee_and_edit(employee.id),
             **props,
         )
 
@@ -85,11 +90,16 @@ class EmployeeCardState(rx.ComponentState):
             ),
             # Actions (Delete and Expand/Collapse)
             mn.group(
-                mn.action_icon(
-                    rx.icon("trash", size=18, stroke_width=1.5),
-                    variant="subtle",
-                    color="red",
-                    on_click=TeamState.delete_employee(employee.id),
+                mn.box(
+                    delete_dialog(
+                        title="Mitarbeiter löschen",
+                        content=f"{employee.first_name} {employee.last_name}",
+                        on_click=TeamState.delete_employee(employee.id),
+                        icon_button=True,
+                        color="red",
+                        variant="subtle",
+                    ),
+                    on_click=rx.stop_propagation,
                 ),
                 mn.action_icon(
                     rx.cond(
@@ -99,7 +109,7 @@ class EmployeeCardState(rx.ComponentState):
                     ),
                     variant="subtle",
                     color="gray",
-                    on_click=cls.toggle,
+                    on_click=[rx.stop_propagation, cls.toggle],
                 ),
                 gap="0",
                 align="flex-start",
@@ -166,7 +176,10 @@ def _absence_list(employee: Employee) -> rx.Component:
                 size="sm",
                 variant="subtle",
                 color="gray",
-                on_click=TeamState.select_employee_and_add_absence(employee.id),
+                on_click=[
+                    rx.stop_propagation,
+                    TeamState.select_employee_and_add_absence(employee.id),
+                ],
             ),
             align="center",
             justify="space-between",

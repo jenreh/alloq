@@ -1,5 +1,6 @@
 import logging
 from collections.abc import AsyncGenerator
+from datetime import UTC, date, datetime
 from typing import Any
 
 import reflex as rx
@@ -35,9 +36,19 @@ class TeamState(rx.State):
     edit_modal_open: bool = False
     detail_drawer_open: bool = False
     absence_modal_open: bool = False
+    absence_date_range: list[str] = []
 
     search_filter: str = ""
     view_mode: str = "grid"
+
+    @rx.var(cache=False)
+    def current_date(self) -> str:
+        """Get the current date as an ISO string for form boundaries."""
+        return datetime.now(tz=UTC).date().isoformat()
+
+    def set_absence_date_range(self, value: list[str]) -> None:
+        """Set the absence date range."""
+        self.absence_date_range = value
 
     def set_search_filter(self, value: str) -> None:
         """Update the search filter."""
@@ -91,11 +102,13 @@ class TeamState(rx.State):
 
     def open_absence_modal(self) -> None:
         """Open the absence add modal."""
+        self.absence_date_range = []
         self.absence_modal_open = True
 
     def close_absence_modal(self) -> None:
         """Close the absence modal."""
         self.absence_modal_open = False
+        self.absence_date_range = []
 
     async def _load_employees(self) -> None:
         """Internal load logic for employees with role names."""
@@ -302,15 +315,40 @@ class TeamState(rx.State):
     @is_authenticated
     async def create_absence(self, form_data: dict) -> AsyncGenerator[Any, None]:
         """Create a new absence for the selected employee."""
+        _ = form_data  # Reflex requires this keyword arg for on_submit
+        logger.info("create_absence called with data: %s", self.absence_date_range)
         if not self.selected_employee:
             yield rx.toast.error("Kein Mitarbeiter ausgewählt.", position="top-right")
+            return
+
+        date_range = self.absence_date_range
+
+        if (
+            not date_range
+            or len(date_range) < 2  # noqa: PLR2004
+            or not date_range[0]
+            or not date_range[1]
+        ):
+            yield rx.toast.error(
+                "Bitte einen gültigen Zeitraum auswählen.", position="top-right"
+            )
+            return
+
+        start_date_str = date_range[0][:10]
+        end_date_str = date_range[1][:10]
+
+        if date.fromisoformat(start_date_str) < datetime.now(tz=UTC).date():
+            yield rx.toast.error(
+                "Abwesenheiten dürfen nicht in der Vergangenheit beginnen.",
+                position="top-right",
+            )
             return
 
         try:
             absence_data = AbsenceCreate(
                 employee_id=self.selected_employee.id,
-                start_date=form_data.get("start_date", ""),
-                end_date=form_data.get("end_date", ""),
+                start_date=start_date_str,
+                end_date=end_date_str,
             )
 
             async with get_asyncdb_session() as session:
@@ -326,6 +364,9 @@ class TeamState(rx.State):
                     session, self.selected_employee.id
                 )
                 self.absences = [Absence(**a.to_dict()) for a in absence_entities]
+
+            # Reload all employees so the cards update with the new absence
+            await self._load_employees()
 
             self.close_absence_modal()
             yield rx.toast.info("Abwesenheit eingetragen.", position="top-right")

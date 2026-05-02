@@ -192,18 +192,14 @@ def absence_modal() -> rx.Component:
             rx.flex(
                 rx.box(
                     mn.flex(
-                        mn.date_input(
-                            label="Startdatum",
-                            name="start_date",
-                            placeholder="Datum wählen",
-                            required=True,
-                            clearable=True,
-                            w="100%",
-                        ),
-                        mn.date_input(
-                            label="Enddatum",
-                            name="end_date",
-                            placeholder="Datum wählen",
+                        mn.date_picker_input(
+                            label="Zeitraum",
+                            name="date_range",
+                            type="range",
+                            placeholder="Zeitraum wählen",
+                            min_date=TeamState.current_date,
+                            value=TeamState.absence_date_range,
+                            on_change=TeamState.set_absence_date_range,
                             required=True,
                             clearable=True,
                             w="100%",
