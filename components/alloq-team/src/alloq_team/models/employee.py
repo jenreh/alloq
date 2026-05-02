@@ -32,6 +32,7 @@ class Employee(BaseModel):
     id: int = 0
     first_name: str = ""
     last_name: str = ""
+    email: str | None = None
     seniority: str = ""
     job_title: str | None = None
     location: str | None = None
@@ -55,6 +56,7 @@ class EmployeeCreate(BaseModel):
 
     first_name: str = Field(..., max_length=255)
     last_name: str = Field(..., max_length=255)
+    email: str | None = Field(default=None, max_length=255)
     seniority: SeniorityLevel
     job_title: str | None = Field(default=None, max_length=255)
     location: str | None = Field(default=None, max_length=255)
@@ -67,6 +69,7 @@ class EmployeeUpdate(BaseModel):
 
     first_name: str = Field(..., max_length=255)
     last_name: str = Field(..., max_length=255)
+    email: str | None = Field(default=None, max_length=255)
     seniority: SeniorityLevel
     job_title: str | None = Field(default=None, max_length=255)
     location: str | None = Field(default=None, max_length=255)

@@ -57,6 +57,17 @@ def employee_form_fields(is_edit: bool = False) -> rx.Component:
                 left_section=rx.icon("user", size=16),
             ),
             mn.text_input(
+                name="email",
+                label="E-Mail",
+                default_value=EmployeeValidationState.email,
+                on_change=EmployeeValidationState.set_email,
+                on_blur=EmployeeValidationState.validate_email_unique,
+                error=EmployeeValidationState.email_error,
+                required=False,
+                max_length=255,
+                left_section=rx.icon("mail", size=16),
+            ),
+            mn.text_input(
                 name="job_title",
                 label="Job-Titel (z.B. Software Engineer)",
                 default_value=EmployeeValidationState.job_title,

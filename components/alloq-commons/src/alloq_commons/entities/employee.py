@@ -47,6 +47,7 @@ class EmployeeEntity(Entity, Base):
     last_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     seniority: Mapped[str] = mapped_column(String(50), nullable=False)
     job_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     location: Mapped[str | None] = mapped_column(String(255), nullable=True)
     hours_per_week: Mapped[float] = mapped_column(Float, nullable=False, default=40.0)
 
@@ -72,6 +73,7 @@ class EmployeeEntity(Entity, Base):
             "id": self.id,
             "first_name": self.first_name,
             "last_name": self.last_name,
+            "email": self.email,
             "seniority": self.seniority,
             "job_title": self.job_title,
             "location": self.location,

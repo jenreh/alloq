@@ -202,6 +202,7 @@ class TeamState(rx.State):
             emp_data = EmployeeCreate(
                 first_name=form_data.get("first_name", "").strip(),
                 last_name=form_data.get("last_name", "").strip(),
+                email=form_data.get("email", "").strip() or None,
                 seniority=form_data.get("seniority", "Advanced"),
                 job_title=form_data.get("job_title", "").strip() or None,
                 location=form_data.get("location", "").strip() or None,
@@ -213,6 +214,7 @@ class TeamState(rx.State):
                 entity = EmployeeEntity(
                     first_name=emp_data.first_name,
                     last_name=emp_data.last_name,
+                    email=emp_data.email,
                     seniority=emp_data.seniority.value,
                     job_title=emp_data.job_title,
                     location=emp_data.location,
@@ -259,6 +261,7 @@ class TeamState(rx.State):
             emp_data = EmployeeCreate(
                 first_name=form_data.get("first_name", "").strip(),
                 last_name=form_data.get("last_name", "").strip(),
+                email=form_data.get("email", "").strip() or None,
                 seniority=form_data.get("seniority", "Advanced"),
                 job_title=form_data.get("job_title", "").strip() or None,
                 location=form_data.get("location", "").strip() or None,
@@ -278,6 +281,7 @@ class TeamState(rx.State):
                     return
                 entity.first_name = emp_data.first_name
                 entity.last_name = emp_data.last_name
+                entity.email = emp_data.email
                 entity.seniority = emp_data.seniority.value
                 entity.job_title = emp_data.job_title
                 entity.location = emp_data.location
@@ -424,6 +428,7 @@ class EmployeeValidationState(rx.State):
 
     first_name: str = ""
     last_name: str = ""
+    email: str = ""
     job_title: str = ""
     location: str = ""
     seniority: str = ""
@@ -432,6 +437,7 @@ class EmployeeValidationState(rx.State):
 
     first_name_error: str = ""
     last_name_error: str = ""
+    email_error: str = ""
     role_ids_error: str = ""
     hours_per_week_error: str = ""
 
@@ -445,6 +451,7 @@ class EmployeeValidationState(rx.State):
         if employee is None:
             self.first_name = ""
             self.last_name = ""
+            self.email = ""
             self.job_title = ""
             self.location = ""
             self.seniority = "Advanced"
@@ -453,6 +460,7 @@ class EmployeeValidationState(rx.State):
         else:
             self.first_name = employee.first_name
             self.last_name = employee.last_name
+            self.email = employee.email or ""
             self.job_title = employee.job_title or ""
             self.location = employee.location or ""
             self.seniority = employee.seniority
@@ -461,6 +469,7 @@ class EmployeeValidationState(rx.State):
 
         self.first_name_error = ""
         self.last_name_error = ""
+        self.email_error = ""
         self.role_ids_error = ""
         self.hours_per_week_error = ""
 
@@ -473,6 +482,10 @@ class EmployeeValidationState(rx.State):
     def set_last_name(self, value: str) -> None:
         self.last_name = value
         self.validate_last_name()
+
+    def set_email(self, value: str) -> None:
+        self.email = value
+        self.validate_email()
 
     def set_job_title(self, value: str) -> None:
         self.job_title = value
@@ -506,6 +519,37 @@ class EmployeeValidationState(rx.State):
             self.last_name_error = ""
 
     @rx.event
+    def validate_email(self) -> None:
+        email = self.email.strip() if self.email else ""
+        if email and "@" not in email:
+            self.email_error = "Bitte eine gültige E-Mail-Adresse eingeben."
+        else:
+            self.email_error = ""
+
+    @rx.event
+    async def validate_email_unique(self) -> None:
+        """Check email format and uniqueness against the database."""
+        email = self.email.strip() if self.email else ""
+        if not email:
+            self.email_error = ""
+            return
+        if "@" not in email:
+            self.email_error = "Bitte eine gültige E-Mail-Adresse eingeben."
+            return
+        team_state = await self.get_state(TeamState)
+        exclude_id = (
+            team_state.selected_employee.id if team_state.selected_employee else None
+        )
+        async with get_asyncdb_session() as session:
+            existing = await employee_repo.find_by_email(
+                session, email, exclude_id=exclude_id
+            )
+        if existing:
+            self.email_error = "Diese E-Mail ist bereits vergeben."
+        else:
+            self.email_error = ""
+
+    @rx.event
     def validate_role_ids(self) -> None:
         if not self.role_ids:
             self.role_ids_error = "Rollen-Auswahl ist erforderlich."
@@ -531,6 +575,7 @@ class EmployeeValidationState(rx.State):
     def validate_all(self) -> None:
         self.validate_first_name()
         self.validate_last_name()
+        self.validate_email()
         self.validate_role_ids()
         self.validate_hours_per_week()
 
@@ -539,6 +584,7 @@ class EmployeeValidationState(rx.State):
         return bool(
             self.first_name_error
             or self.last_name_error
+            or self.email_error
             or self.role_ids_error
             or self.hours_per_week_error
         )

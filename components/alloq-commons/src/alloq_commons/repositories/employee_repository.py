@@ -57,5 +57,18 @@ class EmployeeRepository(BaseRepository[EmployeeEntity, AsyncSession]):
         roles = list(result.scalars().all())
         entity.roles = roles
 
+    async def find_by_email(
+        self,
+        session: AsyncSession,
+        email: str,
+        exclude_id: int | None = None,
+    ) -> EmployeeEntity | None:
+        """Find an employee by email, optionally excluding an ID (for edits)."""
+        statement = select(EmployeeEntity).where(EmployeeEntity.email == email)
+        if exclude_id is not None:
+            statement = statement.where(EmployeeEntity.id != exclude_id)
+        result = await session.execute(statement)
+        return result.scalar_one_or_none()
+
 
 employee_repo = EmployeeRepository()
