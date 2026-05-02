@@ -24,9 +24,11 @@
     --alloq-shadow-soft: 0 12px 32px rgba(91, 76, 34, 0.07);
     --alloq-meter-track: #efede7;
 
-    --mantine-primary-color: yellow;
-    --mantine-color-blue-0: #eef4f7;
-    --mantine-color-blue-1: #dce9ee;
+    --alloq-fade-bg: rgba(255, 255, 255, 0.5);
+    --alloq-fade-bg-hover: rgba(255, 255, 255, 0.8);
+    --alloq-tag-bg: #f3f4f6;
+    --alloq-item-bg: #ffffff;
+    --alloq-item-text: #4b5563;
     --mantine-color-blue-2: #bfd4dd;
     --mantine-color-blue-3: #94b3c1;
     --mantine-color-blue-4: #6f91a3;
@@ -195,6 +197,12 @@
     --alloq-nav-active-text: #fff2c2;
     --alloq-shadow-soft: 0 12px 32px rgba(0, 0, 0, 0.22);
     --alloq-meter-track: #3a332a;
+
+    --alloq-fade-bg: rgba(255, 255, 255, 0.05);
+    --alloq-fade-bg-hover: rgba(255, 255, 255, 0.1);
+    --alloq-tag-bg: #373a40;
+    --alloq-item-bg: #2c2e33;
+    --alloq-item-text: #c1c2c5;
 }
 
 :root,

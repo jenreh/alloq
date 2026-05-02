@@ -14,7 +14,7 @@ WORKLOAD_LIMIT_PERCENT = 100
 
 TABLE_HEADER_STYLE = {
     **sticky_header_style,
-    "backgroundColor": "white",
+    "backgroundColor": "var(--alloq-surface-solid)",
 }
 
 TABLE_STYLE = {
@@ -25,7 +25,7 @@ TABLE_STYLE = {
 }
 
 TABLE_WRAPPER_STYLE = {
-    "backgroundColor": "rgba(255, 255, 255, 0.4)",
+    "backgroundColor": "var(--alloq-fade-bg)",
     "borderRadius": "var(--mantine-radius-sm)",
     "margin": "0",
     "overflowX": "auto",

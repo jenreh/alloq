@@ -55,9 +55,9 @@ class EmployeeCardState(rx.ComponentState):
             width="306px",
             flex="0 0 auto",
             style={
-                "background_color": "rgba(255, 255, 255, 0.5)",
+                "background_color": "var(--alloq-fade-bg)",
                 "_hover": {
-                    "background_color": "rgba(255, 255, 255, 0.8)",
+                    "background_color": "var(--alloq-fade-bg-hover)",
                     "cursor": "pointer",
                 },
                 "border_radius": "var(--mantine-radius-lg)",
@@ -149,7 +149,7 @@ def _role_tags(employee: Employee) -> rx.Component:
                     style={
                         "textTransform": "none",
                         "fontWeight": "normal",
-                        "backgroundColor": "#f3f4f6",
+                        "backgroundColor": "var(--alloq-tag-bg)",
                     },
                 ),
             ),
@@ -195,14 +195,14 @@ def _absence_list(employee: Employee) -> rx.Component:
                         size="0.66rem",
                         ff="'Roboto Mono', monospace",
                         style={
-                            "color": "#4b5563",
+                            "color": "var(--alloq-item-text)",
                             "fontWeight": "400",
                         },
                     ),
                     align="center",
                     gap="xs",
                     style={
-                        "backgroundColor": "#ffffff",
+                        "backgroundColor": "var(--alloq-item-bg)",
                         "padding": "8px 12px",
                         "borderRadius": "6px",
                     },
@@ -220,7 +220,7 @@ def _absence_list(employee: Employee) -> rx.Component:
                     align="center",
                     gap="sm",
                     style={
-                        "backgroundColor": "#ffffff",
+                        "backgroundColor": "var(--alloq-item-bg)",
                         "padding": "8px 12px",
                         "borderRadius": "6px",
                     },

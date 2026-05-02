@@ -8,14 +8,26 @@ def view_mode_toggle() -> rx.Component:
     """Toggle between grid and table view."""
     return mn.group(
         mn.action_icon(
-            rx.icon("layout-grid", size=20, color="black"),
+            rx.icon(
+                "layout-grid",
+                size=20,
+                color=rx.cond(
+                    TeamState.view_mode == "grid", "black", "var(--alloq-text)"
+                ),
+            ),
             variant=rx.cond(TeamState.view_mode == "grid", "filled", "subtle"),
             size="lg",
             radius="md",
             on_click=lambda: TeamState.set_view_mode("grid"),
         ),
         mn.action_icon(
-            rx.icon("list", size=20, color="black"),
+            rx.icon(
+                "list",
+                size=20,
+                color=rx.cond(
+                    TeamState.view_mode == "table", "black", "var(--alloq-text)"
+                ),
+            ),
             variant=rx.cond(TeamState.view_mode == "table", "filled", "subtle"),
             size="lg",
             radius="md",
