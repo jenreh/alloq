@@ -41,7 +41,6 @@ def create_profile_page(
         """
         return mn.stack(
             page_header(
-                nav_path="Benutzer",
                 title="Kontoeinstellungen",
                 description="Verwalten Sie Ihre Kontoeinstellungen und das Passwort.",
                 pl="2rem",

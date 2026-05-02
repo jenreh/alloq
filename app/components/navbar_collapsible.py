@@ -378,6 +378,33 @@ def _user_avatar() -> rx.Component:
 # --------------------------------------------------------------------------- #
 
 
+def _dark_mode_toggle() -> rx.Component:
+    return mn.tooltip(
+        mn.box(
+            mn.center(
+                rx.icon(
+                    rx.color_mode_cond(light="moon", dark="sun"),
+                    size=20,
+                ),
+                w="40px",
+                h="40px",
+                on_click=rx.toggle_color_mode,
+                style={
+                    "cursor": "pointer",
+                    "border_radius": "var(--radius-2)",
+                    "color": _TEXT_COLOR,
+                    "transition": "background-color 0.2s ease",
+                    "_hover": {"background_color": _HOVER_BG},
+                },
+            ),
+            style={"display": "flex"},
+        ),
+        label=rx.color_mode_cond(light="Dark Mode", dark="Light Mode"),
+        position="right",
+        offset=_TOOLTIP_OFFSET,
+    )
+
+
 def _rail() -> rx.Component:
     return mn.stack(
         mn.center(
@@ -413,6 +440,7 @@ def _rail() -> rx.Component:
         ),
         mn.stack(
             *[_gated(s, _rail_section_button(s)) for s in FOOTER_SECTIONS],
+            _dark_mode_toggle(),
             gap="2px",
             align="center",
             w="100%",
