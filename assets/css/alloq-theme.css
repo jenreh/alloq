@@ -206,33 +206,48 @@
 }
 
 .alloq-employee-detail-drawer.mantine-Drawer-content,
-.alloq-employee-detail-drawer .mantine-Drawer-content {
+.alloq-employee-detail-drawer .mantine-Drawer-content,
+.alloq-employee-detail-modal.mantine-Modal-content,
+.alloq-employee-detail-modal .mantine-Modal-content {
     background-color: var(--alloq-surface-muted);
     border: 1px solid var(--alloq-accent);
     overflow: hidden;
 }
 
-.alloq-employee-detail-drawer .mantine-Drawer-header {
+.alloq-employee-detail-drawer .mantine-Drawer-header,
+.alloq-employee-detail-modal .mantine-Modal-header {
     background-color: var(--alloq-surface-muted);
     padding-left: 36px;
 }
 
-.alloq-employee-detail-drawer .mantine-Drawer-title {
+.alloq-employee-detail-drawer .mantine-Drawer-title,
+.alloq-employee-detail-modal .mantine-Modal-title {
     font-weight: bold;
 }
 
-.alloq-employee-detail-drawer .mantine-Drawer-close {
+.alloq-employee-detail-drawer .mantine-Drawer-close,
+.alloq-employee-detail-modal .mantine-Modal-close {
     border: none !important;
     outline: none !important;
 }
 
-.alloq-employee-detail-drawer .mantine-Drawer-body {
+.alloq-employee-detail-drawer .mantine-Drawer-body,
+.alloq-employee-detail-modal .mantine-Modal-body {
     background-color: var(--alloq-surface-muted);
     display: flex;
     flex-direction: column;
-    height: calc(100dvh - var(--drawer-offset) * 2 - 60px);
+    /* Height calculation: Drawer uses dvh minus offset and header.
+       Modal usually has max-height, we can just use 100% or similar here */
     overflow: hidden;
     padding: 0;
+}
+
+.alloq-employee-detail-drawer .mantine-Drawer-body {
+    height: calc(100dvh - var(--drawer-offset) * 2 - 60px);
+}
+
+.alloq-employee-detail-modal .mantine-Modal-body {
+    max-height: calc(100dvh - 200px);
 }
 
 :root,

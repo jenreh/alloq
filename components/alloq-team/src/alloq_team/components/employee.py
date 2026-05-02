@@ -104,37 +104,11 @@ def employee_form_fields(employee: Employee | None = None) -> rx.Component:
     )
 
 
-def _modal_footer(
+def _form_footer(
     submit_label: str,
     on_cancel: rx.EventHandler,
 ) -> rx.Component:
-    """Footer buttons for modals."""
-    return rx.flex(
-        mn.button(
-            "Abbrechen",
-            variant="subtle",
-            on_click=on_cancel,
-        ),
-        mn.button(
-            submit_label,
-            type="submit",
-            loading=TeamState.is_loading,
-        ),
-        direction="row",
-        gap="9px",
-        justify_content="end",
-        padding="16px",
-        border_top="1px solid var(--mantine-color-default-border)",
-        background="var(--mantine-color-body)",
-        width="100%",
-    )
-
-
-def _drawer_footer(
-    submit_label: str,
-    on_cancel: rx.EventHandler,
-) -> rx.Component:
-    """Footer buttons for the employee detail drawer."""
+    """Footer buttons for modals and drawers."""
     return mn.group(
         mn.button(
             "Abbrechen",
@@ -161,35 +135,61 @@ def _drawer_footer(
     )
 
 
+def _form_layout(
+    content: rx.Component,
+    footer: rx.Component,
+    on_submit: rx.EventHandler,
+    reset_on_submit: bool = False,
+) -> rx.Component:
+    """Standardized layout for forms inside modals or drawers."""
+    return rx.form.root(
+        rx.flex(
+            rx.box(
+                content,
+                flex="1",
+                min_height="0",
+                width="100%",
+                overflow_y="auto",
+                padding="16px 18px 0",
+                background="var(--alloq-surface-muted)",
+            ),
+            footer,
+            direction="column",
+            min_height="0",
+            height="100%",
+            width="100%",
+            background="var(--alloq-surface-muted)",
+        ),
+        on_submit=on_submit,
+        reset_on_submit=reset_on_submit,
+        height="100%",
+        style={
+            "display": "flex",
+            "flexDirection": "column",
+            "height": "100%",
+            "minHeight": "0",
+        },
+    )
+
+
 # --- Modals ---
 
 
 def add_employee_modal() -> rx.Component:
     """Modal for adding a new employee."""
     return mn.modal(
-        rx.form.root(
-            rx.flex(
-                rx.box(
-                    employee_form_fields(),
-                    flex="1",
-                    min_height="0",
-                    width="100%",
-                    padding="md",
-                ),
-                _modal_footer("Mitarbeiter speichern", TeamState.close_add_modal),
-                direction="column",
-                height="100%",
-                width="100%",
-            ),
+        _form_layout(
+            content=employee_form_fields(),
+            footer=_form_footer("Mitarbeiter speichern", TeamState.close_add_modal),
             on_submit=TeamState.create_employee,
             reset_on_submit=False,
-            height="100%",
         ),
         title="Mitarbeiter hinzufügen",
         opened=TeamState.add_modal_open,
         on_close=TeamState.close_add_modal,
         size="md",
         centered=True,
+        class_name="alloq-employee-detail-modal",
         overlay_props={"backgroundOpacity": 0.5, "blur": 4},
     )
 
@@ -197,39 +197,27 @@ def add_employee_modal() -> rx.Component:
 def absence_modal() -> rx.Component:
     """Modal for adding an absence period."""
     return mn.modal(
-        rx.form.root(
-            rx.flex(
-                rx.box(
-                    mn.flex(
-                        mn.date_picker_input(
-                            label="Zeitraum",
-                            name="date_range",
-                            type="range",
-                            placeholder="Zeitraum wählen",
-                            min_date=TeamState.current_date,
-                            value=TeamState.absence_date_range,
-                            on_change=TeamState.set_absence_date_range,
-                            required=True,
-                            clearable=True,
-                            w="100%",
-                        ),
-                        direction="column",
-                        gap="md",
-                        width="100%",
-                    ),
-                    flex="1",
-                    min_height="0",
-                    width="100%",
-                    padding="md",
+        _form_layout(
+            content=mn.flex(
+                mn.date_picker_input(
+                    label="Zeitraum",
+                    name="date_range",
+                    type="range",
+                    placeholder="Zeitraum wählen",
+                    min_date=TeamState.current_date,
+                    value=TeamState.absence_date_range,
+                    on_change=TeamState.set_absence_date_range,
+                    required=True,
+                    clearable=True,
+                    w="100%",
                 ),
-                _modal_footer("Abwesenheit speichern", TeamState.close_absence_modal),
                 direction="column",
-                height="100%",
+                gap="md",
                 width="100%",
             ),
+            footer=_form_footer("Abwesenheit speichern", TeamState.close_absence_modal),
             on_submit=TeamState.create_absence,
             reset_on_submit=True,
-            height="100%",
         ),
         title="Abwesenheit hinzufügen",
         opened=TeamState.absence_modal_open,
@@ -237,6 +225,7 @@ def absence_modal() -> rx.Component:
         size="sm",
         centered=True,
         z_index=300,
+        class_name="alloq-employee-detail-modal",
         overlay_props={"backgroundOpacity": 0.5, "blur": 4},
     )
 
@@ -281,84 +270,58 @@ def _absence_row(absence: Absence) -> rx.Component:
 def employee_detail_drawer() -> rx.Component:
     """Right-side drawer showing employee details and working as update dialog."""
     return mn.drawer(
-        rx.form.root(
-            rx.flex(
-                rx.box(
+        _form_layout(
+            content=mn.stack(
+                employee_form_fields(employee=TeamState.selected_employee),
+                section(
                     mn.stack(
-                        employee_form_fields(employee=TeamState.selected_employee),
-                        section(
-                            mn.stack(
+                        mn.group(
+                            mn.text("Abwesenheiten", size="sm", c="dimmed", fw="500"),
+                            mn.action_icon(
+                                rx.icon("plus", size=14, stroke_width=2),
+                                size="sm",
+                                variant="subtle",
+                                color="gray",
+                                on_click=TeamState.open_absence_modal,
+                            ),
+                            align="center",
+                            justify="space-between",
+                        ),
+                        mn.stack(
+                            rx.foreach(TeamState.absences, _absence_row),
+                            rx.cond(
+                                TeamState.absences.length() == 0,
                                 mn.group(
                                     mn.text(
-                                        "Abwesenheiten", size="sm", c="dimmed", fw="500"
-                                    ),
-                                    mn.action_icon(
-                                        rx.icon("plus", size=14, stroke_width=2),
-                                        size="sm",
-                                        variant="subtle",
-                                        color="gray",
-                                        on_click=TeamState.open_absence_modal,
+                                        "Keine Abwesenheiten.",
+                                        ff="'Roboto Mono', monospace",
+                                        size="0.66rem",
+                                        c="dimmed",
                                     ),
                                     align="center",
-                                    justify="space-between",
+                                    gap="sm",
+                                    style={
+                                        "backgroundColor": "var(--alloq-surface-muted)",
+                                        "padding": "8px 12px",
+                                        "borderRadius": "6px",
+                                    },
                                 ),
-                                mn.stack(
-                                    rx.foreach(TeamState.absences, _absence_row),
-                                    rx.cond(
-                                        TeamState.absences.length() == 0,
-                                        mn.group(
-                                            mn.text(
-                                                "Keine Abwesenheiten.",
-                                                ff="'Roboto Mono', monospace",
-                                                size="0.66rem",
-                                                c="dimmed",
-                                            ),
-                                            align="center",
-                                            gap="sm",
-                                            style={
-                                                "backgroundColor": (
-                                                    "var(--alloq-surface-muted)"
-                                                ),
-                                                "padding": "8px 12px",
-                                                "borderRadius": "6px",
-                                            },
-                                        ),
-                                    ),
-                                    gap="3px",
-                                    w="100%",
-                                ),
-                                gap="xs",
-                                w="100%",
                             ),
+                            gap="3px",
+                            w="100%",
                         ),
-                        mn.space(height="md"),
-                        gap="16px",
+                        gap="xs",
+                        w="100%",
                     ),
-                    flex="1",
-                    min_height="0",
-                    width="100%",
-                    overflow_y="auto",
-                    padding="16px 18px 0",
-                    background="var(--alloq-surface-muted)",
                 ),
-                _drawer_footer(
-                    "Mitarbeiter aktualisieren", TeamState.close_detail_drawer
-                ),
-                direction="column",
-                min_height="0",
-                height="100%",
-                width="100%",
-                background="var(--alloq-surface-muted)",
+                mn.space(height="md"),
+                gap="16px",
+            ),
+            footer=_form_footer(
+                "Mitarbeiter aktualisieren", TeamState.close_detail_drawer
             ),
             on_submit=TeamState.update_employee,
             reset_on_submit=False,
-            height="100%",
-            style={
-                "display": "flex",
-                "flexDirection": "column",
-                "height": "100%",
-                "minHeight": "0",
-            },
         ),
         title=rx.cond(
             TeamState.selected_employee,
