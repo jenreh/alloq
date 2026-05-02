@@ -352,10 +352,12 @@ def _user_avatar() -> rx.Component:
                 mn.center(
                     mn.avatar(
                         src=LoginState.user.avatar_url,
+                        name=LoginState.user.name,
                         radius="xl",
                         size="md",
                         ml="3px",
                         mb="6px",
+                        color="var(--alloq-accent-strong)",
                     ),
                     w="100%",
                     p="xs",
