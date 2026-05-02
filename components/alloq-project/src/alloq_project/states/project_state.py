@@ -171,15 +171,17 @@ class ProjectState(UserSession):
                 session,
                 search=self.search_filter or None,
             )
-            self.projects = [Project(**entity.to_dict()) for entity in entities]
+            projects = [Project(**entity.to_dict()) for entity in entities]
+            self.projects = sorted(projects, key=lambda p: p.name_de.lower())
 
     async def _load_reference_data(self) -> None:
         """Load roles and employees for form controls."""
         async with get_asyncdb_session() as session:
             role_entities = await role_repo.find_all_paginated(session)
-            roles = [Role(**entity.to_dict()) for entity in role_entities]
-            roles.sort(key=lambda r: r.name)
-            self.available_roles = roles
+            self.available_roles = sorted(
+                [Role(**entity.to_dict()) for entity in role_entities],
+                key=lambda r: r.name,
+            )
 
             employee_entities = await employee_repo.find_all_paginated(session)
             self.available_employees = [
@@ -334,11 +336,12 @@ class ProjectState(UserSession):
         if isinstance(raw_ids, str):
             raw_ids = [raw_ids]
 
-        owner_ids = []
-        for item in raw_ids:
-            owner_ids.extend(
-                int(emp_id.strip()) for emp_id in str(item).split(",") if emp_id.strip()
-            )
+        owner_ids = [
+            int(emp_id.strip())
+            for item in raw_ids
+            for emp_id in str(item).split(",")
+            if emp_id.strip()
+        ]
 
         required_capacities = self._required_capacities_from_form(form_data)
         return ProjectCreate(

@@ -182,6 +182,29 @@ def project_detail_drawer() -> rx.Component:
     )
 
 
+def _project_section(title: str, projects: rx.Var) -> rx.Component:
+    """Helper to render a titled section of project cards."""
+    return rx.cond(
+        projects.length() > 0,
+        mn.stack(
+            mn.text(
+                title,
+                size="lg",
+                fw="700",
+            ),
+            mn.flex(
+                rx.foreach(projects, project_card),
+                wrap="wrap",
+                gap="md",
+                direction="row",
+                justify="flex-start",
+                align="flex-start",
+            ),
+            gap="sm",
+        ),
+    )
+
+
 def project_grid() -> rx.Component:
     """Grid view of all projects, split into 'my projects' and 'other projects'."""
     return rx.cond(
@@ -196,44 +219,8 @@ def project_grid() -> rx.Component:
             py="xl",
         ),
         mn.stack(
-            rx.cond(
-                ProjectState.my_projects.length() > 0,
-                mn.stack(
-                    mn.text(
-                        "Meine Projekte",
-                        size="lg",
-                        fw="700",
-                    ),
-                    mn.flex(
-                        rx.foreach(ProjectState.my_projects, project_card),
-                        wrap="wrap",
-                        gap="md",
-                        direction="row",
-                        justify="flex-start",
-                        align="flex-start",
-                    ),
-                    gap="sm",
-                ),
-            ),
-            rx.cond(
-                ProjectState.other_projects.length() > 0,
-                mn.stack(
-                    mn.text(
-                        "Weitere Projekte",
-                        size="lg",
-                        fw="700",
-                    ),
-                    mn.flex(
-                        rx.foreach(ProjectState.other_projects, project_card),
-                        wrap="wrap",
-                        gap="md",
-                        direction="row",
-                        justify="flex-start",
-                        align="flex-start",
-                    ),
-                    gap="sm",
-                ),
-            ),
+            _project_section("Meine Projekte", ProjectState.my_projects),
+            _project_section("Weitere Projekte", ProjectState.other_projects),
             gap="xl",
         ),
     )
