@@ -84,9 +84,10 @@ class TeamState(rx.State):
             return [str(role_id) for role_id in self.selected_employee.role_ids]
         return []
 
-    def open_add_modal(self) -> None:
+    def open_add_modal(self) -> list[rx.event.EventSpec]:
         """Open the add employee modal."""
         self.add_modal_open = True
+        return [EmployeeValidationState.initialize()]
 
     def close_add_modal(self) -> None:
         """Close the add employee modal."""
@@ -152,6 +153,10 @@ class TeamState(rx.State):
                 )
                 self.absences = [Absence(**a.to_dict()) for a in absence_entities]
                 self.detail_drawer_open = True
+                yield EmployeeValidationState.initialize(
+                    employee=self.selected_employee,
+                    default_role_ids=[str(r) for r in self.selected_employee.role_ids],
+                )
                 yield
 
     @is_authenticated
@@ -164,6 +169,10 @@ class TeamState(rx.State):
             if entity:
                 self.selected_employee = Employee(**entity.to_dict())
                 self.open_edit_modal()
+                yield EmployeeValidationState.initialize(
+                    employee=self.selected_employee,
+                    default_role_ids=[str(r) for r in self.selected_employee.role_ids],
+                )
                 yield
 
     @is_authenticated
@@ -406,3 +415,147 @@ class TeamState(rx.State):
                 f"Fehler beim Löschen: {e}",
                 position="top-right",
             )
+
+
+class EmployeeValidationState(rx.State):
+    """Validation state for employee add/edit forms."""
+
+    first_name: str = ""
+    last_name: str = ""
+    job_title: str = ""
+    location: str = ""
+    seniority: str = ""
+    role_ids: list[str] = []
+    hours_per_week: str = "40.0"
+
+    first_name_error: str = ""
+    last_name_error: str = ""
+    role_ids_error: str = ""
+    hours_per_week_error: str = ""
+
+    @rx.event
+    def initialize(
+        self,
+        employee: Employee | None = None,
+        default_role_ids: list[str] | None = None,
+    ) -> None:
+        """Reset validation state for add or edit mode."""
+        if employee is None:
+            self.first_name = ""
+            self.last_name = ""
+            self.job_title = ""
+            self.location = ""
+            self.seniority = "Advanced"
+            self.role_ids = []
+            self.hours_per_week = "40.0"
+        else:
+            self.first_name = employee.first_name
+            self.last_name = employee.last_name
+            self.job_title = employee.job_title or ""
+            self.location = employee.location or ""
+            self.seniority = employee.seniority
+            self.role_ids = default_role_ids or []
+            self.hours_per_week = str(employee.hours_per_week)
+
+        self.first_name_error = ""
+        self.last_name_error = ""
+        self.role_ids_error = ""
+        self.hours_per_week_error = ""
+
+    def set_first_name(self, value: str) -> None:
+        self.first_name = value
+        self.validate_first_name()
+
+    def set_last_name(self, value: str) -> None:
+        self.last_name = value
+        self.validate_last_name()
+
+    def set_job_title(self, value: str) -> None:
+        self.job_title = value
+
+    def set_location(self, value: str) -> None:
+        self.location = value
+
+    def set_seniority(self, value: str) -> None:
+        self.seniority = value
+
+    def set_role_ids(self, value: list[str]) -> None:
+        self.role_ids = value
+        self.validate_role_ids()
+
+    def set_hours_per_week(self, value: str | float) -> None:
+        self.hours_per_week = str(value)
+        self.validate_hours_per_week()
+
+    @rx.event
+    def validate_first_name(self) -> None:
+        if not self.first_name or not self.first_name.strip():
+            self.first_name_error = "Vorname darf nicht leer sein."
+        else:
+            self.first_name_error = ""
+
+    @rx.event
+    def validate_last_name(self) -> None:
+        if not self.last_name or not self.last_name.strip():
+            self.last_name_error = "Nachname darf nicht leer sein."
+        else:
+            self.last_name_error = ""
+
+    @rx.event
+    def validate_role_ids(self) -> None:
+        if not self.role_ids:
+            self.role_ids_error = "Rollen-Auswahl ist erforderlich."
+        else:
+            self.role_ids_error = ""
+
+    @rx.event
+    def validate_hours_per_week(self) -> None:
+        if not self.hours_per_week or not str(self.hours_per_week).strip():
+            self.hours_per_week_error = "Geben Sie die Arbeitszeit an."
+            return
+
+        try:
+            val = float(self.hours_per_week)
+            if val < 0.0 or val > 80.0:  # noqa: PLR2004
+                self.hours_per_week_error = "Muss zwischen 0 und 80 liegen."
+            else:
+                self.hours_per_week_error = ""
+        except ValueError:
+            self.hours_per_week_error = "Muss eine gültige Zahl sein."
+
+    @rx.event
+    def validate_all(self) -> None:
+        self.validate_first_name()
+        self.validate_last_name()
+        self.validate_role_ids()
+        self.validate_hours_per_week()
+
+    @rx.var
+    def has_errors(self) -> bool:
+        return bool(
+            self.first_name_error
+            or self.last_name_error
+            or self.role_ids_error
+            or self.hours_per_week_error
+        )
+
+    @rx.var
+    def is_form_valid(self) -> bool:
+        """Check if all required fields are filled and there are no errors."""
+        try:
+            val = float(self.hours_per_week)
+            hours_valid = 0.0 <= val <= 80.0  # noqa: PLR2004
+        except ValueError:
+            hours_valid = False
+
+        return bool(
+            self.first_name.strip()
+            and self.last_name.strip()
+            and self.role_ids
+            and hours_valid
+            and not self.has_errors
+        )
+
+    @rx.var
+    def is_form_invalid(self) -> bool:
+        return not self.is_form_valid

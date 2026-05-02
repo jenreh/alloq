@@ -8,8 +8,8 @@ from alloq_team.components.employee_card import (
 from alloq_team.components.employee_table import (
     employee_table,
 )
-from alloq_team.models.employee import Absence, Employee
-from alloq_team.states.team_state import TeamState
+from alloq_team.models.employee import Absence
+from alloq_team.states.team_state import EmployeeValidationState, TeamState
 
 import appkit_mantine as mn
 from appkit_ui.components.dialogs import delete_dialog
@@ -21,22 +21,27 @@ WORKLOAD_LIMIT_PERCENT = 100
 # --- Form Fields ---
 
 
-def employee_form_fields(employee: Employee | None = None) -> rx.Component:
+def employee_form_fields(is_edit: bool = False) -> rx.Component:
     """Reusable form fields for employee add/edit dialogs."""
-    is_edit = employee is not None
 
     return mn.flex(
         hidden_field(
             name="employee_id",
-            default_value=(
-                employee.id.to_string() if is_edit else ""  # type: ignore[union-attr]
+            default_value=rx.cond(
+                TeamState.selected_employee,
+                TeamState.selected_employee.id.to_string(),
+                "",
             ),
-        ),
+        )
+        if is_edit
+        else rx.fragment(),
         section(
             mn.text_input(
                 name="first_name",
                 label="Vorname",
-                default_value=employee.first_name if is_edit else "",
+                default_value=EmployeeValidationState.first_name,
+                on_blur=EmployeeValidationState.set_first_name,
+                error=EmployeeValidationState.first_name_error,
                 required=True,
                 max_length=255,
                 left_section=rx.icon("user", size=16),
@@ -44,7 +49,9 @@ def employee_form_fields(employee: Employee | None = None) -> rx.Component:
             mn.text_input(
                 name="last_name",
                 label="Nachname",
-                default_value=employee.last_name if is_edit else "",
+                default_value=EmployeeValidationState.last_name,
+                on_blur=EmployeeValidationState.set_last_name,
+                error=EmployeeValidationState.last_name_error,
                 required=True,
                 max_length=255,
                 left_section=rx.icon("user", size=16),
@@ -52,7 +59,8 @@ def employee_form_fields(employee: Employee | None = None) -> rx.Component:
             mn.text_input(
                 name="job_title",
                 label="Job-Titel (z.B. Software Engineer)",
-                default_value=employee.job_title if is_edit else "",
+                default_value=EmployeeValidationState.job_title,
+                on_blur=EmployeeValidationState.set_job_title,
                 required=False,
                 max_length=255,
                 left_section=rx.icon("briefcase", size=16),
@@ -60,7 +68,8 @@ def employee_form_fields(employee: Employee | None = None) -> rx.Component:
             mn.text_input(
                 name="location",
                 label="Standort (z.B. New York, USA)",
-                default_value=employee.location if is_edit else "",
+                default_value=EmployeeValidationState.location,
+                on_blur=EmployeeValidationState.set_location,
                 required=False,
                 max_length=255,
                 left_section=rx.icon("map-pin", size=16),
@@ -71,9 +80,8 @@ def employee_form_fields(employee: Employee | None = None) -> rx.Component:
                 name="seniority",
                 label="Senioritätslevel",
                 data=[level.value for level in SeniorityLevel],
-                default_value=(
-                    employee.seniority if is_edit else SeniorityLevel.ADVANCED.value
-                ),
+                default_value=EmployeeValidationState.seniority,
+                on_change=EmployeeValidationState.set_seniority,
                 required=True,
                 clearable=False,
                 searchable=False,
@@ -82,7 +90,9 @@ def employee_form_fields(employee: Employee | None = None) -> rx.Component:
                 name="role_ids",
                 label="Rollen",
                 data=TeamState.role_select_options,
-                default_value=TeamState.form_role_ids if is_edit else [],
+                default_value=EmployeeValidationState.role_ids,
+                on_change=EmployeeValidationState.set_role_ids,
+                error=EmployeeValidationState.role_ids_error,
                 required=True,
                 searchable=True,
                 clearable=True,
@@ -90,7 +100,10 @@ def employee_form_fields(employee: Employee | None = None) -> rx.Component:
             mn.number_input(
                 name="hours_per_week",
                 label="Arbeitszeit (h/Woche)",
-                default_value=employee.hours_per_week if is_edit else 40.0,
+                default_value=EmployeeValidationState.hours_per_week,
+                on_blur=EmployeeValidationState.set_hours_per_week,
+                on_change=EmployeeValidationState.set_hours_per_week,
+                error=EmployeeValidationState.hours_per_week_error,
                 min=0,
                 max=80,
                 step=0.5,
@@ -107,6 +120,7 @@ def employee_form_fields(employee: Employee | None = None) -> rx.Component:
 def _form_footer(
     submit_label: str,
     on_cancel: rx.EventHandler,
+    disabled: bool | rx.Var[bool] = False,
 ) -> rx.Component:
     """Footer buttons for modals and drawers."""
     return mn.group(
@@ -119,8 +133,10 @@ def _form_footer(
         mn.button(
             submit_label,
             type="submit",
+            disabled=disabled,
             loading=TeamState.is_loading,
             px="xl",
+            class_name="alloq-submit-btn",
         ),
         direction="row",
         gap="md",
@@ -179,8 +195,12 @@ def add_employee_modal() -> rx.Component:
     """Modal for adding a new employee."""
     return mn.modal(
         _form_layout(
-            content=employee_form_fields(),
-            footer=_form_footer("Mitarbeiter speichern", TeamState.close_add_modal),
+            content=employee_form_fields(is_edit=False),
+            footer=_form_footer(
+                "Mitarbeiter speichern",
+                TeamState.close_add_modal,
+                disabled=EmployeeValidationState.is_form_invalid,
+            ),
             on_submit=TeamState.create_employee,
             reset_on_submit=False,
         ),
@@ -272,7 +292,7 @@ def employee_detail_drawer() -> rx.Component:
     return mn.drawer(
         _form_layout(
             content=mn.stack(
-                employee_form_fields(employee=TeamState.selected_employee),
+                employee_form_fields(is_edit=True),
                 section(
                     mn.stack(
                         mn.group(
@@ -318,7 +338,9 @@ def employee_detail_drawer() -> rx.Component:
                 gap="16px",
             ),
             footer=_form_footer(
-                "Mitarbeiter aktualisieren", TeamState.close_detail_drawer
+                "Mitarbeiter aktualisieren",
+                TeamState.close_detail_drawer,
+                disabled=EmployeeValidationState.is_form_invalid,
             ),
             on_submit=TeamState.update_employee,
             reset_on_submit=False,

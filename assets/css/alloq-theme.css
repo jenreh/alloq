@@ -647,3 +647,11 @@ body,
 .alloq-team-table .mantine-Progress-root {
     flex-shrink: 0;
 } */
+
+/* Disabled submit button styling */
+.alloq-submit-btn[data-disabled] {
+    background-color: var(--alloq-surface-hover) !important;
+    color: var(--alloq-text-muted) !important;
+    opacity: 0.4 !important;
+    border-color: transparent !important;
+}
