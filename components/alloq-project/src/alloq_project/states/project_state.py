@@ -389,40 +389,58 @@ class ProjectValidationState(rx.State):
     budget: str = "0"
     color: str = DEFAULT_PROJECT_COLOR
     owner_ids: list[str] = []
+    role_capacities: dict[str, int] = {}
 
     code_error: str = ""
     name_de_error: str = ""
     date_error: str = ""
     budget_error: str = ""
 
-    @rx.event
-    def initialize(self, project: Project | None = None) -> None:
+    @rx.event(background=True)
+    async def initialize(self, project: Project | None = None) -> None:
         """Reset validation state for add mode or preload from a project."""
-        if project is None:
-            self.code = ""
-            self.name_de = ""
-            self.start_date = ""
-            self.end_date = ""
-            self.state = ProjectStateEnum.PLANNED.value
-            self.budget = "0"
-            self.color = DEFAULT_PROJECT_COLOR
-            self.owner_ids = []
-        else:
-            self.code = project.code
-            self.name_de = project.name_de
-            self.start_date = (
-                project.start_date.isoformat() if project.start_date else ""
-            )
-            self.end_date = project.end_date.isoformat() if project.end_date else ""
-            self.state = project.state
-            self.budget = str(project.budget)
-            self.color = project.color
-            self.owner_ids = [str(oid) for oid in project.owner_ids]
+        async with self:
+            if project is None:
+                self.code = ""
+                self.name_de = ""
+                self.start_date = ""
+                self.end_date = ""
+                self.state = ProjectStateEnum.PLANNED.value
+                self.budget = "0"
+                self.color = DEFAULT_PROJECT_COLOR
+                self.owner_ids = []
 
-        self.code_error = ""
-        self.name_de_error = ""
-        self.date_error = ""
-        self.budget_error = ""
+                # Get available roles to initialize capacities to 0
+                project_state = await self.get_state(ProjectState)
+                self.role_capacities = {
+                    str(role.id): 0 for role in project_state.available_roles
+                }
+            else:
+                self.code = project.code
+                self.name_de = project.name_de
+                self.start_date = (
+                    project.start_date.isoformat() if project.start_date else ""
+                )
+                self.end_date = project.end_date.isoformat() if project.end_date else ""
+                self.state = project.state
+                self.budget = str(project.budget)
+                self.color = project.color
+                self.owner_ids = [str(oid) for oid in project.owner_ids]
+
+                project_state = await self.get_state(ProjectState)
+                role_caps = {str(role.id): 0 for role in project_state.available_roles}
+                role_caps.update(
+                    {
+                        str(c.role_id): c.person_days
+                        for c in getattr(project, "required_capacities", [])
+                    }
+                )
+                self.role_capacities = role_caps
+
+            self.code_error = ""
+            self.name_de_error = ""
+            self.date_error = ""
+            self.budget_error = ""
 
     def set_code(self, value: str) -> None:
         self.code = value
@@ -488,7 +506,16 @@ class ProjectValidationState(rx.State):
         except ValueError:
             self.budget_error = "Budget muss eine gültige Zahl sein."
 
-    @rx.var
+    @rx.var(cache=True)
+    def total_capacity(self) -> int:
+        return sum(self.role_capacities.values())
+
+    def set_role_capacity(self, role_id: str, value: str | float) -> None:
+        try:
+            self.role_capacities[role_id] = int(float(str(value) or 0))
+        except (ValueError, TypeError):
+            self.role_capacities[role_id] = 0
+
     def has_errors(self) -> bool:
         return bool(
             self.code_error

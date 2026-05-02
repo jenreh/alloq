@@ -33,7 +33,9 @@ def project_form_fields() -> rx.Component:
                 on_blur=ProjectValidationState.set_code,
                 error=ProjectValidationState.code_error,
                 required=True,
-                max_length=50,
+                max_length=5,
+                custom_attrs={"maxLength": 5},
+                w="10rem",
             ),
             mn.multi_select(
                 name="owner_ids",
@@ -48,6 +50,28 @@ def project_form_fields() -> rx.Component:
         ),
         section(
             mn.simple_grid(
+                mn.number_input(
+                    name="budget",
+                    label="Budget (€)",
+                    default_value=ProjectValidationState.budget,
+                    on_change=ProjectValidationState.set_budget,
+                    on_blur=ProjectValidationState.set_budget,
+                    error=ProjectValidationState.budget_error,
+                    min=0,
+                    step=10000,
+                    required=True,
+                    thousand_separator=".",
+                    decimal_separator=",",
+                ),
+                mn.select(
+                    name="state",
+                    label="Status",
+                    data=ProjectState.state_select_options,
+                    default_value=ProjectValidationState.state,
+                    on_change=ProjectValidationState.set_state,
+                    required=True,
+                    clearable=False,
+                ),
                 mn.date_input(
                     name="start_date",
                     label="Start",
@@ -71,28 +95,6 @@ def project_form_fields() -> rx.Component:
                 cols=2,
                 spacing="md",
                 w="100%",
-            ),
-            mn.select(
-                name="state",
-                label="Status",
-                data=ProjectState.state_select_options,
-                default_value=ProjectValidationState.state,
-                on_change=ProjectValidationState.set_state,
-                required=True,
-                clearable=False,
-            ),
-        ),
-        section(
-            mn.number_input(
-                name="budget",
-                label="Budget (€)",
-                default_value=ProjectValidationState.budget,
-                on_change=ProjectValidationState.set_budget,
-                on_blur=ProjectValidationState.set_budget,
-                error=ProjectValidationState.budget_error,
-                min=0,
-                step=1000,
-                required=True,
             ),
         ),
         _color_picker(),
@@ -147,7 +149,16 @@ def _required_capacity_fields() -> rx.Component:
     """Render person-day inputs for all configured roles."""
     return section(
         mn.stack(
-            mn.text("Benötigte Rollen (Personentage)", size="sm", fw="700", c="dimmed"),
+            mn.group(
+                mn.text("Benötigte Rollen", size="sm", fw="700", c="dimmed"),
+                mn.text(
+                    f"({ProjectValidationState.total_capacity} PT Gesamt)",
+                    size="xs",
+                    c="dimmed",
+                ),
+                justify="space-between",
+                w="100%",
+            ),
             mn.simple_grid(
                 rx.foreach(ProjectState.available_roles, _required_capacity_input),
                 cols=3,
@@ -172,10 +183,19 @@ def _required_capacity_input(role: Role) -> rx.Component:
             mn.number_input(
                 name="required_capacity_" + role.id.to_string(),
                 placeholder="Personentage",
+                default_value=ProjectValidationState.role_capacities[
+                    role.id.to_string()
+                ],
+                on_change=lambda v: ProjectValidationState.set_role_capacity(
+                    role.id.to_string(), v
+                ),
                 min=0,
-                step=1,
+                step=5,
                 w="100%",
-                right_section=mn.text(" PT ", size="xs", c="dimmed"),
+                decimal_precision=0,
+                decimal_separator=",",
+                thousand_separator=".",
+                # right_section=mn.text(" PT ", size="xs", c="dimmed"),
             ),
             gap="xs",
         ),
