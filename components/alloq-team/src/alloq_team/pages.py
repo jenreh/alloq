@@ -38,7 +38,7 @@ def create_team_overview_page(
                 gap="md",
                 pr="2rem",
                 pl="2rem",
-                pt="2rem",
+                pt="2.1rem",
                 pb="4rem",
             ),
         )

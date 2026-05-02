@@ -29,15 +29,15 @@ def create_projects_overview_page(
         return requires_admin(
             mn.stack(
                 page_header(
-                    nav_path="Projekte",
                     title="Projektübersicht",
                     description="Verwalten Sie Ihre Projekte und deren Einstellungen.",
                 ),
                 width="100%",
-                max_width="1200px",
-                gap="0",
+                gap="md",
                 pr="2rem",
                 pl="2rem",
+                pt="2.1rem",
+                pb="4rem",
             ),
         )
 

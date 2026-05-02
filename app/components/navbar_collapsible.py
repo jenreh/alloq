@@ -625,7 +625,7 @@ def _panel() -> rx.Component:
 def app_navbar_collapsible() -> rx.Component:
     """Two-column desktop navbar: rail + collapsible section panel."""
     return mn.stack(
-        _logo(),
+        # _logo(),
         mn.group(
             mn.group(
                 _rail(),
@@ -638,7 +638,7 @@ def app_navbar_collapsible() -> rx.Component:
             gap="0",
             wrap="nowrap",
             align="stretch",
-            h="calc(100dvh - 104px)",
+            h="calc(100dvh - 64px)",
             style={
                 "border_radius": "var(--radius-3)",
                 "border": _BORDER,
@@ -651,7 +651,7 @@ def app_navbar_collapsible() -> rx.Component:
         visible_from=MOBILE_BREAKPOINT,
         style={
             "position": "sticky",
-            "top": "24px",
-            "margin": "18px 18px 18px 12px",
+            "top": "2.25rem",
+            "margin": "18px 18px 2rem 12px",
         },
     )
