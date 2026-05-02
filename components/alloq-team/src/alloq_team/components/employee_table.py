@@ -22,6 +22,7 @@ TABLE_STYLE = {
     "borderSpacing": "0",
     "margin": "0",
     "width": "100%",
+    "tableLayout": "fixed",
 }
 
 TABLE_WRAPPER_STYLE = {
@@ -118,9 +119,9 @@ def _role_badge(role_name: str) -> rx.Component:
 def _employee_table_row(employee: Employee) -> rx.Component:
     """Render a single employee as a table row."""
     return mn.table.tr(
-        mn.table.td(_employee_name_cell(employee)),
-        mn.table.td(employee.location),
-        mn.table.td(employee.seniority),
+        mn.table.td(_employee_name_cell(employee), width="300px", min_width="240px"),
+        mn.table.td(employee.location, width="150px", min_width="120px"),
+        mn.table.td(employee.seniority, width="120px", min_width="120px"),
         mn.table.td(
             mn.group(
                 rx.foreach(
@@ -141,7 +142,7 @@ def _employee_table_row(employee: Employee) -> rx.Component:
                 rx.icon_button(
                     rx.icon("square-pen", size=16),
                     variant="ghost",
-                    on_click=lambda: TeamState.select_employee_and_edit(employee.id),
+                    on_click=lambda: TeamState.select_employee(employee.id),
                 ),
                 delete_dialog(
                     title="Löschen bestätigen",
@@ -149,8 +150,10 @@ def _employee_table_row(employee: Employee) -> rx.Component:
                     on_click=lambda: TeamState.delete_employee(employee.id),
                     icon_button=True,
                     color="red",
+                    variant="subtle",
+                    size="sm",
                 ),
-                gap="xs",
+                gap="12px",
                 wrap="nowrap",
                 align="center",
             ),
@@ -172,14 +175,20 @@ def employee_table() -> rx.Component:
                     mn.table.th(
                         mn.text("Mitarbeiter", size="sm", fw="800"),
                         style=TABLE_HEADER_STYLE,
+                        width="300px",
+                        min_width="240px",
                     ),
                     mn.table.th(
                         mn.text("Standort", size="sm", fw="800"),
                         style=TABLE_HEADER_STYLE,
+                        width="150px",
+                        min_width="120px",
                     ),
                     mn.table.th(
                         mn.text("Level", size="sm", fw="800"),
                         style=TABLE_HEADER_STYLE,
+                        width="120px",
+                        min_width="120px",
                     ),
                     mn.table.th(
                         mn.text("Rollen", size="sm", fw="800"),

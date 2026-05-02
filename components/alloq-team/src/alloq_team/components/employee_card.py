@@ -62,7 +62,7 @@ class EmployeeCardState(rx.ComponentState):
                 },
                 "border_radius": "var(--mantine-radius-lg)",
             },
-            on_click=TeamState.select_employee_and_edit(employee.id),
+            on_click=TeamState.select_employee(employee.id),
             **props,
         )
 
@@ -199,7 +199,20 @@ def _absence_list(employee: Employee) -> rx.Component:
                             "fontWeight": "400",
                         },
                     ),
+                    mn.box(
+                        delete_dialog(
+                            title="Abwesenheit löschen",
+                            content=f"{absence.start_date} bis {absence.end_date}",
+                            on_click=TeamState.delete_absence(absence.id),
+                            icon_button=True,
+                            color="gray",
+                            size="14px",
+                            variant="subtle",
+                        ),
+                        on_click=rx.stop_propagation,
+                    ),
                     align="center",
+                    justify="space-between",
                     gap="xs",
                     style={
                         "backgroundColor": "var(--alloq-item-bg)",
@@ -238,8 +251,9 @@ def _productivity_indicator() -> rx.Component:
     """Productivity progress bar."""
     return mn.stack(
         mn.group(
-            mn.text("Kapazität:", size="xs", c="dimmed", fw="500"),
-            mn.text("65%", size="xs", fw="700"),
+            mn.text("verplant: ", size="xs", c="dimmed"),
+            mn.text("65%", size="xs", fw="600"),
+            mn.text(" (4w)", size="xs", c="dimmed"),
             gap="4px",
             justify="start",
         ),

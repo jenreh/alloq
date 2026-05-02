@@ -205,6 +205,36 @@
     --alloq-item-text: #c1c2c5;
 }
 
+.alloq-employee-detail-drawer.mantine-Drawer-content,
+.alloq-employee-detail-drawer .mantine-Drawer-content {
+    background-color: var(--alloq-surface-muted);
+    border: 1px solid var(--alloq-accent);
+    overflow: hidden;
+}
+
+.alloq-employee-detail-drawer .mantine-Drawer-header {
+    background-color: var(--alloq-surface-muted);
+    padding-left: 36px;
+}
+
+.alloq-employee-detail-drawer .mantine-Drawer-title {
+    font-weight: bold;
+}
+
+.alloq-employee-detail-drawer .mantine-Drawer-close {
+    border: none !important;
+    outline: none !important;
+}
+
+.alloq-employee-detail-drawer .mantine-Drawer-body {
+    background-color: var(--alloq-surface-muted);
+    display: flex;
+    flex-direction: column;
+    height: calc(100dvh - var(--drawer-offset) * 2 - 60px);
+    overflow: hidden;
+    padding: 0;
+}
+
 :root,
 .radix-themes {
     --accent-1: var(--mantine-color-yellow-0);

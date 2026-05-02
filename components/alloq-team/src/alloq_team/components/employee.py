@@ -1,8 +1,8 @@
 import reflex as rx
+from alloq_commons.components.forms import section
 from alloq_commons.entities.employee import SeniorityLevel
 from alloq_team.components.employee_card import (
-    _employee_initials,
-    _seniority_color,
+    _format_date_de,
     employee_grid,
 )
 from alloq_team.components.employee_table import (
@@ -32,63 +32,71 @@ def employee_form_fields(employee: Employee | None = None) -> rx.Component:
                 employee.id.to_string() if is_edit else ""  # type: ignore[union-attr]
             ),
         ),
-        mn.text_input(
-            name="first_name",
-            label="Vorname",
-            default_value=employee.first_name if is_edit else "",
-            required=True,
-            max_length=255,
-            left_section=rx.icon("user", size=16),
-        ),
-        mn.text_input(
-            name="last_name",
-            label="Nachname",
-            default_value=employee.last_name if is_edit else "",
-            required=True,
-            max_length=255,
-            left_section=rx.icon("user", size=16),
-        ),
-        mn.select(
-            name="seniority",
-            label="Senioritätslevel",
-            data=[level.value for level in SeniorityLevel],
-            default_value=(
-                employee.seniority if is_edit else SeniorityLevel.ADVANCED.value
+        section(
+            mn.text_input(
+                name="first_name",
+                label="Vorname",
+                default_value=employee.first_name if is_edit else "",
+                required=True,
+                max_length=255,
+                left_section=rx.icon("user", size=16),
             ),
-            required=True,
+            mn.text_input(
+                name="last_name",
+                label="Nachname",
+                default_value=employee.last_name if is_edit else "",
+                required=True,
+                max_length=255,
+                left_section=rx.icon("user", size=16),
+            ),
+            mn.text_input(
+                name="job_title",
+                label="Job-Titel (z.B. Software Engineer)",
+                default_value=employee.job_title if is_edit else "",
+                required=False,
+                max_length=255,
+                left_section=rx.icon("briefcase", size=16),
+            ),
+            mn.text_input(
+                name="location",
+                label="Standort (z.B. New York, USA)",
+                default_value=employee.location if is_edit else "",
+                required=False,
+                max_length=255,
+                left_section=rx.icon("map-pin", size=16),
+            ),
         ),
-        mn.text_input(
-            name="job_title",
-            label="Job-Titel (z.B. Software Engineer)",
-            default_value=employee.job_title if is_edit else "",
-            required=False,
-            max_length=255,
-            left_section=rx.icon("briefcase", size=16),
-        ),
-        mn.text_input(
-            name="location",
-            label="Standort (z.B. New York, USA)",
-            default_value=employee.location if is_edit else "",
-            required=False,
-            max_length=255,
-            left_section=rx.icon("map-pin", size=16),
-        ),
-        mn.multi_select(
-            name="role_ids",
-            label="Rollen",
-            data=TeamState.role_select_options,
-            default_value=(employee.role_ids.to(list[str]) if is_edit else []),
-            required=True,
-        ),
-        mn.number_input(
-            name="hours_per_week",
-            label="Arbeitszeit (h/Woche)",
-            default_value=employee.hours_per_week if is_edit else 40.0,
-            min=0,
-            max=80,
-            step=0.5,
-            required=True,
-            left_section=rx.icon("clock", size=16),
+        section(
+            mn.select(
+                name="seniority",
+                label="Senioritätslevel",
+                data=[level.value for level in SeniorityLevel],
+                default_value=(
+                    employee.seniority if is_edit else SeniorityLevel.ADVANCED.value
+                ),
+                required=True,
+                clearable=False,
+                searchable=False,
+            ),
+            mn.multi_select(
+                name="role_ids",
+                label="Rollen",
+                data=TeamState.role_select_options,
+                default_value=TeamState.form_role_ids if is_edit else [],
+                required=True,
+                searchable=True,
+                clearable=True,
+            ),
+            mn.number_input(
+                name="hours_per_week",
+                label="Arbeitszeit (h/Woche)",
+                default_value=employee.hours_per_week if is_edit else 40.0,
+                min=0,
+                max=80,
+                step=0.5,
+                required=True,
+                left_section=rx.icon("clock", size=16),
+            ),
         ),
         direction="column",
         gap="md",
@@ -122,6 +130,37 @@ def _modal_footer(
     )
 
 
+def _drawer_footer(
+    submit_label: str,
+    on_cancel: rx.EventHandler,
+) -> rx.Component:
+    """Footer buttons for the employee detail drawer."""
+    return mn.group(
+        mn.button(
+            "Abbrechen",
+            variant="subtle",
+            on_click=on_cancel,
+            color="yellow",
+        ),
+        mn.button(
+            submit_label,
+            type="submit",
+            loading=TeamState.is_loading,
+            px="xl",
+        ),
+        direction="row",
+        gap="md",
+        justify="end",
+        align="center",
+        padding="16px 18px 18px",
+        background="var(--alloq-surface-muted)",
+        width="100%",
+        flex_shrink="0",
+        box_shadow="0 -3px 9px rgba(91, 76, 34, 0.12)",
+        z_index="1",
+    )
+
+
 # --- Modals ---
 
 
@@ -149,36 +188,6 @@ def add_employee_modal() -> rx.Component:
         title="Mitarbeiter hinzufügen",
         opened=TeamState.add_modal_open,
         on_close=TeamState.close_add_modal,
-        size="md",
-        centered=True,
-        overlay_props={"backgroundOpacity": 0.5, "blur": 4},
-    )
-
-
-def edit_employee_modal() -> rx.Component:
-    """Modal for editing an existing employee."""
-    return mn.modal(
-        rx.form.root(
-            rx.flex(
-                rx.box(
-                    employee_form_fields(employee=TeamState.selected_employee),
-                    flex="1",
-                    min_height="0",
-                    width="100%",
-                    padding="md",
-                ),
-                _modal_footer("Mitarbeiter aktualisieren", TeamState.close_edit_modal),
-                direction="column",
-                height="100%",
-                width="100%",
-            ),
-            on_submit=TeamState.update_employee,
-            reset_on_submit=False,
-            height="100%",
-        ),
-        title="Mitarbeiter bearbeiten",
-        opened=TeamState.edit_modal_open,
-        on_close=TeamState.close_edit_modal,
         size="md",
         centered=True,
         overlay_props={"backgroundOpacity": 0.5, "blur": 4},
@@ -236,124 +245,137 @@ def absence_modal() -> rx.Component:
 
 
 def _absence_row(absence: Absence) -> rx.Component:
-    """Single absence row in the detail drawer."""
+    """Single absence row in the detail drawer matching the card design."""
     return mn.group(
         mn.text(
-            f"{absence.start_date} - {absence.end_date}",
-            size="sm",
+            _format_date_de(absence.start_date)
+            + " bis "
+            + _format_date_de(absence.end_date),
+            size="0.66rem",
+            ff="'Roboto Mono', monospace",
+            style={
+                "color": "var(--alloq-item-text)",
+                "fontWeight": "400",
+            },
         ),
         delete_dialog(
             title="Abwesenheit löschen",
-            content=f"{absence.start_date} - {absence.end_date}",
+            content=f"{absence.start_date} bis {absence.end_date}",
             on_click=lambda: TeamState.delete_absence(absence.id),
             icon_button=True,
             color="red",
             size="xs",
+            variant="subtle",
         ),
-        justify="space-between",
         align="center",
-        w="100%",
+        justify="space-between",
+        gap="xs",
+        style={
+            "backgroundColor": "var(--alloq-surface-muted)",
+            "padding": "8px 12px",
+            "borderRadius": "6px",
+        },
     )
 
 
 def employee_detail_drawer() -> rx.Component:
-    """Right-side drawer showing employee details and absences."""
+    """Right-side drawer showing employee details and working as update dialog."""
     return mn.drawer(
-        mn.stack(
-            # Employee details section
-            mn.stack(
-                mn.group(
-                    _employee_initials(TeamState.selected_employee),
+        rx.form.root(
+            rx.flex(
+                rx.box(
                     mn.stack(
-                        mn.text(
-                            f"{TeamState.selected_employee.first_name} "
-                            f"{TeamState.selected_employee.last_name}",
-                            fw="700",
-                            size="lg",
-                        ),
-                        mn.group(
-                            mn.badge(
-                                TeamState.selected_employee.seniority,
-                                color=_seniority_color(
-                                    TeamState.selected_employee.seniority
+                        employee_form_fields(employee=TeamState.selected_employee),
+                        section(
+                            mn.stack(
+                                mn.group(
+                                    mn.text(
+                                        "Abwesenheiten", size="sm", c="dimmed", fw="500"
+                                    ),
+                                    mn.action_icon(
+                                        rx.icon("plus", size=14, stroke_width=2),
+                                        size="sm",
+                                        variant="subtle",
+                                        color="gray",
+                                        on_click=TeamState.open_absence_modal,
+                                    ),
+                                    align="center",
+                                    justify="space-between",
                                 ),
-                                size="sm",
-                                variant="light",
-                            ),
-                            rx.foreach(
-                                TeamState.selected_employee.role_names,
-                                lambda rn: mn.badge(
-                                    rn,
-                                    color="gray",
-                                    size="sm",
-                                    variant="outline",
+                                mn.stack(
+                                    rx.foreach(TeamState.absences, _absence_row),
+                                    rx.cond(
+                                        TeamState.absences.length() == 0,
+                                        mn.group(
+                                            mn.text(
+                                                "Keine Abwesenheiten.",
+                                                ff="'Roboto Mono', monospace",
+                                                size="0.66rem",
+                                                c="dimmed",
+                                            ),
+                                            align="center",
+                                            gap="sm",
+                                            style={
+                                                "backgroundColor": (
+                                                    "var(--alloq-surface-muted)"
+                                                ),
+                                                "padding": "8px 12px",
+                                                "borderRadius": "6px",
+                                            },
+                                        ),
+                                    ),
+                                    gap="3px",
+                                    w="100%",
                                 ),
+                                gap="xs",
+                                w="100%",
                             ),
-                            gap="xs",
                         ),
-                        gap="4px",
+                        mn.space(height="md"),
+                        gap="16px",
                     ),
-                    gap="md",
-                    align="center",
+                    flex="1",
+                    min_height="0",
+                    width="100%",
+                    overflow_y="auto",
+                    padding="16px 18px 0",
+                    background="var(--alloq-surface-muted)",
                 ),
-                mn.divider(),
-                mn.text(
-                    f"Arbeitszeit: "
-                    f"{TeamState.selected_employee.hours_per_week}"
-                    f" h/Woche",
-                    size="sm",
-                    c="dimmed",
+                _drawer_footer(
+                    "Mitarbeiter aktualisieren", TeamState.close_detail_drawer
                 ),
-                gap="sm",
+                direction="column",
+                min_height="0",
+                height="100%",
+                width="100%",
+                background="var(--alloq-surface-muted)",
             ),
-            # Absences section
-            mn.stack(
-                mn.group(
-                    mn.text("Abwesenheiten", fw="600", size="sm"),
-                    mn.action_icon(
-                        rx.icon("plus", size=16),
-                        variant="light",
-                        size="sm",
-                        on_click=TeamState.open_absence_modal,
-                    ),
-                    justify="space-between",
-                    align="center",
-                    w="100%",
-                ),
-                rx.cond(
-                    TeamState.absences.length() > 0,
-                    mn.stack(
-                        rx.foreach(TeamState.absences, _absence_row),
-                        gap="xs",
-                    ),
-                    mn.text(
-                        "Keine Abwesenheiten eingetragen.",
-                        size="sm",
-                        c="dimmed",
-                        fs="italic",
-                    ),
-                ),
-                gap="sm",
-            ),
-            # Project assignments (read-only, future feature)
-            mn.stack(
-                mn.text("Projektzuordnungen", fw="600", size="sm"),
-                mn.text(
-                    "Noch keine Projekte zugeordnet.",
-                    size="sm",
-                    c="dimmed",
-                    fs="italic",
-                ),
-                gap="sm",
-            ),
-            gap="xl",
+            on_submit=TeamState.update_employee,
+            reset_on_submit=False,
+            height="100%",
+            style={
+                "display": "flex",
+                "flexDirection": "column",
+                "height": "100%",
+                "minHeight": "0",
+            },
         ),
-        title="Mitarbeiter Details",
+        title=rx.cond(
+            TeamState.selected_employee,
+            f"{TeamState.selected_employee.first_name} "
+            f"{TeamState.selected_employee.last_name}",
+            "Mitarbeiter Details",
+        ),
         opened=TeamState.detail_drawer_open,
         on_close=TeamState.close_detail_drawer,
         position="right",
-        size="md",
-        overlay_props={"backgroundOpacity": 0.3, "blur": 2},
+        size="lg",
+        overlay_props={"backgroundOpacity": 0.3, "blur": 3},
+        offset="15px",
+        radius="md",
+        class_name="alloq-employee-detail-drawer",
+        with_close_button=True,
+        close_on_click_outside=True,
     )
 
 
@@ -364,7 +386,6 @@ def team_overview() -> rx.Component:
     """Complete team overview component with grid/table toggle."""
     return mn.stack(
         add_employee_modal(),
-        edit_employee_modal(),
         absence_modal(),
         employee_detail_drawer(),
         rx.cond(

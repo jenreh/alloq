@@ -77,6 +77,13 @@ class TeamState(rx.State):
         """Return roles formatted for Mantine Select data prop."""
         return [{"value": str(r.id), "label": r.name} for r in self.available_roles]
 
+    @rx.var
+    def form_role_ids(self) -> list[str]:
+        """Convert selected employee role IDs to strings for multi-select."""
+        if self.selected_employee:
+            return [str(role_id) for role_id in self.selected_employee.role_ids]
+        return []
+
     def open_add_modal(self) -> None:
         """Open the add employee modal."""
         self.add_modal_open = True
@@ -270,7 +277,7 @@ class TeamState(rx.State):
                 await employee_repo.update(session, entity)
 
             await self._load_employees()
-            self.close_edit_modal()
+            self.close_detail_drawer()
             self.is_loading = False
             name = f"{emp_data.first_name} {emp_data.last_name}"
             yield rx.toast.info(
@@ -389,6 +396,8 @@ class TeamState(rx.State):
                         session, self.selected_employee.id
                     )
                     self.absences = [Absence(**a.to_dict()) for a in absence_entities]
+
+            await self._load_employees()
 
             yield rx.toast.info("Abwesenheit gelöscht.", position="top-right")
         except Exception as e:
