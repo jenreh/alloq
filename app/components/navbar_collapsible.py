@@ -407,38 +407,42 @@ def _dark_mode_toggle() -> rx.Component:
     )
 
 
+def _logo() -> rx.Component:
+    return mn.center(
+        mn.tooltip(
+            mn.image(
+                src="/img/logo.svg",
+                h="32px",
+                w="32px",
+                fit="contain",
+                on_click=NavbarCollapseState.toggle,
+                style={"cursor": "pointer"},
+            ),
+            label=rx.cond(
+                NavbarCollapseState.is_collapsed,
+                "Menü öffnen",
+                "Menü schließen",
+            ),
+            position="right",
+            offset=_TOOLTIP_OFFSET,
+        ),
+        w=RAIL_WIDTH,
+        p="xs",
+        style={"flex_shrink": "0"},
+    )
+
+
 def _rail() -> rx.Component:
     return mn.stack(
-        mn.center(
-            mn.tooltip(
-                mn.image(
-                    src="/img/logo.svg",
-                    h="32px",
-                    w="32px",
-                    fit="contain",
-                    on_click=NavbarCollapseState.toggle,
-                    style={"cursor": "pointer"},
-                ),
-                label=rx.cond(
-                    NavbarCollapseState.is_collapsed,
-                    "Menü öffnen",
-                    "Menü schließen",
-                ),
-                position="right",
-                offset=_TOOLTIP_OFFSET,
-            ),
-            w="100%",
-            p="xs",
-            style={"flex_shrink": "0"},
-        ),
-        mn.center(
-            mn.stack(
-                *[_gated(s, _rail_section_button(s)) for s in SECTIONS],
-                gap="2px",
-                align="center",
-            ),
+        #        mn.center(
+        mn.stack(
+            *[_gated(s, _rail_section_button(s)) for s in SECTIONS],
+            gap="2px",
+            align="center",
+            #           ),
             w="100%",
             h="100%",
+            mt="1rem",
         ),
         mn.stack(
             *[_gated(s, _rail_section_button(s)) for s in FOOTER_SECTIONS],
@@ -620,29 +624,34 @@ def _panel() -> rx.Component:
 
 def app_navbar_collapsible() -> rx.Component:
     """Two-column desktop navbar: rail + collapsible section panel."""
-    return mn.group(
+    return mn.stack(
+        _logo(),
         mn.group(
-            _rail(),
-            align="stretch",
-            wrap="nowrap",
+            mn.group(
+                _rail(),
+                align="stretch",
+                wrap="nowrap",
+                gap="0",
+                bg=_RAIL_BG,
+            ),
+            _panel(),
             gap="0",
-            # border_radius="var(--radius-3)",
-            bg=_RAIL_BG,
+            wrap="nowrap",
+            align="stretch",
+            h="calc(100dvh - 104px)",
+            style={
+                "border_radius": "var(--radius-3)",
+                "border": _BORDER,
+                "box_shadow": "var(--alloq-shadow-soft)",
+                "overflow": "hidden",
+                "background_color": _RAIL_BG,
+            },
         ),
-        _panel(),
-        gap="0",
-        wrap="nowrap",
-        align="stretch",
-        h="calc(100dvh - 48px)",
+        gap="md",
         visible_from=MOBILE_BREAKPOINT,
         style={
             "position": "sticky",
             "top": "24px",
             "margin": "18px 18px 18px 12px",
-            "border_radius": "var(--radius-3)",
-            "border": _BORDER,
-            "box_shadow": "var(--alloq-shadow-soft)",
-            "overflow": "hidden",
-            "background_color": _RAIL_BG,
         },
     )
