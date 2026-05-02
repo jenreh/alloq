@@ -420,6 +420,8 @@ class TeamState(rx.State):
 class EmployeeValidationState(rx.State):
     """Validation state for employee add/edit forms."""
 
+    form_version: int = 0
+
     first_name: str = ""
     last_name: str = ""
     job_title: str = ""
@@ -461,6 +463,8 @@ class EmployeeValidationState(rx.State):
         self.last_name_error = ""
         self.role_ids_error = ""
         self.hours_per_week_error = ""
+
+        self.form_version += 1
 
     def set_first_name(self, value: str) -> None:
         self.first_name = value

@@ -142,12 +142,12 @@ def _employee_table_row(employee: Employee) -> rx.Component:
                 rx.icon_button(
                     rx.icon("square-pen", size=16),
                     variant="ghost",
-                    on_click=lambda: TeamState.select_employee(employee.id),
+                    on_click=TeamState.select_employee(employee.id),
                 ),
                 delete_dialog(
                     title="Löschen bestätigen",
                     content=f"{employee.first_name} {employee.last_name}",
-                    on_click=lambda: TeamState.delete_employee(employee.id),
+                    on_click=TeamState.delete_employee(employee.id),
                     icon_button=True,
                     color="red",
                     variant="subtle",
@@ -162,7 +162,7 @@ def _employee_table_row(employee: Employee) -> rx.Component:
         ),
         class_name="alloq-team-table-row",
         style={"cursor": "pointer"},
-        on_click=lambda: TeamState.select_employee(employee.id),
+        on_click=TeamState.select_employee(employee.id),
     )
 
 

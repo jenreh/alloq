@@ -344,6 +344,7 @@ def employee_detail_drawer() -> rx.Component:
                 ),
                 mn.space(height="md"),
                 gap="16px",
+                key=EmployeeValidationState.form_version.to(str),
             ),
             footer=_form_footer(
                 "Mitarbeiter aktualisieren",
