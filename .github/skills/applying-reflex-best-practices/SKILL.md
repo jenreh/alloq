@@ -108,47 +108,44 @@ async def chart_data(self) -> list[dict]:
 
 ### Event handlers
 
+**→ See [`examples/state_example.py`](examples/state_example.py) for full annotated examples.**
+
 ```python
-# Simple sync handler
+# Sync handler
 @rx.event
 def set_filter(self, value: str) -> None:
     self.search_query = value
 
-# Async handler with loading guard
+# Async handler — yield after each mutation to push state to frontend
 @rx.event
 async def load_data(self) -> AsyncGenerator:
     self.is_loading = True
-    yield                         # push loading=True to frontend immediately
-
+    yield
     try:
-        results = await my_repo.get_all()
-        self.items = results
+        self.items = await my_repo.get_all()
     except Exception:
-        logger.exception("Failed to load data")
+        logger.exception("Failed to load")
         yield rx.toast.error("Laden fehlgeschlagen", position="top-right")
     finally:
-        self.is_loading = False   # always clears, even on error
+        self.is_loading = False
 
-# Chaining: call another event handler from within a handler
-@rx.event
-async def set_year(self, year: str) -> AsyncGenerator:
-    self.selected_year = int(year)
-    self._clear_caches()
-    async for _ in self.load_data():
-        yield
+# Chaining: iterate over another handler
+async for _ in self.load_data():
+    yield
 
-# Background task (long-running, does not block UI)
+# Background task — state mutations inside `async with self:`
 @rx.event(background=True)
 async def export_data(self) -> AsyncGenerator:
     async with self:
         self.is_exporting = True
     yield
-
-    # ... heavy work here ...
-
+    # ... heavy work ...
     async with self:
         self.is_exporting = False
-    yield rx.toast.success("Export abgeschlossen", position="top-right")
+    yield rx.toast.success("Fertig", position="top-right")
+
+# Background task invocation — always yield the method reference
+yield MyState.export_data
 ```
 
 ### Page on_load pattern
@@ -157,14 +154,11 @@ async def export_data(self) -> AsyncGenerator:
 @rx.event
 async def on_load(self) -> AsyncGenerator:
     """Called via on_load=[MyState.on_load] in the page factory."""
-    await self._load_secondary_data()
     async for _ in self.load_data():
         yield
 ```
 
 ### Cache invalidation
-
-When filters or navigation change, always clear caches before reloading:
 
 ```python
 def _clear_caches(self) -> None:
@@ -176,6 +170,40 @@ def _clear_caches(self) -> None:
 ---
 
 ## 3. UI Components — appkit_mantine
+
+### Documentation rule
+
+**Before using any `mn.*` or `rx.*` component not shown in [`examples/components_example.py`](examples/components_example.py), look up its API in the official documentation via the Context7 MCP server:**
+
+```
+# For appkit_mantine / Mantine components:
+resolve-library-id("mantine")  → then get-library-docs(id, topic="<component name>")
+
+# For Reflex-specific components and primitives:
+resolve-library-id("reflex")   → then get-library-docs(id, topic="<component name>")
+```
+
+Additional real-world usage examples are available in the appkit repository:
+**https://github.com/jenreh/appkit/tree/main/app/pages/examples**
+
+| File | Components covered |
+|---|---|
+| `button_examples.py` | `mn.button`, `mn.action_icon`, `mn.action_icon.group` |
+| `input_examples.py` | `mn.text_input`, `mn.textarea`, `mn.number_input`, `mn.tags_input`, `mn.password_input`, `mn.json_input`, `mn.slider`, `mn.range_slider`, `mn.switch` |
+| `date_examples.py` | `mn.date_input`, `mn.date_picker_input`, `mn.date_time_picker`, `mn.month_picker_input`, `mn.time_input`, `mn.calendar` |
+| `modal_examples.py` | `mn.modal`, `mn.modal.root`, `mn.modal.stack` |
+| `overlay_examples.py` | `mn.tooltip`, `mn.hover_card` |
+| `table_examples.py` | `mn.table`, `mn.table.thead/tbody/tr/th/td`, `sticky_header`, `with_table_border` |
+| `charts_examples.py` | `mn.bar_chart`, `mn.line_chart`, `mn.area_chart` |
+| `data_display_examples.py` | `mn.badge`, `mn.avatar`, `mn.card`, `mn.progress` |
+| `navigation_examples.py` | `mn.tabs`, `mn.nav_link`, `mn.breadcrumbs` |
+| `feedback_examples.py` | `mn.alert`, `mn.notification`, `mn.loader` |
+| `combobox_examples.py` | `mn.select`, `mn.multi_select`, `mn.combobox` |
+
+Always check the docs for:
+- Correct prop names (e.g. `left_section` not `leftSection`, `with_border` not `withBorder`)
+- Event handler signatures (`on_change`, `on_blur`, `on_visibility_change`)
+- Controlled (`value=` + `on_change=`) vs uncontrolled (`default_value=` + `on_blur=`) usage
 
 ### The rule
 
@@ -233,57 +261,27 @@ mn.text("Value", size="4", fw="bold")
 
 ### Buttons and actions
 
-```python
-mn.button(
-    "Laden",
-    on_click=MyState.load_data,
-    loading=MyState.is_loading,    # shows spinner, disables click
-    variant="filled",              # filled | outline | subtle | light
-    size="2",
-)
+**→ See [`examples/components_example.py`](examples/components_example.py) for full annotated examples.**
 
-mn.action_icon(
-    rx.icon(tag="refresh-cw", size=18),
-    on_click=MyState.load_data,
-    loading=MyState.is_loading,
-    variant="subtle",
-)
+```python
+mn.button("Laden", on_click=MyState.load_data, loading=MyState.is_loading, variant="filled", size="2")
+mn.action_icon(rx.icon(tag="refresh-cw", size=18), on_click=MyState.load_data, variant="subtle")
 ```
 
 ### Selects and inputs
 
 ```python
-mn.select(
-    data=["Option A", "Option B"],        # or list[dict] with label/value
-    value=MyState.selected_option,
-    on_change=MyState.set_option,
-    placeholder="Bitte wählen...",
-    clearable=True,
-)
-
-mn.text_input(
-    value=MyState.search_query,
-    on_change=MyState.set_search_query,
-    placeholder="Suchen...",
-    left_section=rx.icon(tag="search", size=16),
-)
+mn.select(data=["Option A", "Option B"], value=MyState.option, on_change=MyState.set_option, clearable=True)
+mn.text_input(value=MyState.search_query, on_change=MyState.set_search_query, placeholder="Suchen...")
 ```
 
 ### Charts (mn.bar_chart, mn.line_chart)
 
 ```python
 mn.bar_chart(
-    data=MyState.chart_data,        # list[dict]
-    data_key="month",               # x-axis key
-    series=[
-        {"name": "Billable", "color": "blue.5"},
-        {"name": "Intern",   "color": "gray.4"},
-    ],
-    chart_type="stacked",
-    with_legend=True,
-    with_tooltip=True,
-    h=280,
-    w="100%",
+    data=MyState.chart_data, data_key="month",
+    series=[{"name": "Billable", "color": "blue.5"}, {"name": "Intern", "color": "gray.4"}],
+    chart_type="stacked", with_legend=True, with_tooltip=True, h=280, w="100%",
 )
 ```
 
@@ -321,31 +319,25 @@ rx.foreach(MyState.items, lambda item: item_row(item))
 
 ## 4. Component Functions
 
+**→ See [`examples/components_example.py`](examples/components_example.py) for full annotated examples.**
+
 ### Always functions, never classes
+
+Component functions accept state vars as arguments for reactivity:
 
 ```python
 def my_card(title: str, value: rx.Var | str) -> rx.Component:
-    """One card. Accepts state vars as arguments."""
-    return mn.card(
-        mn.group(
-            mn.stack(
-                mn.text(title, size="2", c="dimmed"),
-                mn.heading(value, size="6", fw="bold"),
-                gap="2",
-            ),
-            gap="md",
-            align="center",
-        ),
-        shadow="sm",
-        padding="md",
-        radius="md",
-        with_border=True,
-    )
+    return mn.card(mn.heading(value, size="6", fw="bold"), ...)
+
+# Correct — reactive binding
+my_card(title="Users", value=MyState.user_count)
+# Wrong — static, won't update
+my_card(title="Users", value=42)
 ```
 
 ### Composition hierarchy
 
-Build small → compose big. Name private helpers with a leading underscore:
+Build small → compose big. Prefix private helpers with `_`:
 
 ```python
 def _filter_bar() -> rx.Component: ...
@@ -353,36 +345,17 @@ def _data_table() -> rx.Component: ...
 def _empty_state() -> rx.Component: ...
 
 def my_page_content() -> rx.Component:
-    """Top-level component — assembles the others."""
     return mn.stack(
         _filter_bar(),
-        rx.cond(
-            MyState.is_loading,
-            mn.loader(),
-            rx.cond(
-                MyState.items,
-                _data_table(),
-                _empty_state(),
-            ),
-        ),
-        gap="md",
-        w="100%",
+        rx.cond(MyState.is_loading, mn.loader(),
+            rx.cond(MyState.items, _data_table(), _empty_state())),
+        gap="md", w="100%",
     )
 ```
 
-### Passing state vars, not raw values
-
-```python
-# Correct: reactive binding
-my_card(title="Users", value=MyState.user_count)
-
-# Wrong: value won't update when state changes
-my_card(title="Users", value=42)
-```
+**Never use bare Python `if` inside component functions** — use `rx.cond` and `rx.foreach`.
 
 ### Responsive layout
-
-Use Mantine breakpoint dicts for responsive props:
 
 ```python
 mn.simple_grid(cols={"base": 1, "sm": 2, "lg": 4}, spacing="md")
@@ -393,42 +366,21 @@ rx.flex(direction=["column", "column", "row"], gap="4")
 
 ## 5. Page Factory Pattern
 
+**→ See [`examples/pages_example.py`](examples/pages_example.py) for the full annotated example including multi-page factories and registration.**
+
 Every feature package exports a factory function (not a bare page):
 
 ```python
 # pages.py
 from appkit_user.authentication.templates import authenticated
 
-def create_my_feature_page(
-    navbar: rx.Component,
-    route: str = "/my-feature",
-    title: str = "My Feature",
-) -> Callable:
-    @authenticated(
-        route=route,
-        title=title,
-        navbar=navbar,
-        on_load=MyFeatureState.on_load,
-        admin_only=True,          # or role="role-name"
-    )
+def create_my_feature_page(navbar: rx.Component, route: str = "/my-feature", title: str = "My Feature") -> Callable:
+    @authenticated(route=route, title=title, navbar=navbar, on_load=MyFeatureState.on_load, admin_only=True)
     def my_feature_page() -> rx.Component:
-        return rx.flex(
-            header(title),
-            my_page_content(),
-            direction="column",
-            gap="4",
-            w="100%",
-            p="2rem",
-        )
-
+        return rx.flex(header(title), my_page_content(), direction="column", gap="4", w="100%", p="2rem")
     return my_feature_page
-```
 
-Register in `app/app.py`:
-
-```python
-from knai_myfeature.pages import create_my_feature_page
-
+# Register in app/app.py:
 create_my_feature_page(app_navbar())
 ```
 
@@ -478,55 +430,93 @@ def _do_work(self) -> None:
 
 ## 7. Repository Pattern
 
+`BaseRepository` (from `appkit_commons`) already provides full CRUD:
+`create()`, `update()`, `save()`, `find_by_id()`, `find_all()`, `delete_by_id()`, `delete()`, `exists_by_id()`, `count()`
+
+Only add custom methods for queries not covered by the base class (e.g., `find_by_email`, `find_all_paginated`):
+
 ```python
-# backend/repository.py — use static/class methods, no instance needed
+# backend/repository.py
 
-class MyModelRepository:
-    @staticmethod
-    async def get_all(user_id: int) -> list[MyModel]:
-        async with rx.asession() as session:
-            result = await session.exec(
-                select(MyModel).where(MyModel.user_id == user_id)
-            )
-            return list(result.all())
+from appkit_commons.repositories.base import BaseRepository
+from appkit_commons.database.session import get_asyncdb_session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-    @staticmethod
-    async def create(user_id: int, data: dict) -> MyModel:
-        async with rx.asession() as session:
-            item = MyModel(user_id=user_id, **data)
-            session.add(item)
-            await session.commit()
-            await session.refresh(item)
-            return item
+class MyModelRepository(BaseRepository[MyModelEntity]):
+
+    async def find_by_name(
+        self, session: AsyncSession, name: str
+    ) -> MyModelEntity | None:
+        result = await session.execute(
+            select(MyModelEntity).where(MyModelEntity.name == name)
+        )
+        return result.scalar_one_or_none()
+
+
+my_model_repo = MyModelRepository(MyModelEntity)
 ```
 
-Use `rx.asession()` for async operations. Reserve raw `get_asyncdb_session()` for cases where you need transaction control across multiple operations.
+Always use `get_asyncdb_session()` — not `rx.asession()` — as the session factory:
+
+```python
+# In state event handlers
+async with get_asyncdb_session() as session:
+    items = await my_model_repo.find_all(session)
+    entity = await my_model_repo.find_by_id(session, item_id)
+    await my_model_repo.create(session, new_entity)
+    await my_model_repo.update(session, entity)
+    await my_model_repo.delete_by_id(session, item_id)
+```
+
+Never use `rx.asession()` — it does not work in background processors or callbacks outside the Reflex request lifecycle.
 
 ---
 
 ## 8. Database Models
 
-```python
-# backend/models.py
+### SQLAlchemy Entity (DB table)
 
-class MyModel(rx.Model, table=True):
-    """DB table."""
+Inherit from both `Entity` and `Base` from `appkit_commons.database.entities`. `Entity` provides `id`, `created`, and `updated` automatically. Add `to_dict()` for conversion to Pydantic/display models:
+
+```python
+# backend/entities.py
+from appkit_commons.database.entities import Base, Entity
+from sqlalchemy import String
+from sqlalchemy.orm import Mapped, mapped_column
+
+class MyEntity(Entity, Base):
     __tablename__ = "my_feature_items"
 
-    id: int | None = Field(default=None, primary_key=True)
-    user_id: int = Field(index=True)
-    name: str = Field(max_length=200)
-    is_active: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    name: Mapped[str] = mapped_column(String(200))
+    is_active: Mapped[bool] = mapped_column(default=True)
 
-class MyModelDisplay(rx.Base):
-    """UI-only model (not a table) — safe to store in state."""
-    name: str
-    formatted_date: str
-    color_indicator: str
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "is_active": self.is_active,
+        }
 ```
 
-**Important**: Never store SQLModel `table=True` objects directly in state if they contain lazy-loaded relationships. Use display models (`rx.Base`) as the state-layer DTO.
+### Pydantic display model (UI-layer DTO)
+
+Use `rx.Base` for models stored in Reflex state — never store SQLAlchemy `table=True` models directly:
+
+```python
+# backend/models.py
+import reflex as rx
+
+class MyModel(rx.Base):
+    """UI-only DTO — safe to store in state."""
+    id: int
+    name: str
+    is_active: bool = True
+```
+
+Convert in state: `self.items = [MyModel(**e.to_dict()) for e in entities]`
+
+**Important**: Never store SQLAlchemy entity objects (those with relationships) directly in Reflex state — lazy-loaded relationships will fail outside the session context.
 
 ---
 
@@ -560,11 +550,15 @@ requires_role(
 | `rx.box` as a container | `mn.card` or `mn.paper` |
 | `rx.text` / `rx.heading` | `mn.text` / `mn.heading` |
 | Inline styles as strings `style="..."` | Props: `c="blue.6"`, `fw="bold"`, `p="md"` |
-| Storing table=True models in state | Use `rx.Base` display models |
+| Storing SQLAlchemy entity objects in state | Use `rx.Base` display models |
 | Calling `service_registry()` at module level | Call inside functions/methods |
 | Mutating state without `yield` in async gen | Always `yield` after mutations |
 | Fat page functions | Decompose into `_section()` helpers |
 | Logic in components | Move to state event handlers or `@rx.var` |
+| `rx.asession()` in background tasks / callbacks | Use `get_asyncdb_session()` |
+| `and` / `or` inside `rx.cond(...)` | Use `&` and `\|` operators |
+| Calling a background task directly from a handler | `yield MyState.background_task` — always yield the method reference |
+| Duplicating CRUD in repositories | Use `BaseRepository` methods directly; only add custom query methods |
 
 ---
 
@@ -582,7 +576,69 @@ configuration.py                 → MyFeatureConfig(BaseConfig)
 
 ---
 
-## 12. Example Files
+## 12. Form Validation Pattern
+
+Use a **dedicated `rx.State` subclass** (not mixed into the main feature state) to hold form field values, per-field error strings, and validation logic. This keeps form concerns isolated and testable.
+
+**→ See [`examples/form_validation_example.py`](examples/form_validation_example.py) for the full annotated example.**
+
+### Key rules
+
+- Store each field as `str` — inputs are always strings; parse/validate explicitly.
+- Store per-field error as `str` — empty string means no error.
+- Decorate `validate_*` methods with `@rx.event` so the UI can bind them to `on_blur`.
+- Expose `@rx.var` `is_form_valid` / `is_form_invalid` — bind to the submit button's `disabled` prop.
+- `form_version: int` counter — increment in `initialize()` to force re-render of controlled inputs on reset.
+- Async DB uniqueness checks (`validate_email_unique`) — attach to `on_blur`, **not** `on_change` (avoids a DB hit on every keystroke).
+- Call `initialize()` from the parent state's `open_add_modal` / `open_edit_modal`, returning `[ValidationState.initialize(...)]`.
+- Call `validate_all()` at the top of the submit handler to surface all errors before bailing out.
+
+### Pattern summary
+
+```python
+class ItemValidationState(rx.State):
+    form_version: int = 0       # increment on initialize() to reset controlled inputs
+    name: str = ""              # one field var per input
+    name_error: str = ""        # one error var per field (empty = no error)
+
+    @rx.event
+    def initialize(self, item: Item | None = None) -> None:
+        # populate or reset all fields; clear all errors; form_version += 1
+        ...
+
+    def set_name(self, value: str) -> None:   # setter: update field + validate inline
+        self.name = value
+        self.validate_name()
+
+    @rx.event
+    def validate_name(self) -> None: ...      # sync validator → on_blur or on_change
+    @rx.event
+    async def validate_email_unique(self) -> None: ...  # async DB check → on_blur only
+    @rx.event
+    def validate_all(self) -> None: ...       # call before submit
+
+    @rx.var
+    def is_form_valid(self) -> bool: ...
+    @rx.var
+    def is_form_invalid(self) -> bool: return not self.is_form_valid
+
+# Parent state opens modal and initialises the form in one call:
+def open_add_modal(self) -> list[rx.event.EventSpec]:
+    self.is_add_modal_open = True
+    return [ItemValidationState.initialize()]
+
+# Submit guard:
+async def submit_item(self) -> AsyncGenerator:
+    form_state = await self.get_state(ItemValidationState)
+    if form_state.is_form_invalid:
+        yield ItemValidationState.validate_all()
+        return
+    # use form_state.name, form_state.email, etc.
+```
+
+---
+
+## 13. Example Files
 
 See the `examples/` folder alongside this SKILL.md:
 
@@ -592,3 +648,4 @@ See the `examples/` folder alongside this SKILL.md:
 | `components_example.py` | appkit_mantine component patterns — cards, table, chart |
 | `pages_example.py` | Page factory with auth, on_load, navbar |
 | `background_task_example.py` | File upload + async background processing |
+| `form_validation_example.py` | Isolated validation state — fields, errors, on_blur uniqueness check, submit guard |

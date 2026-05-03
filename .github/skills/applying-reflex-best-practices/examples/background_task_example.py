@@ -1,5 +1,5 @@
 """
-Background Task + File Upload — canonical pattern for KnowledgeAI-Admin.
+Background Task + File Upload — canonical pattern.
 
 Derived from: knai-hours HoursImportState.
 

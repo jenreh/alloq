@@ -1,5 +1,5 @@
 """
-Feature State — canonical pattern for KnowledgeAI-Admin.
+Feature State — canonical pattern.
 
 Derived from: knai-hours CapacityReportState + knai-team TeamRecommendationState.
 Copy, rename, and strip the parts you don't need.

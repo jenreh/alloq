@@ -1,5 +1,5 @@
 """
-Page Factory — canonical pattern for KnowledgeAI-Admin.
+Page Factory — canonical pattern.
 
 Derived from: knai-team pages.py + app/app.py registration.
 
