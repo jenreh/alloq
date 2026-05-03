@@ -33,7 +33,7 @@ class EmployeeCardState(rx.ComponentState):
             mn.card(
                 mn.stack(
                     cls._card_header(employee),
-                    _productivity_indicator(),
+                    # _productivity_indicator(),
                     rx.cond(
                         cls.is_expanded,
                         mn.stack(

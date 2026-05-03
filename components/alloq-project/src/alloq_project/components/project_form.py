@@ -80,6 +80,8 @@ def project_form_fields() -> rx.Component:
                     error=ProjectValidationState.date_error,
                     required=True,
                     clearable=True,
+                    locale="de",
+                    value_format="DD MMM YYYY",
                     left_section=rx.icon("calendar", size=16),
                 ),
                 mn.date_input(
@@ -90,6 +92,8 @@ def project_form_fields() -> rx.Component:
                     error=ProjectValidationState.date_error,
                     required=True,
                     clearable=True,
+                    locale="de",
+                    value_format="DD MMM YYYY",
                     left_section=rx.icon("calendar", size=16),
                 ),
                 cols=2,

@@ -257,6 +257,8 @@ def absence_modal() -> rx.Component:
                         on_change=TeamState.set_absence_date_range,
                         required=True,
                         clearable=True,
+                        locale="de",
+                        value_format="DD MMM YYYY",
                         w="100%",
                     ),
                 ),
