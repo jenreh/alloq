@@ -15,6 +15,7 @@ from alloq_team.models.employee import (
     EmployeeCreate,
     EmployeeUpdate,
 )
+from alloq_team.states.team_state import TeamState
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -139,6 +140,24 @@ class TestEmployeeModel:
         assert emp.id == 1
         assert emp.first_name == "Max"
         assert emp.role_names == ["Developer", "Architect"]
+
+
+class TestTeamState:
+    """Tests for employee Reflex state helpers."""
+
+    def test_upsert_employee_replaces_and_sorts(self) -> None:
+        state = TeamState()  # type: ignore[call-arg]
+        state.employees = [
+            Employee(id=1, first_name="Zoe", last_name="Zimmer"),
+            Employee(id=2, first_name="Anna", last_name="Alpha"),
+        ]
+
+        state._upsert_employee(Employee(id=1, first_name="Clara", last_name="Beta"))
+
+        assert [(e.id, e.first_name, e.last_name) for e in state.employees] == [
+            (2, "Anna", "Alpha"),
+            (1, "Clara", "Beta"),
+        ]
 
 
 class TestEmployeeCreateModel:

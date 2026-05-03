@@ -168,6 +168,21 @@ class TeamState(UserSession):
             entities = await employee_repo.find_all_paginated(session)
             self.employees = [Employee(**e.to_dict()) for e in entities]
 
+    async def _fetch_employee(self, employee_id: int) -> Employee | None:
+        """Fetch a single employee as an Employee read model."""
+        async with get_asyncdb_session() as session:
+            entity = await employee_repo.find_by_id(session, employee_id)
+            if not entity:
+                return None
+            return Employee(**entity.to_dict())
+
+    def _upsert_employee(self, employee: Employee) -> None:
+        """Insert or replace an employee in the list, preserving sort order."""
+        updated = [e for e in self.employees if e.id != employee.id]
+        updated.append(employee)
+        updated.sort(key=lambda e: (e.last_name.lower(), e.first_name.lower()))
+        self.employees = updated
+
     async def _load_available_roles(self) -> None:
         """Load roles for dropdown selection."""
         async with get_asyncdb_session() as session:
@@ -297,11 +312,8 @@ class TeamState(UserSession):
     @is_authenticated
     async def update_employee(self, form_data: dict) -> AsyncGenerator[Any, None]:
         """Update an existing employee from form submission."""
-        self.is_loading = True
-        yield
         try:
             if not self.selected_employee:
-                self.is_loading = False
                 yield rx.toast.error(
                     "Kein Mitarbeiter ausgewählt.", position="top-right"
                 )
@@ -328,12 +340,10 @@ class TeamState(UserSession):
                 hours_per_week=float(form_data.get("hours_per_week", 40.0)),
             )
 
+            employee_id = self.selected_employee.id
             async with get_asyncdb_session() as session:
-                entity = await employee_repo.find_by_id(
-                    session, self.selected_employee.id
-                )
+                entity = await employee_repo.find_by_id(session, employee_id)
                 if not entity:
-                    self.is_loading = False
                     yield rx.toast.error(
                         "Mitarbeiter nicht gefunden.", position="top-right"
                     )
@@ -349,9 +359,10 @@ class TeamState(UserSession):
                 await employee_repo.set_roles(session, entity, emp_data.role_ids)
                 await employee_repo.update(session, entity)
 
-            await self._load_employees()
+            updated_employee = await self._fetch_employee(employee_id)
+            if updated_employee:
+                self._upsert_employee(updated_employee)
             self.close_detail_drawer()
-            self.is_loading = False
             name = f"{emp_data.first_name} {emp_data.last_name}"
             yield rx.toast.info(
                 f"Mitarbeiter '{name}' aktualisiert.",
@@ -359,7 +370,6 @@ class TeamState(UserSession):
             )
         except Exception as e:
             logger.error("Failed to update employee: %s", e)
-            self.is_loading = False
             yield rx.toast.error(
                 f"Fehler beim Aktualisieren: {e}",
                 position="top-right",

@@ -26,6 +26,16 @@ def project_form_fields() -> rx.Component:
                 max_length=255,
             ),
             mn.text_input(
+                name="customer",
+                label="Kunde",
+                placeholder="z.B. Muster AG",
+                default_value=ProjectValidationState.customer,
+                on_blur=ProjectValidationState.set_customer,
+                error=ProjectValidationState.customer_error,
+                required=True,
+                max_length=255,
+            ),
+            mn.text_input(
                 name="code",
                 label="Projekt-Code",
                 placeholder="z.B. ML-OPS",

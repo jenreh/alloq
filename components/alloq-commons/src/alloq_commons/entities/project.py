@@ -45,6 +45,7 @@ class ProjectEntity(Entity, Base):
     code: Mapped[str] = mapped_column(
         String(50), nullable=False, unique=True, index=True
     )
+    customer: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     name_de: Mapped[str] = mapped_column(String(255), nullable=False)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -91,6 +92,7 @@ class ProjectEntity(Entity, Base):
         return {
             "id": self.id,
             "code": self.code,
+            "customer": self.customer or "",
             "name_de": self.name_de,
             "start_date": self.start_date,
             "end_date": self.end_date,

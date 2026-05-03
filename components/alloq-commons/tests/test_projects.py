@@ -31,6 +31,7 @@ class TestProjectEntity:
     def test_create_entity(self) -> None:
         entity = ProjectEntity(
             code="ML-OPS",
+            customer="Muster AG",
             name_de="ML-Ops Plattform",
             start_date=date(2026, 6, 1),
             end_date=date(2026, 12, 31),
@@ -38,6 +39,7 @@ class TestProjectEntity:
             color="#F7C948",
         )
         assert entity.code == "ML-OPS"
+        assert entity.customer == "Muster AG"
         assert entity.budget == 300000
         assert entity.color == "#F7C948"
 
@@ -56,6 +58,7 @@ class TestProjectEntity:
         )
         entity = ProjectEntity(
             code="ML-OPS",
+            customer="Muster AG",
             name_de="ML-Ops Plattform",
             start_date=date(2026, 6, 1),
             end_date=date(2026, 12, 31),
@@ -74,6 +77,7 @@ class TestProjectEntity:
 
         assert result["current_progress"] == 45
         assert result["current_spent"] == 30
+        assert result["customer"] == "Muster AG"
         assert result["required_capacities"][0]["role_name"] == "AI Architect"
 
 
@@ -83,6 +87,7 @@ class TestProjectModels:
     def test_project_create_valid(self) -> None:
         project = ProjectCreate(
             code="ML-OPS",
+            customer="Muster AG",
             name_de="ML-Ops Plattform",
             start_date=date(2026, 6, 1),
             end_date=date(2026, 12, 31),
@@ -90,12 +95,14 @@ class TestProjectModels:
             required_capacities=[RequiredCapacityCreate(role_id=1, person_days=20)],
         )
         assert project.code == "ML-OPS"
+        assert project.customer == "Muster AG"
         assert project.required_capacities[0].person_days == 20
 
     def test_project_create_rejects_invalid_date_range(self) -> None:
         with pytest.raises(ValidationError):
             ProjectCreate(
                 code="BAD",
+                customer="Muster AG",
                 name_de="Bad",
                 start_date=date(2026, 12, 31),
                 end_date=date(2026, 6, 1),
@@ -115,6 +122,7 @@ class TestProjectRepository:
         repo = ProjectRepository()
         entity = ProjectEntity(
             code="CRM-AI",
+            customer="Acme GmbH",
             name_de="CRM-Vorhersagemodell",
             start_date=date(2026, 3, 2),
             end_date=date(2026, 8, 28),
@@ -138,6 +146,7 @@ class TestProjectRepository:
             [
                 ProjectEntity(
                     code="CRM-AI",
+                    customer="Acme GmbH",
                     name_de="CRM-Vorhersagemodell",
                     start_date=date(2026, 3, 2),
                     end_date=date(2026, 8, 28),
@@ -146,6 +155,7 @@ class TestProjectRepository:
                 ),
                 ProjectEntity(
                     code="VISION",
+                    customer="Muster AG",
                     name_de="Computer-Vision Plattform",
                     start_date=date(2026, 1, 12),
                     end_date=date(2026, 9, 30),
@@ -160,6 +170,41 @@ class TestProjectRepository:
 
         assert len(results) == 1
         assert results[0].code == "VISION"
+
+    @pytest.mark.asyncio
+    async def test_find_all_paginated_with_customer_search(
+        self,
+        async_session: AsyncSession,
+    ) -> None:
+        repo = ProjectRepository()
+        async_session.add_all(
+            [
+                ProjectEntity(
+                    code="CRM-AI",
+                    customer="Acme GmbH",
+                    name_de="CRM-Vorhersagemodell",
+                    start_date=date(2026, 3, 2),
+                    end_date=date(2026, 8, 28),
+                    budget=480000,
+                    color="#F7C948",
+                ),
+                ProjectEntity(
+                    code="VISION",
+                    customer="Muster AG",
+                    name_de="Computer-Vision Plattform",
+                    start_date=date(2026, 1, 12),
+                    end_date=date(2026, 9, 30),
+                    budget=720000,
+                    color="#5B7FA3",
+                ),
+            ]
+        )
+        await async_session.flush()
+
+        results = await repo.find_all_paginated(async_session, search="acme")
+
+        assert len(results) == 1
+        assert results[0].code == "CRM-AI"
 
 
 class TestCapacityRepositories:
@@ -178,6 +223,7 @@ class TestCapacityRepositories:
         )
         project = ProjectEntity(
             code="ARCH",
+            customer="Muster AG",
             name_de="Architektur",
             start_date=date(2026, 1, 1),
             end_date=date(2026, 12, 31),

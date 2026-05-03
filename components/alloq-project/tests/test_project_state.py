@@ -19,8 +19,8 @@ class TestProjectState:
     def test_filtered_projects_by_search(self) -> None:
         state = ProjectState()  # type: ignore[call-arg]
         state.projects = [
-            Project(code="CRM", name_de="CRM"),
-            Project(code="VISION", name_de="Computer Vision"),
+            Project(code="CRM", customer="Acme GmbH", name_de="CRM"),
+            Project(code="VISION", customer="Muster AG", name_de="Computer Vision"),
         ]
         state.search_filter = "vision"
 
@@ -29,11 +29,24 @@ class TestProjectState:
         assert len(result) == 1
         assert result[0].code == "VISION"
 
+    def test_filtered_projects_by_customer_search(self) -> None:
+        state = ProjectState()  # type: ignore[call-arg]
+        state.projects = [
+            Project(code="CRM", customer="Acme GmbH", name_de="CRM"),
+            Project(code="VISION", customer="Muster AG", name_de="Computer Vision"),
+        ]
+        state.search_filter = "acme"
+
+        result = state.filtered_projects
+
+        assert len(result) == 1
+        assert result[0].code == "CRM"
+
     def test_filtered_projects_by_state(self) -> None:
         state = ProjectState()  # type: ignore[call-arg]
         state.projects = [
-            Project(code="SAFE", state="Geplant"),
-            Project(code="RISK", state="Risiko"),
+            Project(code="SAFE", customer="Muster AG", state="Geplant"),
+            Project(code="RISK", customer="Acme GmbH", state="Risiko"),
         ]
         state.status_filter = "Risiko"
 
@@ -57,6 +70,7 @@ class TestProjectValidationState:
     def test_valid_form(self) -> None:
         state = ProjectValidationState()  # type: ignore[call-arg]
         state.code = "ML-OPS"
+        state.customer = "Muster AG"
         state.name_de = "ML-Ops Plattform"
         state.start_date = date(2026, 6, 1).isoformat()
         state.end_date = date(2026, 12, 31).isoformat()

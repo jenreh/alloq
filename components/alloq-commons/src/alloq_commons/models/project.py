@@ -123,6 +123,7 @@ class Project(BaseModel):
 
     id: int = 0
     code: str = ""
+    customer: str = ""
     name_de: str = ""
     start_date: date | None = None
     end_date: date | None = None
@@ -148,6 +149,7 @@ class ProjectCreate(BaseModel):
     """Write model for creating projects."""
 
     code: str = Field(..., min_length=1, max_length=50)
+    customer: str = Field(..., min_length=1, max_length=255)
     name_de: str = Field(..., min_length=1, max_length=255)
     start_date: date
     end_date: date

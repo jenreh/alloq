@@ -11,6 +11,41 @@ from appkit_user.authentication.components.components import requires_admin
 from appkit_user.authentication.templates import authenticated
 
 
+def create_planning_page(
+    navbar: rx.Component,
+    route: str = "/plan",
+    title: str = "Ressourcenplanung",
+) -> Callable:
+
+    @authenticated(
+        route=route,
+        title=title,
+        navbar=navbar,
+        with_header=False,
+        admin_only=True,
+    )
+    def _planning_page() -> rx.Component:
+        return requires_admin(
+            mn.stack(
+                page_header(
+                    title="Ressourcenplanung",
+                    description=(
+                        "Wer ist wann verfügbar? Lücken erkennen, Projekte zuweisen, "
+                        "What-if simulieren."
+                    ),
+                ),
+                width="100%",
+                gap="md",
+                pr="2rem",
+                pl="2rem",
+                pt="2.1rem",
+                pb="4rem",
+            ),
+        )
+
+    return _planning_page
+
+
 def create_projects_overview_page(
     navbar: rx.Component,
     route: str = "/projects",

@@ -2,7 +2,7 @@ import logging
 
 import reflex as rx
 from alloq_dashboard.pages import create_dashboard_page
-from alloq_project.pages import create_projects_overview_page
+from alloq_project.pages import create_planning_page, create_projects_overview_page
 from alloq_team.pages import create_team_overview_page
 from reflex.assets import asset
 from starlette.types import ASGIApp
@@ -76,6 +76,7 @@ create_users_page(app_navbar_collapsible())
 create_roles_page(app_navbar_collapsible())
 create_team_overview_page(app_navbar_collapsible())
 create_projects_overview_page(app_navbar_collapsible())
+create_planning_page(app_navbar_collapsible())
 create_dashboard_page(app_navbar_collapsible())
 
 

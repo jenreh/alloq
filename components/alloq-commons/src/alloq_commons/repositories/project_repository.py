@@ -32,6 +32,7 @@ class ProjectRepository(BaseRepository[ProjectEntity, AsyncSession]):
             statement = statement.where(
                 or_(
                     ProjectEntity.code.ilike(search_pattern),
+                    ProjectEntity.customer.ilike(search_pattern),
                     ProjectEntity.name_de.ilike(search_pattern),
                 )
             )

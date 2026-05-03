@@ -104,7 +104,11 @@ class ProjectState(UserSession):
             projects = [
                 project
                 for project in projects
-                if search in project.code.lower() or search in project.name_de.lower()
+                if (
+                    search in project.code.lower()
+                    or search in project.customer.lower()
+                    or search in project.name_de.lower()
+                )
             ]
 
         if self.status_filter != "all":
@@ -276,6 +280,7 @@ class ProjectState(UserSession):
             async with get_asyncdb_session() as session:
                 entity = ProjectEntity(
                     code=project_data.code,
+                    customer=project_data.customer,
                     name_de=project_data.name_de,
                     start_date=project_data.start_date,
                     end_date=project_data.end_date,
@@ -344,6 +349,7 @@ class ProjectState(UserSession):
                     return
 
                 entity.code = project_data.code
+                entity.customer = project_data.customer
                 entity.name_de = project_data.name_de
                 entity.start_date = project_data.start_date
                 entity.end_date = project_data.end_date
@@ -429,6 +435,7 @@ class ProjectState(UserSession):
 
         return ProjectCreate(
             code=str(form_data.get("code", "")).strip(),
+            customer=str(form_data.get("customer", "")).strip(),
             name_de=str(form_data.get("name_de", "")).strip(),
             start_date=date.fromisoformat(str(form_data.get("start_date", ""))[:10]),
             end_date=date.fromisoformat(str(form_data.get("end_date", ""))[:10]),
@@ -473,6 +480,7 @@ class ProjectValidationState(rx.State):
 
     form_version: int = 0
     code: str = ""
+    customer: str = ""
     name_de: str = ""
     start_date: str = ""
     end_date: str = ""
@@ -483,6 +491,7 @@ class ProjectValidationState(rx.State):
     role_capacities: dict[str, int] = {}
 
     code_error: str = ""
+    customer_error: str = ""
     name_de_error: str = ""
     date_error: str = ""
     budget_error: str = ""
@@ -493,6 +502,7 @@ class ProjectValidationState(rx.State):
         async with self:
             if project is None:
                 self.code = ""
+                self.customer = ""
                 self.name_de = ""
                 self.start_date = ""
                 self.end_date = ""
@@ -508,6 +518,7 @@ class ProjectValidationState(rx.State):
                 }
             else:
                 self.code = project.code
+                self.customer = project.customer
                 self.name_de = project.name_de
                 self.start_date = (
                     project.start_date.isoformat() if project.start_date else ""
@@ -529,6 +540,7 @@ class ProjectValidationState(rx.State):
                 self.role_capacities = role_caps
 
             self.code_error = ""
+            self.customer_error = ""
             self.name_de_error = ""
             self.date_error = ""
             self.budget_error = ""
@@ -537,6 +549,10 @@ class ProjectValidationState(rx.State):
     def set_code(self, value: str) -> None:
         self.code = value
         self.validate_code()
+
+    def set_customer(self, value: str) -> None:
+        self.customer = value
+        self.validate_customer()
 
     def set_name_de(self, value: str) -> None:
         self.name_de = value
@@ -569,6 +585,10 @@ class ProjectValidationState(rx.State):
     @rx.event
     def validate_code(self) -> None:
         self.code_error = "" if self.code.strip() else "Projekt-Code ist erforderlich."
+
+    @rx.event
+    def validate_customer(self) -> None:
+        self.customer_error = "" if self.customer.strip() else "Kunde ist erforderlich."
 
     @rx.event
     def validate_name_de(self) -> None:
@@ -617,6 +637,7 @@ class ProjectValidationState(rx.State):
     def has_errors(self) -> bool:
         return bool(
             self.code_error
+            or self.customer_error
             or self.name_de_error
             or self.date_error
             or self.budget_error
@@ -638,6 +659,7 @@ class ProjectValidationState(rx.State):
 
         return bool(
             self.code.strip()
+            and self.customer.strip()
             and self.name_de.strip()
             and budget_valid
             and dates_valid

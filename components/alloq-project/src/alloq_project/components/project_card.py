@@ -41,9 +41,10 @@ def _status_color(state: rx.Var[str]) -> rx.Var[str]:
 
 
 def _project_initials(project: Project) -> rx.Component:
-    """Render project code avatar."""
+    """Render project customer avatar."""
+    customer_display = rx.cond(project.customer != "", project.customer, project.code)
     return mn.avatar(
-        name=project.code,
+        name=customer_display,
         color="white",
         size="lg",
         radius="md",
@@ -76,6 +77,7 @@ def _team_initial(initial: str) -> rx.Component:
 
 def project_card(project: Project) -> rx.Component:
     """Single project card for the overview grid."""
+    customer_display = rx.cond(project.customer != "", project.customer, project.code)
     return mn.box(
         mn.card(
             mn.stack(
@@ -127,7 +129,7 @@ def project_card(project: Project) -> rx.Component:
                             w="100%",
                         ),
                         mn.text(
-                            project.code
+                            customer_display
                             + " \u00b7 "
                             + _format_date_de(project.start_date)
                             + " \u2192 "

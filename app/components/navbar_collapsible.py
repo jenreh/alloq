@@ -77,6 +77,12 @@ SECTIONS: Final[list[dict[str, Any]]] = [
     },
     {
         "id": "projects",
+        "label": "Ressourcenplanung",
+        "icon": "briefcase-business",
+        "url": "/plan",
+    },
+    {
+        "id": "projects",
         "label": "Projekte",
         "icon": "folder-open",
         "url": "/projects",
@@ -437,7 +443,7 @@ def _rail() -> rx.Component:
         #        mn.center(
         mn.stack(
             *[_gated(s, _rail_section_button(s)) for s in SECTIONS],
-            gap="2px",
+            gap="3px",
             align="center",
             #           ),
             w="100%",
@@ -447,7 +453,7 @@ def _rail() -> rx.Component:
         mn.stack(
             *[_gated(s, _rail_section_button(s)) for s in FOOTER_SECTIONS],
             _dark_mode_toggle(),
-            gap="2px",
+            gap="3px",
             align="center",
             w="100%",
             style={"flex_shrink": "0"},
