@@ -1,6 +1,6 @@
 ---
 name: writing-python-code
-description: Enforces Python 3.13 code style, logging rules, type annotations, design patterns, testing strategy, and clean code principles for the appkit project. Use when writing, reviewing, or refactoring Python code, creating new modules, or adding tests.
+description: Enforces Python 3.14 code style, logging rules, type annotations, design patterns, testing strategy, and clean code principles for the appkit project. Use when writing, reviewing, or refactoring Python code, creating new modules, or adding tests.
 license: MIT
 metadata:
   author: jens-rehpoehler
@@ -31,7 +31,7 @@ log.info("Loaded items: %d", count)          # ✅ parameterized
 # log.info(f"Loaded items: {count}")         # ❌ f-string
 ```
 
-Never use `print` or `printf`. Log levels: `debug` → internal state, `info` → milestones, `warning` → recoverable, `error` → serious.
+Never use `print` or `printf`. Log levels: `debug` → internal state (default), `info` → milestones, `warning` → recoverable, `error` → serious.
 
 ### Type hints
 

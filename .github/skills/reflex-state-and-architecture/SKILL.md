@@ -1,3 +1,12 @@
+---
+name: reflex-state-and-architecture
+description: Reflex state design, event handlers, background tasks, form validation, page factory, service registry, repository pattern, database models, project architecture.
+metadata:
+  author: jens-rehpoehler
+  version: "1.1"
+  license: MIT
+---
+
 # Reflex Best Practices — KnowledgeAI-Admin
 
 This skill guides development in this Reflex.dev project. Read it before writing any new feature.
@@ -205,115 +214,7 @@ Always check the docs for:
 - Event handler signatures (`on_change`, `on_blur`, `on_visibility_change`)
 - Controlled (`value=` + `on_change=`) vs uncontrolled (`default_value=` + `on_blur=`) usage
 
-### The rule
-
-**Use `appkit_mantine` (`mn.*`) for all visible UI.**
-`rx.*` is fine for logic, conditionals, iteration, and primitives with no direct Mantine equivalent:
-
-| Purpose | Use |
-|---|---|
-| Layout containers (stack, group, grid, card) | `mn.stack`, `mn.group`, `mn.simple_grid`, `mn.card` |
-| Typography | `mn.text`, `mn.heading` |
-| Inputs (button, select, text input, switch, slider) | `mn.button`, `mn.select`, `mn.text_input`, `mn.switch`, `mn.slider` |
-| Feedback (toast, progress, spinner, badge) | `rx.toast`, `mn.progress`, `mn.loader`, `mn.badge` |
-| Data display (table, charts) | `mn.table`, `mn.bar_chart`, `mn.line_chart` |
-| Overlay (dialog, drawer, popover) | `mn.modal`, `mn.drawer`, `mn.popover` |
-| Icons | `rx.icon(tag="...", size=N)` — Lucide, no mn equivalent |
-| Conditional rendering | `rx.cond(condition, true_comp, false_comp)` |
-| List rendering | `rx.foreach(State.items, render_fn)` |
-| File upload | `rx.upload(...)` — no mn equivalent |
-| SVG / canvas | `rx.el.svg`, `rx.el.g`, `rx.el.line` |
-
-**Never use** `rx.vstack`, `rx.hstack`, `rx.box` where a Mantine equivalent exists. Prefer `mn.stack`, `mn.group`, `mn.card`.
-
-### Core layout patterns
-
-```python
-import appkit_mantine as mn
-
-# Vertical stack
-mn.stack(child1, child2, gap="md", w="100%")
-
-# Horizontal group
-mn.group(child1, child2, gap="xs", align="center", justify="space-between")
-
-# Card container
-mn.card(content, shadow="sm", padding="lg", radius="md", with_border=True)
-
-# Responsive grid
-mn.simple_grid(
-    card1, card2, card3,
-    cols={"base": 1, "sm": 2, "lg": 3},
-    spacing="md",
-)
-
-# Scroll area
-mn.scroll_area(content, h=400, type="auto")
-```
-
-### Typography
-
-```python
-mn.text("Label", size="2", c="dimmed")       # size: 1–7
-mn.heading("Title", size="5", fw=600)        # fw: font-weight
-mn.text("Value", size="4", fw="bold")
-```
-
-### Buttons and actions
-
-**→ See [`examples/components_example.py`](examples/components_example.py) for full annotated examples.**
-
-```python
-mn.button("Laden", on_click=MyState.load_data, loading=MyState.is_loading, variant="filled", size="2")
-mn.action_icon(rx.icon(tag="refresh-cw", size=18), on_click=MyState.load_data, variant="subtle")
-```
-
-### Selects and inputs
-
-```python
-mn.select(data=["Option A", "Option B"], value=MyState.option, on_change=MyState.set_option, clearable=True)
-mn.text_input(value=MyState.search_query, on_change=MyState.set_search_query, placeholder="Suchen...")
-```
-
-### Charts (mn.bar_chart, mn.line_chart)
-
-```python
-mn.bar_chart(
-    data=MyState.chart_data, data_key="month",
-    series=[{"name": "Billable", "color": "blue.5"}, {"name": "Intern", "color": "gray.4"}],
-    chart_type="stacked", with_legend=True, with_tooltip=True, h=280, w="100%",
-)
-```
-
-### Colors
-
-Use Radix color scale (name + shade 1–12). Higher = darker in light mode:
-
-```python
-c="blue.6"          # text color
-bg="gray.1"         # background
-"color": "red.4"    # in chart series
-rx.color("blue", 4) # programmatic color (for rx.cond results)
-```
-
-### Conditional rendering
-
-```python
-rx.cond(
-    MyState.is_loading,
-    mn.loader(size="sm"),
-    content_component(),
-)
-
-# With no false branch (renders nothing)
-rx.cond(MyState.has_error, error_message())
-```
-
-### List rendering
-
-```python
-rx.foreach(MyState.items, lambda item: item_row(item))
-```
+**→ For all component API, usage patterns, and visual guidelines, use the `appkit-mantine-reference` skill.**
 
 ---
 
@@ -353,14 +254,7 @@ def my_page_content() -> rx.Component:
     )
 ```
 
-**Never use bare Python `if` inside component functions** — use `rx.cond` and `rx.foreach`.
-
-### Responsive layout
-
-```python
-mn.simple_grid(cols={"base": 1, "sm": 2, "lg": 4}, spacing="md")
-rx.flex(direction=["column", "column", "row"], gap="4")
-```
+Use `rx.cond` and `rx.foreach` for conditionals and iteration — never bare Python `if` inside component functions.
 
 ---
 
@@ -546,10 +440,6 @@ requires_role(
 
 | Anti-pattern | Correct approach |
 |---|---|
-| `rx.vstack` / `rx.hstack` for layout | `mn.stack` / `mn.group` |
-| `rx.box` as a container | `mn.card` or `mn.paper` |
-| `rx.text` / `rx.heading` | `mn.text` / `mn.heading` |
-| Inline styles as strings `style="..."` | Props: `c="blue.6"`, `fw="bold"`, `p="md"` |
 | Storing SQLAlchemy entity objects in state | Use `rx.Base` display models |
 | Calling `service_registry()` at module level | Call inside functions/methods |
 | Mutating state without `yield` in async gen | Always `yield` after mutations |
@@ -649,3 +539,8 @@ See the `examples/` folder alongside this SKILL.md:
 | `pages_example.py` | Page factory with auth, on_load, navbar |
 | `background_task_example.py` | File upload + async background processing |
 | `form_validation_example.py` | Isolated validation state — fields, errors, on_blur uniqueness check, submit guard |
+
+---
+
+**→ For component API, usage patterns, color reference, and visual guidelines, use the `appkit-mantine-reference` skill.**
+

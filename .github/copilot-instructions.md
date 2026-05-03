@@ -119,7 +119,7 @@ Python code style, clean code principles, design patterns, and testing strategy 
 
 ## 6) Reflex Best Practices
 
-General Reflex patterns are maintained in the **applying-reflex-best-practices** skill. The following are **appkit-specific** rules:
+General Reflex patterns are maintained in the **reflex-state-and-architecture** skill. The following are **appkit-specific** rules:
 
 - **Substates & Mixins:** Split large state classes into feature-based mixins. State vars stay on the main class; methods are organized by concern in separate mixin classes.
 - **Background Task Event Chaining:** Background tasks cannot be called directly from other event handlers — always yield the class method reference: `yield MyState.background_task`.
@@ -130,7 +130,7 @@ General Reflex patterns are maintained in the **applying-reflex-best-practices**
 
 ## 7) Using appkit_mantine Components
 
-Component API, event handler patterns, and usage examples are maintained in the **using-appkit-mantine** skill. Key project-wide rules:
+Component API, event handler patterns, and usage examples are maintained in the **appkit-mantine-reference** skill. Key project-wide rules:
 
 - **Import:** `import appkit_mantine as mn` — Mantine 8.3.14.
 - **Never redeclare inherited props** — base classes (`MantineComponentBase` → `MantineLayoutComponentBase` → `MantineInputComponentBase`) provide ~40 common props. Only define component-specific props.
@@ -174,7 +174,7 @@ Component API, event handler patterns, and usage examples are maintained in the 
 | Skill | Purpose |
 |---|---|
 | `writing-python-code` | Python 3.14 code style, logging, type annotations, design patterns, testing strategy |
-| `applying-reflex-best-practices` | Reflex architecture, state design, event handlers, component patterns |
-| `using-appkit-mantine` | Mantine UI component API, inheritance hierarchy, event handlers, forms, layouts |
+| `reflex-state-and-architecture` | Reflex state design, event handlers, background tasks, form validation, page factory, service registry, repository pattern, database models, project architecture |
+| `appkit-mantine-reference` | Complete API reference for appkit_mantine components — inputs, layout, overlays, charts, data display, navigation. Use when creating any visible UI with mn.* components |
 | `testing-reflex-state` | Pytest unit tests for Reflex State classes — event handlers, computed vars, substates |
 | `multi-stage-dockerfile` | Optimized multi-stage Dockerfiles, layer caching, security hardening, healthchecks |
