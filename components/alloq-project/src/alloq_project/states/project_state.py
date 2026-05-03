@@ -174,6 +174,25 @@ class ProjectState(UserSession):
             projects = [Project(**entity.to_dict()) for entity in entities]
             self.projects = sorted(projects, key=lambda p: p.name_de.lower())
 
+    async def _fetch_project(self, project_id: int) -> Project | None:
+        """Fetch a single project as a Project read model with stats."""
+        async with get_asyncdb_session() as session:
+            entity = await project_repo.find_by_id(session, project_id)
+            if not entity:
+                return None
+            return Project(**entity.to_dict())
+
+    def _upsert_project(self, project: Project) -> None:
+        """Insert or replace a project in the list, preserving sort order."""
+        updated = [p for p in self.projects if p.id != project.id]
+        updated.append(project)
+        updated.sort(key=lambda p: p.name_de.lower())
+        self.projects = updated
+
+    def _remove_project(self, project_id: int) -> None:
+        """Remove a project from the list by id."""
+        self.projects = [p for p in self.projects if p.id != project_id]
+
     async def _load_reference_data(self) -> None:
         """Load roles and employees for form controls."""
         async with get_asyncdb_session() as session:
@@ -240,13 +259,11 @@ class ProjectState(UserSession):
                 RequiredCapacity(**capacity.to_dict()) for capacity in required_entities
             ]
             self.detail_drawer_open = True
-            yield
+            yield ProjectValidationState.initialize(self.selected_project)
 
     @is_authenticated
     async def create_project(self, form_data: dict) -> AsyncGenerator[Any, None]:
         """Create a project with required capacity rows."""
-        self.is_loading = True
-        yield
         try:
             project_data = self._project_create_from_form(form_data)
             async with get_asyncdb_session() as session:
@@ -286,45 +303,98 @@ class ProjectState(UserSession):
                         ),
                     )
                 await session.commit()
+                new_project_id = entity.id
 
-            await self._load_projects()
+            new_project = await self._fetch_project(new_project_id)
+            if new_project:
+                self._upsert_project(new_project)
             self.close_add_modal()
-            self.is_loading = False
             yield rx.toast.info(
                 f"Projekt '{project_data.code}' erstellt.",
                 position="top-right",
             )
         except Exception as exc:
             logger.error("Failed to create project: %s", exc)
-            self.is_loading = False
             yield rx.toast.error(
                 f"Fehler beim Erstellen: {exc}",
                 position="top-right",
             )
 
     @is_authenticated
+    async def update_project(self, form_data: dict) -> AsyncGenerator[Any, None]:
+        """Update the selected project with form data."""
+        if not self.selected_project:
+            return
+        project_id = self.selected_project.id
+        try:
+            project_data = self._project_create_from_form(form_data)
+            async with get_asyncdb_session() as session:
+                entity = await project_repo.find_by_id(session, project_id)
+                if not entity:
+                    yield rx.toast.error(
+                        "Projekt nicht gefunden.", position="top-right"
+                    )
+                    return
+
+                entity.code = project_data.code
+                entity.name_de = project_data.name_de
+                entity.start_date = project_data.start_date
+                entity.end_date = project_data.end_date
+                entity.state = project_data.state
+                entity.budget = project_data.budget
+                entity.color = project_data.color
+
+                entity.owners.clear()
+                for emp_id in project_data.owner_ids:
+                    employee = await employee_repo.find_by_id(session, emp_id)
+                    if employee:
+                        entity.owners.append(employee)
+
+                entity.required_capacities.clear()
+                for capacity in project_data.required_capacities:
+                    entity.required_capacities.append(
+                        RequiredCapacityEntity(
+                            project_id=entity.id,
+                            role_id=capacity.role_id,
+                            person_days=capacity.person_days,
+                        )
+                    )
+
+                await session.commit()
+
+            updated_project = await self._fetch_project(project_id)
+            if updated_project:
+                self._upsert_project(updated_project)
+            self.close_detail_drawer()
+            yield rx.toast.info(
+                f"Projekt '{project_data.code}' aktualisiert.",
+                position="top-right",
+            )
+        except Exception as exc:
+            logger.error("Failed to update project: %s", exc)
+            yield rx.toast.error(
+                f"Fehler beim Aktualisieren: {exc}",
+                position="top-right",
+            )
+
+    @is_authenticated
     async def delete_project(self, project_id: int) -> AsyncGenerator[Any, None]:
         """Delete a project by ID."""
-        self.is_loading = True
-        yield
         try:
             async with get_asyncdb_session() as session:
                 deleted = await project_repo.delete_by_id(session, project_id)
                 if not deleted:
-                    self.is_loading = False
                     yield rx.toast.error(
                         "Projekt nicht gefunden.", position="top-right"
                     )
                     return
                 await session.commit()
 
-            await self._load_projects()
+            self._remove_project(project_id)
             self.close_detail_drawer()
-            self.is_loading = False
             yield rx.toast.info("Projekt gelöscht.", position="top-right")
         except Exception as exc:
             logger.error("Failed to delete project: %s", exc)
-            self.is_loading = False
             yield rx.toast.error(
                 f"Fehler beim Löschen: {exc}",
                 position="top-right",
@@ -344,13 +414,21 @@ class ProjectState(UserSession):
         ]
 
         required_capacities = self._required_capacities_from_form(form_data)
+
+        # Form submissions from components with thousand_separator may send a
+        # formatted string like "30.000" instead of "30000". We manually parse
+        # these locally to be safe.
+        raw_budget = str(form_data.get("budget", 0) or 0).strip()
+        raw_budget = raw_budget.replace(".", "").replace(",", ".")
+        budget = int(float(raw_budget)) if raw_budget else 0
+
         return ProjectCreate(
             code=str(form_data.get("code", "")).strip(),
             name_de=str(form_data.get("name_de", "")).strip(),
             start_date=date.fromisoformat(str(form_data.get("start_date", ""))[:10]),
             end_date=date.fromisoformat(str(form_data.get("end_date", ""))[:10]),
             state=str(form_data.get("state", ProjectStateEnum.PLANNED.value)),
-            budget=int(float(form_data.get("budget", 0) or 0)),
+            budget=budget,
             color=str(form_data.get("color", DEFAULT_PROJECT_COLOR)),
             owner_ids=owner_ids,
             required_capacities=required_capacities,
@@ -363,12 +441,20 @@ class ProjectState(UserSession):
         """Extract required capacity inputs from form data."""
         capacities = []
         for role in self.available_roles:
-            raw_value = form_data.get(f"required_capacity_{role.id}", "")
-            if raw_value in (None, ""):
+            raw_value = str(
+                form_data.get(f"required_capacity_{role.id}", "") or 0
+            ).strip()
+            if not raw_value:
                 continue
-            person_days = int(float(raw_value or 0))
+            raw_value = raw_value.replace(".", "").replace(",", ".")
+            try:
+                person_days = int(float(raw_value))
+            except ValueError:
+                continue
+
             if person_days <= 0:
                 continue
+
             capacities.append(
                 RequiredCapacityCreate(
                     role_id=role.id,
@@ -381,12 +467,13 @@ class ProjectState(UserSession):
 class ProjectValidationState(rx.State):
     """Validation state for project add forms."""
 
+    form_version: int = 0
     code: str = ""
     name_de: str = ""
     start_date: str = ""
     end_date: str = ""
     state: str = ProjectStateEnum.PLANNED.value
-    budget: str = "0"
+    budget: int = 0
     color: str = DEFAULT_PROJECT_COLOR
     owner_ids: list[str] = []
     role_capacities: dict[str, int] = {}
@@ -406,7 +493,7 @@ class ProjectValidationState(rx.State):
                 self.start_date = ""
                 self.end_date = ""
                 self.state = ProjectStateEnum.PLANNED.value
-                self.budget = "0"
+                self.budget = 0
                 self.color = DEFAULT_PROJECT_COLOR
                 self.owner_ids = []
 
@@ -423,7 +510,7 @@ class ProjectValidationState(rx.State):
                 )
                 self.end_date = project.end_date.isoformat() if project.end_date else ""
                 self.state = project.state
-                self.budget = str(project.budget)
+                self.budget = project.budget
                 self.color = project.color
                 self.owner_ids = [str(oid) for oid in project.owner_ids]
 
@@ -441,6 +528,7 @@ class ProjectValidationState(rx.State):
             self.name_de_error = ""
             self.date_error = ""
             self.budget_error = ""
+            self.form_version += 1
 
     def set_code(self, value: str) -> None:
         self.code = value
@@ -461,8 +549,14 @@ class ProjectValidationState(rx.State):
     def set_state(self, value: str) -> None:
         self.state = value or ProjectStateEnum.PLANNED.value
 
-    def set_budget(self, value: str | float) -> None:
-        self.budget = str(value)
+    def set_budget(self, value: float | str) -> None:
+        try:
+            raw = str(value or 0).strip()
+            # Handle localized string values reliably to avoid factor 1000 errors
+            raw = raw.replace(".", "").replace(",", ".")
+            self.budget = int(float(raw))
+        except ValueError:
+            self.budget = 0
         self.validate_budget()
 
     def set_color(self, value: str) -> None:
@@ -498,22 +592,21 @@ class ProjectValidationState(rx.State):
 
     @rx.event
     def validate_budget(self) -> None:
-        try:
-            if int(float(self.budget or 0)) < 0:
-                self.budget_error = "Budget darf nicht negativ sein."
-            else:
-                self.budget_error = ""
-        except ValueError:
-            self.budget_error = "Budget muss eine gültige Zahl sein."
+        if self.budget < 0:
+            self.budget_error = "Budget darf nicht negativ sein."
+        else:
+            self.budget_error = ""
 
     @rx.var(cache=True)
     def total_capacity(self) -> int:
         return sum(self.role_capacities.values())
 
-    def set_role_capacity(self, role_id: str, value: str | float) -> None:
+    def set_role_capacity(self, role_id: str, value: float | str) -> None:
         try:
-            self.role_capacities[role_id] = int(float(str(value) or 0))
-        except (ValueError, TypeError):
+            raw = str(value or 0).strip()
+            raw = raw.replace(".", "").replace(",", ".")
+            self.role_capacities[role_id] = int(float(raw))
+        except ValueError:
             self.role_capacities[role_id] = 0
 
     def has_errors(self) -> bool:
@@ -528,7 +621,7 @@ class ProjectValidationState(rx.State):
     def is_form_valid(self) -> bool:
         """Check if required fields are complete and valid."""
         try:
-            budget_valid = int(float(self.budget or 0)) >= 0
+            budget_valid = self.budget >= 0
             dates_valid = bool(self.start_date and self.end_date)
             if dates_valid:
                 dates_valid = date.fromisoformat(
@@ -543,7 +636,7 @@ class ProjectValidationState(rx.State):
             and self.name_de.strip()
             and budget_valid
             and dates_valid
-            and not self.has_errors
+            and not self.has_errors()
         )
 
     @rx.var

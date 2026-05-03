@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import appkit_mantine; print\\(appkit_mantine.__file__\\)\")",
+      "Bash(/Users/jens/Workspace/projekte/alloq/.venv.mac/bin/python -c \"import reflex; print\\(reflex.__version__\\)\")",
+      "Bash(/Users/jens/Workspace/projekte/alloq/.venv.mac/bin/python -c \"from importlib.metadata import version; print\\('reflex:', version\\('reflex'\\)\\)\")",
+      "Bash(grep -rn \"from alloq_team.*employee_card\\\\|employee_card import\\\\|employee_card =\\\\|: employee_card$\" /Users/jens/Workspace/projekte/alloq/components /Users/jens/Workspace/projekte/alloq/app)",
+      "Bash(find /Users/jens/Workspace/projekte/alloq -path /Users/jens/Workspace/projekte/alloq/.venv* -prune -o -name \"*.py\" -print)",
+      "Bash(/Users/jens/Workspace/projekte/alloq/.venv.mac/bin/reflex run *)",
+      "Bash(tee /tmp/alloq-reflex.log)",
+      "Bash(python -m py_compile components/alloq-project/src/alloq_project/states/project_state.py)"
+    ]
+  }
+}

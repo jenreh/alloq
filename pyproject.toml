@@ -10,9 +10,11 @@ dependencies = [
     "alloq-dashboard",
     "alloq-project",
     "alloq-team",
-    "appkit-user",
-    "appkit-mantine",
-    "psycopg[binary,pool]==3.3.3",
+    "appkit-commons==1.9.1",
+    "appkit-user==1.9.1",
+    "appkit-mantine==1.9.1",
+    "appkit-ui==1.9.1",
+    "psycopg[binary,pool]==3.3.4",
     "reflex>=0.9.1",
     "sqlmodel>=0.0.38",
 ]
@@ -55,10 +57,10 @@ alloq-project = { workspace = true }
 alloq-team = { workspace = true }
 # for **PRODUCTION** builds comment out the following lines to use published versions
 # uncomment for local development to use the local versions of the appkit components
-appkit-mantine = { path = "../appkit/components/appkit-mantine", editable = true }
-appkit-user = { path = "../appkit/components/appkit-user", editable = true }
-appkit-commons = { path = "../appkit/components/appkit-commons", editable = true }
-appkit-ui = { path = "../appkit/components/appkit-ui", editable = true }
+#appkit-mantine = { path = "../appkit/components/appkit-mantine", editable = true }
+#appkit-user = { path = "../appkit/components/appkit-user", editable = true }
+#appkit-commons = { path = "../appkit/components/appkit-commons", editable = true }
+#appkit-ui = { path = "../appkit/components/appkit-ui", editable = true }
 
 
 [tool.bumpversion]

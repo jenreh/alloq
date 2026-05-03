@@ -1,5 +1,4 @@
 import reflex as rx
-from alloq_commons.components.forms import section
 from alloq_commons.models.project import RequiredCapacity
 from alloq_project.components.project_card import project_card
 from alloq_project.components.project_form import (
@@ -10,7 +9,6 @@ from alloq_project.components.project_form import (
 from alloq_project.states.project_state import ProjectState, ProjectValidationState
 
 import appkit_mantine as mn
-from appkit_ui.components.dialogs import delete_dialog
 
 
 def add_project_modal() -> rx.Component:
@@ -22,6 +20,7 @@ def add_project_modal() -> rx.Component:
                 mn.space(height="1.5rem"),
                 direction="column",
                 width="100%",
+                key=ProjectValidationState.form_version.to(str),
             ),
             footer=form_footer(
                 "Projekt speichern",
@@ -67,102 +66,22 @@ def _required_capacity_row(capacity: RequiredCapacity) -> rx.Component:
 
 
 def project_detail_drawer() -> rx.Component:
-    """Right-side drawer showing project details."""
+    """Right-side drawer for editing project details."""
     return mn.drawer(
         form_layout(
-            content=mn.stack(
-                section(
-                    mn.group(
-                        mn.stack(
-                            mn.text("Budget", size="xs", c="dimmed", fw="800"),
-                            mn.text(
-                                rx.cond(
-                                    ProjectState.selected_project,
-                                    ProjectState.selected_project.budget.to_string()
-                                    + " €",
-                                    "0 €",
-                                ),
-                                size="lg",
-                                fw="800",
-                            ),
-                            gap="2px",
-                        ),
-                        mn.stack(
-                            mn.text("Fortschritt", size="xs", c="dimmed", fw="800"),
-                            mn.text(
-                                rx.cond(
-                                    ProjectState.selected_project,
-                                    ProjectState.selected_project.current_progress.to_string()
-                                    + "%",
-                                    "0%",
-                                ),
-                                size="lg",
-                                fw="800",
-                            ),
-                            gap="2px",
-                        ),
-                        justify="space-between",
-                        w="100%",
-                    ),
-                ),
-                section(
-                    mn.stack(
-                        mn.text("Benötigte Rollen", size="sm", c="dimmed", fw="700"),
-                        rx.foreach(
-                            ProjectState.required_capacities, _required_capacity_row
-                        ),
-                        rx.cond(
-                            ProjectState.required_capacities.length() == 0,
-                            mn.text(
-                                "Keine benötigten Rollen erfasst.",
-                                size="sm",
-                                c="dimmed",
-                            ),
-                        ),
-                        gap="xs",
-                        w="100%",
-                    ),
-                ),
-                mn.box(
-                    delete_dialog(
-                        title="Projekt löschen",
-                        content=rx.cond(
-                            ProjectState.selected_project,
-                            ProjectState.selected_project.name_de,
-                            "Projekt",
-                        ),
-                        on_click=lambda: ProjectState.delete_project(
-                            ProjectState.selected_project.id
-                        ),
-                        icon_button=True,
-                        size="md",
-                        color="red",
-                        variant="subtle",
-                    ),
-                    mt="xl",
-                ),
-                gap="lg",
-                p="md",
-            ),
-            footer=mn.group(
-                mn.button(
-                    "Schließen",
-                    variant="subtle",
-                    on_click=ProjectState.close_detail_drawer,
-                    color="gray",
-                ),
-                direction="row",
-                gap="md",
-                justify="end",
-                align="center",
-                padding="16px 18px 18px",
-                background="var(--alloq-surface-muted)",
+            content=mn.flex(
+                project_form_fields(),
+                mn.space(height="1.5rem"),
+                direction="column",
                 width="100%",
-                flex_shrink="0",
-                box_shadow="0 -3px 9px rgba(91, 76, 34, 0.12)",
-                z_index="1",
+                key=ProjectValidationState.form_version.to(str),
             ),
-            on_submit=ProjectState.close_detail_drawer,
+            footer=form_footer(
+                "Projekt aktualisieren",
+                ProjectState.close_detail_drawer,
+                disabled=ProjectValidationState.is_form_invalid,
+            ),
+            on_submit=ProjectState.update_project,
         ),
         title=rx.cond(
             ProjectState.selected_project,

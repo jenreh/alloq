@@ -18,117 +18,71 @@ def _seniority_color(seniority: str) -> str:
     )
 
 
-class EmployeeCardState(rx.ComponentState):
-    """Local state for employee card expansion."""
-
-    is_expanded: bool = False
-
-    def toggle(self) -> None:
-        self.is_expanded = not self.is_expanded
-
-    @classmethod
-    def get_component(cls, employee: Employee, **props) -> rx.Component:
-        """Single employee card for grid view."""
-        return mn.box(
-            mn.card(
-                mn.stack(
-                    cls._card_header(employee),
-                    # _productivity_indicator(),
-                    rx.cond(
-                        cls.is_expanded,
-                        mn.stack(
-                            _role_tags(employee),
-                            _absence_list(employee),
-                            gap="sm",
-                            w="100%",
-                        ),
-                    ),
-                    align="center",
-                    style={"width": "100%"},
-                    gap="sm",
-                ),
-                padding="lg",
-                radius="lg",
-                with_border=False,
-                bg="transparent",
-            ),
-            width="306px",
-            flex="0 0 auto",
-            style={
-                "background_color": "var(--alloq-fade-bg)",
-                "_hover": {
-                    "background_color": "var(--alloq-fade-bg-hover)",
-                    "cursor": "pointer",
-                },
-                "border_radius": "var(--mantine-radius-lg)",
-            },
-            on_click=TeamState.select_employee(employee.id),
-            **props,
-        )
-
-    @classmethod
-    def _card_header(cls, employee: Employee) -> rx.Component:
-        """Header: avatar on left, two rows (name+actions, job title) on right."""
-        return mn.group(
-            _employee_initials(employee),
-            mn.stack(
-                # Row 1: Name + delete + collapse
-                mn.group(
-                    mn.text(
-                        f"{employee.first_name} {employee.last_name}",
-                        size="md",
-                        truncate=True,
-                        flex="1",
-                        style={"minWidth": 0},
-                    ),
-                    mn.group(
-                        mn.box(
-                            delete_dialog(
-                                title="Mitarbeiter löschen",
-                                content=f"{employee.first_name} {employee.last_name}",
-                                on_click=TeamState.delete_employee(employee.id),
-                                icon_button=True,
-                                color="red",
-                                variant="subtle",
-                            ),
-                            on_click=rx.stop_propagation,
-                        ),
-                        mn.action_icon(
-                            rx.cond(
-                                cls.is_expanded,
-                                rx.icon("chevron-up", size=18, stroke_width=1.5),
-                                rx.icon("chevron-down", size=18, stroke_width=1.5),
-                            ),
-                            variant="subtle",
-                            color="gray",
-                            on_click=[rx.stop_propagation, cls.toggle],
-                        ),
-                        gap="0",
-                        align="center",
-                        wrap="nowrap",
-                    ),
-                    justify="space-between",
-                    align="center",
-                    w="100%",
-                    wrap="nowrap",
-                    gap="md",
-                ),
-                # Row 2: Job title
+def _card_header(
+    employee: Employee, section_key: str, is_expanded: rx.Var[bool]
+) -> rx.Component:
+    """Header: avatar on left, two rows (name+actions, job title) on right."""
+    return mn.group(
+        _employee_initials(employee),
+        mn.stack(
+            mn.group(
                 mn.text(
-                    rx.cond(employee.job_title, employee.job_title, employee.seniority),
-                    size="sm",
-                    c="gray",
+                    f"{employee.first_name} {employee.last_name}",
+                    size="md",
                     truncate=True,
+                    flex="1",
+                    style={"minWidth": 0},
                 ),
-                gap="2px",
-                flex="1",
-                style={"minWidth": 0},
+                mn.group(
+                    mn.box(
+                        delete_dialog(
+                            title="Mitarbeiter löschen",
+                            content=f"{employee.first_name} {employee.last_name}",
+                            on_click=TeamState.delete_employee(employee.id),
+                            icon_button=True,
+                            color="red",
+                            variant="subtle",
+                        ),
+                        on_click=rx.stop_propagation,
+                    ),
+                    mn.action_icon(
+                        rx.cond(
+                            is_expanded,
+                            rx.icon("chevron-up", size=18, stroke_width=1.5),
+                            rx.icon("chevron-down", size=18, stroke_width=1.5),
+                        ),
+                        variant="subtle",
+                        color="gray",
+                        on_click=[
+                            rx.stop_propagation,
+                            TeamState.toggle_section_expanded(section_key),
+                        ],
+                    ),
+                    gap="0",
+                    align="center",
+                    wrap="nowrap",
+                ),
+                justify="space-between",
+                align="center",
+                w="100%",
+                wrap="nowrap",
+                gap="md",
             ),
-            align="flex-start",
-            w="100%",
-            wrap="nowrap",
-            gap="md",
-        )
+            mn.text(
+                rx.cond(employee.job_title, employee.job_title, employee.seniority),
+                size="sm",
+                c="gray",
+                truncate=True,
+            ),
+            gap="2px",
+            flex="1",
+            style={"minWidth": 0},
+        ),
+        align="flex-start",
+        w="100%",
+        wrap="nowrap",
+        gap="md",
+    )
 
 
 def _employee_initials(employee: Employee) -> rx.Component:
@@ -274,12 +228,46 @@ def _productivity_indicator() -> rx.Component:
     )
 
 
-def employee_card(employee: Employee) -> rx.Component:
+def employee_card(employee: Employee, section_key: str) -> rx.Component:
     """Single employee card for grid view."""
-    return EmployeeCardState.create(employee=employee)
+    is_expanded = TeamState.expanded_sections.contains(section_key)
+    return mn.box(
+        mn.card(
+            mn.stack(
+                _card_header(employee, section_key, is_expanded),
+                rx.cond(
+                    is_expanded,
+                    mn.stack(
+                        _role_tags(employee),
+                        _absence_list(employee),
+                        gap="sm",
+                        w="100%",
+                    ),
+                ),
+                align="center",
+                style={"width": "100%"},
+                gap="sm",
+            ),
+            padding="lg",
+            radius="lg",
+            with_border=False,
+            bg="transparent",
+        ),
+        width="306px",
+        flex="0 0 auto",
+        style={
+            "background_color": "var(--alloq-fade-bg)",
+            "_hover": {
+                "background_color": "var(--alloq-fade-bg-hover)",
+                "cursor": "pointer",
+            },
+            "border_radius": "var(--mantine-radius-lg)",
+        },
+        on_click=TeamState.select_employee(employee.id),
+    )
 
 
-def _employee_section(title: str, employees: rx.Var) -> rx.Component:
+def _employee_section(title: str, employees: rx.Var, section_key: str) -> rx.Component:
     """Helper to render a titled section of employee cards."""
     return rx.cond(
         employees.length() > 0,
@@ -290,7 +278,10 @@ def _employee_section(title: str, employees: rx.Var) -> rx.Component:
                 fw="700",
             ),
             mn.flex(
-                rx.foreach(employees, employee_card),
+                rx.foreach(
+                    employees,
+                    lambda employee: employee_card(employee, section_key),
+                ),
                 wrap="wrap",
                 gap="md",
                 direction="row",
@@ -316,8 +307,10 @@ def employee_grid() -> rx.Component:
             py="xl",
         ),
         mn.stack(
-            _employee_section("Meine Mitarbeiter", TeamState.my_employees),
-            _employee_section("Weitere Mitarbeiter", TeamState.other_employees),
+            _employee_section("Meine Mitarbeiter", TeamState.my_employees, "my"),
+            _employee_section(
+                "Weitere Mitarbeiter", TeamState.other_employees, "other"
+            ),
             gap="xl",
         ),
     )

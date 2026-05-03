@@ -55,7 +55,6 @@ def project_form_fields() -> rx.Component:
                     label="Budget (€)",
                     default_value=ProjectValidationState.budget,
                     on_change=ProjectValidationState.set_budget,
-                    on_blur=ProjectValidationState.set_budget,
                     error=ProjectValidationState.budget_error,
                     min=0,
                     step=10000,
@@ -194,6 +193,7 @@ def _required_capacity_input(role: Role) -> rx.Component:
                     role.id.to_string(), v
                 ),
                 min=0,
+                start_value=5,
                 step=5,
                 w="100%",
                 decimal_precision=0,

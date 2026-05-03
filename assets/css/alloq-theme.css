@@ -170,9 +170,40 @@
     --mantine-color-gray-light: rgba(111, 105, 95, 0.14);
     --mantine-color-gray-light-hover: rgba(111, 105, 95, 0.2);
     --mantine-color-gray-light-color: var(--mantine-color-gray-7);
+
+    /* alloqWarm theme colors */
+    --mantine-color-alloqWarm-0: #fffef8;
+    --mantine-color-alloqWarm-1: #fbf8ed;
+    --mantine-color-alloqWarm-2: #f7efd1;
+    --mantine-color-alloqWarm-3: #f8eaa8;
+    --mantine-color-alloqWarm-4: #f6d94d;
+    --mantine-color-alloqWarm-5: #f1ca45;
+    --mantine-color-alloqWarm-6: #d99f18;
+    --mantine-color-alloqWarm-7: #a97811;
+    --mantine-color-alloqWarm-8: #6f4f0f;
+    --mantine-color-alloqWarm-9: #3e2d0b;
+
+    /* Override primary colors with alloqWarm */
+    --mantine-primary-color-0: var(--mantine-color-alloqWarm-0);
+    --mantine-primary-color-1: var(--mantine-color-alloqWarm-1);
+    --mantine-primary-color-2: var(--mantine-color-alloqWarm-2);
+    --mantine-primary-color-3: var(--mantine-color-alloqWarm-3);
+    --mantine-primary-color-4: var(--mantine-color-alloqWarm-4);
+    --mantine-primary-color-5: var(--mantine-color-alloqWarm-5);
+    --mantine-primary-color-6: var(--mantine-color-alloqWarm-6);
+    --mantine-primary-color-7: var(--mantine-color-alloqWarm-7);
+    --mantine-primary-color-8: var(--mantine-color-alloqWarm-8);
+    --mantine-primary-color-9: var(--mantine-color-alloqWarm-9);
+
+    /* Light theme uses shade 5 */
+    --mantine-primary-color-filled: var(--mantine-color-alloqWarm-5);
+    --mantine-primary-color-filled-hover: var(--mantine-color-alloqWarm-6);
+    --mantine-primary-color-light: rgba(241, 202, 69, 0.1);
+    --mantine-primary-color-light-hover: rgba(241, 202, 69, 0.12);
+    --mantine-primary-color-light-color: var(--mantine-color-alloqWarm-5);
 }
 
-.dark {
+.dark, [data-mantine-color-scheme="dark"] {
     --alloq-bg-base: #1c1710;
     --alloq-bg-warm: #332614;
     --alloq-bg-glow: #7a540d;
@@ -203,6 +234,13 @@
     --alloq-tag-bg: #373a40;
     --alloq-item-bg: #2c2e33;
     --alloq-item-text: #c1c2c5;
+
+    /* Dark theme uses shade 6 */
+    --mantine-primary-color-filled: var(--mantine-color-alloqWarm-6);
+    --mantine-primary-color-filled-hover: var(--mantine-color-alloqWarm-7);
+    --mantine-primary-color-light: rgba(217, 159, 24, 0.15);
+    --mantine-primary-color-light-hover: rgba(217, 159, 24, 0.2);
+    --mantine-primary-color-light-color: var(--mantine-color-alloqWarm-6);
 }
 
 .alloq-employee-detail-drawer.mantine-Drawer-content,

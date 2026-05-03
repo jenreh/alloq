@@ -44,6 +44,16 @@ class TeamState(UserSession):
 
     search_filter: str = ""
     view_mode: str = "grid"
+    expanded_sections: list[str] = []
+
+    def toggle_section_expanded(self, section_key: str) -> None:
+        """Toggle the expanded state of all cards in an employee section."""
+        if section_key in self.expanded_sections:
+            self.expanded_sections = [
+                s for s in self.expanded_sections if s != section_key
+            ]
+        else:
+            self.expanded_sections = [*self.expanded_sections, section_key]
 
     @rx.var(cache=False)
     def current_date(self) -> str:
