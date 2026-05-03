@@ -48,6 +48,13 @@ PROJECT_COLORS = [
 ]
 
 
+def _parse_localized_int(value: float | str | None) -> int:
+    """Parse numeric input values that may contain German separators."""
+    raw = str(value or 0).strip()
+    raw = raw.replace(".", "").replace(",", ".")
+    return int(float(raw)) if raw else 0
+
+
 class ProjectState(UserSession):
     """State for project management."""
 
@@ -418,9 +425,7 @@ class ProjectState(UserSession):
         # Form submissions from components with thousand_separator may send a
         # formatted string like "30.000" instead of "30000". We manually parse
         # these locally to be safe.
-        raw_budget = str(form_data.get("budget", 0) or 0).strip()
-        raw_budget = raw_budget.replace(".", "").replace(",", ".")
-        budget = int(float(raw_budget)) if raw_budget else 0
+        budget = _parse_localized_int(form_data.get("budget", 0))
 
         return ProjectCreate(
             code=str(form_data.get("code", "")).strip(),
@@ -446,10 +451,9 @@ class ProjectState(UserSession):
             ).strip()
             if not raw_value:
                 continue
-            raw_value = raw_value.replace(".", "").replace(",", ".")
             try:
-                person_days = int(float(raw_value))
-            except ValueError:
+                person_days = _parse_localized_int(raw_value)
+            except (TypeError, ValueError):
                 continue
 
             if person_days <= 0:
@@ -551,11 +555,8 @@ class ProjectValidationState(rx.State):
 
     def set_budget(self, value: float | str) -> None:
         try:
-            raw = str(value or 0).strip()
-            # Handle localized string values reliably to avoid factor 1000 errors
-            raw = raw.replace(".", "").replace(",", ".")
-            self.budget = int(float(raw))
-        except ValueError:
+            self.budget = _parse_localized_int(value)
+        except (TypeError, ValueError):
             self.budget = 0
         self.validate_budget()
 
@@ -592,7 +593,13 @@ class ProjectValidationState(rx.State):
 
     @rx.event
     def validate_budget(self) -> None:
-        if self.budget < 0:
+        try:
+            budget = _parse_localized_int(self.budget)
+        except (TypeError, ValueError):
+            self.budget_error = "Budget muss eine gültige Zahl sein."
+            return
+
+        if budget < 0:
             self.budget_error = "Budget darf nicht negativ sein."
         else:
             self.budget_error = ""
@@ -603,10 +610,8 @@ class ProjectValidationState(rx.State):
 
     def set_role_capacity(self, role_id: str, value: float | str) -> None:
         try:
-            raw = str(value or 0).strip()
-            raw = raw.replace(".", "").replace(",", ".")
-            self.role_capacities[role_id] = int(float(raw))
-        except ValueError:
+            self.role_capacities[role_id] = _parse_localized_int(value)
+        except (TypeError, ValueError):
             self.role_capacities[role_id] = 0
 
     def has_errors(self) -> bool:
@@ -621,13 +626,13 @@ class ProjectValidationState(rx.State):
     def is_form_valid(self) -> bool:
         """Check if required fields are complete and valid."""
         try:
-            budget_valid = self.budget >= 0
+            budget_valid = _parse_localized_int(self.budget) >= 0
             dates_valid = bool(self.start_date and self.end_date)
             if dates_valid:
                 dates_valid = date.fromisoformat(
                     self.end_date[:10]
                 ) >= date.fromisoformat(self.start_date[:10])
-        except ValueError:
+        except (TypeError, ValueError):
             budget_valid = False
             dates_valid = False
 

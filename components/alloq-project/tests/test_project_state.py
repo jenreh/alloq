@@ -48,11 +48,11 @@ class TestProjectValidationState:
 
     def test_initialize_defaults(self) -> None:
         state = ProjectValidationState()  # type: ignore[call-arg]
-        state.initialize()
 
         assert state.code == ""
         assert state.color == "#F7C948"
-        assert state.has_errors is False
+        assert state.budget == 0
+        assert state.has_errors() is False
 
     def test_valid_form(self) -> None:
         state = ProjectValidationState()  # type: ignore[call-arg]
@@ -60,7 +60,7 @@ class TestProjectValidationState:
         state.name_de = "ML-Ops Plattform"
         state.start_date = date(2026, 6, 1).isoformat()
         state.end_date = date(2026, 12, 31).isoformat()
-        state.budget = "300000"
+        state.budget = 300000
 
         assert state.is_form_valid is True
 

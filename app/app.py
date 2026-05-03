@@ -4,6 +4,7 @@ import reflex as rx
 from alloq_dashboard.pages import create_dashboard_page
 from alloq_project.pages import create_projects_overview_page
 from alloq_team.pages import create_team_overview_page
+from reflex.assets import asset
 from starlette.types import ASGIApp
 
 import appkit_mantine.base
@@ -43,8 +44,14 @@ ALLOQ_THEME = {
     },
 }
 
+ALLOQ_MANTINE_PROVIDER_PATH = asset(
+    path="mantine_provider.js",
+    shared=True,
+).importable_path
+
 
 class _CustomMemoizedMantineProvider(appkit_mantine.base.MemoizedMantineProvider):
+    library = ALLOQ_MANTINE_PROVIDER_PATH
     theme: rx.Var[dict]
 
 
@@ -79,6 +86,7 @@ def add_https_middleware(asgi_app: ASGIApp) -> ASGIApp:
 
 
 app = rx.App(
+    theme=rx.theme(accent_color="yellow", gray_color="sand", radius="large"),
     stylesheets=base_stylesheets,
     style=base_style,
     api_transformer=[add_https_middleware],
