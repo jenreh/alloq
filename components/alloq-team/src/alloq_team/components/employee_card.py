@@ -1,5 +1,5 @@
 import reflex as rx
-from alloq_team.models.employee import Employee
+from alloq_commons.models.employee import Employee
 from alloq_team.states.team_state import TeamState
 
 import appkit_mantine as mn

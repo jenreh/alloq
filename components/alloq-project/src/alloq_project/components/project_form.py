@@ -26,16 +26,6 @@ def project_form_fields() -> rx.Component:
                 max_length=255,
             ),
             mn.text_input(
-                name="customer",
-                label="Kunde",
-                placeholder="z.B. Muster AG",
-                default_value=ProjectValidationState.customer,
-                on_blur=ProjectValidationState.set_customer,
-                error=ProjectValidationState.customer_error,
-                required=True,
-                max_length=255,
-            ),
-            mn.text_input(
                 name="code",
                 label="Projekt-Code",
                 placeholder="z.B. ML-OPS",
@@ -46,6 +36,15 @@ def project_form_fields() -> rx.Component:
                 max_length=5,
                 custom_attrs={"maxLength": 5},
                 w="10rem",
+            ),
+            mn.text_input(
+                name="customer",
+                label="Kunde",
+                placeholder="z.B. Muster AG",
+                default_value=ProjectValidationState.customer,
+                on_blur=ProjectValidationState.set_customer,
+                error=ProjectValidationState.customer_error,
+                max_length=255,
             ),
             mn.multi_select(
                 name="owner_ids",
@@ -62,15 +61,18 @@ def project_form_fields() -> rx.Component:
             mn.simple_grid(
                 mn.number_input(
                     name="budget",
-                    label="Budget (€)",
+                    label="Budget",
                     default_value=ProjectValidationState.budget,
-                    on_change=ProjectValidationState.set_budget,
+                    on_value_change=ProjectValidationState.set_budget,
                     error=ProjectValidationState.budget_error,
                     min=0,
                     step=10000,
+                    decimalScale=0,
+                    fixed_decimal_scale=True,
                     required=True,
                     thousand_separator=".",
                     decimal_separator=",",
+                    suffix=" €",
                 ),
                 mn.select(
                     name="state",
@@ -199,17 +201,18 @@ def _required_capacity_input(role: Role) -> rx.Component:
                 default_value=ProjectValidationState.role_capacities[
                     role.id.to_string()
                 ],
-                on_change=lambda v: ProjectValidationState.set_role_capacity(
+                on_value_change=lambda v: ProjectValidationState.set_role_capacity(
                     role.id.to_string(), v
                 ),
                 min=0,
                 start_value=5,
                 step=5,
                 w="100%",
-                decimal_precision=0,
+                decimal_scale=0,
+                fixed_decimal_scale=True,
                 decimal_separator=",",
                 thousand_separator=".",
-                # right_section=mn.text(" PT ", size="xs", c="dimmed"),
+                suffix=" PT",
             ),
             gap="xs",
         ),

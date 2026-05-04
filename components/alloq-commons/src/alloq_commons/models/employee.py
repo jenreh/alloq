@@ -1,8 +1,9 @@
 from datetime import date, datetime
 from typing import Any
 
-from alloq_commons.entities.employee import SeniorityLevel
 from pydantic import BaseModel, Field
+
+from alloq_commons.entities.employee import SeniorityLevel
 
 STANDARD_WEEKLY_HOURS = 40.0
 

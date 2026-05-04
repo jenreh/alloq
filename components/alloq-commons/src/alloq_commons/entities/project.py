@@ -45,7 +45,7 @@ class ProjectEntity(Entity, Base):
     code: Mapped[str] = mapped_column(
         String(50), nullable=False, unique=True, index=True
     )
-    customer: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    customer: Mapped[str] = mapped_column(String(255), nullable=True, default="")
     name_de: Mapped[str] = mapped_column(String(255), nullable=False)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)

@@ -38,5 +38,7 @@ repos:
     rev: v0.15.4
     hooks:
       - id: ruff-format
+        exclude: '^\.claude/'
       - id: ruff
+        exclude: '^\.claude/'
         args: ["--fix"]

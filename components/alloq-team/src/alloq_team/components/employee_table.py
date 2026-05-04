@@ -1,8 +1,8 @@
 import reflex as rx
+from alloq_commons.models.employee import Employee
 from alloq_team.components.employee_card import (
     _employee_initials,
 )
-from alloq_team.models.employee import Employee
 from alloq_team.states.team_state import TeamState
 
 import appkit_mantine as mn

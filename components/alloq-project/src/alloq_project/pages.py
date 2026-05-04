@@ -4,6 +4,7 @@ import reflex as rx
 from alloq_commons.components.page_header import page_header
 
 import appkit_mantine as mn
+from alloq_project.components.planning_toolbar import planning_toolbar
 from alloq_project.components.project_overview import project_overview
 from alloq_project.components.project_toolbar import project_toolbar
 from alloq_project.states.project_state import ProjectState
@@ -27,6 +28,7 @@ def create_planning_page(
     def _planning_page() -> rx.Component:
         return requires_admin(
             mn.stack(
+                planning_toolbar(),
                 page_header(
                     title="Ressourcenplanung",
                     description=(

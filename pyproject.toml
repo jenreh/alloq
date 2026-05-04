@@ -10,10 +10,10 @@ dependencies = [
     "alloq-dashboard",
     "alloq-project",
     "alloq-team",
-    "appkit-user==1.9.3",
-    "appkit-mantine==1.9.3",
-    "appkit-commons==1.9.3",
-    "appkit-ui==1.9.3",
+    "appkit-user==1.9.4",
+    "appkit-mantine==1.9.4",
+    "appkit-commons==1.9.4",
+    "appkit-ui==1.9.4",
     "psycopg[binary,pool]==3.3.4",
     "reflex>=0.9.1",
     "sqlmodel>=0.0.38",
@@ -229,6 +229,7 @@ ignore_errors = true
 ignore_missing_imports = false
 exclude = [
     ".cache",
+    ".claude",
     ".venv",
     ".venv.mac",
     ".venv_mac",

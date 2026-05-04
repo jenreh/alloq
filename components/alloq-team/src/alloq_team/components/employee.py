@@ -1,6 +1,7 @@
 import reflex as rx
 from alloq_commons.components.forms import section
 from alloq_commons.entities.employee import SeniorityLevel
+from alloq_commons.models.employee import Absence
 from alloq_team.components.employee_card import (
     _format_date_de,
     employee_grid,
@@ -8,7 +9,6 @@ from alloq_team.components.employee_card import (
 from alloq_team.components.employee_table import (
     employee_table,
 )
-from alloq_team.models.employee import Absence
 from alloq_team.states.team_state import EmployeeValidationState, TeamState
 
 import appkit_mantine as mn

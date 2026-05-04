@@ -6,17 +6,17 @@ from typing import Any
 import reflex as rx
 from alloq_commons.entities.absence import AbsenceEntity
 from alloq_commons.entities.employee import EmployeeEntity
-from alloq_commons.models.role import Role
-from alloq_commons.repositories.absence_repository import absence_repo
-from alloq_commons.repositories.employee_repository import employee_repo
-from alloq_commons.repositories.role_repository import role_repo
-
-from alloq_team.models.employee import (
+from alloq_commons.models.employee import (
     Absence,
     AbsenceCreate,
     Employee,
     EmployeeCreate,
 )
+from alloq_commons.models.role import Role
+from alloq_commons.repositories.absence_repository import absence_repo
+from alloq_commons.repositories.employee_repository import employee_repo
+from alloq_commons.repositories.role_repository import role_repo
+
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_user.authentication.decorators import is_authenticated
 from appkit_user.authentication.states import UserSession
