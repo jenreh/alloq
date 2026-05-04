@@ -39,7 +39,7 @@ def planning_filter_row() -> rx.Component:
             on_change=PlanningState.set_view_mode,
             color="dark",
             radius="md",
-            bg="white",
+            bg="var(--alloq-surface-solid)",
         ),
         # Time range
         mn.segmented_control(
@@ -48,7 +48,7 @@ def planning_filter_row() -> rx.Component:
             on_change=PlanningState.set_time_range,
             color="alloqWarm.5",
             radius="md",
-            bg="white",
+            bg="var(--alloq-surface-solid)",
             style={
                 "& .mantine-SegmentedControl-label[data-active]": {
                     "color": "black !important"

@@ -1,7 +1,36 @@
+from collections.abc import Callable
+
 import reflex as rx
 from alloq_project.states.planning_state import PlanningState
 
 import appkit_mantine as mn
+
+
+def _toggle_button(
+    icon: str,
+    active: bool,
+    tooltip: str,
+    on_click: Callable,
+) -> rx.Component:
+    """Reusable toggle button with tooltip for the planning toolbar."""
+    return mn.tooltip(
+        mn.button(
+            rx.icon(
+                icon,
+                size=18,
+                color=rx.cond(active, "black", "var(--alloq-text)"),
+            ),
+            variant=rx.cond(active, "filled", "subtle"),
+            bg=rx.cond(active, "alloqWarm.5", "var(--alloq-fade-bg)"),
+            on_click=on_click,
+            size="sm",
+            p="0 8px",
+            radius="md",
+        ),
+        label=tooltip,
+        with_arrow=True,
+        position="bottom",
+    )
 
 
 def planning_toolbar() -> rx.Component:
@@ -17,7 +46,7 @@ def planning_toolbar() -> rx.Component:
         ),
         mn.button(
             mn.text("Projekt planen", size="sm", c="black"),
-            left_section=rx.icon("plus", size=20, color="black"),
+            left_section=rx.icon("land-plot", size=20, color="black"),
             variant="filled",
             size="sm",
             padding="0",
@@ -25,52 +54,18 @@ def planning_toolbar() -> rx.Component:
         ),
         # Project scope toggle
         mn.group(
-            mn.button(
-                rx.icon(
-                    "folder-open",
-                    size=18,
-                    color=rx.cond(
-                        PlanningState.project_scope == "Meine Projekte",
-                        "black",
-                        "var(--alloq-text)",
-                    ),
-                ),
-                variant="filled",
-                bg=rx.cond(
-                    PlanningState.project_scope == "Meine Projekte",
-                    "alloqWarm.5",
-                    "var(--alloq-fade-bg)",
-                ),
+            _toggle_button(
+                icon="folder-open",
+                active=PlanningState.project_scope,
+                tooltip="Nur meine Projekte",
                 on_click=PlanningState.toggle_project_scope,
-                size="sm",
-                p="0 8px",
-                radius="md",
             ),
             # Employee scope toggle
-            mn.button(
-                rx.icon(
-                    "users",
-                    size=18,
-                    color=rx.cond(
-                        PlanningState.employee_scope == "Meine Mitarbeiter",
-                        "black",
-                        "var(--alloq-text)",
-                    ),
-                ),
-                variant=rx.cond(
-                    PlanningState.employee_scope == "Meine Mitarbeiter",
-                    "filled",
-                    "subtle",
-                ),
-                bg=rx.cond(
-                    PlanningState.employee_scope == "Meine Mitarbeiter",
-                    "alloqWarm.5",
-                    "var(--alloq-fade-bg)",
-                ),
+            _toggle_button(
+                icon="users",
+                active=PlanningState.employee_scope,
+                tooltip="Nur meine Mitarbeiter",
                 on_click=PlanningState.toggle_employee_scope,
-                size="sm",
-                p="0 8px",
-                radius="md",
             ),
             gap="4px",
             ml="6px",

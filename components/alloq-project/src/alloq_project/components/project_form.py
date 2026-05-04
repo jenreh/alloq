@@ -72,7 +72,7 @@ def project_form_fields() -> rx.Component:
                     required=True,
                     thousand_separator=".",
                     decimal_separator=",",
-                    suffix=" €",
+                    # suffix=" €",
                 ),
                 mn.select(
                     name="state",
@@ -212,7 +212,7 @@ def _required_capacity_input(role: Role) -> rx.Component:
                 fixed_decimal_scale=True,
                 decimal_separator=",",
                 thousand_separator=".",
-                suffix=" PT",
+                # suffix=" PT",
             ),
             gap="xs",
         ),
