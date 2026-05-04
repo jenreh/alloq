@@ -352,23 +352,26 @@ def _panel_section_items(section: dict[str, Any]) -> rx.Component:
 
 
 def _user_avatar() -> rx.Component:
-    return mn.tooltip(
+    avatar_component = mn.center(
+        mn.avatar(
+            src=LoginState.user.avatar_url,
+            name=LoginState.user.name,
+            radius="xl",
+            size="md",
+            ml="3px",
+            mb="6px",
+            color="var(--alloq-accent-strong)",
+        ),
+        w="100%",
+        p="xs",
+        style={"cursor": "pointer", "flex_shrink": "0"},
+    )
+
+    # When panel is expanded, show simple tooltip with link to profile
+    expanded_view = mn.tooltip(
         mn.box(
             rx.link(
-                mn.center(
-                    mn.avatar(
-                        src=LoginState.user.avatar_url,
-                        name=LoginState.user.name,
-                        radius="xl",
-                        size="md",
-                        ml="3px",
-                        mb="6px",
-                        color="var(--alloq-accent-strong)",
-                    ),
-                    w="100%",
-                    p="xs",
-                    style={"cursor": "pointer", "flex_shrink": "0"},
-                ),
+                avatar_component,
                 href="/profile",
                 underline="none",
                 on_click=LoadingState.set_is_loading(True),
@@ -378,6 +381,57 @@ def _user_avatar() -> rx.Component:
         label=LoginState.user.name,
         position="right",
         offset=7,
+    )
+
+    # When panel is collapsed, show dropdown menu with profile/logout on click
+    collapsed_view = mn.menu(
+        mn.menu.target(
+            mn.box(
+                avatar_component,
+                style={"display": "flex", "cursor": "pointer"},
+            ),
+        ),
+        mn.menu.dropdown(
+            mn.menu.item(
+                mn.group(
+                    rx.icon("user", size=14),
+                    mn.text("Profil", size="sm"),
+                    gap="xs",
+                    align="center",
+                ),
+                on_click=[
+                    LoadingState.set_is_loading(True),
+                    rx.redirect("/profile"),
+                ],
+            ),
+            mn.menu.divider(),
+            mn.menu.item(
+                mn.group(
+                    rx.icon("log-out", size=14),
+                    mn.text("Abmelden", size="sm"),
+                    gap="xs",
+                    align="center",
+                ),
+                color="red",
+                on_click=[
+                    LoginState.terminate_session,
+                    LoginState.logout,
+                ],
+            ),
+        ),
+        trigger="hover",
+        position="right-end",
+        with_arrow=True,
+        arrow_position="center",
+        open_delay=0,
+        close_delay=200,
+    )
+
+    # Show collapse view when panel is collapsed, expanded view when open
+    return rx.cond(
+        NavbarCollapseState.is_collapsed,
+        collapsed_view,
+        expanded_view,
     )
 
 
@@ -503,8 +557,8 @@ def _panel_user_card() -> rx.Component:
             min_width="0",
             overflow="hidden",
         ),
-        mn.hover_card(
-            mn.hover_card.target(
+        mn.menu(
+            mn.menu.target(
                 mn.action_icon(
                     rx.icon("ellipsis-vertical", size=16),
                     variant="subtle",
@@ -513,40 +567,38 @@ def _panel_user_card() -> rx.Component:
                     aria_label="Optionen",
                 ),
             ),
-            mn.hover_card.dropdown(
-                mn.stack(
-                    rx.link(
-                        mn.group(
-                            rx.icon("user", size=14),
-                            mn.text("Profil", size="sm"),
-                            gap="xs",
-                            align="center",
-                        ),
-                        href="/profile",
-                        underline="none",
-                        on_click=LoadingState.set_is_loading(True),
-                        style={"color": _TEXT_COLOR},
+            mn.menu.dropdown(
+                mn.menu.item(
+                    mn.group(
+                        rx.icon("user", size=14),
+                        mn.text("Profil", size="sm"),
+                        gap="xs",
+                        align="center",
                     ),
-                    mn.divider(),
+                    on_click=[
+                        LoadingState.set_is_loading(True),
+                        rx.redirect("/profile"),
+                    ],
+                ),
+                mn.menu.divider(),
+                mn.menu.item(
                     mn.group(
                         rx.icon("log-out", size=14),
                         mn.text("Abmelden", size="sm"),
                         gap="xs",
                         align="center",
-                        style={
-                            "cursor": "pointer",
-                            "color": "var(--red-9)",
-                        },
-                        on_click=[
-                            LoginState.terminate_session,
-                            LoginState.logout,
-                        ],
                     ),
-                    gap="xs",
-                    p="xs",
+                    color="red",
+                    on_click=[
+                        LoginState.terminate_session,
+                        LoginState.logout,
+                    ],
                 ),
-                p="xs",
             ),
+            trigger="hover",
+            position="top-end",
+            with_arrow=True,
+            arrow_position="center",
             open_delay=0,
             close_delay=200,
         ),

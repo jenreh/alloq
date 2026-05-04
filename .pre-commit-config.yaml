@@ -22,6 +22,7 @@ repos:
         args: ["--maxkb=2048"]
       - id: check-executables-have-shebangs
       - id: check-shebang-scripts-are-executable
+        exclude: '^\.(claude|agents?)/'
       - id: check-illegal-windows-names
       - id: check-merge-conflict
       - id: check-symlinks
@@ -38,7 +39,7 @@ repos:
     rev: v0.15.4
     hooks:
       - id: ruff-format
-        exclude: '^\.claude/'
+        exclude: '^\.(claude|agents?)/'
       - id: ruff
-        exclude: '^\.claude/'
+        exclude: '^\.(claude|agents?)/'
         args: ["--fix"]
