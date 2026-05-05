@@ -7,11 +7,17 @@ import appkit_mantine as mn
 from alloq_project.components.planning_filter_row import planning_filter_row
 from alloq_project.components.planning_grid import planning_grid
 from alloq_project.components.planning_heatmap import planning_heatmap
+from alloq_project.components.planning_project_view import (
+    planning_project_view,
+)
 from alloq_project.components.planning_toolbar import planning_toolbar
 from alloq_project.components.project_overview import project_overview
 from alloq_project.components.project_plan_modal import project_plan_modal
 from alloq_project.components.project_toolbar import project_toolbar
 from alloq_project.states.planning_grid_state import PlanningGridState
+from alloq_project.states.planning_project_view_state import (
+    PlanningProjectViewState,
+)
 from alloq_project.states.planning_state import PlanningState
 from alloq_project.states.project_state import ProjectState
 from appkit_user.authentication.components.components import requires_admin
@@ -33,6 +39,7 @@ def create_planning_page(
         on_load=[
             PlanningState.load_planning_data,
             PlanningGridState.load_grid_data,
+            PlanningProjectViewState.load_project_view_data,
         ],
     )
     def _planning_page() -> rx.Component:
@@ -48,6 +55,7 @@ def create_planning_page(
                     PlanningState.view_mode,
                     ("Grid", planning_grid()),
                     ("Heatmap", planning_heatmap()),
+                    ("Projekte", planning_project_view()),
                     rx.fragment(),
                 ),
                 project_plan_modal(),

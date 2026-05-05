@@ -2,7 +2,9 @@ from collections.abc import Callable
 
 import reflex as rx
 from alloq_project.states.planning_grid_state import PlanningGridState
-from alloq_project.states.planning_state import PlanningState
+from alloq_project.states.planning_project_view_state import (
+    PlanningProjectViewState,
+)
 from alloq_project.states.project_plan_state import ProjectPlanState
 
 import appkit_mantine as mn
@@ -41,8 +43,8 @@ def planning_toolbar() -> rx.Component:
         mn.text_input(
             placeholder="Suchen...",
             left_section=rx.icon("search", size=16),
-            value=PlanningState.search_query,
-            on_change=PlanningState.set_search_query,
+            value=PlanningGridState.search_query,
+            on_change=PlanningGridState.set_search_query,
             size="sm",
             w="18rem",
         ),
@@ -60,12 +62,17 @@ def planning_toolbar() -> rx.Component:
                 rx.icon("save", size=18, color="black"),
                 variant="filled",
                 bg=rx.cond(
-                    PlanningGridState.has_dirty,
+                    PlanningGridState.has_dirty | PlanningProjectViewState.has_dirty,
                     "alloqWarm.5",
                     "var(--alloq-fade-bg)",
                 ),
-                on_click=PlanningGridState.save_grid,
-                disabled=~PlanningGridState.has_dirty,
+                on_click=[
+                    PlanningGridState.save_grid,
+                    PlanningProjectViewState.save_grid,
+                ],
+                disabled=~(
+                    PlanningGridState.has_dirty | PlanningProjectViewState.has_dirty
+                ),
                 size="sm",
                 p="0 8px",
                 radius="md",
@@ -78,16 +85,16 @@ def planning_toolbar() -> rx.Component:
         mn.group(
             _toggle_button(
                 icon="folder-open",
-                active=PlanningState.project_scope,
+                active=PlanningGridState.project_scope,
                 tooltip="Nur meine Projekte",
-                on_click=PlanningState.toggle_project_scope,
+                on_click=PlanningGridState.toggle_project_scope,
             ),
             # Employee scope toggle
             _toggle_button(
                 icon="users",
-                active=PlanningState.employee_scope,
+                active=PlanningGridState.employee_scope,
                 tooltip="Nur meine Mitarbeiter",
-                on_click=PlanningState.toggle_employee_scope,
+                on_click=PlanningGridState.toggle_employee_scope,
             ),
             gap="4px",
             ml="6px",

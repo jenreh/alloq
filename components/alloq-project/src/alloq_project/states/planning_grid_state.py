@@ -483,12 +483,85 @@ class PlanningGridState(rx.State):
     employees: list[EmployeeBlock] = []
     is_loaded: bool = False
 
+    # Filter state
+    project_filter: list[str] = []
+    role_filter: list[str] = []
+    employee_filter: list[str] = []
+    search_query: str = ""
+    project_scope: bool = False
+    employee_scope: bool = False
+
     active_cell: str = ""
     editing_cell: str = ""
     draft_value: str = ""
     edit_version: int = 0  # bumps to force input remount on cell change
 
     collapsed_employees: list[str] = []
+
+    def set_project_filter(self, value: list[str]) -> None:
+        self.project_filter = value
+
+    def set_role_filter(self, value: list[str]) -> None:
+        self.role_filter = value
+
+    def set_employee_filter(self, value: list[str]) -> None:
+        self.employee_filter = value
+
+    def set_search_query(self, value: str) -> None:
+        self.search_query = value
+
+    def toggle_project_scope(self) -> None:
+        self.project_scope = not self.project_scope
+
+    def toggle_employee_scope(self) -> None:
+        self.employee_scope = not self.employee_scope
+
+    @rx.var(cache=True)
+    def filtered_employees(self) -> list[EmployeeBlock]:
+        """Return employees filtered by active project/role/employee/search filters."""
+        result = self.employees
+
+        if self.search_query.strip():
+            q = self.search_query.strip().lower()
+            result = [
+                emp
+                for emp in result
+                if q in emp.name.lower() or q in emp.initials.lower()
+            ]
+
+        if self.project_filter:
+            result = [
+                emp
+                for emp in result
+                if any(proj.project_id in self.project_filter for proj in emp.projects)
+            ]
+
+        if self.role_filter:
+            result = [
+                emp
+                for emp in result
+                if any(str(rid) in self.role_filter for rid in emp.role_ids)
+            ]
+
+        if self.employee_filter:
+            result = [emp for emp in result if str(emp.real_id) in self.employee_filter]
+
+        return result
+
+    @rx.var(cache=True)
+    def project_filter_label(self) -> str:
+        count = len(self.project_filter)
+        return f'"Projekte ({count})"' if count > 0 else ""
+
+    @rx.var(cache=True)
+    def role_filter_label(self) -> str:
+        count = len(self.role_filter)
+        return f'"Rollen ({count})"' if count > 0 else ""
+
+    @rx.var(cache=True)
+    def employee_filter_label(self) -> str:
+        count = len(self.employee_filter)
+        return f'"MA ({count})"' if count > 0 else ""
 
     @rx.var(cache=True)
     def table_width(self) -> str:
@@ -673,10 +746,17 @@ class PlanningGridState(rx.State):
         return rx.call_script(_FOCUS_GRID_SCRIPT)
 
     @rx.event
-    def commit_edit(self) -> None:
-        self._commit_current()
+    def commit_edit(self) -> Any:
+        change = self._commit_current()
         self.editing_cell = ""
         self.draft_value = ""
+        if change:
+            from alloq_project.states.planning_project_view_state import (  # noqa: PLC0415
+                PlanningProjectViewState,
+            )
+
+            return PlanningProjectViewState.sync_cell(*change)
+        return None
 
     @rx.event
     def commit_and_select_next(self, direction: str) -> Any:
@@ -684,13 +764,20 @@ class PlanningGridState(rx.State):
         cur = self.editing_cell
         if not cur:
             return None
-        self._commit_current()
+        change = self._commit_current()
         nxt = self._navigate(cur, direction)
         self.editing_cell = ""
         self.draft_value = ""
         if nxt:
             self.active_cell = nxt
-        return rx.call_script(_FOCUS_GRID_SCRIPT)
+        events: list[Any] = [rx.call_script(_FOCUS_GRID_SCRIPT)]
+        if change:
+            from alloq_project.states.planning_project_view_state import (  # noqa: PLC0415
+                PlanningProjectViewState,
+            )
+
+            events.append(PlanningProjectViewState.sync_cell(*change))
+        return events
 
     @rx.event
     def commit_and_move(self, direction: str) -> Any:
@@ -698,7 +785,7 @@ class PlanningGridState(rx.State):
         cur = self.editing_cell
         if not cur:
             return None
-        self._commit_current()
+        change = self._commit_current()
         next_key = self._navigate(cur, direction)
         if next_key:
             cur_val = self._lookup_value(next_key)
@@ -706,10 +793,24 @@ class PlanningGridState(rx.State):
             self.active_cell = next_key
             self.editing_cell = next_key
             self.edit_version += 1
-            return rx.call_script(_FOCUS_EDITOR_SCRIPT)
+            events: list[Any] = [rx.call_script(_FOCUS_EDITOR_SCRIPT)]
+            if change:
+                from alloq_project.states.planning_project_view_state import (  # noqa: PLC0415
+                    PlanningProjectViewState,
+                )
+
+                events.append(PlanningProjectViewState.sync_cell(*change))
+            return events
         self.editing_cell = ""
         self.draft_value = ""
-        return rx.call_script(_FOCUS_GRID_SCRIPT)
+        events = [rx.call_script(_FOCUS_GRID_SCRIPT)]
+        if change:
+            from alloq_project.states.planning_project_view_state import (  # noqa: PLC0415
+                PlanningProjectViewState,
+            )
+
+            events.append(PlanningProjectViewState.sync_cell(*change))
+        return events
 
     @rx.event
     def handle_key(self, key: str) -> Any:
@@ -745,17 +846,18 @@ class PlanningGridState(rx.State):
             return self.start_edit(self.active_cell)
         return rx.prevent_default
 
-    def _commit_current(self) -> None:
+    def _commit_current(self) -> tuple[str, float] | None:
+        """Commit draft value; return (cell_key, new_val) if changed."""
         cur = self.editing_cell
         if not cur:
-            return
+            return None
         new_val = _parse_de(self.draft_value)
         if new_val is None:
-            return
+            return None
         emp_id, proj_code, week_key = cur.split("|")
         cur_val = self._lookup_value(cur)
         if new_val == cur_val:
-            return
+            return None
         for emp in self.employees:
             if emp.id != emp_id:
                 continue
@@ -765,6 +867,29 @@ class PlanningGridState(rx.State):
                 for cell in proj.cells:
                     if cell.week_key == week_key:
                         cell.value = new_val
+                        cell.is_dirty = True
+                        break
+            emp.gesamt = _compute_gesamt(self.weeks, emp)
+            emp.heat = _compute_heat(self.weeks, emp)
+        self.employees = list(self.employees)
+        return (cur, new_val)
+
+    @rx.event
+    def sync_cell(self, cell_key: str, value: float) -> None:
+        """Apply a cell change from the project view (cross-state sync)."""
+        try:
+            emp_id, proj_code, week_key = cell_key.split("|")
+        except ValueError:
+            return
+        for emp in self.employees:
+            if emp.id != emp_id:
+                continue
+            for proj in emp.projects:
+                if proj.code != proj_code:
+                    continue
+                for cell in proj.cells:
+                    if cell.week_key == week_key:
+                        cell.value = value
                         cell.is_dirty = True
                         break
             emp.gesamt = _compute_gesamt(self.weeks, emp)
@@ -853,9 +978,23 @@ class PlanningGridState(rx.State):
         for *_unused, cell in dirty:
             cell.is_dirty = False
         self.employees = list(self.employees)
+        from alloq_project.states.planning_project_view_state import (  # noqa: PLC0415
+            PlanningProjectViewState,
+        )
+
+        yield PlanningProjectViewState.clear_dirty()
         yield rx.toast.success(
             f"{len(dirty)} Zellen gespeichert.", position="top-right"
         )
+
+    @rx.event
+    def clear_dirty(self) -> None:
+        """Clear all dirty flags (called after sibling state saves)."""
+        for emp in self.employees:
+            for proj in emp.projects:
+                for cell in proj.cells:
+                    cell.is_dirty = False
+        self.employees = list(self.employees)
 
     def _navigate(self, cur_key: str, direction: str) -> str:  # noqa: PLR0911
         try:

@@ -7,6 +7,9 @@ from alloq_commons.models.project import Project
 from alloq_commons.models.role import Role
 from alloq_commons.repositories import employee_repo, project_repo, role_repo
 from alloq_project.states.planning_grid_state import PlanningGridState
+from alloq_project.states.planning_project_view_state import (
+    PlanningProjectViewState,
+)
 
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_user.authentication.states import UserSession
@@ -20,19 +23,9 @@ class PlanningState(UserSession):
     view_mode: str = "Grid"
     time_range: str = "3 Monate"
 
-    project_scope: bool = False  # False = "Alle Projekte", True = "Meine Projekte"
-    employee_scope: bool = (
-        False  # False = "Alle Mitarbeiter", True = "Meine Mitarbeiter"
-    )
-
-    role_filter: str = "all"
-    project_filter: str = "all"
-    employee_filter: str = "all"
-
-    search_query: str = ""
-
     # Data
-    available_projects: list[Project] = []
+    available_projects: list[Project] = []  # non-Abgeschlossen, used for grid
+    all_projects: list[Project] = []  # all states, used for filter dropdown
     available_employees: list[Employee] = []
     available_roles: list[Role] = []
 
@@ -43,55 +36,31 @@ class PlanningState(UserSession):
 
     def set_time_range(self, value: str) -> Any:
         self.time_range = value
-        return PlanningGridState.reload_with_time_range(value)
-
-    def toggle_project_scope(self) -> None:
-        self.project_scope = not self.project_scope
-
-    def toggle_employee_scope(self) -> None:
-        self.employee_scope = not self.employee_scope
-
-    def set_role_filter(self, value: str) -> None:
-        self.role_filter = value
-
-    def set_project_filter(self, value: str) -> None:
-        self.project_filter = value
-
-    def set_employee_filter(self, value: str) -> None:
-        self.employee_filter = value
-
-    def set_search_query(self, value: str) -> None:
-        self.search_query = value
+        return [
+            PlanningGridState.reload_with_time_range(value),
+            PlanningProjectViewState.reload_with_time_range(value),
+        ]
 
     @rx.var(cache=True)
     def project_select_options(self) -> list[dict[str, str]]:
-        """Return projects formatted for Mantine select."""
-        options = [{"value": "all", "label": "Alle Projekte"}]
-        options.extend(
-            [{"value": str(p.id), "label": p.name_de} for p in self.available_projects]
-        )
-        return options
+        """Return all projects formatted for Mantine multi-select."""
+        return [
+            {"value": str(p.id), "label": p.name_de or p.code}
+            for p in self.all_projects
+        ]
 
     @rx.var(cache=True)
     def employee_select_options(self) -> list[dict[str, str]]:
-        """Return employees formatted for Mantine select."""
-        options = [{"value": "all", "label": "Alle Mitarbeiter"}]
-        options.extend(
-            [
-                {"value": str(e.id), "label": f"{e.first_name} {e.last_name}"}
-                for e in self.available_employees
-            ]
-        )
-        return options
+        """Return employees formatted for Mantine multi-select."""
+        return [
+            {"value": str(e.id), "label": f"{e.first_name} {e.last_name}"}
+            for e in self.available_employees
+        ]
 
     @rx.var(cache=True)
     def role_select_options(self) -> list[dict[str, str]]:
-        """Return roles formatted for Mantine select."""
-        options = [{"value": "all", "label": "Alle Rollen"}]
-        options.extend(
-            [{"value": str(r.id), "label": r.name} for r in self.available_roles]
-        )
-        return options
+        """Return roles formatted for Mantine multi-select."""
+        return [{"value": str(r.id), "label": r.name} for r in self.available_roles]
 
     async def load_planning_data(self) -> None:
         """Load necessary data for planning: roles, employees, and active projects."""
@@ -99,12 +68,14 @@ class PlanningState(UserSession):
         yield
 
         async with get_asyncdb_session() as session:
-            # Load active projects (not "Abgeschlossen")
+            # Load all projects
             projects = await project_repo.find_all(session)
+            all_proj = [Project(**p.to_dict()) for p in projects]
+            all_proj.sort(key=lambda p: (p.name_de or p.code).lower())
+            self.all_projects = all_proj
             self.available_projects = [
-                Project(**p.to_dict()) for p in projects if p.state != "Abgeschlossen"
+                p for p in all_proj if p.state != "Abgeschlossen"
             ]
-            self.available_projects.sort(key=lambda p: p.name_de.lower())
 
             # Load employees
             employees = await employee_repo.find_all(session)

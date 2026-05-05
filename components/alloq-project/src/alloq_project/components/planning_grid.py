@@ -704,7 +704,7 @@ def planning_grid() -> rx.Component:
             key_div(
                 _header_block(),
                 mn.box(
-                    rx.foreach(PlanningGridState.employees, _employee_block),
+                    rx.foreach(PlanningGridState.filtered_employees, _employee_block),
                 ),
                 id="planning-grid-root",
                 style={

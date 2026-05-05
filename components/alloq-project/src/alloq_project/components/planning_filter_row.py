@@ -1,7 +1,16 @@
 import reflex as rx
+from alloq_project.states.planning_grid_state import PlanningGridState
+from alloq_project.states.planning_project_view_state import (
+    PlanningProjectViewState,
+)
 from alloq_project.states.planning_state import PlanningState
 
 import appkit_mantine as mn
+
+
+def _ms_class(has_mehr: rx.Var) -> rx.Var:
+    """CSS class for filter multi-select, adds 'has-mehr' when needed."""
+    return rx.cond(has_mehr, "alloq-filter-ms has-mehr", "alloq-filter-ms")
 
 
 def planning_filter_row() -> rx.Component:
@@ -56,31 +65,49 @@ def planning_filter_row() -> rx.Component:
             },
         ),
         # Project filter
-        mn.select(
+        mn.multi_select(
             data=PlanningState.project_select_options,
-            value=PlanningState.project_filter,
-            on_change=PlanningState.set_project_filter,
+            value=PlanningGridState.project_filter,
+            on_change=[
+                PlanningGridState.set_project_filter,
+                PlanningProjectViewState.set_project_filter,
+            ],
             placeholder="Projekte",
             searchable=True,
+            clearable=True,
             w="12rem",
+            class_name=_ms_class(PlanningGridState.project_filter.length() > 0),
+            style={"--alloq-mehr": PlanningGridState.project_filter_label},
         ),
         # Role filter
-        mn.select(
+        mn.multi_select(
             data=PlanningState.role_select_options,
-            value=PlanningState.role_filter,
-            on_change=PlanningState.set_role_filter,
+            value=PlanningGridState.role_filter,
+            on_change=[
+                PlanningGridState.set_role_filter,
+                PlanningProjectViewState.set_role_filter,
+            ],
             placeholder="Rollen",
             searchable=True,
+            clearable=True,
             w="12rem",
+            class_name=_ms_class(PlanningGridState.role_filter.length() > 0),
+            style={"--alloq-mehr": PlanningGridState.role_filter_label},
         ),
         # Employee filter
-        mn.select(
+        mn.multi_select(
             data=PlanningState.employee_select_options,
-            value=PlanningState.employee_filter,
-            on_change=PlanningState.set_employee_filter,
+            value=PlanningGridState.employee_filter,
+            on_change=[
+                PlanningGridState.set_employee_filter,
+                PlanningProjectViewState.set_employee_filter,
+            ],
             placeholder="Mitarbeiter",
             searchable=True,
+            clearable=True,
             w="12rem",
+            class_name=_ms_class(PlanningGridState.employee_filter.length() > 0),
+            style={"--alloq-mehr": PlanningGridState.employee_filter_label},
         ),
         gap="md",
         align="center",

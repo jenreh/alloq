@@ -706,3 +706,46 @@ body,
     opacity: 0.4 !important;
     border-color: transparent !important;
 }
+
+/* Planning filter multiselects — hide all pills, show only count pill via ::after */
+.alloq-filter-ms .mantine-Pill-root {
+    display: none !important;
+}
+.alloq-filter-ms .mantine-MultiSelect-pillsList {
+    flex-wrap: nowrap;
+    overflow: hidden;
+}
+
+/* Only shrink the input when a count pill is shown — otherwise let placeholder show */
+.alloq-filter-ms.has-mehr .mantine-MultiSelect-inputField {
+    order: 999;
+    flex: 0 0 2px;
+    min-width: 2px;
+}
+
+/* Always show scrollbar in the dropdown */
+.alloq-filter-ms .mantine-ScrollArea-scrollbar {
+    display: flex !important;
+    opacity: 1 !important;
+}
+
+/* Count pill rendered as a CSS ::after flex item inside the pill list */
+.alloq-filter-ms.has-mehr .mantine-MultiSelect-pillsList::after {
+    content: var(--alloq-mehr);
+    order: 100;
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    height: 22px;
+    padding: 0 10px;
+    margin-left: 4px;
+    border-radius: var(--mantine-radius-xl);
+    background-color: light-dark(var(--mantine-color-white), var(--mantine-color-dark-7));
+    border: calc(0.0625rem * var(--mantine-scale)) solid
+        light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-4));
+    font-size: var(--mantine-font-size-xs);
+    line-height: 1;
+    white-space: nowrap;
+    pointer-events: none;
+    color: var(--mantine-color-text);
+}

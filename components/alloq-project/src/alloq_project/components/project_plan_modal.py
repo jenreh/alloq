@@ -462,6 +462,132 @@ def _step_placeholder(title: str) -> rx.Component:
     )
 
 
+def _preview_bar(bar: dict) -> rx.Component:
+    return mn.tooltip(
+        mn.box(
+            style={
+                "flex": "1",
+                "minWidth": "6px",
+                "height": bar["h_pct"] + "%",
+                "backgroundColor": "var(--mantine-color-yellow-5)",
+                "borderRadius": "2px 2px 0 0",
+                "minHeight": "2px",
+            },
+        ),
+        label=bar["pt"] + " PT",
+        position="top",
+        with_arrow=True,
+    )
+
+
+def _preview_row(row: dict) -> rx.Component:
+    return mn.box(
+        mn.group(
+            mn.avatar(
+                name=row["name"],
+                color="var(--alloq-accent-strong)",
+                size="md",
+                radius="xl",
+            ),
+            mn.stack(
+                mn.text(row["name"], size="sm", fw="600", c="var(--alloq-text)"),
+                mn.text(row["role"], size="xs", c="var(--alloq-text-muted)"),
+                gap="2px",
+                style={"flex": "1", "minWidth": "0"},
+            ),
+            mn.box(
+                mn.group(
+                    rx.foreach(row["bars"], _preview_bar),
+                    gap="2px",
+                    align="flex-end",
+                    style={"height": "44px", "width": "100%"},
+                ),
+                style={
+                    "flex": "2",
+                    "minWidth": "180px",
+                    "padding": "4px 8px",
+                    "backgroundColor": "var(--alloq-surface-muted)",
+                    "borderRadius": "8px",
+                },
+            ),
+            mn.stack(
+                mn.text(
+                    row["planned_label"],
+                    size="sm",
+                    fw="700",
+                    c="var(--alloq-text)",
+                    ta="right",
+                ),
+                mn.text(
+                    "max " + row["weekly_max"] + " PT/Wo",
+                    size="xs",
+                    c="var(--alloq-text-muted)",
+                    ta="right",
+                ),
+                gap="2px",
+                style={"flexShrink": "0", "minWidth": "100px"},
+            ),
+            gap="md",
+            align="center",
+            wrap="nowrap",
+            w="100%",
+        ),
+        style={
+            "padding": "10px 14px",
+            "borderBottom": "1px solid var(--alloq-border)",
+        },
+    )
+
+
+def _step_preview() -> rx.Component:
+    return mn.stack(
+        mn.group(
+            _stat_card(
+                "Projekt",
+                ProjectPlanState.selected_project_code
+                + " · "
+                + ProjectPlanState.selected_project_name,
+            ),
+            _stat_card(
+                "Zeitraum",
+                ProjectPlanState.effective_weeks.to_string() + " Wochen",
+            ),
+            _stat_card(
+                "Mitarbeiter",
+                ProjectPlanState.preview_emp_count.to_string(),
+            ),
+            _stat_card(
+                "Plan gesamt",
+                ProjectPlanState.preview_total_pt.to_string() + " PT",
+            ),
+            gap="sm",
+            w="100%",
+            wrap="wrap",
+            align="stretch",
+        ),
+        rx.cond(
+            ProjectPlanState.preview_rows.length() > 0,
+            mn.box(
+                rx.foreach(ProjectPlanState.preview_rows, _preview_row),
+                style={
+                    "borderRadius": "10px",
+                    "border": "1px solid var(--alloq-border)",
+                    "overflow": "hidden",
+                },
+            ),
+            mn.alert(
+                "Keine Allokationen geplant. Schritt zurück und PT setzen.",
+                icon=rx.icon("triangle-alert", size=16),
+                color="orange",
+                variant="light",
+                radius="md",
+            ),
+        ),
+        gap="md",
+        w="100%",
+    )
+
+
 def _role_chip(opt: dict) -> rx.Component:
     active = ProjectPlanState.employee_role_filter == opt["value"]
     return mn.button(
@@ -474,26 +600,249 @@ def _role_chip(opt: dict) -> rx.Component:
     )
 
 
+def _stat_card(
+    label: str,
+    value: rx.Var[str] | str,
+    accent: rx.Var[str] | str = "var(--alloq-text)",
+) -> rx.Component:
+    return mn.box(
+        mn.text(
+            label,
+            size="xs",
+            fw="700",
+            c="var(--alloq-text-muted)",
+            style={"letterSpacing": "0.06em", "textTransform": "uppercase"},
+        ),
+        mn.text(value, size="lg", fw="700", c=accent),
+        style={
+            "padding": "10px 14px",
+            "borderRadius": "10px",
+            "backgroundColor": "var(--alloq-surface-muted)",
+            "border": "1px solid var(--alloq-border)",
+            "flex": "1",
+            "minWidth": "0",
+        },
+    )
+
+
+def _capacity_summary() -> rx.Component:
+    return mn.group(
+        _stat_card(
+            "Bedarf gesamt",
+            ProjectPlanState.required_pt_total.to_string() + " PT",
+        ),
+        _stat_card(
+            "Ausgewählt",
+            ProjectPlanState.selected_capacity_pt.to_string() + " PT",
+            accent=rx.cond(
+                ProjectPlanState.selected_capacity_pt
+                >= ProjectPlanState.required_pt_total,
+                "var(--mantine-color-green-7)",
+                "var(--alloq-text)",
+            ),
+        ),
+        _stat_card(
+            "Verfügbar im Zeitraum",
+            ProjectPlanState.available_capacity_pt.to_string() + " PT",
+        ),
+        gap="sm",
+        w="100%",
+        align="stretch",
+        wrap="nowrap",
+    )
+
+
+def _role_requirement_card(rc: dict) -> rx.Component:
+    return mn.box(
+        mn.group(
+            mn.stack(
+                mn.text(
+                    rc["role_name"],
+                    size="xs",
+                    fw="700",
+                    c="var(--alloq-text-muted)",
+                    style={
+                        "letterSpacing": "0.06em",
+                        "textTransform": "uppercase",
+                    },
+                ),
+                mn.group(
+                    mn.text(
+                        rc["assigned_pt"],
+                        size="md",
+                        fw="700",
+                        c=rx.cond(
+                            rc["covered"] == "true",
+                            "var(--mantine-color-green-7)",
+                            "var(--alloq-text)",
+                        ),
+                    ),
+                    mn.text(
+                        "/ " + rc["required_pt"] + " PT",
+                        size="sm",
+                        c="var(--alloq-text-muted)",
+                    ),
+                    gap="4px",
+                    align="baseline",
+                ),
+                gap="2px",
+                style={"flex": "1", "minWidth": "0"},
+            ),
+            rx.cond(
+                rc["covered"] == "true",
+                rx.icon(
+                    "circle-check-big",
+                    size=18,
+                    color="var(--mantine-color-green-6)",
+                ),
+                rx.icon(
+                    "circle-alert",
+                    size=18,
+                    color="var(--mantine-color-orange-6)",
+                ),
+            ),
+            gap="sm",
+            align="center",
+            wrap="nowrap",
+            w="100%",
+        ),
+        style={
+            "padding": "10px 14px",
+            "borderRadius": "10px",
+            "backgroundColor": "var(--alloq-surface-muted)",
+            "border": "1px solid var(--alloq-border)",
+            "flex": "1",
+            "minWidth": "180px",
+        },
+    )
+
+
+def _role_requirements_row() -> rx.Component:
+    return rx.cond(
+        ProjectPlanState.required_roles_display.length() > 0,
+        mn.stack(
+            mn.text(
+                "Rollenbedarf",
+                size="xs",
+                fw="700",
+                c="var(--alloq-text-muted)",
+                style={"letterSpacing": "0.06em", "textTransform": "uppercase"},
+            ),
+            mn.group(
+                rx.foreach(
+                    ProjectPlanState.required_roles_display,
+                    _role_requirement_card,
+                ),
+                gap="sm",
+                w="100%",
+                wrap="wrap",
+                align="stretch",
+            ),
+            gap="xs",
+            w="100%",
+        ),
+        rx.fragment(),
+    )
+
+
+def _emp_plan_inputs(emp: dict) -> rx.Component:
+    return mn.group(
+        mn.select(
+            data=emp["role_options"],
+            value=emp["role_value"],
+            on_change=ProjectPlanState.set_emp_role(emp["id"]),
+            placeholder="Rolle",
+            allow_deselect=False,
+            size="xs",
+            style={"width": "150px"},
+        ),
+        mn.number_input(
+            value=emp["planned_pct"],
+            on_change=ProjectPlanState.set_emp_planned_pct(emp["id"]),
+            min=0,
+            max=100,
+            step=5,
+            hide_controls=False,
+            size="xs",
+            style={"width": "92px"},
+            suffix=" %",
+        ),
+        mn.number_input(
+            value=emp["planned_pt"],
+            on_change=ProjectPlanState.set_emp_planned_pt(emp["id"]),
+            min=0,
+            max=emp["available_pt"],
+            step=1,
+            hide_controls=False,
+            size="xs",
+            style={"width": "108px"},
+            suffix=" PT",
+        ),
+        gap="xs",
+        align="center",
+        wrap="nowrap",
+        style={"flexShrink": "0"},
+    )
+
+
 def _employee_row(emp: dict) -> rx.Component:
     return mn.box(
         mn.group(
-            mn.checkbox(
-                checked=emp["selected"],
-                on_change=ProjectPlanState.toggle_employee(emp["id"]),
-                color="dark",
-                size="md",
+            mn.box(
+                mn.group(
+                    mn.checkbox(
+                        checked=emp["selected"],
+                        color="dark",
+                        size="md",
+                        style={"pointerEvents": "none"},
+                    ),
+                    mn.avatar(
+                        name=emp["name"],
+                        color="var(--alloq-accent-strong)",
+                        size="md",
+                        radius="xl",
+                    ),
+                    mn.stack(
+                        mn.text(
+                            emp["name"], size="sm", fw="600", c="var(--alloq-text)"
+                        ),
+                        mn.text(emp["roles"], size="xs", c="var(--alloq-text-muted)"),
+                        gap="2px",
+                        style={"flex": "1", "minWidth": "0"},
+                    ),
+                    gap="md",
+                    align="center",
+                    wrap="nowrap",
+                    style={"flex": "1", "minWidth": "0"},
+                ),
+                on_click=ProjectPlanState.toggle_employee(emp["id"]),
+                style={
+                    "flex": "1",
+                    "minWidth": "0",
+                    "cursor": "pointer",
+                    "padding": "10px 0",
+                },
             ),
-            mn.avatar(
-                name=emp["name"],
-                color="var(--alloq-accent-strong)",
-                size="md",
-                radius="xl",
-            ),
-            mn.stack(
-                mn.text(emp["name"], size="sm", fw="600", c="var(--alloq-text)"),
-                mn.text(emp["roles"], size="xs", c="var(--alloq-text-muted)"),
-                gap="2px",
-                style={"flex": "1", "minWidth": "0"},
+            rx.cond(
+                emp["selected"],
+                _emp_plan_inputs(emp),
+                mn.stack(
+                    mn.text(
+                        emp["available_label"],
+                        size="sm",
+                        fw="700",
+                        c="var(--alloq-text)",
+                        ta="right",
+                    ),
+                    mn.text(
+                        emp["sub_label"],
+                        size="xs",
+                        c="var(--alloq-text-muted)",
+                        ta="right",
+                    ),
+                    gap="2px",
+                    style={"flexShrink": "0"},
+                ),
             ),
             mn.badge(
                 emp["seniority"],
@@ -507,10 +856,8 @@ def _employee_row(emp: dict) -> rx.Component:
             wrap="nowrap",
             w="100%",
         ),
-        on_click=ProjectPlanState.toggle_employee(emp["id"]),
         style={
-            "padding": "10px 14px",
-            "cursor": "pointer",
+            "padding": "0 14px",
             "borderBottom": "1px solid var(--alloq-border)",
             "_hover": {"backgroundColor": "var(--alloq-surface-hover)"},
             "backgroundColor": rx.cond(
@@ -524,6 +871,15 @@ def _employee_row(emp: dict) -> rx.Component:
 
 def _step_mitarbeiter() -> rx.Component:
     return mn.stack(
+        _capacity_summary(),
+        _role_requirements_row(),
+        mn.box(
+            style={
+                "height": "1px",
+                "backgroundColor": "var(--alloq-border)",
+                "width": "100%",
+            },
+        ),
         mn.group(
             mn.text(
                 ProjectPlanState.selected_count.to_string()
@@ -531,8 +887,8 @@ def _step_mitarbeiter() -> rx.Component:
                 + ProjectPlanState.filtered_count.to_string()
                 + " ausgewählt",
                 size="sm",
-                fw="500",
-                c="var(--alloq-text-muted)",
+                fw="600",
+                c="var(--alloq-text)",
             ),
             mn.group(
                 mn.button(
@@ -540,6 +896,7 @@ def _step_mitarbeiter() -> rx.Component:
                     variant="subtle",
                     color="dark",
                     size="xs",
+                    radius="xl",
                     on_click=ProjectPlanState.select_all_filtered,
                 ),
                 mn.button(
@@ -547,9 +904,10 @@ def _step_mitarbeiter() -> rx.Component:
                     variant="subtle",
                     color="dark",
                     size="xs",
+                    radius="xl",
                     on_click=ProjectPlanState.clear_employee_selection,
                 ),
-                gap="xs",
+                gap="2px",
             ),
             justify="space-between",
             w="100%",
@@ -592,7 +950,7 @@ def _content() -> rx.Component:
         (0, _step_project_select()),
         (1, _step_verteilung()),
         (2, _step_mitarbeiter()),
-        (3, _step_placeholder("Vorschau")),
+        (3, _step_preview()),
         rx.fragment(),
     )
 
