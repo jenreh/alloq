@@ -18,6 +18,7 @@ from reflex.event import EventHandler, key_event
 from reflex_components_core.el.elements.typography import Div
 
 import appkit_mantine as mn
+from appkit_ui.components.dialogs import delete_dialog
 
 
 class _KeyDiv(Div):
@@ -320,40 +321,58 @@ def _employee_header_row(emp: EmployeeBlock) -> rx.Component:
     return _row(
         mn.box(
             mn.group(
-                mn.action_icon(
-                    rx.cond(
-                        is_collapsed,
-                        rx.icon("chevron-right", size=16, stroke_width=2),
-                        rx.icon("chevron-down", size=16, stroke_width=2),
+                mn.group(
+                    mn.action_icon(
+                        rx.cond(
+                            is_collapsed,
+                            rx.icon("chevron-right", size=16, stroke_width=2),
+                            rx.icon("chevron-down", size=16, stroke_width=2),
+                        ),
+                        variant="subtle",
+                        color="gray",
+                        size="sm",
+                        on_click=PlanningGridState.toggle_employee(emp.id),
                     ),
-                    variant="subtle",
-                    color="gray",
-                    size="sm",
-                    on_click=PlanningGridState.toggle_employee(emp.id),
+                    mn.avatar(
+                        name=emp.name,
+                        color="var(--alloq-accent-strong)",
+                        size="sm",
+                        radius="xl",
+                    ),
+                    mn.text(emp.name, size="sm", fw="700", c="var(--alloq-text)"),
+                    mn.badge(
+                        emp.role,
+                        size="xs",
+                        radius="sm",
+                        variant="filled",
+                        color="gray",
+                        style={
+                            "backgroundColor": emp.role_color,
+                            "color": "var(--alloq-text)",
+                            "textTransform": "none",
+                            "fontWeight": "700",
+                        },
+                    ),
+                    gap="sm",
+                    align="center",
+                    wrap="nowrap",
                 ),
-                mn.avatar(
-                    name=emp.name,
-                    color="var(--alloq-accent-strong)",
-                    size="sm",
-                    radius="xl",
+                mn.tooltip(
+                    mn.action_icon(
+                        rx.icon("plus", size=14, stroke_width=2),
+                        variant="subtle",
+                        color="gray",
+                        size="xs",
+                        on_click=PlanningGridState.open_add_project_for_employee(
+                            emp.id
+                        ),
+                    ),
+                    label="Projekt zuweisen",
                 ),
-                mn.text(emp.name, size="sm", fw="700", c="var(--alloq-text)"),
-                mn.badge(
-                    emp.role,
-                    size="xs",
-                    radius="sm",
-                    variant="filled",
-                    color="gray",
-                    style={
-                        "backgroundColor": emp.role_color,
-                        "color": "var(--alloq-text)",
-                        "textTransform": "none",
-                        "fontWeight": "700",
-                    },
-                ),
-                gap="sm",
+                justify="space-between",
                 align="center",
                 wrap="nowrap",
+                w="100%",
             ),
             style={
                 **LABEL_CELL_BASE,
@@ -393,10 +412,46 @@ def _project_label_cell(project: ProjectAllocationRow) -> rx.Component:
                 size="sm",
                 c="var(--alloq-text)",
                 truncate=True,
+                flex="1",
+                style={"minWidth": 0},
+            ),
+            rx.cond(
+                project.role_short != "",
+                mn.badge(
+                    project.role_short,
+                    size="xs",
+                    radius="sm",
+                    variant="filled",
+                    color="gray",
+                    style={
+                        "backgroundColor": project.role_color,
+                        "color": "var(--alloq-text)",
+                        "textTransform": "none",
+                        "fontWeight": "700",
+                        "flexShrink": "0",
+                    },
+                ),
+                rx.fragment(),
+            ),
+            mn.tooltip(
+                delete_dialog(
+                    title="Projektzuweisung entfernen",
+                    content=project.code + " — " + project.name,
+                    on_click=PlanningGridState.remove_project_from_employee_grid(
+                        project.emp_id, project.real_project_id
+                    ),
+                    icon_button=True,
+                    color="red",
+                    size="xs",
+                    variant="subtle",
+                ),
+                label="Projekt entfernen",
             ),
             gap="sm",
             align="center",
+            justify="space-between",
             wrap="nowrap",
+            w="100%",
         ),
         style={
             **LABEL_CELL_BASE,
@@ -590,8 +645,59 @@ def _employee_block(emp: EmployeeBlock) -> rx.Component:
     )
 
 
+def _add_project_modal() -> rx.Component:
+    """Modal to assign a project to an employee from the grid."""
+    return mn.modal(
+        rx.form.root(
+            mn.stack(
+                mn.select(
+                    name="project_id",
+                    label="Projekt",
+                    data=PlanningGridState.add_project_options,
+                    required=True,
+                    searchable=True,
+                    clearable=True,
+                    left_section=rx.icon("folder", size=16),
+                ),
+                mn.select(
+                    name="role_id",
+                    label="Rolle",
+                    data=PlanningGridState.add_project_role_options,
+                    required=True,
+                    searchable=True,
+                    clearable=True,
+                    left_section=rx.icon("shield", size=16),
+                ),
+                mn.group(
+                    mn.button(
+                        "Abbrechen",
+                        variant="subtle",
+                        color="yellow",
+                        on_click=PlanningGridState.close_add_project_for_employee,
+                    ),
+                    mn.button("Zuweisen", type="submit"),
+                    justify="end",
+                    gap="md",
+                ),
+                gap="md",
+                p="md",
+            ),
+            on_submit=PlanningGridState.add_project_to_employee_grid,
+            reset_on_submit=True,
+        ),
+        title="Projekt zuweisen",
+        opened=PlanningGridState.add_project_emp_id != "",
+        on_close=PlanningGridState.close_add_project_for_employee,
+        size="md",
+        centered=True,
+        z_index=300,
+        overlay_props={"backgroundOpacity": 0.5, "blur": 4},
+    )
+
+
 def planning_grid() -> rx.Component:
     return rx.fragment(
+        _add_project_modal(),
         rx.script(src="/planning_grid_keys.js"),
         rx.cond(
             PlanningGridState.is_loaded,

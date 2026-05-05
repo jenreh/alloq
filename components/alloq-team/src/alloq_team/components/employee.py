@@ -2,6 +2,7 @@ import reflex as rx
 from alloq_commons.components.forms import section
 from alloq_commons.entities.employee import SeniorityLevel
 from alloq_commons.models.employee import Absence
+from alloq_commons.models.project import Capacity
 from alloq_team.components.employee_card import (
     _format_date_de,
     employee_grid,
@@ -319,6 +320,94 @@ def _absence_row(absence: Absence) -> rx.Component:
     )
 
 
+def _project_row(capacity: Capacity) -> rx.Component:
+    """Single project assignment row in the detail drawer."""
+    return mn.group(
+        mn.stack(
+            mn.text(
+                f"{capacity.project_code} - {capacity.project_name}",
+                size="0.66rem",
+                ff="'Roboto Mono', monospace",
+                style={
+                    "color": "var(--alloq-item-text)",
+                    "fontWeight": "500",
+                },
+            ),
+            mn.text(
+                capacity.role_name,
+                size="0.6rem",
+                ff="'Roboto Mono', monospace",
+                c="dimmed",
+            ),
+            gap="2px",
+        ),
+        delete_dialog(
+            title="Projektzuweisung entfernen",
+            content=f"{capacity.project_code} - {capacity.project_name}",
+            on_click=lambda: TeamState.remove_project_from_employee(
+                capacity.project_id
+            ),
+            icon_button=True,
+            color="red",
+            size="xs",
+            variant="subtle",
+        ),
+        align="center",
+        justify="space-between",
+        gap="xs",
+        style={
+            "backgroundColor": "var(--alloq-surface-muted)",
+            "padding": "8px 12px",
+            "borderRadius": "6px",
+        },
+    )
+
+
+def add_project_modal() -> rx.Component:
+    """Modal for assigning a project to an employee."""
+    return mn.modal(
+        _form_layout(
+            content=mn.flex(
+                section(
+                    mn.select(
+                        name="project_id",
+                        label="Projekt",
+                        data=TeamState.unassigned_project_options,
+                        required=True,
+                        searchable=True,
+                        clearable=True,
+                        left_section=rx.icon("folder", size=16),
+                    ),
+                    mn.select(
+                        name="role_id",
+                        label="Rolle",
+                        data=TeamState.employee_role_select_options,
+                        required=True,
+                        searchable=True,
+                        clearable=True,
+                        left_section=rx.icon("shield", size=16),
+                    ),
+                ),
+                mn.space(height="2rem"),
+                direction="column",
+                gap="md",
+                width="100%",
+            ),
+            footer=_form_footer("Zuweisen", TeamState.close_add_project_modal),
+            on_submit=TeamState.assign_project_to_employee,
+            reset_on_submit=True,
+        ),
+        title="Projekt zuweisen",
+        opened=TeamState.add_project_modal_open,
+        on_close=TeamState.close_add_project_modal,
+        size="md",
+        centered=True,
+        z_index=300,
+        class_name="alloq-employee-detail-modal",
+        overlay_props={"backgroundOpacity": 0.5, "blur": 4},
+    )
+
+
 def employee_detail_drawer() -> rx.Component:
     """Right-side drawer showing employee details and working as update dialog."""
     return mn.drawer(
@@ -346,6 +435,47 @@ def employee_detail_drawer() -> rx.Component:
                                 mn.group(
                                     mn.text(
                                         "Keine Abwesenheiten.",
+                                        ff="'Roboto Mono', monospace",
+                                        size="0.66rem",
+                                        c="dimmed",
+                                    ),
+                                    align="center",
+                                    gap="sm",
+                                    style={
+                                        "backgroundColor": "var(--alloq-surface-muted)",
+                                        "padding": "8px 12px",
+                                        "borderRadius": "6px",
+                                    },
+                                ),
+                            ),
+                            gap="3px",
+                            w="100%",
+                        ),
+                        gap="xs",
+                        w="100%",
+                    ),
+                ),
+                section(
+                    mn.stack(
+                        mn.group(
+                            mn.text("Projekte", size="sm", c="dimmed", fw="500"),
+                            mn.action_icon(
+                                rx.icon("plus", size=14, stroke_width=2),
+                                size="sm",
+                                variant="subtle",
+                                color="gray",
+                                on_click=TeamState.open_add_project_modal,
+                            ),
+                            align="center",
+                            justify="space-between",
+                        ),
+                        mn.stack(
+                            rx.foreach(TeamState.employee_capacities, _project_row),
+                            rx.cond(
+                                TeamState.employee_capacities.length() == 0,
+                                mn.group(
+                                    mn.text(
+                                        "Keine Projekte zugewiesen.",
                                         ff="'Roboto Mono', monospace",
                                         size="0.66rem",
                                         c="dimmed",
@@ -405,6 +535,7 @@ def team_overview() -> rx.Component:
     return mn.stack(
         add_employee_modal(),
         absence_modal(),
+        add_project_modal(),
         employee_detail_drawer(),
         rx.cond(
             TeamState.view_mode == "grid",

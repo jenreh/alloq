@@ -1,5 +1,5 @@
 import reflex as rx
-from alloq_commons.models.project import Project
+from alloq_commons.models.project import Project, TeamMemberBadge
 from alloq_project.states.project_state import ProjectState
 
 import appkit_mantine as mn
@@ -65,13 +65,16 @@ def _metric(label: str, value: str | rx.Var | rx.Component) -> rx.Component:
     )
 
 
-def _team_initial(initial: str) -> rx.Component:
-    """Render one team member initial badge."""
-    return mn.avatar(
-        initial,
-        size="xs",
-        radius="xl",
-        color="var(--alloq-accent-strong)",
+def _team_initial(member: TeamMemberBadge) -> rx.Component:
+    """Render one team member initial badge with a tooltip showing the full name."""
+    return mn.tooltip(
+        mn.avatar(
+            member.initials,
+            size="md",
+            radius="xl",
+            color="var(--alloq-accent-strong)",
+        ),
+        label=member.name,
     )
 
 
@@ -178,7 +181,7 @@ def project_card(project: Project) -> rx.Component:
                 mn.group(
                     mn.group(
                         mn.avatar.group(
-                            rx.foreach(project.team_initials, _team_initial),
+                            rx.foreach(project.team_members, _team_initial),
                         ),
                         mn.text(
                             project.team_initials.length().to_string() + " Mitarbeiter",

@@ -96,6 +96,8 @@ class Capacity(BaseModel):
     employee_name: str = ""
     role_id: int = 0
     role_name: str = ""
+    project_code: str = ""
+    project_name: str = ""
     start_date: date | None = None
     end_date: date | None = None
     hours_per_week: float = 40.0
@@ -118,6 +120,41 @@ class CapacityUpdate(CapacityCreate):
     """Write model for updating actual capacity."""
 
 
+class CapacityAllocation(BaseModel):
+    """Read model for one weekly per-employee project allocation."""
+
+    id: int = 0
+    project_id: int = 0
+    employee_id: int = 0
+    role_id: int = 0
+    role_name: str = ""
+    week_start: date | None = None
+    person_days: float = 0.0
+    created: datetime | None = None
+    updated: datetime | None = None
+
+
+class CapacityAllocationCreate(BaseModel):
+    """Write model for one weekly per-employee project allocation."""
+
+    project_id: int
+    employee_id: int
+    role_id: int
+    week_start: date
+    person_days: float = Field(default=0.0, ge=0)
+
+
+class CapacityAllocationUpdate(CapacityAllocationCreate):
+    """Write model for updating a weekly allocation."""
+
+
+class TeamMemberBadge(BaseModel):
+    """Minimal read model for a team member badge in a project card."""
+
+    initials: str = ""
+    name: str = ""
+
+
 class Project(BaseModel):
     """Read model for projects."""
 
@@ -134,6 +171,7 @@ class Project(BaseModel):
     current_progress: int = 0
     current_spent: int = 0
     team_initials: list[str] = []
+    team_members: list[TeamMemberBadge] = []
     risk_count: int = 0
     required_capacities: list[RequiredCapacity] = []
     created: datetime | None = None

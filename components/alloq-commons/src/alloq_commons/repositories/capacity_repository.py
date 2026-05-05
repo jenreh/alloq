@@ -28,6 +28,18 @@ class CapacityRepository(BaseRepository[CapacityEntity, AsyncSession]):
         result = await session.execute(statement)
         return list(result.scalars().unique().all())
 
+    async def find_by_employee_id(
+        self,
+        session: AsyncSession,
+        employee_id: int,
+    ) -> list[CapacityEntity]:
+        """Find all capacity assignments for an employee."""
+        statement = select(CapacityEntity).where(
+            CapacityEntity.employee_id == employee_id
+        )
+        result = await session.execute(statement)
+        return list(result.scalars().unique().all())
+
     async def find_by_project_and_employee(
         self,
         session: AsyncSession,
@@ -41,6 +53,23 @@ class CapacityRepository(BaseRepository[CapacityEntity, AsyncSession]):
         )
         result = await session.execute(statement)
         return list(result.scalars().unique().all())
+
+    async def delete_by_project_and_employee(
+        self,
+        session: AsyncSession,
+        project_id: int,
+        employee_id: int,
+    ) -> bool:
+        """Delete all capacity entries for a project-employee pair."""
+        entities = await self.find_by_project_and_employee(
+            session, project_id, employee_id
+        )
+        if not entities:
+            return False
+        for entity in entities:
+            await session.delete(entity)
+        await session.flush()
+        return True
 
 
 capacity_repo = CapacityRepository()

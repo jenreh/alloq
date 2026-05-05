@@ -2,6 +2,10 @@ from alloq_commons.repositories.absence_repository import (
     AbsenceRepository,
     absence_repo,
 )
+from alloq_commons.repositories.capacity_allocation_repository import (
+    CapacityAllocationRepository,
+    capacity_allocation_repo,
+)
 from alloq_commons.repositories.capacity_repository import (
     CapacityRepository,
     capacity_repo,
@@ -27,6 +31,7 @@ from alloq_commons.repositories.status_repository import (
 
 __all__ = [
     "AbsenceRepository",
+    "CapacityAllocationRepository",
     "CapacityRepository",
     "EmployeeRepository",
     "ProjectRepository",
@@ -35,6 +40,7 @@ __all__ = [
     "RiskRepository",
     "RoleRepository",
     "absence_repo",
+    "capacity_allocation_repo",
     "capacity_repo",
     "employee_repo",
     "project_repo",

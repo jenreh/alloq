@@ -462,6 +462,117 @@ def _step_placeholder(title: str) -> rx.Component:
     )
 
 
+def _role_chip(opt: dict) -> rx.Component:
+    active = ProjectPlanState.employee_role_filter == opt["value"]
+    return mn.button(
+        opt["label"],
+        variant=rx.cond(active, "filled", "default"),
+        color="dark",
+        size="xs",
+        radius="xl",
+        on_click=ProjectPlanState.set_employee_role_filter(opt["value"]),
+    )
+
+
+def _employee_row(emp: dict) -> rx.Component:
+    return mn.box(
+        mn.group(
+            mn.checkbox(
+                checked=emp["selected"],
+                on_change=ProjectPlanState.toggle_employee(emp["id"]),
+                color="dark",
+                size="md",
+            ),
+            mn.avatar(
+                name=emp["name"],
+                color="var(--alloq-accent-strong)",
+                size="md",
+                radius="xl",
+            ),
+            mn.stack(
+                mn.text(emp["name"], size="sm", fw="600", c="var(--alloq-text)"),
+                mn.text(emp["roles"], size="xs", c="var(--alloq-text-muted)"),
+                gap="2px",
+                style={"flex": "1", "minWidth": "0"},
+            ),
+            mn.badge(
+                emp["seniority"],
+                size="sm",
+                radius="xl",
+                variant="light",
+                color="gray",
+            ),
+            gap="md",
+            align="center",
+            wrap="nowrap",
+            w="100%",
+        ),
+        on_click=ProjectPlanState.toggle_employee(emp["id"]),
+        style={
+            "padding": "10px 14px",
+            "cursor": "pointer",
+            "borderBottom": "1px solid var(--alloq-border)",
+            "_hover": {"backgroundColor": "var(--alloq-surface-hover)"},
+            "backgroundColor": rx.cond(
+                emp["selected"],
+                "var(--alloq-surface-muted)",
+                "transparent",
+            ),
+        },
+    )
+
+
+def _step_mitarbeiter() -> rx.Component:
+    return mn.stack(
+        mn.group(
+            mn.text(
+                ProjectPlanState.selected_count.to_string()
+                + " von "
+                + ProjectPlanState.filtered_count.to_string()
+                + " ausgewählt",
+                size="sm",
+                fw="500",
+                c="var(--alloq-text-muted)",
+            ),
+            mn.group(
+                mn.button(
+                    "Alle auswählen",
+                    variant="subtle",
+                    color="dark",
+                    size="xs",
+                    on_click=ProjectPlanState.select_all_filtered,
+                ),
+                mn.button(
+                    "Auswahl löschen",
+                    variant="subtle",
+                    color="dark",
+                    size="xs",
+                    on_click=ProjectPlanState.clear_employee_selection,
+                ),
+                gap="xs",
+            ),
+            justify="space-between",
+            w="100%",
+            align="center",
+        ),
+        mn.group(
+            rx.foreach(ProjectPlanState.role_options_data, _role_chip),
+            gap="xs",
+            wrap="wrap",
+        ),
+        mn.box(
+            rx.foreach(ProjectPlanState.filtered_employees, _employee_row),
+            style={
+                "borderRadius": "10px",
+                "border": "1px solid var(--alloq-border)",
+                "overflow": "hidden",
+            },
+        ),
+        gap="md",
+        w="100%",
+    )
+
+
 def _stepper() -> rx.Component:
     return mn.stepper(
         mn.stepper.step(label="Projekt", description=""),
@@ -480,7 +591,7 @@ def _content() -> rx.Component:
         ProjectPlanState.step,
         (0, _step_project_select()),
         (1, _step_verteilung()),
-        (2, _step_placeholder("Mitarbeiter")),
+        (2, _step_mitarbeiter()),
         (3, _step_placeholder("Vorschau")),
         rx.fragment(),
     )
@@ -519,7 +630,7 @@ def _footer() -> rx.Component:
                     variant="filled",
                     color="dark",
                     radius="xl",
-                    on_click=ProjectPlanState.close_modal,
+                    on_click=ProjectPlanState.save_plan,
                 ),
             ),
             gap="sm",

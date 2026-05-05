@@ -1,18 +1,22 @@
 """State for the resource planning Grid view.
 
-Stage B: dummy data with inline editing. Edits are kept in local state
-(no persistence). The shapes are designed so real data can replace the
-dummy fixture without rewriting the UI.
+Loads weekly allocations from `capacity_allocations` and renders one
+project row per employee/project pair that has saved data. Edits are
+kept in local state until flushed via `save_grid`.
 """
 
 from __future__ import annotations
 
 import datetime
 import logging
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import reflex as rx
+from alloq_commons.repositories import capacity_allocation_repo
 from pydantic import BaseModel
+
+from appkit_commons.database.session import get_asyncdb_session
 
 log = logging.getLogger(__name__)
 
@@ -42,15 +46,20 @@ TIME_RANGE_WEEKS: dict[str, int] = {
     "12 Monate": 52,
 }
 
-PROJECT_PALETTE: dict[str, str] = {
-    "CRM-AI": "var(--mantine-color-yellow-5)",
-    "FRAUD": "var(--mantine-color-orange-6)",
-    "GENAI-ASSIST": "var(--mantine-color-teal-7)",
-    "NLP-LEGAL": "var(--mantine-color-pink-5)",
-    "RECO": "var(--mantine-color-violet-5)",
-}
 
-ABSENCE_COLOR = "var(--mantine-color-blue-4)"
+class _CapAssignment:
+    """Lightweight container for capacity assignment data.
+
+    Avoids detached ORM issues.
+    """
+
+    __slots__ = ("employee_id", "project_id", "role_name")
+
+    def __init__(self, employee_id: int, project_id: int, role_name: str) -> None:
+        self.employee_id = employee_id
+        self.project_id = project_id
+        self.role_name = role_name
+
 
 ROLE_PALETTE: dict[str, str] = {
     "PM": "var(--mantine-color-violet-1)",
@@ -105,9 +114,14 @@ class HeatCell(BaseModel):
 
 class ProjectAllocationRow(BaseModel):
     project_id: str
+    real_project_id: int = 0
+    emp_id: str = ""
     code: str
     name: str
     color: str
+    role_name: str = ""
+    role_short: str = ""
+    role_color: str = ""
     cells: list[GridCell] = []
 
 
@@ -123,6 +137,7 @@ class RoleBadge(BaseModel):
 
 class EmployeeBlock(BaseModel):
     id: str
+    real_id: int = 0
     name: str
     initials: str
     job_title: str = ""
@@ -130,6 +145,7 @@ class EmployeeBlock(BaseModel):
     role_color: str
     role_full: str = ""
     roles: list[RoleBadge] = []
+    role_ids: list[int] = []
     projects: list[ProjectAllocationRow] = []
     absence: AbsenceRow
     gesamt: list[GesamtCell] = []
@@ -186,169 +202,10 @@ def _build_weeks(num_weeks: int) -> tuple[list[WeekColumn], list[MonthSpan]]:
     return weeks, spans
 
 
-def _alloc(base: list[float], n: int) -> list[float]:
-    """Cycle base values to fill n weeks."""
-    return [base[i % len(base)] for i in range(n)]
-
-
 def _cells(week_keys: list[str], values: list[float]) -> list[GridCell]:
     return [
         GridCell(week_key=k, value=v) for k, v in zip(week_keys, values, strict=True)
     ]
-
-
-def _project_row(
-    code: str, name: str, week_keys: list[str], values: list[float]
-) -> ProjectAllocationRow:
-    return ProjectAllocationRow(
-        project_id=code.lower(),
-        code=code,
-        name=name,
-        color=PROJECT_PALETTE.get(code, "var(--mantine-color-gray-5)"),
-        cells=_cells(week_keys, values),
-    )
-
-
-def _build_employees(weeks: list[WeekColumn]) -> list[EmployeeBlock]:
-    keys = [w.key for w in weeks]
-    n = len(keys)
-    blocks = [
-        EmployeeBlock(
-            id="anna-hoffmann",
-            name="Anna Hoffmann",
-            initials="AH",
-            role="PM",
-            role_color=ROLE_PALETTE["PM"],
-            projects=[
-                _project_row(
-                    "CRM-AI",
-                    "CRM-Vorhersagemodell",
-                    keys,
-                    _alloc([1, 1, 1.5, 1.5, 2, 1.5, 1.5, 1, 1, 1, 1, 1.5, 1.5], n),
-                ),
-                _project_row(
-                    "FRAUD",
-                    "Betrugserkennung Banking",
-                    keys,
-                    _alloc([0.5, 1, 1, 1.5, 1.5, 1.5, 1, 1, 0.5, 1, 1, 1, 1.5], n),
-                ),
-                _project_row(
-                    "GENAI-ASSIST",
-                    "GenAI Assistent intern",
-                    keys,
-                    _alloc([0.5, 0.5, 1, 1, 1.5, 1, 1, 0.5, 0.5, 0.5, 0.5, 1, 1], n),
-                ),
-                _project_row(
-                    "NLP-LEGAL",
-                    "NLP für Rechtsdokumente",
-                    keys,
-                    _alloc([0, 0, 0, 0, 1.5, 1, 1, 0.5, 0.5, 0.5, 0.5, 1, 1], n),
-                ),
-            ],
-            absence=AbsenceRow(
-                cells=_cells(keys, _alloc([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5], n))
-            ),
-            gesamt=[],
-        ),
-        EmployeeBlock(
-            id="marcus-weber",
-            name="Marcus Weber",
-            initials="MW",
-            role="AIA",
-            role_color=ROLE_PALETTE["AIA"],
-            projects=[
-                _project_row(
-                    "CRM-AI",
-                    "CRM-Vorhersagemodell",
-                    keys,
-                    _alloc(
-                        [2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2, 2, 2, 2.5, 2.5, 2.5, 2.5],
-                        n,
-                    ),
-                ),
-                _project_row(
-                    "FRAUD",
-                    "Betrugserkennung Banking",
-                    keys,
-                    _alloc([1.5, 1.5, 1.5, 2, 1.5, 1.5, 1, 1, 1, 1.5, 1.5, 1.5, 2], n),
-                ),
-                _project_row(
-                    "RECO",
-                    "Empfehlungsengine Retail",
-                    keys,
-                    _alloc([0, 0, 0, 0, 0, 2, 1.5, 1.5, 1.5, 2, 2, 2, 2.5], n),
-                ),
-            ],
-            absence=AbsenceRow(cells=_cells(keys, [0] * n)),
-            gesamt=[],
-        ),
-        EmployeeBlock(
-            id="lena-schulz",
-            name="Lena Schulz",
-            initials="LS",
-            role="DS",
-            role_color=ROLE_PALETTE["DS"],
-            projects=[
-                _project_row(
-                    "CRM-AI",
-                    "CRM-Vorhersagemodell",
-                    keys,
-                    _alloc([4, 4, 4, 3.5, 3.5, 3.5, 3, 3.5, 3.5, 4, 4, 4, 3.5], n),
-                ),
-            ],
-            absence=AbsenceRow(
-                cells=_cells(keys, _alloc([0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0], n))
-            ),
-            gesamt=[],
-        ),
-        EmployeeBlock(
-            id="tobias-krueger",
-            name="Tobias Krüger",
-            initials="TK",
-            role="AIE",
-            role_color=ROLE_PALETTE["AIE"],
-            projects=[
-                _project_row(
-                    "GENAI-ASSIST",
-                    "GenAI Assistent intern",
-                    keys,
-                    _alloc([2, 2, 2, 2, 2.5, 2.5, 2, 2, 2, 2, 2, 2.5, 2.5], n),
-                ),
-                _project_row(
-                    "RECO",
-                    "Empfehlungsengine Retail",
-                    keys,
-                    _alloc([1, 1, 1.5, 1.5, 1.5, 1.5, 1, 1, 1, 1.5, 1.5, 1.5, 1.5], n),
-                ),
-            ],
-            absence=AbsenceRow(cells=_cells(keys, [0] * n)),
-            gesamt=[],
-        ),
-    ]
-    for emp in blocks:
-        if not emp.roles:
-            emp.roles = [
-                RoleBadge(
-                    code=emp.role,
-                    full=ROLE_FULL.get(emp.role, emp.role),
-                    color=emp.role_color,
-                )
-            ]
-        for proj in emp.projects:
-            for cell in proj.cells:
-                cell.key = f"{emp.id}|{proj.code}|{cell.week_key}"
-    return blocks
-
-
-_ALLOC_PATTERNS: list[list[float]] = [
-    [1, 1, 1.5, 1.5, 2, 1.5, 1.5, 1, 1, 1, 1, 1.5, 1.5],
-    [0.5, 1, 1, 1.5, 1.5, 1.5, 1, 1, 0.5, 1, 1, 1, 1.5],
-    [0.5, 0.5, 1, 1, 1.5, 1, 1, 0.5, 0.5, 0.5, 0.5, 1, 1],
-    [2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2, 2, 2, 2.5, 2.5, 2.5, 2.5],
-    [1.5, 1.5, 1.5, 2, 1.5, 1.5, 1, 1, 1, 1.5, 1.5, 1.5, 2],
-    [0, 0, 0, 0, 0, 2, 1.5, 1.5, 1.5, 2, 2, 2, 2.5],
-    [4, 4, 4, 3.5, 3.5, 3.5, 3, 3.5, 3.5, 4, 4, 4, 3.5],
-]
 
 
 def _role_short(name: str) -> str:
@@ -381,15 +238,12 @@ def _absence_days_for_week(absences: list, week_start: datetime.date) -> float:
 
 def _build_employees_from_real(
     real_employees: list,
-    real_projects: list,
     weeks: list[WeekColumn],
 ) -> list[EmployeeBlock]:
     keys = [w.key for w in weeks]
-    n = len(keys)
     week_starts = [datetime.date(*(int(p) for p in w.key.split("_"))) for w in weeks]
     blocks: list[EmployeeBlock] = []
-    pcount = min(3, len(real_projects))
-    for emp_idx, emp in enumerate(real_employees):
+    for emp in real_employees:
         role_badges: list[RoleBadge] = []
         for rn in emp.role_names:
             short = _role_short(rn)
@@ -399,28 +253,11 @@ def _build_employees_from_real(
         role_short = _role_short(role_name)
         role_color = ROLE_PALETTE.get(role_short, "var(--mantine-color-gray-2)")
         emp_id_str = f"emp-{emp.id}"
-        projects: list[ProjectAllocationRow] = []
-        if real_projects and pcount > 0:
-            start = emp_idx % len(real_projects)
-            chosen = [
-                real_projects[(start + i) % len(real_projects)] for i in range(pcount)
-            ]
-            for p_idx, proj in enumerate(chosen):
-                pattern = _ALLOC_PATTERNS[(emp_idx + p_idx) % len(_ALLOC_PATTERNS)]
-                color = proj.color or "var(--mantine-color-gray-5)"
-                projects.append(
-                    ProjectAllocationRow(
-                        project_id=str(proj.id),
-                        code=proj.code or proj.name_de[:8].upper(),
-                        name=proj.name_de or "—",
-                        color=color,
-                        cells=_cells(keys, _alloc(pattern, n)),
-                    )
-                )
         absence_vals = [_absence_days_for_week(emp.absences, ws) for ws in week_starts]
         blocks.append(
             EmployeeBlock(
                 id=emp_id_str,
+                real_id=int(emp.id),
                 name=f"{emp.first_name} {emp.last_name}".strip(),
                 initials=(f"{emp.first_name[:1]}{emp.last_name[:1]}".upper() or "?"),
                 job_title=emp.job_title or "",
@@ -428,17 +265,113 @@ def _build_employees_from_real(
                 role_color=role_color,
                 role_full=role_name,
                 roles=role_badges,
-                projects=projects,
+                role_ids=list(emp.role_ids) if emp.role_ids else [],
+                projects=[],
                 absence=AbsenceRow(cells=_cells(keys, absence_vals)),
                 gesamt=[],
                 heat=[],
             )
         )
-    for emp in blocks:
-        for proj in emp.projects:
-            for cell in proj.cells:
-                cell.key = f"{emp.id}|{proj.code}|{cell.week_key}"
     return blocks
+
+
+def _week_key_for_date(d: datetime.date) -> str:
+    """Return canonical 'YYYY_MM_DD' key for a week's start date."""
+    return f"{d.year}_{d.month:02d}_{d.day:02d}"
+
+
+def _merge_capacity_assignments(
+    capacity_assignments: list[Any],
+    projects_lookup: dict[int, Any],
+    grouped: dict[int, dict[int, dict[str, float]]],
+    role_lookup: dict[tuple[int, int], str],
+) -> None:
+    """Populate grouped and role_lookup from capacity assignments."""
+    for cap in capacity_assignments:
+        emp_id = cap.employee_id
+        proj_id = cap.project_id
+        if proj_id not in projects_lookup:
+            continue
+        grouped.setdefault(emp_id, {}).setdefault(proj_id, {})
+        role_name = cap.role_name
+        if role_name:
+            role_lookup[(emp_id, proj_id)] = role_name
+
+
+def _apply_allocations(
+    blocks: list[EmployeeBlock],
+    allocations: list[Any],
+    projects_lookup: dict[int, Any],
+    week_keys: list[str],
+    capacity_assignments: list[Any] | None = None,
+) -> None:
+    """Replace dummy projects with allocation-derived ones for each affected employee.
+
+    Allocations are grouped per (employee_id, project_id). Employees with no
+    allocations keep their dummy data so the demo still shows full grid.
+
+    If capacity_assignments are provided, also add empty rows for projects
+    assigned via CapacityEntity that have no allocation data yet.
+    """
+    grouped: dict[int, dict[int, dict[str, float]]] = {}
+    role_lookup: dict[tuple[int, int], str] = {}
+    for a in allocations:
+        wk = _week_key_for_date(a.week_start)
+        if wk not in week_keys:
+            continue
+        grouped.setdefault(a.employee_id, {}).setdefault(a.project_id, {})[wk] = (
+            a.person_days
+        )
+        # Track role from allocation if not already set
+        if (a.employee_id, a.project_id) not in role_lookup:
+            role_name = getattr(a, "_cached_role_name", "")
+            if role_name:
+                role_lookup[(a.employee_id, a.project_id)] = role_name
+
+    _merge_capacity_assignments(
+        capacity_assignments or [], projects_lookup, grouped, role_lookup
+    )
+
+    if not grouped:
+        return
+    for block in blocks:
+        emp_alloc = grouped.get(block.real_id)
+        if not emp_alloc:
+            continue
+        new_rows: list[ProjectAllocationRow] = []
+        for proj_id, week_map in emp_alloc.items():
+            proj = projects_lookup.get(proj_id)
+            if proj is None:
+                continue
+            color = proj.color or "var(--mantine-color-gray-5)"
+            code = proj.code or (proj.name_de[:8].upper() if proj.name_de else "—")
+            cells = [
+                GridCell(
+                    key=f"{block.id}|{code}|{wk}",
+                    week_key=wk,
+                    value=float(week_map.get(wk, 0.0)),
+                )
+                for wk in week_keys
+            ]
+            r_name = role_lookup.get((block.real_id, proj_id), "")
+            r_short = _role_short(r_name)
+            r_color = ROLE_PALETTE.get(r_short, "var(--mantine-color-gray-2)")
+            new_rows.append(
+                ProjectAllocationRow(
+                    project_id=str(proj_id),
+                    real_project_id=int(proj_id),
+                    emp_id=block.id,
+                    code=code,
+                    name=proj.name_de or "—",
+                    color=color,
+                    role_name=r_name,
+                    role_short=r_short,
+                    role_color=r_color,
+                    cells=cells,
+                )
+            )
+        if new_rows:
+            block.projects = new_rows
 
 
 def _compute_gesamt(weeks: list[WeekColumn], block: EmployeeBlock) -> list[GesamtCell]:
@@ -607,19 +540,60 @@ class PlanningGridState(rx.State):
         self.editing_cell = ""
         self.draft_value = ""
 
-    def _load(self, num_weeks: int) -> None:
+    def _load_real(
+        self,
+        num_weeks: int,
+        real_emps: list,
+        real_projs: list,
+        allocations: list[Any],
+        capacity_assignments: list[Any] | None = None,
+    ) -> None:
         weeks, spans = _build_weeks(num_weeks)
-        employees = _build_employees(weeks)
+        employees = _build_employees_from_real(real_emps, weeks)
+        projects_lookup = {int(p.id): p for p in real_projs}
+        _apply_allocations(
+            employees,
+            allocations,
+            projects_lookup,
+            [w.key for w in weeks],
+            capacity_assignments=capacity_assignments,
+        )
+        for block in employees:
+            for proj in block.projects:
+                for cell in proj.cells:
+                    cell.key = f"{block.id}|{proj.code}|{cell.week_key}"
         self._populate(weeks, spans, employees)
 
-    def _load_real(self, num_weeks: int, real_emps: list, real_projs: list) -> None:
-        weeks, spans = _build_weeks(num_weeks)
-        employees = _build_employees_from_real(real_emps, real_projs, weeks)
-        self._populate(weeks, spans, employees)
+    async def _fetch_allocations(self, weeks: list[WeekColumn]) -> list[Any]:
+        if not weeks:
+            return []
+        first = datetime.date(*(int(p) for p in weeks[0].key.split("_")))
+        last = datetime.date(*(int(p) for p in weeks[-1].key.split("_")))
+        async with get_asyncdb_session() as session:
+            results = await capacity_allocation_repo.find_in_range(session, first, last)
+            # Cache role name before expunging to avoid DetachedInstanceError
+            for r in results:
+                r._cached_role_name = r.role.name if r.role else ""  # noqa: SLF001
+                session.expunge(r)
+            return results
 
-    @rx.event
-    def load_dummy_data(self) -> None:
-        self._load(TIME_RANGE_WEEKS["3 Monate"])
+    async def _fetch_capacity_assignments(self) -> list[Any]:
+        """Fetch all CapacityEntity records as lightweight dicts."""
+        async with get_asyncdb_session() as session:
+            from alloq_commons.entities.capacity import CapacityEntity  # noqa: PLC0415
+            from sqlmodel import select  # noqa: PLC0415
+
+            result = await session.execute(select(CapacityEntity))
+            entities = list(result.scalars().unique().all())
+            # Extract data while still in session to avoid DetachedInstanceError
+            return [
+                _CapAssignment(
+                    employee_id=e.employee_id,
+                    project_id=e.project_id,
+                    role_name=e.role.name if e.role else "",
+                )
+                for e in entities
+            ]
 
     @rx.event
     async def load_grid_data(self) -> None:
@@ -627,12 +601,16 @@ class PlanningGridState(rx.State):
 
         planning = await self.get_state(PlanningState)
         n = TIME_RANGE_WEEKS.get(planning.time_range, TIME_RANGE_WEEKS["3 Monate"])
-        if planning.available_employees:
-            self._load_real(
-                n, planning.available_employees, planning.available_projects
-            )
-        else:
-            self._load(n)
+        weeks, _spans = _build_weeks(n)
+        allocations = await self._fetch_allocations(weeks)
+        assignments = await self._fetch_capacity_assignments()
+        self._load_real(
+            n,
+            planning.available_employees,
+            planning.available_projects,
+            allocations,
+            capacity_assignments=assignments,
+        )
 
     @rx.event
     async def reload_with_time_range(self, time_range: str) -> None:
@@ -640,12 +618,16 @@ class PlanningGridState(rx.State):
 
         n = TIME_RANGE_WEEKS.get(time_range, TIME_RANGE_WEEKS["3 Monate"])
         planning = await self.get_state(PlanningState)
-        if planning.available_employees:
-            self._load_real(
-                n, planning.available_employees, planning.available_projects
-            )
-        else:
-            self._load(n)
+        weeks, _spans = _build_weeks(n)
+        allocations = await self._fetch_allocations(weeks)
+        assignments = await self._fetch_capacity_assignments()
+        self._load_real(
+            n,
+            planning.available_employees,
+            planning.available_projects,
+            allocations,
+            capacity_assignments=assignments,
+        )
 
     @rx.event
     def toggle_employee(self, emp_id: str) -> None:
@@ -805,6 +787,76 @@ class PlanningGridState(rx.State):
                         return cell.value
         return 0.0
 
+    def _collect_dirty(
+        self,
+    ) -> list[tuple[int, int, int, datetime.date, float, EmployeeBlock, GridCell]]:
+        out: list[
+            tuple[int, int, int, datetime.date, float, EmployeeBlock, GridCell]
+        ] = []
+        for emp in self.employees:
+            if not emp.real_id or not emp.role_ids:
+                continue
+            role_id = emp.role_ids[0]
+            for proj in emp.projects:
+                if not proj.real_project_id:
+                    continue
+                for cell in proj.cells:
+                    if not cell.is_dirty:
+                        continue
+                    try:
+                        y, m, d = (int(p) for p in cell.week_key.split("_"))
+                        wk = datetime.date(y, m, d)
+                    except ValueError:
+                        continue
+                    out.append(
+                        (
+                            emp.real_id,
+                            proj.real_project_id,
+                            role_id,
+                            wk,
+                            float(cell.value),
+                            emp,
+                            cell,
+                        )
+                    )
+        return out
+
+    @rx.var(cache=True)
+    def has_dirty(self) -> bool:
+        return any(
+            cell.is_dirty
+            for emp in self.employees
+            for proj in emp.projects
+            for cell in proj.cells
+        )
+
+    @rx.event
+    async def save_grid(self) -> AsyncGenerator[Any, None]:
+        """Persist edited grid cells to capacity_allocations."""
+        dirty = self._collect_dirty()
+        if not dirty:
+            yield rx.toast.info("Keine Änderungen.", position="top-right")
+            return
+        try:
+            async with get_asyncdb_session() as session:
+                for emp_id, proj_id, role_id, wk, pd, _emp, _cell in dirty:
+                    await capacity_allocation_repo.upsert_cell(
+                        session, proj_id, emp_id, role_id, wk, pd
+                    )
+                await session.commit()
+        except Exception as exc:  # noqa: BLE001
+            log.error("Failed to save grid: %s", exc)
+            yield rx.toast.error(
+                f"Speichern fehlgeschlagen: {exc}", position="top-right"
+            )
+            return
+        for *_unused, cell in dirty:
+            cell.is_dirty = False
+        self.employees = list(self.employees)
+        yield rx.toast.success(
+            f"{len(dirty)} Zellen gespeichert.", position="top-right"
+        )
+
     def _navigate(self, cur_key: str, direction: str) -> str:  # noqa: PLR0911
         try:
             emp_id, proj_code, week_key = cur_key.split("|")
@@ -835,3 +887,128 @@ class PlanningGridState(rx.State):
             ne, np = rows[row_idx - 1]
             return f"{ne}|{np}|{week_key}"
         return ""
+
+    # --- Add / Remove project from employee in grid ---
+
+    add_project_emp_id: str = ""
+    add_project_options: list[dict[str, str]] = []
+    add_project_role_options: list[dict[str, str]] = []
+
+    @rx.event
+    async def open_add_project_for_employee(self, emp_id: str) -> None:
+        """Open the add-project modal for a specific employee."""
+        from alloq_project.states.planning_state import PlanningState  # noqa: PLC0415
+
+        self.add_project_emp_id = emp_id
+        emp = next((e for e in self.employees if e.id == emp_id), None)
+        if not emp:
+            return
+
+        planning = await self.get_state(PlanningState)
+        assigned_codes = {p.code for p in emp.projects}
+        self.add_project_options = [
+            {"value": str(p.id), "label": f"{p.code} - {p.name_de}"}
+            for p in planning.available_projects
+            if p.code not in assigned_codes
+        ]
+        emp_role_ids = set(emp.role_ids)
+        self.add_project_role_options = [
+            {"value": str(r.id), "label": r.name}
+            for r in planning.available_roles
+            if r.id in emp_role_ids
+        ]
+
+    def close_add_project_for_employee(self) -> None:
+        """Close the add-project modal."""
+        self.add_project_emp_id = ""
+        self.add_project_options = []
+        self.add_project_role_options = []
+
+    @rx.event
+    async def add_project_to_employee_grid(
+        self, form_data: dict
+    ) -> AsyncGenerator[Any, None]:
+        """Assign a project to an employee and reload grid."""
+        from alloq_commons.entities.capacity import CapacityEntity  # noqa: PLC0415
+        from alloq_project.states.planning_state import PlanningState  # noqa: PLC0415
+
+        project_id_raw = form_data.get("project_id")
+        role_id_raw = form_data.get("role_id")
+        if not project_id_raw or not role_id_raw:
+            yield rx.toast.error(
+                "Bitte Projekt und Rolle auswählen.", position="top-right"
+            )
+            return
+
+        project_id = int(project_id_raw)
+        role_id = int(role_id_raw)
+
+        emp = next((e for e in self.employees if e.id == self.add_project_emp_id), None)
+        if not emp:
+            yield rx.toast.error("Mitarbeiter nicht gefunden.", position="top-right")
+            return
+
+        planning = await self.get_state(PlanningState)
+        project = next(
+            (p for p in planning.available_projects if p.id == project_id), None
+        )
+        if not project or not project.start_date or not project.end_date:
+            yield rx.toast.error("Projekt nicht gefunden.", position="top-right")
+            return
+
+        try:
+            async with get_asyncdb_session() as session:
+                entity = CapacityEntity(
+                    project_id=project_id,
+                    employee_id=emp.real_id,
+                    role_id=role_id,
+                    start_date=project.start_date,
+                    end_date=project.end_date,
+                    hours_per_week=40.0,
+                )
+                session.add(entity)
+                await session.commit()
+            self.add_project_emp_id = ""
+            yield PlanningGridState.load_grid_data
+        except Exception as e:
+            log.error("Failed to add project to employee in grid: %s", e)
+            yield rx.toast.error(f"Fehler: {e}", position="top-right")
+
+    @rx.event
+    async def remove_project_from_employee_grid(
+        self, emp_id: str, project_id: int
+    ) -> AsyncGenerator[Any, None]:
+        """Remove a project assignment and all allocations for an employee."""
+        from alloq_commons.repositories import (  # noqa: PLC0415
+            capacity_allocation_repo,
+            capacity_repo,
+        )
+
+        emp = next((e for e in self.employees if e.id == emp_id), None)
+        if not emp:
+            yield rx.toast.error("Mitarbeiter nicht gefunden.", position="top-right")
+            return
+
+        try:
+            async with get_asyncdb_session() as session:
+                # Delete capacity assignment (may not exist for allocation-only rows)
+                await capacity_repo.delete_by_project_and_employee(
+                    session, project_id, emp.real_id
+                )
+                # Delete all weekly allocation rows for this pair
+                deleted_alloc = (
+                    await capacity_allocation_repo.delete_by_project_and_employee(
+                        session, project_id, emp.real_id
+                    )
+                )
+            if not deleted_alloc:
+                log.debug(
+                    "No allocation rows found for project %d, employee %d",
+                    project_id,
+                    emp.real_id,
+                )
+            yield PlanningGridState.load_grid_data
+            yield rx.toast.info("Projektzuweisung entfernt.", position="top-right")
+        except Exception as e:
+            log.error("Failed to remove project from employee in grid: %s", e)
+            yield rx.toast.error(f"Fehler: {e}", position="top-right")

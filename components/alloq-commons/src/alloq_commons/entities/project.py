@@ -103,6 +103,7 @@ class ProjectEntity(Entity, Base):
             "current_progress": latest_status.fortschritt if latest_status else 0,
             "current_spent": latest_status.budget_verbrauch if latest_status else 0,
             "team_initials": self._team_initials(),
+            "team_members": self._team_members(),
             "risk_count": len(self.risks) if self.risks else 0,
             "required_capacities": [
                 capacity.to_dict() for capacity in self.required_capacities
@@ -124,3 +125,20 @@ class ProjectEntity(Entity, Base):
             seen_employee_ids.add(employee.id)
             initials.append(f"{employee.first_name[:1]}{employee.last_name[:1]}")
         return initials
+
+    def _team_members(self) -> list[dict]:
+        """Return unique team members (initials + full name) with project capacity."""
+        members = []
+        seen_employee_ids = set()
+        for capacity in self.capacities or []:
+            employee = capacity.employee
+            if not employee or employee.id in seen_employee_ids:
+                continue
+            seen_employee_ids.add(employee.id)
+            members.append(
+                {
+                    "initials": f"{employee.first_name[:1]}{employee.last_name[:1]}",
+                    "name": f"{employee.first_name} {employee.last_name}",
+                }
+            )
+        return members

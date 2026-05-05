@@ -1,6 +1,7 @@
 from collections.abc import Callable
 
 import reflex as rx
+from alloq_project.states.planning_grid_state import PlanningGridState
 from alloq_project.states.planning_state import PlanningState
 from alloq_project.states.project_plan_state import ProjectPlanState
 
@@ -53,6 +54,25 @@ def planning_toolbar() -> rx.Component:
             padding="0",
             radius="md",
             on_click=ProjectPlanState.open_modal,
+        ),
+        mn.tooltip(
+            mn.button(
+                rx.icon("save", size=18, color="black"),
+                variant="filled",
+                bg=rx.cond(
+                    PlanningGridState.has_dirty,
+                    "alloqWarm.5",
+                    "var(--alloq-fade-bg)",
+                ),
+                on_click=PlanningGridState.save_grid,
+                disabled=~PlanningGridState.has_dirty,
+                size="sm",
+                p="0 8px",
+                radius="md",
+            ),
+            label="Änderungen speichern",
+            with_arrow=True,
+            position="bottom",
         ),
         # Project scope toggle
         mn.group(

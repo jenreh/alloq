@@ -5,9 +5,14 @@ from __future__ import annotations
 import datetime
 import logging
 import math
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import reflex as rx
+from alloq_commons.entities import CapacityAllocationEntity
+from alloq_commons.repositories import capacity_allocation_repo
+
+from appkit_commons.database.session import get_asyncdb_session
 
 log = logging.getLogger(__name__)
 
@@ -89,6 +94,13 @@ class ProjectPlanState(rx.State):
     ramp_up: int = 0
     ramp_down: int = 0
     gtk_count: float = 5.0
+
+    # Step 2: employees
+    required_role_ids: list[int] = []
+    selected_employee_ids: list[int] = []
+    employee_role_filter: str = "all"  # "all" | role_id as str
+    employee_pool: list[dict[str, Any]] = []  # snapshot from PlanningState
+    role_options_data: list[dict[str, str]] = []  # snapshot from PlanningState
 
     @rx.var(cache=True)
     def num_weeks(self) -> int:
@@ -248,6 +260,28 @@ class ProjectPlanState(rx.State):
         self.ramp_up = 0
         self.ramp_down = 0
         self.gtk_count = _default_gtk(self.total_pt, weeks)
+        self.required_role_ids = sorted(
+            {rc.role_id for rc in proj.required_capacities if rc.role_id}
+        )
+        self.selected_employee_ids = []
+        self.employee_role_filter = "all"
+        self.employee_pool = [
+            {
+                "id": e.id,
+                "name": f"{e.first_name} {e.last_name}".strip(),
+                "roles": ", ".join(e.role_names),
+                "role_ids": list(e.role_ids),
+                "seniority": e.seniority or "",
+            }
+            for e in planning.available_employees
+        ]
+        opts: list[dict[str, str]] = [{"value": "all", "label": "Alle"}]
+        opts.extend(
+            {"value": str(r.id), "label": r.name}
+            for r in planning.available_roles
+            if not self.required_role_ids or r.id in self.required_role_ids
+        )
+        self.role_options_data = opts
         self.step = 1
 
     def num_weeks_from(self, start: str, end: str) -> int:
@@ -317,5 +351,165 @@ class ProjectPlanState(rx.State):
         except (ValueError, TypeError):
             return
         self.gtk_count = max(0.5, round(v * 2) / 2)
+
+    # ---- Step 2: employees ----
+
+    def _matches_filter(self, role_ids: list[int]) -> bool:
+        if self.employee_role_filter == "all":
+            if not self.required_role_ids:
+                return True
+            return any(rid in self.required_role_ids for rid in role_ids)
+        try:
+            target = int(self.employee_role_filter)
+        except ValueError:
+            return True
+        return target in role_ids
+
+    @rx.var(cache=True)
+    def filtered_employees(self) -> list[dict[str, Any]]:
+        """Employees matching role filter, with selection state."""
+        out: list[dict[str, Any]] = []
+        for e in self.employee_pool:
+            if not self._matches_filter(e["role_ids"]):
+                continue
+            out.append(
+                {
+                    "id": e["id"],
+                    "name": e["name"],
+                    "roles": e["roles"],
+                    "seniority": e["seniority"],
+                    "selected": e["id"] in self.selected_employee_ids,
+                }
+            )
+        return out
+
+    @rx.var(cache=True)
+    def selected_count(self) -> int:
+        return len(self.selected_employee_ids)
+
+    @rx.var(cache=True)
+    def filtered_count(self) -> int:
+        return len(self.filtered_employees)
+
+    @rx.event
+    def toggle_employee(self, eid: int) -> None:
+        if eid in self.selected_employee_ids:
+            self.selected_employee_ids = [
+                x for x in self.selected_employee_ids if x != eid
+            ]
+        else:
+            self.selected_employee_ids = [*self.selected_employee_ids, eid]
+
+    @rx.event
+    def set_employee_role_filter(self, value: str) -> None:
+        self.employee_role_filter = value
+
+    @rx.event
+    def select_all_filtered(self) -> None:
+        ids = {e["id"] for e in self.filtered_employees}
+        merged = set(self.selected_employee_ids) | ids
+        self.selected_employee_ids = sorted(merged)
+
+    @rx.event
+    def clear_employee_selection(self) -> None:
+        self.selected_employee_ids = []
+
+    # ---- Step 3: persistence ----
+
+    def _pick_role_for_employee(self, role_ids: list[int]) -> int:
+        """Pick role_id for an employee. Prefer one in required_role_ids."""
+        if self.required_role_ids:
+            for rid in role_ids:
+                if rid in self.required_role_ids:
+                    return rid
+        return role_ids[0] if role_ids else 0
+
+    def _project_start_monday(self) -> datetime.date | None:
+        if not self.start_iso:
+            return None
+        try:
+            d = datetime.date.fromisoformat(self.start_iso)
+        except ValueError:
+            return None
+        return d - datetime.timedelta(days=d.weekday())
+
+    def _build_allocation_rows(self) -> list[CapacityAllocationEntity]:
+        """Materialize distribution + employee selection into DB rows."""
+        try:
+            project_id = int(self.selected_project_id)
+        except (ValueError, TypeError):
+            return []
+        emp_ids = list(self.selected_employee_ids)
+        if not emp_ids or not self.distribution:
+            return []
+        monday = self._project_start_monday()
+        if monday is None:
+            return []
+        emp_role: dict[int, int] = {}
+        for emp in self.employee_pool:
+            if emp["id"] in emp_ids:
+                rid = self._pick_role_for_employee(emp.get("role_ids", []))
+                if rid:
+                    emp_role[emp["id"]] = rid
+        if not emp_role:
+            return []
+        n_emps = len(emp_role)
+        rows: list[CapacityAllocationEntity] = []
+        for w_idx, weekly_pt in enumerate(self.distribution):
+            per_emp = round(weekly_pt / n_emps, 2)
+            if per_emp <= 0:
+                continue
+            week_start = monday + datetime.timedelta(days=7 * w_idx)
+            for emp_id, role_id in emp_role.items():
+                rows.append(
+                    CapacityAllocationEntity(
+                        project_id=project_id,
+                        employee_id=emp_id,
+                        role_id=role_id,
+                        week_start=week_start,
+                        person_days=per_emp,
+                    )
+                )
+        return rows
+
+    @rx.event
+    async def save_plan(self) -> AsyncGenerator[Any, None]:
+        """Persist the plan as weekly capacity_allocations and close the modal."""
+        if not self.selected_project_id:
+            yield rx.toast.error("Kein Projekt ausgewählt.", position="top-right")
+            return
+        if not self.selected_employee_ids:
+            yield rx.toast.error(
+                "Bitte mindestens einen Mitarbeiter wählen.", position="top-right"
+            )
+            return
+        rows = self._build_allocation_rows()
+        try:
+            project_id = int(self.selected_project_id)
+        except (ValueError, TypeError):
+            yield rx.toast.error("Ungültige Projekt-ID.", position="top-right")
+            return
+        try:
+            async with get_asyncdb_session() as session:
+                await capacity_allocation_repo.replace_for_project(
+                    session, project_id, rows
+                )
+                await session.commit()
+        except Exception as exc:  # noqa: BLE001
+            log.error("Failed to persist plan: %s", exc)
+            yield rx.toast.error(
+                f"Speichern fehlgeschlagen: {exc}", position="top-right"
+            )
+            return
+        self.is_open = False
+        yield rx.toast.success(
+            f"Plan gespeichert ({len(rows)} Zuweisungen).",
+            position="top-right",
+        )
+        from alloq_project.states.planning_grid_state import (  # noqa: PLC0415
+            PlanningGridState,
+        )
+
+        yield PlanningGridState.load_grid_data
 
     _ = Any  # mark Any used

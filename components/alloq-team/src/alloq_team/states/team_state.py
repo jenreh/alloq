@@ -5,6 +5,7 @@ from typing import Any
 
 import reflex as rx
 from alloq_commons.entities.absence import AbsenceEntity
+from alloq_commons.entities.capacity import CapacityEntity
 from alloq_commons.entities.employee import EmployeeEntity
 from alloq_commons.models.employee import (
     Absence,
@@ -12,9 +13,12 @@ from alloq_commons.models.employee import (
     Employee,
     EmployeeCreate,
 )
+from alloq_commons.models.project import Capacity, Project
 from alloq_commons.models.role import Role
 from alloq_commons.repositories.absence_repository import absence_repo
+from alloq_commons.repositories.capacity_repository import capacity_repo
 from alloq_commons.repositories.employee_repository import employee_repo
+from alloq_commons.repositories.project_repository import project_repo
 from alloq_commons.repositories.role_repository import role_repo
 
 from appkit_commons.database.session import get_asyncdb_session
@@ -45,6 +49,10 @@ class TeamState(UserSession):
     search_filter: str = ""
     view_mode: str = "grid"
     expanded_sections: list[str] = []
+
+    all_projects: list[Project] = []
+    employee_capacities: list[Capacity] = []
+    add_project_modal_open: bool = False
 
     def toggle_section_expanded(self, section_key: str) -> None:
         """Toggle the expanded state of all cards in an employee section."""
@@ -114,6 +122,18 @@ class TeamState(UserSession):
         return [{"value": str(r.id), "label": r.name} for r in self.available_roles]
 
     @rx.var
+    def employee_role_select_options(self) -> list[dict[str, str]]:
+        """Return only roles assigned to the selected employee."""
+        if not self.selected_employee:
+            return []
+        emp_role_ids = set(self.selected_employee.role_ids)
+        return [
+            {"value": str(r.id), "label": r.name}
+            for r in self.available_roles
+            if r.id in emp_role_ids
+        ]
+
+    @rx.var
     def employee_select_options(self) -> list[dict[str, str]]:
         """Return employees formatted for Mantine Select data prop."""
         return [
@@ -127,6 +147,24 @@ class TeamState(UserSession):
         if self.selected_employee:
             return [str(role_id) for role_id in self.selected_employee.role_ids]
         return []
+
+    @rx.var
+    def unassigned_project_options(self) -> list[dict[str, str]]:
+        """Projects not yet assigned to the selected employee."""
+        assigned_ids = {c.project_id for c in self.employee_capacities}
+        return [
+            {"value": str(p.id), "label": f"{p.code} - {p.name_de}"}
+            for p in self.all_projects
+            if p.id not in assigned_ids
+        ]
+
+    def open_add_project_modal(self) -> None:
+        """Open the add-project-to-employee modal."""
+        self.add_project_modal_open = True
+
+    def close_add_project_modal(self) -> None:
+        """Close the add-project-to-employee modal."""
+        self.add_project_modal_open = False
 
     def open_add_modal(self) -> list[rx.event.EventSpec]:
         """Open the add employee modal."""
@@ -218,6 +256,8 @@ class TeamState(UserSession):
                 )
                 self.absences = [Absence(**a.to_dict()) for a in absence_entities]
                 self.detail_drawer_open = True
+                await self._load_all_projects()
+                await self._load_employee_capacities(employee_id)
                 yield EmployeeValidationState.initialize(
                     employee=self.selected_employee,
                     default_role_ids=[str(r) for r in self.selected_employee.role_ids],
@@ -489,6 +529,93 @@ class TeamState(UserSession):
                 f"Fehler beim Löschen: {e}",
                 position="top-right",
             )
+
+    async def _load_all_projects(self) -> None:
+        """Load all projects for selection dropdowns."""
+        async with get_asyncdb_session() as session:
+            entities = await project_repo.find_all_paginated(session)
+            self.all_projects = [Project(**e.to_dict()) for e in entities]
+
+    async def _load_employee_capacities(self, employee_id: int) -> None:
+        """Load capacity assignments for a specific employee."""
+        async with get_asyncdb_session() as session:
+            entities = await capacity_repo.find_by_employee_id(session, employee_id)
+            self.employee_capacities = [Capacity(**e.to_dict()) for e in entities]
+
+    @is_authenticated
+    async def assign_project_to_employee(
+        self, form_data: dict
+    ) -> AsyncGenerator[Any, None]:
+        """Assign a project to the selected employee."""
+        if not self.selected_employee:
+            yield rx.toast.error("Kein Mitarbeiter ausgewählt.", position="top-right")
+            return
+
+        project_id_raw = form_data.get("project_id")
+        if not project_id_raw:
+            yield rx.toast.error("Bitte ein Projekt auswählen.", position="top-right")
+            return
+
+        role_id_raw = form_data.get("role_id")
+        if not role_id_raw:
+            yield rx.toast.error("Bitte eine Rolle auswählen.", position="top-right")
+            return
+
+        try:
+            project_id = int(project_id_raw)
+            role_id = int(role_id_raw)
+            employee_id = self.selected_employee.id
+
+            # Find project dates for defaults
+            project = next((p for p in self.all_projects if p.id == project_id), None)
+            if not project or not project.start_date or not project.end_date:
+                yield rx.toast.error("Projekt nicht gefunden.", position="top-right")
+                return
+
+            async with get_asyncdb_session() as session:
+                entity = CapacityEntity(
+                    project_id=project_id,
+                    employee_id=employee_id,
+                    role_id=role_id,
+                    start_date=project.start_date,
+                    end_date=project.end_date,
+                    hours_per_week=self.selected_employee.hours_per_week,
+                )
+                await capacity_repo.create(session, entity)
+
+            await self._load_employee_capacities(employee_id)
+            self.close_add_project_modal()
+            yield rx.toast.info("Projekt zugewiesen.", position="top-right")
+        except Exception as e:
+            logger.error("Failed to assign project: %s", e)
+            yield rx.toast.error(f"Fehler beim Zuweisen: {e}", position="top-right")
+
+    @is_authenticated
+    async def remove_project_from_employee(
+        self, project_id: int
+    ) -> AsyncGenerator[Any, None]:
+        """Remove a project assignment from the selected employee."""
+        if not self.selected_employee:
+            yield rx.toast.error("Kein Mitarbeiter ausgewählt.", position="top-right")
+            return
+
+        try:
+            employee_id = self.selected_employee.id
+            async with get_asyncdb_session() as session:
+                deleted = await capacity_repo.delete_by_project_and_employee(
+                    session, project_id, employee_id
+                )
+                if not deleted:
+                    yield rx.toast.error(
+                        "Zuweisung nicht gefunden.", position="top-right"
+                    )
+                    return
+
+            await self._load_employee_capacities(employee_id)
+            yield rx.toast.info("Projektzuweisung entfernt.", position="top-right")
+        except Exception as e:
+            logger.error("Failed to remove project assignment: %s", e)
+            yield rx.toast.error(f"Fehler beim Entfernen: {e}", position="top-right")
 
 
 class EmployeeValidationState(rx.State):
