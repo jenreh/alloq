@@ -2,6 +2,7 @@ from collections.abc import Callable
 
 import reflex as rx
 from alloq_project.states.planning_state import PlanningState
+from alloq_project.states.project_plan_state import ProjectPlanState
 
 import appkit_mantine as mn
 
@@ -51,6 +52,7 @@ def planning_toolbar() -> rx.Component:
             size="sm",
             padding="0",
             radius="md",
+            on_click=ProjectPlanState.open_modal,
         ),
         # Project scope toggle
         mn.group(
