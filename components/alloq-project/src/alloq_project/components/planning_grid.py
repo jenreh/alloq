@@ -407,12 +407,14 @@ def _project_label_cell(project: ProjectAllocationRow) -> rx.Component:
 
 def _editor_input() -> rx.Component:
     return mn.text_input(
-        value=PlanningGridState.draft_value,
+        default_value=PlanningGridState.draft_value,
         on_change=PlanningGridState.set_draft,
         on_blur=PlanningGridState.commit_edit,
         on_key_down=PlanningGridState.handle_key,
         size="xs",
         auto_focus=True,
+        class_name="grid-editor",
+        custom_attrs={"key": PlanningGridState.editing_cell},
         style={
             "width": "100%",
             "& input": {
@@ -601,10 +603,7 @@ def planning_grid() -> rx.Component:
                 # "width": PlanningGridState.table_width,
             },
             tab_index=0,
-            on_key_down=lambda key: [
-                PlanningGridState.handle_grid_key(key),
-                rx.prevent_default,
-            ],
+            on_key_down=PlanningGridState.handle_grid_key,
         ),
         mn.center(
             rx.hstack(

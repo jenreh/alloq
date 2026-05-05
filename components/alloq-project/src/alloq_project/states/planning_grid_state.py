@@ -312,6 +312,13 @@ _FOCUS_EDITOR_SCRIPT = (
     "}, 0)"
 )
 
+_BLUR_EDITOR_SCRIPT = (
+    "const el = document.querySelector('.grid-editor input');"
+    "if (el) el.blur();"
+    "setTimeout(() => "
+    "document.getElementById('planning-grid-root')?.focus({preventScroll:true}), 0);"
+)
+
 
 def _format_de(value: float) -> str:
     """Format a float as German decimal string ('1,5')."""
@@ -407,12 +414,13 @@ class PlanningGridState(rx.State):
             self.active_cell = nxt
 
     @rx.event
-    def start_edit(self, cell_key: str) -> None:
+    def start_edit(self, cell_key: str) -> Any:
         cur = self._lookup_value(cell_key)
         self.draft_value = "" if cur == 0 else _format_de(cur)
         self.active_cell = cell_key
         self.editing_cell = cell_key
         self.edit_version += 1
+        return rx.call_script(_FOCUS_EDITOR_SCRIPT)
 
     @rx.event
     def set_draft(self, value: str) -> None:
@@ -445,11 +453,11 @@ class PlanningGridState(rx.State):
         return rx.call_script(_FOCUS_GRID_SCRIPT)
 
     @rx.event
-    def commit_and_move(self, direction: str) -> None:
+    def commit_and_move(self, direction: str) -> Any:
         """Commit current edit, move edit to next cell (Tab behavior)."""
         cur = self.editing_cell
         if not cur:
-            return
+            return None
         self._commit_current()
         next_key = self._navigate(cur, direction)
         if next_key:
@@ -458,27 +466,33 @@ class PlanningGridState(rx.State):
             self.active_cell = next_key
             self.editing_cell = next_key
             self.edit_version += 1
-        else:
-            self.editing_cell = ""
-            self.draft_value = ""
+            return rx.call_script(_FOCUS_EDITOR_SCRIPT)
+        self.editing_cell = ""
+        self.draft_value = ""
+        return rx.call_script(_FOCUS_GRID_SCRIPT)
 
     @rx.event
-    def handle_key(self, key: str) -> None:
+    def handle_key(self, key: str) -> Any:
         """Editor input on_key_down."""
         if key == "Enter":
-            self.commit_and_select_next("down")
-        elif key == "Escape":
-            self.cancel_edit()
-        elif key == "Tab":
-            self.commit_and_move("next")
+            return rx.call_script(_BLUR_EDITOR_SCRIPT)
+        if key == "Escape":
+            return self.cancel_edit()
+        if key == "Tab":
+            return self.commit_and_move("next")
+        return None
 
     @rx.event
-    def handle_grid_key(self, key: str) -> None:
+    def handle_grid_key(self, key: str) -> Any:
         """Grid wrapper on_key_down. Only acts when not editing."""
         if self.editing_cell:
-            return
+            return None
         if not self.active_cell:
-            return
+            return None
+        nav_keys = ("ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight")
+        edit_keys = ("Enter", "F2")
+        if key not in nav_keys and key not in edit_keys:
+            return None
         if key == "ArrowUp":
             self.move_active("up")
         elif key == "ArrowDown":
@@ -487,8 +501,9 @@ class PlanningGridState(rx.State):
             self.move_active("prev")
         elif key == "ArrowRight":
             self.move_active("next")
-        elif key in ("Enter", "F2"):
-            self.start_edit(self.active_cell)
+        elif key in edit_keys:
+            return self.start_edit(self.active_cell)
+        return rx.prevent_default
 
     def _commit_current(self) -> None:
         cur = self.editing_cell
