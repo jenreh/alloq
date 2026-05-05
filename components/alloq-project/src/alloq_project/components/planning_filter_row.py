@@ -27,10 +27,10 @@ def planning_filter_row() -> rx.Component:
                     ),
                 },
                 {
-                    "value": "Kapazität",
+                    "value": "Projekte",
                     "label": mn.center(
                         rx.icon("chart-bar", size=16),
-                        rx.text("Kapazität", size="2"),
+                        rx.text("Projekte", size="2"),
                         gap="4px",
                     ),
                 },

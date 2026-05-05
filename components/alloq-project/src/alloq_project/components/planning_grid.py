@@ -38,8 +38,6 @@ GRID_WRAPPER_STYLE = {
     "borderRadius": "var(--mantine-radius-sm)",
     "border": "1px solid var(--alloq-border)",
     "overflow": "auto",
-    # "height": "calc(100vh - 232px)",
-    # "maxWidth": "100%",
     "position": "fixed",
     "left": "9.3rem",
     "right": "2rem",
@@ -221,12 +219,12 @@ def _gesamt_color(bucket: rx.Var[str]) -> rx.Var[str]:
 
 def _month_cell(month: MonthSpan) -> rx.Component:
     return mn.box(
-        mn.text(month.label, size="sm", fw="700", c="var(--alloq-text)"),
+        mn.text(month.label, fz="11px", fw="700", c="var(--alloq-text)"),
         style={
             **CELL_BASE,
             "gridColumn": "span " + month.span.to_string(),
             "backgroundColor": "var(--alloq-accent-soft)",
-            "fontWeight": "700",
+            "fontWeight": "500",
             "justifyContent": "flex-start",
             "paddingLeft": "12px",
             "minHeight": HEADER_ROW_HEIGHT,
@@ -236,11 +234,12 @@ def _month_cell(month: MonthSpan) -> rx.Component:
 
 def _week_label_cell(week: WeekColumn) -> rx.Component:
     return mn.box(
-        mn.text(week.label, size="xs", c="var(--alloq-text-muted)", fw="500"),
+        mn.text(week.label, fz="11px", c="var(--alloq-text-muted)", fw="500"),
         style={
             **CELL_BASE,
             "minHeight": HEADER_ROW_HEIGHT,
             "backgroundColor": "var(--alloq-surface-muted)",
+            "fontWeight": "500",
         },
     )
 
@@ -253,6 +252,7 @@ def _work_days_cell(week: WeekColumn) -> rx.Component:
             "minHeight": HEADER_ROW_HEIGHT,
             "backgroundColor": "var(--alloq-surface-muted)",
             "fontWeight": "500",
+            "fontSize": "11px",
         },
     )
 
@@ -265,6 +265,7 @@ def _net_days_cell(week: WeekColumn) -> rx.Component:
             "minHeight": HEADER_ROW_HEIGHT,
             "backgroundColor": "var(--alloq-surface-solid)",
             "fontWeight": "500",
+            "fontSize": "11px",
             "borderBottom": "2px solid var(--alloq-border-strong)",
         },
     )
@@ -279,7 +280,7 @@ def _label_th(text: str, *, accent: bool = False, last: bool = False) -> rx.Comp
         sticky = STICKY_LEFT_HEADER
     extra = {"borderBottom": "2px solid var(--alloq-border-strong)"} if last else {}
     return mn.box(
-        mn.text(text, size="sm", fw="700", c="var(--alloq-text)"),
+        mn.text(text, size="xs", fw="700", c="var(--alloq-text)"),
         style={
             **LABEL_CELL_BASE,
             **sticky,
@@ -481,6 +482,7 @@ def _project_value_cell(cell: GridCell) -> rx.Component:
             "padding": "0",
             "position": "relative",
         },
+        custom_attrs={"data-active-cell": rx.cond(is_active, "true", "false")},
     )
 
 
@@ -589,29 +591,32 @@ def _employee_block(emp: EmployeeBlock) -> rx.Component:
 
 
 def planning_grid() -> rx.Component:
-    return rx.cond(
-        PlanningGridState.is_loaded,
-        key_div(
-            _header_block(),
-            mn.box(
-                rx.foreach(PlanningGridState.employees, _employee_block),
+    return rx.fragment(
+        rx.script(src="/planning_grid_keys.js"),
+        rx.cond(
+            PlanningGridState.is_loaded,
+            key_div(
+                _header_block(),
+                mn.box(
+                    rx.foreach(PlanningGridState.employees, _employee_block),
+                ),
+                id="planning-grid-root",
+                style={
+                    **GRID_WRAPPER_STYLE,
+                    "outline": "none",
+                    # "width": PlanningGridState.table_width,
+                },
+                tab_index=0,
+                on_key_down=PlanningGridState.handle_grid_key,
             ),
-            id="planning-grid-root",
-            style={
-                **GRID_WRAPPER_STYLE,
-                "outline": "none",
-                # "width": PlanningGridState.table_width,
-            },
-            tab_index=0,
-            on_key_down=PlanningGridState.handle_grid_key,
-        ),
-        mn.center(
-            rx.hstack(
-                rx.spinner(size="3"),
-                mn.text("Lade Planung...", size="sm"),
-                align="center",
-                spacing="3",
+            mn.center(
+                rx.hstack(
+                    rx.spinner(size="3"),
+                    mn.text("Lade Planung...", size="sm"),
+                    align="center",
+                    spacing="3",
+                ),
+                py="xl",
             ),
-            py="xl",
         ),
     )

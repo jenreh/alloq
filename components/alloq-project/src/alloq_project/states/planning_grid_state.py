@@ -18,7 +18,8 @@ log = logging.getLogger(__name__)
 
 
 LABEL_COL_PX: int = 300
-WEEK_COL_PX: int = 64
+WEEK_COL_PX: int = 60
+_WORK_DAYS_PER_WEEK: int = 5
 
 GERMAN_MONTHS = [
     "Jan",
@@ -124,6 +125,7 @@ class EmployeeBlock(BaseModel):
     id: str
     name: str
     initials: str
+    job_title: str = ""
     role: str
     role_color: str
     role_full: str = ""
@@ -134,8 +136,8 @@ class EmployeeBlock(BaseModel):
     heat: list[HeatCell] = []
 
 
-_HEAT_LOW = 60
-_HEAT_MID = 90
+_HEAT_LOW = 70
+_HEAT_MID = 85
 _HEAT_HIGH = 100
 
 
@@ -168,7 +170,7 @@ def _build_weeks(num_weeks: int) -> tuple[list[WeekColumn], list[MonthSpan]]:
         weeks.append(
             WeekColumn(
                 key=f"{d.year}_{d.month:02d}_{d.day:02d}",
-                label=f"{d.day}.{d.month}",
+                label=f"{d.day}.{d.month}.",
                 week_no=d.isocalendar().week,
                 month_label=f"{GERMAN_MONTHS[d.month - 1]} {d.year % 100}",
                 work_days=5.0,
@@ -359,16 +361,22 @@ def _role_short(name: str) -> str:
 
 
 def _absence_days_for_week(absences: list, week_start: datetime.date) -> float:
-    week_end = week_start + datetime.timedelta(days=4)
+    week_end = week_start + datetime.timedelta(days=4)  # Friday
+    total = 0.0
     for a in absences:
-        if (
-            a.start_date
-            and a.end_date
-            and a.start_date <= week_end
-            and a.end_date >= week_start
-        ):
-            return 5.0
-    return 0.0
+        if not (a.start_date and a.end_date):
+            continue
+        overlap_start = max(a.start_date, week_start)
+        overlap_end = min(a.end_date, week_end)
+        if overlap_start > overlap_end:
+            continue
+        # Count Mon-Fri days in the overlap
+        day = overlap_start
+        while day <= overlap_end:
+            if day.weekday() < _WORK_DAYS_PER_WEEK:  # 0=Mon, 4=Fri
+                total += 1.0
+            day += datetime.timedelta(days=1)
+    return total
 
 
 def _build_employees_from_real(
@@ -415,6 +423,7 @@ def _build_employees_from_real(
                 id=emp_id_str,
                 name=f"{emp.first_name} {emp.last_name}".strip(),
                 initials=(f"{emp.first_name[:1]}{emp.last_name[:1]}".upper() or "?"),
+                job_title=emp.job_title or "",
                 role=role_short,
                 role_color=role_color,
                 role_full=role_name,
@@ -449,11 +458,22 @@ def _compute_heat(weeks: list[WeekColumn], block: EmployeeBlock) -> list[HeatCel
     for idx, week in enumerate(weeks):
         used = sum(p.cells[idx].value for p in block.projects)
         absence = block.absence.cells[idx].value if block.absence.cells else 0.0
-        absent = absence > 0
-        pct = round((used / week.net_days) * 100) if week.net_days > 0 else 0
-        bucket = "absent" if absent else _heat_bucket(pct)
+        fully_absent = absence >= float(_WORK_DAYS_PER_WEEK)
+        # For partial absences, reduce available net_days by absence days
+        available = max(0.0, week.net_days - absence)
+        if fully_absent:
+            pct = round((used / week.net_days) * 100) if week.net_days > 0 else 0
+            bucket = "absent"
+        elif available > 0:
+            pct = round((used / available) * 100)
+            bucket = _heat_bucket(pct)
+        else:
+            pct = 0
+            bucket = "low"
         cells.append(
-            HeatCell(week_key=week.key, percent=pct, is_absent=absent, bucket=bucket)
+            HeatCell(
+                week_key=week.key, percent=pct, is_absent=fully_absent, bucket=bucket
+            )
         )
     return cells
 
@@ -461,6 +481,28 @@ def _compute_heat(weeks: list[WeekColumn], block: EmployeeBlock) -> list[HeatCel
 _FOCUS_GRID_SCRIPT = (
     "setTimeout(() => "
     "document.getElementById('planning-grid-root')?.focus({preventScroll:true}), 0)"
+)
+
+# Scroll the active cell into view only when it is outside the visible area of
+# the grid wrapper.  Uses scrollIntoViewIfNeeded (Chrome/Safari) with a manual
+# fallback for Firefox so that the viewport never jumps unnecessarily.
+_SCROLL_ACTIVE_INTO_VIEW_SCRIPT = (
+    "setTimeout(() => {"
+    "const root = document.getElementById('planning-grid-root');"
+    "if (!root) return;"
+    "const active = root.querySelector('[data-active-cell=\"true\"]');"
+    "if (!active) return;"
+    "if (active.scrollIntoViewIfNeeded) {"
+    "  active.scrollIntoViewIfNeeded(false);"
+    "} else {"
+    "  const rr = root.getBoundingClientRect();"
+    "  const ar = active.getBoundingClientRect();"
+    "  if (ar.bottom > rr.bottom) root.scrollTop += ar.bottom - rr.bottom;"
+    "  else if (ar.top < rr.top) root.scrollTop -= rr.top - ar.top;"
+    "  if (ar.right > rr.right) root.scrollLeft += ar.right - rr.right;"
+    "  else if (ar.left < rr.left) root.scrollLeft -= rr.left - ar.left;"
+    "}"
+    "}, 0)"
 )
 
 _FOCUS_EDITOR_SCRIPT = (
@@ -522,6 +564,26 @@ class PlanningGridState(rx.State):
     @rx.var(cache=True)
     def grid_template_columns(self) -> str:
         return f"{LABEL_COL_PX}px repeat({len(self.weeks)}, {WEEK_COL_PX}px)"
+
+    @rx.var(cache=True)
+    def avg_heat(self) -> list[HeatCell]:
+        if not self.employees or not self.weeks:
+            return []
+        result: list[HeatCell] = []
+        for idx, week in enumerate(self.weeks):
+            percents = [
+                emp.heat[idx].percent for emp in self.employees if idx < len(emp.heat)
+            ]
+            avg_pct = round(sum(percents) / len(percents)) if percents else 0
+            result.append(
+                HeatCell(
+                    week_key=week.key,
+                    percent=avg_pct,
+                    is_absent=False,
+                    bucket=_heat_bucket(avg_pct),
+                )
+            )
+        return result
 
     def _populate(
         self,

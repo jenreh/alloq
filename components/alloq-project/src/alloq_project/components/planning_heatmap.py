@@ -14,7 +14,6 @@ from alloq_project.states.planning_grid_state import (
     HeatCell,
     MonthSpan,
     PlanningGridState,
-    RoleBadge,
     WeekColumn,
 )
 
@@ -22,6 +21,7 @@ import appkit_mantine as mn
 
 HEAT_ROW_HEIGHT = "56px"
 HEAT_HEADER_BG = "var(--alloq-surface-muted)"
+HEAT_FOOTER_BG = "var(--alloq-surface-muted)"
 
 ABSENT_STRIPE_BG = (
     "repeating-linear-gradient(45deg, "
@@ -35,13 +35,16 @@ ABSENT_STRIPE_BG = (
 def _heat_bg(bucket: rx.Var[str]) -> rx.Var[str]:
     return rx.match(
         bucket,
-        ("low", "light-dark(var(--mantine-color-green-1), rgba(64,192,87,0.20))"),
+        ("low", "light-dark(var(--mantine-color-red-1), rgba(250,82,82,0.20))"),
         ("mid", "light-dark(var(--mantine-color-yellow-2), rgba(250,176,5,0.30))"),
         (
             "high",
-            "light-dark(var(--mantine-color-orange-3), rgba(253,126,20,0.45))",
+            "light-dark(var(--mantine-color-green-2), var(--mantine-color-green-6))",
         ),
-        ("over", "light-dark(var(--mantine-color-red-4), rgba(250,82,82,0.65))"),
+        (
+            "over",
+            "light-dark(var(--mantine-color-green-4), var(--mantine-color-green-8))",
+        ),
         ("absent", ABSENT_STRIPE_BG),
         "transparent",
     )
@@ -52,7 +55,7 @@ def _heat_fg(bucket: rx.Var[str]) -> rx.Var[str]:
         bucket,
         (
             "low",
-            "light-dark(var(--mantine-color-green-9), var(--mantine-color-green-3))",
+            "light-dark(var(--mantine-color-red-9), var(--mantine-color-red-3))",
         ),
         (
             "mid",
@@ -60,11 +63,11 @@ def _heat_fg(bucket: rx.Var[str]) -> rx.Var[str]:
         ),
         (
             "high",
-            "light-dark(var(--mantine-color-orange-9), var(--mantine-color-orange-1))",
+            "light-dark(var(--mantine-color-green-9), var(--mantine-color-green-3))",
         ),
         (
             "over",
-            "light-dark(var(--mantine-color-red-9), var(--mantine-color-red-0))",
+            "light-dark(var(--mantine-color-green-9), var(--mantine-color-green-3))",
         ),
         (
             "absent",
@@ -202,24 +205,6 @@ def _heat_pill(cell: HeatCell) -> rx.Component:
     )
 
 
-def _role_badge(role: RoleBadge) -> rx.Component:
-    return mn.group(
-        mn.box(
-            style={
-                "width": "8px",
-                "height": "8px",
-                "borderRadius": "50%",
-                "backgroundColor": role.color,
-                "flexShrink": "0",
-            },
-        ),
-        mn.text(role.full, size="xs", c="var(--alloq-text-muted)"),
-        gap="4px",
-        align="center",
-        wrap="nowrap",
-    )
-
-
 def _employee_label_cell(emp: EmployeeBlock) -> rx.Component:
     return mn.box(
         mn.group(
@@ -237,11 +222,14 @@ def _employee_label_cell(emp: EmployeeBlock) -> rx.Component:
                     c="var(--alloq-text)",
                     lh="1.15",
                 ),
-                mn.group(
-                    rx.foreach(emp.roles, _role_badge),
-                    gap="10px",
-                    align="center",
-                    wrap="wrap",
+                rx.cond(
+                    emp.job_title != "",
+                    mn.text(
+                        emp.job_title,
+                        size="xs",
+                        c="var(--alloq-text-muted)",
+                    ),
+                    rx.fragment(),
                 ),
                 gap="2px",
             ),
@@ -277,6 +265,73 @@ def _heat_row(emp: EmployeeBlock) -> rx.Component:
     )
 
 
+# ---------------------------- Footer ---------------------------------------
+
+
+def _avg_footer_cell(cell: HeatCell) -> rx.Component:
+    return mn.box(
+        mn.box(
+            mn.text(
+                cell.percent.to_string(),
+                size="xs",
+                fw="700",
+                c=_heat_fg(cell.bucket),
+            ),
+            style={
+                "background": _heat_bg(cell.bucket),
+                "borderRadius": "6px",
+                "minHeight": "32px",
+                "display": "flex",
+                "alignItems": "center",
+                "justifyContent": "center",
+                "width": "100%",
+            },
+        ),
+        style={
+            "padding": "4px 4px",
+            "display": "flex",
+            "alignItems": "center",
+            "justifyContent": "center",
+            "minHeight": HEAT_ROW_HEIGHT,
+        },
+    )
+
+
+def _heatmap_footer() -> rx.Component:
+    return _row(
+        mn.box(
+            mn.text(
+                "Durchschnitt Ø",
+                size="xs",
+                fw="700",
+                c="var(--alloq-text-muted)",
+                style={"letterSpacing": "0.06em", "textTransform": "uppercase"},
+            ),
+            style={
+                "position": "sticky",
+                "left": "0",
+                "zIndex": "40",
+                "backgroundColor": HEAT_FOOTER_BG,
+                "padding": "8px 16px",
+                "minWidth": LABEL_COL_WIDTH,
+                "width": LABEL_COL_WIDTH,
+                "minHeight": HEAT_ROW_HEIGHT,
+                "display": "flex",
+                "alignItems": "center",
+                "borderRight": "1px solid var(--alloq-border)",
+            },
+        ),
+        rx.foreach(PlanningGridState.avg_heat, _avg_footer_cell),
+        style={
+            "position": "sticky",
+            "bottom": "0",
+            "zIndex": "20",
+            "backgroundColor": HEAT_FOOTER_BG,
+            "borderTop": "1px solid var(--alloq-border)",
+        },
+    )
+
+
 def planning_heatmap() -> rx.Component:
     return rx.cond(
         PlanningGridState.is_loaded,
@@ -285,6 +340,7 @@ def planning_heatmap() -> rx.Component:
             mn.box(
                 rx.foreach(PlanningGridState.employees, _heat_row),
             ),
+            _heatmap_footer(),
             id="planning-heatmap-root",
             style={**GRID_WRAPPER_STYLE, "outline": "none"},
         ),
