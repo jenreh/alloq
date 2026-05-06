@@ -91,7 +91,6 @@ class WeekColumn(BaseModel):
     week_no: int = 0
     month_label: str
     work_days: float
-    net_days: float
 
 
 class MonthSpan(BaseModel):
@@ -155,6 +154,8 @@ class EmployeeBlock(BaseModel):
     role_ids: list[int] = []
     projects: list[ProjectAllocationRow] = []
     absence: AbsenceRow
+    internal: AbsenceRow = AbsenceRow(cells=[])
+    internal_days: float = 0.5
     gesamt: list[GesamtCell] = []
     heat: list[HeatCell] = []
 
@@ -244,7 +245,6 @@ def _build_weeks(num_weeks: int) -> tuple[list[WeekColumn], list[MonthSpan]]:
                 week_no=d.isocalendar().week,
                 month_label=f"{GERMAN_MONTHS[d.month - 1]} {d.year % 100}",
                 work_days=5.0,
-                net_days=4.5,
             )
         )
     spans: list[MonthSpan] = []
@@ -317,8 +317,9 @@ def _compute_gesamt(weeks: list[WeekColumn], block: EmployeeBlock) -> list[Gesam
     for idx, week in enumerate(weeks):
         used = sum(p.cells[idx].value for p in block.projects)
         absence = block.absence.cells[idx].value if block.absence.cells else 0.0
+        internal = block.internal.cells[idx].value if block.internal.cells else 0.0
         absent = absence > 0
-        free = week.net_days - used - absence
+        free = week.work_days - internal - used - absence
         bucket = "absent" if absent else _gesamt_bucket(free)
         cells.append(GesamtCell(week_key=week.key, value=free, bucket=bucket))
     return cells
@@ -329,10 +330,15 @@ def _compute_heat(weeks: list[WeekColumn], block: EmployeeBlock) -> list[HeatCel
     for idx, week in enumerate(weeks):
         used = sum(p.cells[idx].value for p in block.projects)
         absence = block.absence.cells[idx].value if block.absence.cells else 0.0
+        internal = block.internal.cells[idx].value if block.internal.cells else 0.0
         fully_absent = absence >= float(_WORK_DAYS_PER_WEEK)
-        available = max(0.0, week.net_days - absence)
+        available = max(0.0, week.work_days - internal - absence)
         if fully_absent:
-            pct = round((used / week.net_days) * 100) if week.net_days > 0 else 0
+            pct = (
+                round((used / (week.work_days - internal)) * 100)
+                if (week.work_days - internal) > 0
+                else 0
+            )
             bucket = "absent"
         elif available > 0:
             pct = round((used / available) * 100)
@@ -378,7 +384,7 @@ def _compute_project_heat(
         allocated = sum(
             e.cells[idx].value for e in block.employees if idx < len(e.cells)
         )
-        capacity = n * week.net_days if n else week.net_days
+        capacity = n * week.work_days if n else week.work_days
         pct = round((allocated / capacity) * 100) if capacity > 0 else 0
         cells.append(
             HeatCell(
@@ -431,6 +437,7 @@ def _build_employee_meta(
                 "role_full": primary or ROLE_FULL.get(primary_short, primary_short),
                 "role_badges": role_badges,
                 "role_ids": list(emp.role_ids) if emp.role_ids else [],
+                "internal_hours": getattr(emp, "internal_hours", 4),
                 "project_ids": [],
             }
         )
@@ -726,6 +733,23 @@ class PlanningStore(UserSession):
                         cells=cells,
                     )
                 )
+            internal_hours = emp.get("internal_hours", 4)
+            internal_days = internal_hours / 8.0
+            internal_cells = [
+                GridCell(
+                    week_key=wks[i],
+                    value=max(
+                        0.0,
+                        min(
+                            internal_days,
+                            weeks[i].work_days - ab[i]
+                            if i < len(ab)
+                            else internal_days,
+                        ),
+                    ),
+                )
+                for i in range(len(wks))
+            ]
             block = EmployeeBlock(
                 id=emp_id,
                 real_id=emp["real_id"],
@@ -739,6 +763,8 @@ class PlanningStore(UserSession):
                 role_ids=emp.get("role_ids", []),
                 projects=project_rows,
                 absence=AbsenceRow(cells=absence_cells),
+                internal=AbsenceRow(cells=internal_cells),
+                internal_days=internal_days,
             )
             block.gesamt = _compute_gesamt(weeks, block)
             block.heat = _compute_heat(weeks, block)

@@ -144,7 +144,7 @@ def _format_de(value: rx.Var[float] | float) -> rx.Component:
         mn.box(""),
         mn.number_formatter(
             value=value,
-            decimal_scale=1,
+            decimal_scale=2,
             decimal_separator=",",
             thousand_separator=".",
         ),
@@ -154,7 +154,7 @@ def _format_de(value: rx.Var[float] | float) -> rx.Component:
 def _format_gesamt(value: rx.Var[float]) -> rx.Component:
     return mn.number_formatter(
         value=value,
-        decimal_scale=1,
+        decimal_scale=2,
         fixed_decimal_scale=True,
         decimal_separator=",",
         thousand_separator=".",
@@ -254,19 +254,6 @@ def _work_days_cell(week: WeekColumn) -> rx.Component:
             "backgroundColor": "var(--alloq-surface-muted)",
             "fontWeight": "500",
             "fontSize": "11px",
-        },
-    )
-
-
-def _net_days_cell(week: WeekColumn) -> rx.Component:
-    return mn.box(
-        _format_de(week.net_days),
-        style={
-            **CELL_BASE,
-            "minHeight": HEADER_ROW_HEIGHT,
-            "backgroundColor": "var(--alloq-surface-solid)",
-            "fontWeight": "500",
-            "fontSize": "11px",
             "borderBottom": "2px solid var(--alloq-border-strong)",
         },
     )
@@ -302,12 +289,8 @@ def _header_block() -> rx.Component:
             rx.foreach(PlanningStore.weeks, _week_label_cell),
         ),
         _row(
-            _label_th("Arbeitstage (brutto)"),
+            _label_th("Arbeitstage (brutto)", last=True),
             rx.foreach(PlanningStore.weeks, _work_days_cell),
-        ),
-        _row(
-            _label_th("Arbeitstage (excl. Meetings)", last=True),
-            rx.foreach(PlanningStore.weeks, _net_days_cell),
         ),
         style=HEADER_BLOCK_STYLE,
     )
@@ -602,6 +585,62 @@ def _absence_row(emp: EmployeeBlock) -> rx.Component:
     )
 
 
+def _internal_value_cell(cell: GridCell) -> rx.Component:
+    return mn.box(
+        rx.cond(
+            cell.value > 0,
+            mn.box(
+                _format_de(cell.value),
+                style={
+                    "backgroundColor": (
+                        "light-dark(var(--mantine-color-orange-1), "
+                        "rgba(255, 146, 43, 0.18))"
+                    ),
+                    "color": (
+                        "light-dark(var(--mantine-color-orange-9), "
+                        "var(--mantine-color-orange-3))"
+                    ),
+                    "borderRadius": "4px",
+                    "padding": "2px 6px",
+                    "fontWeight": "500",
+                    "minWidth": "26px",
+                    "textAlign": "center",
+                },
+            ),
+            mn.text("", size="sm"),
+        ),
+        style=CELL_BASE,
+    )
+
+
+def _internal_row(emp: EmployeeBlock) -> rx.Component:
+    return _row(
+        mn.box(
+            mn.group(
+                mn.box(
+                    style={
+                        "width": "4px",
+                        "height": "20px",
+                        "borderRadius": "2px",
+                        "backgroundColor": "var(--mantine-color-orange-4)",
+                        "flexShrink": "0",
+                    },
+                ),
+                mn.text("Interne Projekte", size="sm", c="var(--alloq-text-muted)"),
+                gap="sm",
+                align="center",
+                wrap="nowrap",
+            ),
+            style={
+                **LABEL_CELL_BASE,
+                **STICKY_LEFT_BODY,
+                "paddingLeft": "16px",
+            },
+        ),
+        rx.foreach(emp.internal.cells, _internal_value_cell),
+    )
+
+
 def _gesamt_value_cell(cell: GesamtCell) -> rx.Component:
     return mn.box(
         _format_gesamt(cell.value),
@@ -635,6 +674,7 @@ def _employee_block(emp: EmployeeBlock) -> rx.Component:
             ~is_collapsed,
             mn.box(
                 rx.foreach(emp.projects, _project_row_view),
+                _internal_row(emp),
                 _absence_row(emp),
                 _gesamt_row(emp),
             ),

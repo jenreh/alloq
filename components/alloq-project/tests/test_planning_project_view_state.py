@@ -133,7 +133,7 @@ class TestComputeProjectHeat:
                 GridCell(
                     key="emp-1|TST|k",
                     week_key=weeks[0].key,
-                    value=weeks[0].net_days,
+                    value=weeks[0].work_days,
                 ),
             ],
         )

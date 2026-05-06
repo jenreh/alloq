@@ -17,7 +17,6 @@ from alloq_project.components.planning_grid import (
     _format_gesamt,
     _label_th,
     _month_cell,
-    _net_days_cell,
     _week_label_cell,
     _work_days_cell,
 )
@@ -81,12 +80,8 @@ def _header_block() -> rx.Component:
             rx.foreach(PlanningStore.weeks, _week_label_cell),
         ),
         _prow(
-            _label_th("Arbeitstage (brutto)"),
+            _label_th("Arbeitstage (brutto)", last=True),
             rx.foreach(PlanningStore.weeks, _work_days_cell),
-        ),
-        _prow(
-            _label_th("Arbeitstage (excl. Meetings)", last=True),
-            rx.foreach(PlanningStore.weeks, _net_days_cell),
         ),
         style=HEADER_BLOCK_STYLE,
     )

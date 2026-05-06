@@ -128,6 +128,12 @@ class ProjectState(UserSession):
         ]
 
     @rx.var
+    def active_projects(self) -> list[Project]:
+        """Return projects in active or at-risk state."""
+        active_states = {ProjectStateEnum.ACTIVE, ProjectStateEnum.AT_RISK}
+        return [p for p in self.projects if p.state in active_states]
+
+    @rx.var
     def other_projects(self) -> list[Project]:
         """Return filtered projects where the current user is NOT project lead."""
         if not self.current_employee_id:

@@ -78,13 +78,14 @@ SECTIONS: Final[list[dict[str, Any]]] = [
     {
         "id": "projects",
         "label": "Ressourcenplanung",
-        "icon": "briefcase-business",
+        "icon": "folder",
+        "icon_img": "project_icon",
         "url": "/plan",
     },
     {
         "id": "projects",
         "label": "Projekte",
-        "icon": "folder-open",
+        "icon": "briefcase-business",
         "url": "/projects",
     },
     {
@@ -221,7 +222,23 @@ def _rail_section_button(section: dict[str, Any]) -> rx.Component:
     """
     section_id = section["id"]
     icon_name = section["icon"]
+    icon_img = section.get("icon_img")
     label = section["label"]
+
+    def _section_icon() -> rx.Component:
+        if icon_img:
+            return rx.image(
+                src=rx.color_mode_cond(
+                    light=f"/icons/{icon_img}.svg",
+                    dark=f"/icons/{icon_img}_dark.svg",
+                ),
+                style={
+                    "width": "24px",
+                    # "height": "18px",
+                    "objectFit": "contain",
+                },
+            )
+        return rx.icon(icon_name, size=20)
 
     if section.get("items"):
         child_active: Any = None
@@ -240,7 +257,7 @@ def _rail_section_button(section: dict[str, Any]) -> rx.Component:
         is_active_section = panel_open | route_active_when_closed
         target = mn.box(
             mn.center(
-                rx.icon(icon_name, size=20),
+                _section_icon(),
                 w="40px",
                 h="40px",
                 on_click=NavbarCollapseState.select_section(section_id),
@@ -265,7 +282,7 @@ def _rail_section_button(section: dict[str, Any]) -> rx.Component:
         target = mn.box(
             rx.link(
                 mn.center(
-                    rx.icon(icon_name, size=20),
+                    _section_icon(),
                     w="40px",
                     h="40px",
                     style={
