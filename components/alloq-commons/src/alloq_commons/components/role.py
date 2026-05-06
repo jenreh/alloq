@@ -1,6 +1,7 @@
 import reflex as rx
 
 import appkit_mantine as mn
+from alloq_commons.components.forms import section
 from alloq_commons.models import Role
 from alloq_commons.state.role_states import RoleState
 from appkit_ui.components.dialogs import delete_dialog
@@ -19,24 +20,40 @@ def role_form_fields(role: Role | None = None) -> rx.Component:
                 role.id.to_string() if is_edit_mode else ""  # type: ignore[union-attr]
             ),
         ),
-        mn.text_input(
-            name="name",
-            label="Name",
-            description="Eindeutiger Name der Rolle (max. 255 Zeichen).",
-            default_value=role.name if is_edit_mode else "",
-            required=True,
-            max_length=255,
-            left_section=rx.icon("shield", size=16),
+        section(
+            mn.text_input(
+                name="name",
+                label="Name",
+                description="Eindeutiger Name der Rolle (max. 255 Zeichen).",
+                default_value=role.name if is_edit_mode else "",
+                required=True,
+                max_length=255,
+                left_section=rx.icon("shield", size=16),
+            ),
+            mn.textarea(
+                name="description",
+                label="Beschreibung",
+                description="Optionale Beschreibung der Rolle.",
+                default_value=role.description if is_edit_mode else "",
+                required=False,
+                auto_size=True,
+                min_rows=3,
+                max_rows=6,
+            ),
         ),
-        mn.textarea(
-            name="description",
-            label="Beschreibung",
-            description="Optionale Beschreibung der Rolle.",
-            default_value=role.description if is_edit_mode else "",
-            required=False,
-            auto_size=True,
-            min_rows=3,
-            max_rows=6,
+        section(
+            mn.switch(
+                name="ramp_up",
+                label="Ramp-Up",
+                description="Rolle wird beim Projekt-Ramp-Up benötigt.",
+                default_checked=role.ramp_up if is_edit_mode else False,
+            ),
+            mn.switch(
+                name="ramp_down",
+                label="Ramp-Down",
+                description="Rolle wird beim Projekt-Ramp-Down benötigt.",
+                default_checked=role.ramp_down if is_edit_mode else False,
+            ),
         ),
         direction="column",
         gap="md",
@@ -49,24 +66,29 @@ def _modal_footer(
     on_cancel: rx.EventHandler,
 ) -> rx.Component:
     """Footer buttons for add/edit modals."""
-    return rx.flex(
+    return mn.group(
         mn.button(
             "Abbrechen",
             variant="subtle",
             on_click=on_cancel,
+            color="yellow",
         ),
         mn.button(
             submit_label,
             type="submit",
             loading=RoleState.is_loading,
+            px="xl",
         ),
         direction="row",
-        gap="9px",
-        justify_content="end",
-        padding="16px",
-        border_top="1px solid var(--mantine-color-default-border)",
-        background="var(--mantine-color-body)",
+        gap="md",
+        justify="end",
+        align="center",
+        padding="16px 18px 18px",
+        background="var(--alloq-surface-muted)",
         width="100%",
+        flex_shrink="0",
+        box_shadow="0 -3px 9px rgba(91, 76, 34, 0.12)",
+        z_index="1",
     )
 
 
@@ -87,22 +109,33 @@ def _role_modal(
                     flex="1",
                     min_height="0",
                     width="100%",
-                    padding="md",
+                    overflow_y="auto",
+                    padding="16px 18px 2rem",
+                    background="var(--alloq-surface-muted)",
                 ),
                 _modal_footer(submit_label, on_close),
                 direction="column",
+                min_height="0",
                 height="100%",
                 width="100%",
+                background="var(--alloq-surface-muted)",
             ),
             on_submit=on_submit,
             reset_on_submit=False,
             height="100%",
+            style={
+                "display": "flex",
+                "flexDirection": "column",
+                "height": "100%",
+                "minHeight": "0",
+            },
         ),
         title=title,
         opened=opened,
         on_close=on_close,
         size="md",
         centered=True,
+        class_name="alloq-employee-detail-modal",
         overlay_props={"backgroundOpacity": 0.5, "blur": 4},
     )
 
@@ -192,6 +225,22 @@ def roles_table_row(role: Role) -> rx.Component:
             ),
         ),
         mn.table.td(
+            rx.cond(
+                role.ramp_up,
+                rx.icon("check", size=16, color="green"),
+                rx.icon("x", size=16, color="gray"),
+            ),
+            style={"textAlign": "center"},
+        ),
+        mn.table.td(
+            rx.cond(
+                role.ramp_down,
+                rx.icon("check", size=16, color="green"),
+                rx.icon("x", size=16, color="gray"),
+            ),
+            style={"textAlign": "center"},
+        ),
+        mn.table.td(
             mn.group(
                 update_role_button(role=role, variant="ghost"),
                 delete_role_button(role=role, variant="subtle"),
@@ -216,7 +265,7 @@ def loading() -> rx.Component:
                 justify="center",
                 spacing="3",
             ),
-            col_span=3,
+            col_span=5,
             style={"textAlign": "center"},
         ),
     )
@@ -249,6 +298,8 @@ def roles_table() -> rx.Component:
                 mn.table.tr(
                     mn.table.th(mn.text("Name", size="sm", fw="700")),
                     mn.table.th(mn.text("Beschreibung", size="sm", fw="700")),
+                    mn.table.th(mn.text("Ramp-Up", size="sm", fw="700")),
+                    mn.table.th(mn.text("Ramp-Down", size="sm", fw="700")),
                     mn.table.th(mn.text("", size="sm")),
                     style=sticky_header_style,
                 ),

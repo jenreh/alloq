@@ -44,7 +44,9 @@ class CapacityAllocationEntity(Entity, Base):
     week_start: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     person_days: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
 
-    project = relationship("ProjectEntity", lazy="selectin")
+    project = relationship(
+        "ProjectEntity", back_populates="capacity_allocations", lazy="selectin"
+    )
     employee = relationship("EmployeeEntity", lazy="selectin")
     role = relationship("RoleEntity", lazy="selectin")
 

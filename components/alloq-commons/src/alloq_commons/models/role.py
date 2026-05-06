@@ -9,6 +9,8 @@ class Role(BaseModel):
     id: int = 0
     name: str = ""
     description: str = ""
+    ramp_up: bool = False
+    ramp_down: bool = False
     created: datetime | None = None
     updated: datetime | None = None
 
@@ -18,3 +20,5 @@ class RoleCreate(BaseModel):
 
     name: str = Field(..., max_length=255)
     description: str = ""
+    ramp_up: bool = False
+    ramp_down: bool = False

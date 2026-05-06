@@ -70,8 +70,8 @@ def _team_initial(member: TeamMemberBadge) -> rx.Component:
     return mn.tooltip(
         mn.avatar(
             member.initials,
-            size="md",
-            radius="xl",
+            size="sm",
+            radius="lg",
             color="var(--alloq-accent-strong)",
         ),
         label=member.name,
@@ -180,17 +180,28 @@ def project_card(project: Project) -> rx.Component:
                 ),
                 mn.group(
                     mn.group(
-                        mn.avatar.group(
-                            rx.foreach(project.team_members, _team_initial),
+                        rx.cond(
+                            project.team_initials.length() > 0,
+                            mn.avatar.group(
+                                rx.foreach(project.team_members, _team_initial),
+                            ),
                         ),
                         mn.text(
-                            project.team_initials.length().to_string() + " Mitarbeiter",
+                            rx.cond(
+                                project.team_initials.length() > 0,
+                                project.team_initials.length().to_string()
+                                + " Mitarbeiter",
+                                "keine Mitarbeiter",
+                            ),
                             size="xs",
                             c="dimmed",
-                            ml="xs",
+                            ml=rx.cond(project.team_initials.length() > 0, "xs", "0"),
+                            style={"lineHeight": "1"},
                         ),
                         gap="2px",
                         wrap="nowrap",
+                        align="center",
+                        style={"display": "flex", "alignItems": "center"},
                     ),
                     rx.cond(
                         project.risk_count > 0,
@@ -226,7 +237,7 @@ def project_card(project: Project) -> rx.Component:
                 "cursor": "pointer",
             },
             "borderRadius": "var(--mantine-radius-lg)",
-            "minHeight": "198px",
+            "height": "198px",
         },
         on_click=ProjectState.select_project(project.id),
     )

@@ -19,15 +19,7 @@ def planning_filter_row() -> rx.Component:
                     "value": "Grid",
                     "label": mn.center(
                         rx.icon("layout-grid", size=16),
-                        rx.text("Grid", size="2"),
-                        gap="4px",
-                    ),
-                },
-                {
-                    "value": "Heatmap",
-                    "label": mn.center(
-                        rx.icon("grid-3x3", size=16),
-                        rx.text("Heatmap", size="2"),
+                        rx.text("Team", size="2"),
                         gap="4px",
                     ),
                 },
@@ -36,6 +28,14 @@ def planning_filter_row() -> rx.Component:
                     "label": mn.center(
                         rx.icon("chart-bar", size=16),
                         rx.text("Projekte", size="2"),
+                        gap="4px",
+                    ),
+                },
+                {
+                    "value": "Heatmap",
+                    "label": mn.center(
+                        rx.icon("grid-3x3", size=16),
+                        rx.text("Heatmap", size="2"),
                         gap="4px",
                     ),
                 },

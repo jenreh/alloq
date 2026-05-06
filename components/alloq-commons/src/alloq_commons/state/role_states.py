@@ -98,12 +98,16 @@ class RoleState(rx.State):
             role_data = RoleCreate(
                 name=form_data.get("name", "").strip(),
                 description=form_data.get("description", "").strip(),
+                ramp_up=form_data.get("ramp_up") == "on",
+                ramp_down=form_data.get("ramp_down") == "on",
             )
 
             async with get_asyncdb_session() as session:
                 entity = RoleEntity(
                     name=role_data.name,
                     description=role_data.description or None,
+                    ramp_up=role_data.ramp_up,
+                    ramp_down=role_data.ramp_down,
                 )
                 await role_repo.create(session, entity)
 
@@ -136,6 +140,8 @@ class RoleState(rx.State):
             role_data = RoleCreate(
                 name=form_data.get("name", "").strip(),
                 description=form_data.get("description", "").strip(),
+                ramp_up=form_data.get("ramp_up") == "on",
+                ramp_down=form_data.get("ramp_down") == "on",
             )
 
             async with get_asyncdb_session() as session:
@@ -146,6 +152,8 @@ class RoleState(rx.State):
                     return
                 entity.name = role_data.name
                 entity.description = role_data.description or None
+                entity.ramp_up = role_data.ramp_up
+                entity.ramp_down = role_data.ramp_down
                 await role_repo.update(session, entity)
 
             await self._load_roles()

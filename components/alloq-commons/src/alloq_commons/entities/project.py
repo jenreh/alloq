@@ -79,6 +79,12 @@ class ProjectEntity(Entity, Base):
         cascade="all, delete-orphan",
         back_populates="project",
     )
+    capacity_allocations = relationship(
+        "CapacityAllocationEntity",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        back_populates="project",
+    )
     required_capacities = relationship(
         "RequiredCapacityEntity",
         lazy="selectin",
@@ -115,11 +121,11 @@ class ProjectEntity(Entity, Base):
         }
 
     def _team_initials(self) -> list[str]:
-        """Return unique initials of employees with project capacity."""
+        """Return unique initials of employees with capacity allocations."""
         initials = []
         seen_employee_ids = set()
-        for capacity in self.capacities or []:
-            employee = capacity.employee
+        for allocation in self.capacity_allocations or []:
+            employee = allocation.employee
             if not employee or employee.id in seen_employee_ids:
                 continue
             seen_employee_ids.add(employee.id)
@@ -127,11 +133,11 @@ class ProjectEntity(Entity, Base):
         return initials
 
     def _team_members(self) -> list[dict]:
-        """Return unique team members (initials + full name) with project capacity."""
+        """Return unique team members with capacity allocations."""
         members = []
         seen_employee_ids = set()
-        for capacity in self.capacities or []:
-            employee = capacity.employee
+        for allocation in self.capacity_allocations or []:
+            employee = allocation.employee
             if not employee or employee.id in seen_employee_ids:
                 continue
             seen_employee_ids.add(employee.id)

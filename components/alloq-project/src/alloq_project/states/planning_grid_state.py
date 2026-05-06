@@ -849,6 +849,7 @@ class PlanningStore(UserSession):
 
     @rx.var(cache=True)
     def employees(self) -> list[EmployeeBlock]:
+        _ = self.cells  # explicit dependency for heatmap reactivity
         return self.employee_blocks
 
     @rx.var(cache=True)
@@ -861,6 +862,7 @@ class PlanningStore(UserSession):
 
     @rx.var(cache=True)
     def avg_heat(self) -> list[HeatCell]:
+        _ = self.cells  # explicit dependency for heatmap reactivity
         emps = self.employee_blocks
         if not emps or not self.weeks:
             return []
@@ -1198,7 +1200,7 @@ class PlanningStore(UserSession):
         emp_role_id: dict[str, int] = {
             e["id"]: e["role_ids"][0] for e in self.employee_meta if e.get("role_ids")
         }
-        rows: list[tuple[int, int, int, datetime.date, float]] = []
+        rows: list[dict] = []
         for key in self.dirty_keys:
             try:
                 emp_id, proj_code, wk_key = key.split("|")
@@ -1215,17 +1217,21 @@ class PlanningStore(UserSession):
             except ValueError:
                 continue
             rows.append(
-                (real_eid, real_pid, role_id, wk, float(self.cells.get(key, 0.0)))
+                {
+                    "employee_id": real_eid,
+                    "project_id": real_pid,
+                    "role_id": role_id,
+                    "week_start": wk,
+                    "person_days": float(self.cells.get(key, 0.0)),
+                }
             )
         if not rows:
+            self.is_saving = False
             yield rx.toast.info("Keine Änderungen.", position="top-right")
             return
         try:
             async with get_asyncdb_session() as session:
-                for emp_id, proj_id, role_id, wk, pd in rows:
-                    await capacity_allocation_repo.upsert_cell(
-                        session, proj_id, emp_id, role_id, wk, pd
-                    )
+                await capacity_allocation_repo.batch_upsert(session, rows)
                 await session.commit()
         except Exception as exc:  # noqa: BLE001
             log.error("Failed to save grid: %s", exc)

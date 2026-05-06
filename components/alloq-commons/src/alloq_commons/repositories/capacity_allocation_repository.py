@@ -10,6 +10,8 @@ from appkit_commons.database.base_repository import BaseRepository
 
 logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
+
 
 class CapacityAllocationRepository(
     BaseRepository[CapacityAllocationEntity, AsyncSession]
@@ -201,6 +203,37 @@ class CapacityAllocationRepository(
         await session.flush()
         await session.refresh(row)
         return row
+
+    async def batch_upsert(
+        self,
+        session: AsyncSession,
+        rows: list[dict],
+    ) -> int:
+        """Batch upsert multiple allocation cells in a single statement.
+
+        Each dict must have keys: project_id, employee_id, role_id,
+        week_start, person_days.
+        Returns the number of rows upserted.
+        """
+        if not rows:
+            return 0
+        dialect_name = session.bind.dialect.name
+        if dialect_name == "postgresql":
+            from sqlalchemy.dialects.postgresql import insert  # noqa: PLC0415
+        else:
+            from sqlalchemy.dialects.sqlite import insert  # noqa: PLC0415
+        stmt = insert(CapacityAllocationEntity).values(rows)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[
+                "project_id",
+                "employee_id",
+                "role_id",
+                "week_start",
+            ],
+            set_={"person_days": stmt.excluded.person_days},
+        )
+        await session.execute(stmt)
+        return len(rows)
 
 
 capacity_allocation_repo = CapacityAllocationRepository()
