@@ -146,8 +146,8 @@ class ProjectPlanState(rx.State):
     required_role_ids: list[int] = []
     selected_employee_ids: list[int] = []
     employee_role_filter: str = "all"  # "all" | role_id as str
-    employee_pool: list[dict[str, Any]] = []  # snapshot from PlanningState
-    role_options_data: list[dict[str, str]] = []  # snapshot from PlanningState
+    employee_pool: list[dict[str, Any]] = []  # snapshot from PlanningStore
+    role_options_data: list[dict[str, str]] = []  # snapshot from PlanningStore
     # role_id, role_name, person_days
     required_capacity_snapshot: list[dict[str, Any]] = []
     # employee_id (str) -> already-planned PT in project timeframe (excl. this project)
@@ -296,11 +296,11 @@ class ProjectPlanState(rx.State):
 
     @rx.event
     async def select_project(self, pid: int) -> None:
-        from alloq_project.states.planning_state import (  # noqa: PLC0415
-            PlanningState,
+        from alloq_project.states.planning_grid_state import (  # noqa: PLC0415
+            PlanningStore,
         )
 
-        planning = await self.get_state(PlanningState)
+        planning = await self.get_state(PlanningStore)
         proj = next((p for p in planning.available_projects if p.id == pid), None)
         if not proj:
             return
@@ -818,9 +818,9 @@ class ProjectPlanState(rx.State):
             position="top-right",
         )
         from alloq_project.states.planning_grid_state import (  # noqa: PLC0415
-            PlanningGridState,
+            PlanningStore,
         )
 
-        yield PlanningGridState.load_grid_data
+        yield PlanningStore.load
 
     _ = Any  # mark Any used

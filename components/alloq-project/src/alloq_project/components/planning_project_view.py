@@ -21,10 +21,10 @@ from alloq_project.components.planning_grid import (
     _week_label_cell,
     _work_days_cell,
 )
-from alloq_project.states.planning_project_view_state import (
+from alloq_project.states.planning_grid_state import (
     EmployeeAllocationRow,
     GridCell,
-    PlanningProjectViewState,
+    PlanningStore,
     ProjectBlock,
     ProjectGesamtCell,
 )
@@ -52,14 +52,14 @@ PROJ_HEADER_BG = "var(--alloq-surface-hover)"
 
 
 def _prow(*children: rx.Component, style: dict | None = None) -> rx.Component:
-    """Grid row using PlanningProjectViewState columns."""
+    """Grid row using PlanningStore columns."""
     return mn.box(
         *children,
         style={
             **ROW_STYLE_BASE,
-            "gridTemplateColumns": (PlanningProjectViewState.grid_template_columns),
-            "minWidth": PlanningProjectViewState.table_width,
-            "width": PlanningProjectViewState.table_width,
+            "gridTemplateColumns": (PlanningStore.grid_template_columns),
+            "minWidth": PlanningStore.table_width,
+            "width": PlanningStore.table_width,
             **(style or {}),
         },
     )
@@ -74,19 +74,19 @@ def _header_block() -> rx.Component:
     return mn.box(
         _prow(
             _label_th("Monat", accent=True),
-            rx.foreach(PlanningProjectViewState.month_spans, _month_cell),
+            rx.foreach(PlanningStore.month_spans, _month_cell),
         ),
         _prow(
             _label_th("Woche"),
-            rx.foreach(PlanningProjectViewState.weeks, _week_label_cell),
+            rx.foreach(PlanningStore.weeks, _week_label_cell),
         ),
         _prow(
             _label_th("Arbeitstage (brutto)"),
-            rx.foreach(PlanningProjectViewState.weeks, _work_days_cell),
+            rx.foreach(PlanningStore.weeks, _work_days_cell),
         ),
         _prow(
             _label_th("Arbeitstage (excl. Meetings)", last=True),
-            rx.foreach(PlanningProjectViewState.weeks, _net_days_cell),
+            rx.foreach(PlanningStore.weeks, _net_days_cell),
         ),
         style=HEADER_BLOCK_STYLE,
     )
@@ -99,7 +99,7 @@ def _header_block() -> rx.Component:
 
 def _project_header_row(proj: ProjectBlock) -> rx.Component:
     """Collapsible project header with color indicator and name."""
-    is_collapsed = PlanningProjectViewState.collapsed_projects.contains(proj.id)
+    is_collapsed = PlanningStore.collapsed_projects.contains(proj.id)
     return _prow(
         mn.box(
             mn.group(
@@ -112,7 +112,7 @@ def _project_header_row(proj: ProjectBlock) -> rx.Component:
                     variant="subtle",
                     color="gray",
                     size="sm",
-                    on_click=PlanningProjectViewState.toggle_project(proj.id),
+                    on_click=PlanningStore.toggle_project(proj.id),
                 ),
                 mn.box(
                     style={
@@ -222,14 +222,14 @@ def _employee_label_cell(emp: EmployeeAllocationRow) -> rx.Component:
 def _editor_input() -> rx.Component:
     """Inline editor for cell editing."""
     return mn.text_input(
-        default_value=PlanningProjectViewState.draft_value,
-        on_change=PlanningProjectViewState.set_draft,
-        on_blur=PlanningProjectViewState.commit_edit,
-        on_key_down=PlanningProjectViewState.handle_key,
+        default_value=PlanningStore.draft_value,
+        on_change=PlanningStore.set_draft,
+        on_blur=PlanningStore.commit_edit,
+        on_key_down=PlanningStore.handle_key,
         size="xs",
         auto_focus=True,
         class_name="grid-editor",
-        custom_attrs={"key": PlanningProjectViewState.editing_cell},
+        custom_attrs={"key": PlanningStore.editing_cell},
         style={
             "width": "100%",
             "& input": {
@@ -249,8 +249,8 @@ def _editor_input() -> rx.Component:
 
 def _value_cell(cell: GridCell) -> rx.Component:
     """Editable value cell for project view."""
-    is_editing = PlanningProjectViewState.editing_cell == cell.key
-    is_active = PlanningProjectViewState.active_cell == cell.key
+    is_editing = PlanningStore.editing_cell == cell.key
+    is_active = PlanningStore.active_cell == cell.key
     return mn.box(
         rx.cond(
             is_editing,
@@ -272,7 +272,7 @@ def _value_cell(cell: GridCell) -> rx.Component:
                     ),
                     rx.fragment(),
                 ),
-                on_click=PlanningProjectViewState.start_edit(cell.key),
+                on_click=PlanningStore.start_edit(cell.key),
                 style={
                     "width": "100%",
                     "height": "100%",
@@ -354,7 +354,7 @@ def _project_gesamt_row(proj: ProjectBlock) -> rx.Component:
 
 def _project_block(proj: ProjectBlock) -> rx.Component:
     """One project block with collapsible employee rows."""
-    is_collapsed = PlanningProjectViewState.collapsed_projects.contains(proj.id)
+    is_collapsed = PlanningStore.collapsed_projects.contains(proj.id)
     return mn.box(
         _project_header_row(proj),
         rx.cond(
@@ -376,18 +376,18 @@ def _project_block(proj: ProjectBlock) -> rx.Component:
 def planning_project_view() -> rx.Component:
     """Main project-aggregated planning view component."""
     return rx.cond(
-        PlanningProjectViewState.is_loaded,
+        PlanningStore.is_loaded,
         key_div(
             mn.box(
                 _header_block(),
                 rx.foreach(
-                    PlanningProjectViewState.filtered_projects,
+                    PlanningStore.filtered_projects,
                     _project_block,
                 ),
             ),
             id="project-view-root",
             tab_index=0,
-            on_key_down=PlanningProjectViewState.handle_grid_key,
+            on_key_down=PlanningStore.handle_grid_key,
             style={
                 **GRID_WRAPPER_STYLE,
                 "outline": "none",

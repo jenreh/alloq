@@ -13,7 +13,7 @@ from alloq_project.states.planning_grid_state import (
     EmployeeBlock,
     HeatCell,
     MonthSpan,
-    PlanningGridState,
+    PlanningStore,
     WeekColumn,
 )
 
@@ -142,7 +142,7 @@ def _heatmap_header() -> rx.Component:
     return mn.box(
         _row(
             _heatmap_label_th("Mitarbeiter"),
-            rx.foreach(PlanningGridState.month_spans, _month_cell),
+            rx.foreach(PlanningStore.month_spans, _month_cell),
         ),
         _row(
             mn.box(
@@ -157,7 +157,7 @@ def _heatmap_header() -> rx.Component:
                     "borderBottom": "1px solid var(--alloq-border)",
                 },
             ),
-            rx.foreach(PlanningGridState.weeks, _week_no_cell),
+            rx.foreach(PlanningStore.weeks, _week_no_cell),
         ),
         style={
             "position": "sticky",
@@ -321,7 +321,7 @@ def _heatmap_footer() -> rx.Component:
                 "borderRight": "1px solid var(--alloq-border)",
             },
         ),
-        rx.foreach(PlanningGridState.avg_heat, _avg_footer_cell),
+        rx.foreach(PlanningStore.avg_heat, _avg_footer_cell),
         style={
             "position": "sticky",
             "bottom": "0",
@@ -334,11 +334,11 @@ def _heatmap_footer() -> rx.Component:
 
 def planning_heatmap() -> rx.Component:
     return rx.cond(
-        PlanningGridState.is_loaded,
+        PlanningStore.is_loaded,
         mn.box(
             _heatmap_header(),
             mn.box(
-                rx.foreach(PlanningGridState.employees, _heat_row),
+                rx.foreach(PlanningStore.employees, _heat_row),
             ),
             _heatmap_footer(),
             id="planning-heatmap-root",

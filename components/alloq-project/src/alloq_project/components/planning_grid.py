@@ -10,7 +10,7 @@ from alloq_project.states.planning_grid_state import (
     GesamtCell,
     GridCell,
     MonthSpan,
-    PlanningGridState,
+    PlanningStore,
     ProjectAllocationRow,
     WeekColumn,
 )
@@ -130,9 +130,9 @@ def _row(*children: rx.Component, style: dict | None = None) -> rx.Component:
         *children,
         style={
             **ROW_STYLE_BASE,
-            "gridTemplateColumns": PlanningGridState.grid_template_columns,
-            "minWidth": PlanningGridState.table_width,
-            "width": PlanningGridState.table_width,
+            "gridTemplateColumns": PlanningStore.grid_template_columns,
+            "minWidth": PlanningStore.table_width,
+            "width": PlanningStore.table_width,
             **(style or {}),
         },
     )
@@ -295,19 +295,19 @@ def _header_block() -> rx.Component:
     return mn.box(
         _row(
             _label_th("Monat", accent=True),
-            rx.foreach(PlanningGridState.month_spans, _month_cell),
+            rx.foreach(PlanningStore.month_spans, _month_cell),
         ),
         _row(
             _label_th("Woche"),
-            rx.foreach(PlanningGridState.weeks, _week_label_cell),
+            rx.foreach(PlanningStore.weeks, _week_label_cell),
         ),
         _row(
             _label_th("Arbeitstage (brutto)"),
-            rx.foreach(PlanningGridState.weeks, _work_days_cell),
+            rx.foreach(PlanningStore.weeks, _work_days_cell),
         ),
         _row(
             _label_th("Arbeitstage (excl. Meetings)", last=True),
-            rx.foreach(PlanningGridState.weeks, _net_days_cell),
+            rx.foreach(PlanningStore.weeks, _net_days_cell),
         ),
         style=HEADER_BLOCK_STYLE,
     )
@@ -317,7 +317,7 @@ def _header_block() -> rx.Component:
 
 
 def _employee_header_row(emp: EmployeeBlock) -> rx.Component:
-    is_collapsed = PlanningGridState.collapsed_employees.contains(emp.id)
+    is_collapsed = PlanningStore.collapsed_employees.contains(emp.id)
     return _row(
         mn.box(
             mn.group(
@@ -331,7 +331,7 @@ def _employee_header_row(emp: EmployeeBlock) -> rx.Component:
                         variant="subtle",
                         color="gray",
                         size="sm",
-                        on_click=PlanningGridState.toggle_employee(emp.id),
+                        on_click=PlanningStore.toggle_employee(emp.id),
                     ),
                     mn.avatar(
                         name=emp.name,
@@ -363,9 +363,7 @@ def _employee_header_row(emp: EmployeeBlock) -> rx.Component:
                         variant="subtle",
                         color="gray",
                         size="xs",
-                        on_click=PlanningGridState.open_add_project_for_employee(
-                            emp.id
-                        ),
+                        on_click=PlanningStore.open_add_project_for_employee(emp.id),
                     ),
                     label="Projekt zuweisen",
                 ),
@@ -437,7 +435,7 @@ def _project_label_cell(project: ProjectAllocationRow) -> rx.Component:
                 delete_dialog(
                     title="Projektzuweisung entfernen",
                     content=project.code + " — " + project.name,
-                    on_click=PlanningGridState.remove_project_from_employee_grid(
+                    on_click=PlanningStore.remove_project_from_employee_grid(
                         project.emp_id, project.real_project_id
                     ),
                     icon_button=True,
@@ -463,14 +461,14 @@ def _project_label_cell(project: ProjectAllocationRow) -> rx.Component:
 
 def _editor_input() -> rx.Component:
     return mn.text_input(
-        default_value=PlanningGridState.draft_value,
-        on_change=PlanningGridState.set_draft,
-        on_blur=PlanningGridState.commit_edit,
-        on_key_down=PlanningGridState.handle_key,
+        default_value=PlanningStore.draft_value,
+        on_change=PlanningStore.set_draft,
+        on_blur=PlanningStore.commit_edit,
+        on_key_down=PlanningStore.handle_key,
         size="xs",
         auto_focus=True,
         class_name="grid-editor",
-        custom_attrs={"key": PlanningGridState.editing_cell},
+        custom_attrs={"key": PlanningStore.editing_cell},
         style={
             "width": "100%",
             "& input": {
@@ -489,8 +487,8 @@ def _editor_input() -> rx.Component:
 
 
 def _project_value_cell(cell: GridCell) -> rx.Component:
-    is_editing = PlanningGridState.editing_cell == cell.key
-    is_active = PlanningGridState.active_cell == cell.key
+    is_editing = PlanningStore.editing_cell == cell.key
+    is_active = PlanningStore.active_cell == cell.key
     return mn.box(
         rx.cond(
             is_editing,
@@ -512,7 +510,7 @@ def _project_value_cell(cell: GridCell) -> rx.Component:
                     ),
                     rx.fragment(),
                 ),
-                on_click=PlanningGridState.start_edit(cell.key),
+                on_click=PlanningStore.start_edit(cell.key),
                 style={
                     "width": "100%",
                     "height": "100%",
@@ -630,7 +628,7 @@ def _gesamt_row(emp: EmployeeBlock) -> rx.Component:
 
 
 def _employee_block(emp: EmployeeBlock) -> rx.Component:
-    is_collapsed = PlanningGridState.collapsed_employees.contains(emp.id)
+    is_collapsed = PlanningStore.collapsed_employees.contains(emp.id)
     return mn.box(
         _employee_header_row(emp),
         rx.cond(
@@ -653,7 +651,7 @@ def _add_project_modal() -> rx.Component:
                 mn.select(
                     name="project_id",
                     label="Projekt",
-                    data=PlanningGridState.add_project_options,
+                    data=PlanningStore.add_project_options,
                     required=True,
                     searchable=True,
                     clearable=True,
@@ -662,7 +660,7 @@ def _add_project_modal() -> rx.Component:
                 mn.select(
                     name="role_id",
                     label="Rolle",
-                    data=PlanningGridState.add_project_role_options,
+                    data=PlanningStore.add_project_role_options,
                     required=True,
                     searchable=True,
                     clearable=True,
@@ -673,7 +671,7 @@ def _add_project_modal() -> rx.Component:
                         "Abbrechen",
                         variant="subtle",
                         color="yellow",
-                        on_click=PlanningGridState.close_add_project_for_employee,
+                        on_click=PlanningStore.close_add_project_for_employee,
                     ),
                     mn.button("Zuweisen", type="submit"),
                     justify="end",
@@ -682,12 +680,12 @@ def _add_project_modal() -> rx.Component:
                 gap="md",
                 p="md",
             ),
-            on_submit=PlanningGridState.add_project_to_employee_grid,
+            on_submit=PlanningStore.add_project_to_employee_grid,
             reset_on_submit=True,
         ),
         title="Projekt zuweisen",
-        opened=PlanningGridState.add_project_emp_id != "",
-        on_close=PlanningGridState.close_add_project_for_employee,
+        opened=PlanningStore.add_project_emp_id != "",
+        on_close=PlanningStore.close_add_project_for_employee,
         size="md",
         centered=True,
         z_index=300,
@@ -700,20 +698,20 @@ def planning_grid() -> rx.Component:
         _add_project_modal(),
         rx.script(src="/planning_grid_keys.js"),
         rx.cond(
-            PlanningGridState.is_loaded,
+            PlanningStore.is_loaded,
             key_div(
                 _header_block(),
                 mn.box(
-                    rx.foreach(PlanningGridState.filtered_employees, _employee_block),
+                    rx.foreach(PlanningStore.filtered_employees, _employee_block),
                 ),
                 id="planning-grid-root",
                 style={
                     **GRID_WRAPPER_STYLE,
                     "outline": "none",
-                    # "width": PlanningGridState.table_width,
+                    # "width": PlanningStore.table_width,
                 },
                 tab_index=0,
-                on_key_down=PlanningGridState.handle_grid_key,
+                on_key_down=PlanningStore.handle_grid_key,
             ),
             mn.center(
                 rx.hstack(

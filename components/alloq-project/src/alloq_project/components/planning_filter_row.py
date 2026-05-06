@@ -1,9 +1,5 @@
 import reflex as rx
-from alloq_project.states.planning_grid_state import PlanningGridState
-from alloq_project.states.planning_project_view_state import (
-    PlanningProjectViewState,
-)
-from alloq_project.states.planning_state import PlanningState
+from alloq_project.states.planning_grid_state import PlanningStore
 
 import appkit_mantine as mn
 
@@ -44,8 +40,8 @@ def planning_filter_row() -> rx.Component:
                     ),
                 },
             ],
-            value=PlanningState.view_mode,
-            on_change=PlanningState.set_view_mode,
+            value=PlanningStore.view_mode,
+            on_change=PlanningStore.set_view_mode,
             color="dark",
             radius="md",
             bg="var(--alloq-surface-solid)",
@@ -53,8 +49,8 @@ def planning_filter_row() -> rx.Component:
         # Time range
         mn.segmented_control(
             data=["3 Monate", "6 Monate", "12 Monate"],
-            value=PlanningState.time_range,
-            on_change=PlanningState.set_time_range,
+            value=PlanningStore.time_range,
+            on_change=PlanningStore.set_time_range,
             color="alloqWarm.5",
             radius="md",
             bg="var(--alloq-surface-solid)",
@@ -66,48 +62,39 @@ def planning_filter_row() -> rx.Component:
         ),
         # Project filter
         mn.multi_select(
-            data=PlanningState.project_select_options,
-            value=PlanningGridState.project_filter,
-            on_change=[
-                PlanningGridState.set_project_filter,
-                PlanningProjectViewState.set_project_filter,
-            ],
+            data=PlanningStore.project_select_options,
+            value=PlanningStore.project_filter,
+            on_change=PlanningStore.set_project_filter,
             placeholder="Projekte",
             searchable=True,
             clearable=True,
             w="12rem",
-            class_name=_ms_class(PlanningGridState.project_filter.length() > 0),
-            style={"--alloq-mehr": PlanningGridState.project_filter_label},
+            class_name=_ms_class(PlanningStore.project_filter.length() > 0),
+            style={"--alloq-mehr": PlanningStore.project_filter_label},
         ),
         # Role filter
         mn.multi_select(
-            data=PlanningState.role_select_options,
-            value=PlanningGridState.role_filter,
-            on_change=[
-                PlanningGridState.set_role_filter,
-                PlanningProjectViewState.set_role_filter,
-            ],
+            data=PlanningStore.role_select_options,
+            value=PlanningStore.role_filter,
+            on_change=PlanningStore.set_role_filter,
             placeholder="Rollen",
             searchable=True,
             clearable=True,
             w="12rem",
-            class_name=_ms_class(PlanningGridState.role_filter.length() > 0),
-            style={"--alloq-mehr": PlanningGridState.role_filter_label},
+            class_name=_ms_class(PlanningStore.role_filter.length() > 0),
+            style={"--alloq-mehr": PlanningStore.role_filter_label},
         ),
         # Employee filter
         mn.multi_select(
-            data=PlanningState.employee_select_options,
-            value=PlanningGridState.employee_filter,
-            on_change=[
-                PlanningGridState.set_employee_filter,
-                PlanningProjectViewState.set_employee_filter,
-            ],
+            data=PlanningStore.employee_select_options,
+            value=PlanningStore.employee_filter,
+            on_change=PlanningStore.set_employee_filter,
             placeholder="Mitarbeiter",
             searchable=True,
             clearable=True,
             w="12rem",
-            class_name=_ms_class(PlanningGridState.employee_filter.length() > 0),
-            style={"--alloq-mehr": PlanningGridState.employee_filter_label},
+            class_name=_ms_class(PlanningStore.employee_filter.length() > 0),
+            style={"--alloq-mehr": PlanningStore.employee_filter_label},
         ),
         gap="md",
         align="center",

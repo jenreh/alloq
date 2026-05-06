@@ -1,8 +1,11 @@
-"""State for the resource planning Grid view.
+"""Single source of truth for planning data, edit state, and views.
 
-Loads weekly allocations from `capacity_allocations` and renders one
-project row per employee/project pair that has saved data. Edits are
-kept in local state until flushed via `save_grid`.
+Allocations live once in `cells` keyed canonically by
+``"{employee_id}|{project_code}|{week_key}"``. The two pivots — employee
+blocks (Grid view) and project blocks (Project view) — are computed views of
+the same store. Edits flow through the editor handlers, which update the
+canonical map and mark keys dirty; both pivots reflect changes atomically.
+No cross-state sync is needed.
 """
 
 from __future__ import annotations
@@ -13,17 +16,35 @@ from collections.abc import AsyncGenerator
 from typing import Any
 
 import reflex as rx
-from alloq_commons.repositories import capacity_allocation_repo
+from alloq_commons.models.employee import Employee
+from alloq_commons.models.project import Project
+from alloq_commons.models.role import Role
+from alloq_commons.repositories import (
+    capacity_allocation_repo,
+    capacity_repo,
+    employee_repo,
+    project_repo,
+    role_repo,
+)
 from pydantic import BaseModel
 
 from appkit_commons.database.session import get_asyncdb_session
+from appkit_user.authentication.states import UserSession
 
 log = logging.getLogger(__name__)
 
 
+# === Constants ===
+
 LABEL_COL_PX: int = 300
 WEEK_COL_PX: int = 60
 _WORK_DAYS_PER_WEEK: int = 5
+ANCHOR_DATE = datetime.date(2026, 4, 27)
+TIME_RANGE_WEEKS: dict[str, int] = {
+    "3 Monate": 13,
+    "6 Monate": 26,
+    "12 Monate": 52,
+}
 
 GERMAN_MONTHS = [
     "Jan",
@@ -39,27 +60,6 @@ GERMAN_MONTHS = [
     "Nov",
     "Dez",
 ]
-ANCHOR_DATE = datetime.date(2026, 4, 27)
-TIME_RANGE_WEEKS: dict[str, int] = {
-    "3 Monate": 13,
-    "6 Monate": 26,
-    "12 Monate": 52,
-}
-
-
-class _CapAssignment:
-    """Lightweight container for capacity assignment data.
-
-    Avoids detached ORM issues.
-    """
-
-    __slots__ = ("employee_id", "project_id", "role_name")
-
-    def __init__(self, employee_id: int, project_id: int, role_name: str) -> None:
-        self.employee_id = employee_id
-        self.project_id = project_id
-        self.role_name = role_name
-
 
 ROLE_PALETTE: dict[str, str] = {
     "PM": "var(--mantine-color-violet-1)",
@@ -77,6 +77,13 @@ ROLE_FULL: dict[str, str] = {
     "RE": "Requirements Engineer",
 }
 
+_HEAT_LOW = 70
+_HEAT_MID = 85
+_HEAT_HIGH = 100
+
+
+# === Models ===
+
 
 class WeekColumn(BaseModel):
     key: str
@@ -93,7 +100,7 @@ class MonthSpan(BaseModel):
 
 
 class GridCell(BaseModel):
-    key: str = ""  # composite "emp_id|proj_id|week_key"
+    key: str = ""
     week_key: str
     value: float
     is_dirty: bool = False
@@ -102,14 +109,14 @@ class GridCell(BaseModel):
 class GesamtCell(BaseModel):
     week_key: str
     value: float
-    bucket: str  # "available" | "balanced" | "neutral" | "tight" | "over" | "absent"
+    bucket: str
 
 
 class HeatCell(BaseModel):
     week_key: str
     percent: int
     is_absent: bool = False
-    bucket: str = "low"  # "low" | "mid" | "high" | "over" | "absent"
+    bucket: str = "low"
 
 
 class ProjectAllocationRow(BaseModel):
@@ -152,9 +159,46 @@ class EmployeeBlock(BaseModel):
     heat: list[HeatCell] = []
 
 
-_HEAT_LOW = 70
-_HEAT_MID = 85
-_HEAT_HIGH = 100
+class EmployeeAllocationRow(BaseModel):
+    emp_id: str = ""
+    real_id: int = 0
+    name: str = ""
+    role_name: str = ""
+    role_short: str = ""
+    role_color: str = ""
+    cells: list[GridCell] = []
+
+
+class ProjectGesamtCell(BaseModel):
+    week_key: str = ""
+    allocated: float = 0.0
+    bucket: str = "low"
+
+
+class ProjectBlock(BaseModel):
+    id: str = ""
+    real_id: int = 0
+    code: str = ""
+    name: str = ""
+    color: str = ""
+    state: str = ""
+    employees: list[EmployeeAllocationRow] = []
+    gesamt: list[ProjectGesamtCell] = []
+    heat: list[HeatCell] = []
+
+
+class _CapAssignment:
+    """Lightweight transport for CapacityEntity rows (avoids detached ORM)."""
+
+    __slots__ = ("employee_id", "project_id", "role_name")
+
+    def __init__(self, employee_id: int, project_id: int, role_name: str) -> None:
+        self.employee_id = employee_id
+        self.project_id = project_id
+        self.role_name = role_name
+
+
+# === Pure helpers ===
 
 
 def _heat_bucket(percent: int) -> str:
@@ -176,6 +220,16 @@ def _gesamt_bucket(value: float) -> str:
         return "neutral"
     if value >= -1.0:
         return "tight"
+    return "over"
+
+
+def _project_heat_bucket(allocated: float) -> str:
+    if allocated <= 0:
+        return "low"
+    if allocated <= 2.0:  # noqa: PLR2004
+        return "mid"
+    if allocated <= 4.0:  # noqa: PLR2004
+        return "high"
     return "over"
 
 
@@ -202,10 +256,8 @@ def _build_weeks(num_weeks: int) -> tuple[list[WeekColumn], list[MonthSpan]]:
     return weeks, spans
 
 
-def _cells(week_keys: list[str], values: list[float]) -> list[GridCell]:
-    return [
-        GridCell(week_key=k, value=v) for k, v in zip(week_keys, values, strict=True)
-    ]
+def _week_key_for_date(d: datetime.date) -> str:
+    return f"{d.year}_{d.month:02d}_{d.day:02d}"
 
 
 def _role_short(name: str) -> str:
@@ -218,7 +270,7 @@ def _role_short(name: str) -> str:
 
 
 def _absence_days_for_week(absences: list, week_start: datetime.date) -> float:
-    week_end = week_start + datetime.timedelta(days=4)  # Friday
+    week_end = week_start + datetime.timedelta(days=4)
     total = 0.0
     for a in absences:
         if not (a.start_date and a.end_date):
@@ -227,151 +279,37 @@ def _absence_days_for_week(absences: list, week_start: datetime.date) -> float:
         overlap_end = min(a.end_date, week_end)
         if overlap_start > overlap_end:
             continue
-        # Count Mon-Fri days in the overlap
         day = overlap_start
         while day <= overlap_end:
-            if day.weekday() < _WORK_DAYS_PER_WEEK:  # 0=Mon, 4=Fri
+            if day.weekday() < _WORK_DAYS_PER_WEEK:
                 total += 1.0
             day += datetime.timedelta(days=1)
     return total
 
 
-def _build_employees_from_real(
-    real_employees: list,
-    weeks: list[WeekColumn],
-) -> list[EmployeeBlock]:
-    keys = [w.key for w in weeks]
-    week_starts = [datetime.date(*(int(p) for p in w.key.split("_"))) for w in weeks]
-    blocks: list[EmployeeBlock] = []
-    for emp in real_employees:
-        role_badges: list[RoleBadge] = []
-        for rn in emp.role_names:
-            short = _role_short(rn)
-            color = ROLE_PALETTE.get(short, "var(--mantine-color-gray-2)")
-            role_badges.append(RoleBadge(code=short, full=rn, color=color))
-        role_name = emp.role_names[0] if emp.role_names else ""
-        role_short = _role_short(role_name)
-        role_color = ROLE_PALETTE.get(role_short, "var(--mantine-color-gray-2)")
-        emp_id_str = f"emp-{emp.id}"
-        absence_vals = [_absence_days_for_week(emp.absences, ws) for ws in week_starts]
-        blocks.append(
-            EmployeeBlock(
-                id=emp_id_str,
-                real_id=int(emp.id),
-                name=f"{emp.first_name} {emp.last_name}".strip(),
-                initials=(f"{emp.first_name[:1]}{emp.last_name[:1]}".upper() or "?"),
-                job_title=emp.job_title or "",
-                role=role_short,
-                role_color=role_color,
-                role_full=role_name,
-                roles=role_badges,
-                role_ids=list(emp.role_ids) if emp.role_ids else [],
-                projects=[],
-                absence=AbsenceRow(cells=_cells(keys, absence_vals)),
-                gesamt=[],
-                heat=[],
-            )
-        )
-    return blocks
+def _format_de(value: float) -> str:
+    if value == int(value):
+        return f"{int(value)}"
+    return f"{value:.1f}".replace(".", ",")
 
 
-def _week_key_for_date(d: datetime.date) -> str:
-    """Return canonical 'YYYY_MM_DD' key for a week's start date."""
-    return f"{d.year}_{d.month:02d}_{d.day:02d}"
+def _parse_de(text: str) -> float | None:
+    s = text.strip()
+    if not s:
+        return 0.0
+    s = s.replace(",", ".")
+    try:
+        v = float(s)
+    except ValueError:
+        return None
+    if v < 0:
+        return None
+    return v
 
 
-def _merge_capacity_assignments(
-    capacity_assignments: list[Any],
-    projects_lookup: dict[int, Any],
-    grouped: dict[int, dict[int, dict[str, float]]],
-    role_lookup: dict[tuple[int, int], str],
-) -> None:
-    """Populate grouped and role_lookup from capacity assignments."""
-    for cap in capacity_assignments:
-        emp_id = cap.employee_id
-        proj_id = cap.project_id
-        if proj_id not in projects_lookup:
-            continue
-        grouped.setdefault(emp_id, {}).setdefault(proj_id, {})
-        role_name = cap.role_name
-        if role_name:
-            role_lookup[(emp_id, proj_id)] = role_name
-
-
-def _apply_allocations(
-    blocks: list[EmployeeBlock],
-    allocations: list[Any],
-    projects_lookup: dict[int, Any],
-    week_keys: list[str],
-    capacity_assignments: list[Any] | None = None,
-) -> None:
-    """Replace dummy projects with allocation-derived ones for each affected employee.
-
-    Allocations are grouped per (employee_id, project_id). Employees with no
-    allocations keep their dummy data so the demo still shows full grid.
-
-    If capacity_assignments are provided, also add empty rows for projects
-    assigned via CapacityEntity that have no allocation data yet.
-    """
-    grouped: dict[int, dict[int, dict[str, float]]] = {}
-    role_lookup: dict[tuple[int, int], str] = {}
-    for a in allocations:
-        wk = _week_key_for_date(a.week_start)
-        if wk not in week_keys:
-            continue
-        grouped.setdefault(a.employee_id, {}).setdefault(a.project_id, {})[wk] = (
-            a.person_days
-        )
-        # Track role from allocation if not already set
-        if (a.employee_id, a.project_id) not in role_lookup:
-            role_name = getattr(a, "_cached_role_name", "")
-            if role_name:
-                role_lookup[(a.employee_id, a.project_id)] = role_name
-
-    _merge_capacity_assignments(
-        capacity_assignments or [], projects_lookup, grouped, role_lookup
-    )
-
-    if not grouped:
-        return
-    for block in blocks:
-        emp_alloc = grouped.get(block.real_id)
-        if not emp_alloc:
-            continue
-        new_rows: list[ProjectAllocationRow] = []
-        for proj_id, week_map in emp_alloc.items():
-            proj = projects_lookup.get(proj_id)
-            if proj is None:
-                continue
-            color = proj.color or "var(--mantine-color-gray-5)"
-            code = proj.code or (proj.name_de[:8].upper() if proj.name_de else "—")
-            cells = [
-                GridCell(
-                    key=f"{block.id}|{code}|{wk}",
-                    week_key=wk,
-                    value=float(week_map.get(wk, 0.0)),
-                )
-                for wk in week_keys
-            ]
-            r_name = role_lookup.get((block.real_id, proj_id), "")
-            r_short = _role_short(r_name)
-            r_color = ROLE_PALETTE.get(r_short, "var(--mantine-color-gray-2)")
-            new_rows.append(
-                ProjectAllocationRow(
-                    project_id=str(proj_id),
-                    real_project_id=int(proj_id),
-                    emp_id=block.id,
-                    code=code,
-                    name=proj.name_de or "—",
-                    color=color,
-                    role_name=r_name,
-                    role_short=r_short,
-                    role_color=r_color,
-                    cells=cells,
-                )
-            )
-        if new_rows:
-            block.projects = new_rows
+def _ck(emp_id: str, proj_code: str, wk_key: str) -> str:
+    """Canonical cell key."""
+    return f"{emp_id}|{proj_code}|{wk_key}"
 
 
 def _compute_gesamt(weeks: list[WeekColumn], block: EmployeeBlock) -> list[GesamtCell]:
@@ -392,7 +330,6 @@ def _compute_heat(weeks: list[WeekColumn], block: EmployeeBlock) -> list[HeatCel
         used = sum(p.cells[idx].value for p in block.projects)
         absence = block.absence.cells[idx].value if block.absence.cells else 0.0
         fully_absent = absence >= float(_WORK_DAYS_PER_WEEK)
-        # For partial absences, reduce available net_days by absence days
         available = max(0.0, week.net_days - absence)
         if fully_absent:
             pct = round((used / week.net_days) * 100) if week.net_days > 0 else 0
@@ -405,37 +342,195 @@ def _compute_heat(weeks: list[WeekColumn], block: EmployeeBlock) -> list[HeatCel
             bucket = "low"
         cells.append(
             HeatCell(
-                week_key=week.key, percent=pct, is_absent=fully_absent, bucket=bucket
+                week_key=week.key,
+                percent=pct,
+                is_absent=fully_absent,
+                bucket=bucket,
             )
         )
     return cells
 
 
+def _compute_project_gesamt(
+    weeks: list[WeekColumn], block: ProjectBlock
+) -> list[ProjectGesamtCell]:
+    cells: list[ProjectGesamtCell] = []
+    for idx, week in enumerate(weeks):
+        allocated = sum(
+            e.cells[idx].value for e in block.employees if idx < len(e.cells)
+        )
+        cells.append(
+            ProjectGesamtCell(
+                week_key=week.key,
+                allocated=allocated,
+                bucket=_project_heat_bucket(allocated),
+            )
+        )
+    return cells
+
+
+def _compute_project_heat(
+    weeks: list[WeekColumn], block: ProjectBlock
+) -> list[HeatCell]:
+    cells: list[HeatCell] = []
+    n = len(block.employees)
+    for idx, week in enumerate(weeks):
+        allocated = sum(
+            e.cells[idx].value for e in block.employees if idx < len(e.cells)
+        )
+        capacity = n * week.net_days if n else week.net_days
+        pct = round((allocated / capacity) * 100) if capacity > 0 else 0
+        cells.append(
+            HeatCell(
+                week_key=week.key,
+                percent=pct,
+                is_absent=False,
+                bucket=_heat_bucket(pct),
+            )
+        )
+    return cells
+
+
+# === Population helpers ===
+
+
+def _build_employee_meta(
+    available_employees: list, wks: list[str]
+) -> tuple[list[dict[str, Any]], dict[str, list[float]]]:
+    week_starts = [datetime.date(*(int(p) for p in k.split("_"))) for k in wks]
+    emp_meta: list[dict[str, Any]] = []
+    absence_map: dict[str, list[float]] = {}
+    for emp in available_employees:
+        eid = f"emp-{emp.id}"
+        absence_map[eid] = [
+            _absence_days_for_week(emp.absences, ws) for ws in week_starts
+        ]
+        role_badges = [
+            {
+                "code": _role_short(rn),
+                "full": rn,
+                "color": ROLE_PALETTE.get(
+                    _role_short(rn), "var(--mantine-color-gray-2)"
+                ),
+            }
+            for rn in emp.role_names
+        ]
+        primary = emp.role_names[0] if emp.role_names else ""
+        primary_short = _role_short(primary)
+        emp_meta.append(
+            {
+                "id": eid,
+                "real_id": int(emp.id),
+                "name": f"{emp.first_name} {emp.last_name}".strip(),
+                "initials": (f"{emp.first_name[:1]}{emp.last_name[:1]}".upper() or "?"),
+                "job_title": emp.job_title or "",
+                "role_short": primary_short,
+                "role_color": ROLE_PALETTE.get(
+                    primary_short, "var(--mantine-color-gray-2)"
+                ),
+                "role_full": primary or ROLE_FULL.get(primary_short, primary_short),
+                "role_badges": role_badges,
+                "role_ids": list(emp.role_ids) if emp.role_ids else [],
+                "project_ids": [],
+            }
+        )
+    return emp_meta, absence_map
+
+
+def _build_project_meta(
+    available_projects: list,
+) -> tuple[list[dict[str, Any]], dict[int, dict[str, Any]]]:
+    proj_meta: list[dict[str, Any]] = []
+    proj_idx: dict[int, dict[str, Any]] = {}
+    for p in available_projects:
+        real = int(p.id)
+        code = p.code or ((p.name_de or "—")[:8].upper())
+        entry: dict[str, Any] = {
+            "id": f"proj-{real}",
+            "real_id": real,
+            "code": code,
+            "name": p.name_de or "—",
+            "color": p.color or "var(--mantine-color-gray-5)",
+            "state": getattr(p, "state", ""),
+            "employee_ids": [],
+        }
+        proj_meta.append(entry)
+        proj_idx[real] = entry
+    return proj_meta, proj_idx
+
+
+def _ingest_allocations(
+    allocations: list[Any],
+    assignments: list[_CapAssignment],
+    proj_idx: dict[int, dict[str, Any]],
+    wk_set: set[str],
+) -> tuple[dict[str, float], dict[str, str], set[tuple[str, int]]]:
+    cells: dict[str, float] = {}
+    role_lookup: dict[str, str] = {}
+    pairs: set[tuple[str, int]] = set()
+    for a in allocations:
+        wk = _week_key_for_date(a.week_start)
+        if wk not in wk_set or a.project_id not in proj_idx:
+            continue
+        eid = f"emp-{a.employee_id}"
+        cells[_ck(eid, proj_idx[a.project_id]["code"], wk)] = float(a.person_days)
+        pairs.add((eid, a.project_id))
+        rn = getattr(a, "_cached_role_name", "")
+        if rn:
+            role_lookup.setdefault(f"{eid}|{a.project_id}", rn)
+    for cap in assignments:
+        if cap.project_id not in proj_idx:
+            continue
+        eid = f"emp-{cap.employee_id}"
+        pairs.add((eid, cap.project_id))
+        if cap.role_name:
+            role_lookup.setdefault(f"{eid}|{cap.project_id}", cap.role_name)
+    return cells, role_lookup, pairs
+
+
+def _wire_pairs(
+    emp_meta: list[dict[str, Any]],
+    proj_idx: dict[int, dict[str, Any]],
+    pairs: set[tuple[str, int]],
+) -> None:
+    emp_by_id = {e["id"]: e for e in emp_meta}
+    for eid, real_pid in pairs:
+        emp = emp_by_id.get(eid)
+        proj = proj_idx.get(real_pid)
+        if emp is None or proj is None:
+            continue
+        pid_str = f"proj-{real_pid}"
+        if pid_str not in emp["project_ids"]:
+            emp["project_ids"].append(pid_str)
+        if eid not in proj["employee_ids"]:
+            proj["employee_ids"].append(eid)
+
+
+def _initial_active_cell(
+    emp_meta: list[dict[str, Any]],
+    proj_meta: list[dict[str, Any]],
+    wks: list[str],
+) -> str:
+    if not wks:
+        return ""
+    proj_by_id = {p["id"]: p for p in proj_meta}
+    for emp in emp_meta:
+        if not emp["project_ids"]:
+            continue
+        pid = emp["project_ids"][0]
+        proj = proj_by_id.get(pid)
+        if proj:
+            return _ck(emp["id"], proj["code"], wks[0])
+    return ""
+
+
+# === Focus / editor scripts ===
+
 _FOCUS_GRID_SCRIPT = (
     "setTimeout(() => "
-    "document.getElementById('planning-grid-root')?.focus({preventScroll:true}), 0)"
-)
-
-# Scroll the active cell into view only when it is outside the visible area of
-# the grid wrapper.  Uses scrollIntoViewIfNeeded (Chrome/Safari) with a manual
-# fallback for Firefox so that the viewport never jumps unnecessarily.
-_SCROLL_ACTIVE_INTO_VIEW_SCRIPT = (
-    "setTimeout(() => {"
-    "const root = document.getElementById('planning-grid-root');"
-    "if (!root) return;"
-    "const active = root.querySelector('[data-active-cell=\"true\"]');"
-    "if (!active) return;"
-    "if (active.scrollIntoViewIfNeeded) {"
-    "  active.scrollIntoViewIfNeeded(false);"
-    "} else {"
-    "  const rr = root.getBoundingClientRect();"
-    "  const ar = active.getBoundingClientRect();"
-    "  if (ar.bottom > rr.bottom) root.scrollTop += ar.bottom - rr.bottom;"
-    "  else if (ar.top < rr.top) root.scrollTop -= rr.top - ar.top;"
-    "  if (ar.right > rr.right) root.scrollLeft += ar.right - rr.right;"
-    "  else if (ar.left < rr.left) root.scrollLeft -= rr.left - ar.left;"
-    "}"
-    "}, 0)"
+    "(document.getElementById('planning-grid-root') || "
+    "document.getElementById('project-view-root'))?.focus("
+    "{preventScroll:true}), 0)"
 )
 
 _FOCUS_EDITOR_SCRIPT = (
@@ -449,41 +544,59 @@ _BLUR_EDITOR_SCRIPT = (
     "const el = document.querySelector('.grid-editor input');"
     "if (el) el.blur();"
     "setTimeout(() => "
-    "document.getElementById('planning-grid-root')?.focus({preventScroll:true}), 0);"
+    "(document.getElementById('planning-grid-root') || "
+    "document.getElementById('project-view-root'))?.focus("
+    "{preventScroll:true}), 0);"
 )
 
 
-def _format_de(value: float) -> str:
-    """Format a float as German decimal string ('1,5')."""
-    if value == int(value):
-        return f"{int(value)}"
-    return f"{value:.1f}".replace(".", ",")
+# === State ===
 
 
-def _parse_de(text: str) -> float | None:
-    """Parse 'german or dot' decimal string to non-negative float; None on bad input."""
-    s = text.strip()
-    if not s:
-        return 0.0
-    s = s.replace(",", ".")
-    try:
-        v = float(s)
-    except ValueError:
-        return None
-    if v < 0:
-        return None
-    return v
+class PlanningStore(UserSession):
+    """Unified planning state.
 
+    Single source of truth for the resource planning page:
 
-class PlanningGridState(rx.State):
-    """Planning grid state — Stage B (editable dummy data)."""
+    - Entity caches (projects/employees/roles) loaded once from the DB.
+    - Canonical allocations (`cells`) keyed
+      ``"{emp_id}|{proj_code}|{wk_key}"``.
+    - Render metadata, edit/filter/view state, modal/collapse flags.
+
+    The two pivots (Grid view, Project view) are computed views of the
+    same store; edits update `cells` directly with no cross-state sync.
+    """
+
+    # === Entity caches ===
+
+    available_projects: list[Project] = []
+    all_projects: list[Project] = []
+    available_employees: list[Employee] = []
+    available_roles: list[Role] = []
+    is_loading: bool = False
+
+    # === Grid + view state ===
 
     weeks: list[WeekColumn] = []
     month_spans: list[MonthSpan] = []
-    employees: list[EmployeeBlock] = []
     is_loaded: bool = False
 
-    # Filter state
+    cells: dict[str, float] = {}
+    dirty_keys: list[str] = []
+
+    employee_meta: list[dict[str, Any]] = []
+    project_meta: list[dict[str, Any]] = []
+    role_lookup: dict[str, str] = {}
+    absence_days: dict[str, list[float]] = {}
+
+    view_mode: str = "Grid"
+    time_range: str = "3 Monate"
+    is_saving: bool = False
+    active_cell: str = ""
+    editing_cell: str = ""
+    draft_value: str = ""
+    edit_version: int = 0
+
     project_filter: list[str] = []
     role_filter: list[str] = []
     employee_filter: list[str] = []
@@ -491,77 +604,279 @@ class PlanningGridState(rx.State):
     project_scope: bool = False
     employee_scope: bool = False
 
-    active_cell: str = ""
-    editing_cell: str = ""
-    draft_value: str = ""
-    edit_version: int = 0  # bumps to force input remount on cell change
-
     collapsed_employees: list[str] = []
+    collapsed_projects: list[str] = []
 
+    add_project_emp_id: str = ""
+    add_project_options: list[dict[str, str]] = []
+    add_project_role_options: list[dict[str, str]] = []
+
+    # === Setters ===
+
+    @rx.event
+    def set_view_mode(self, value: str) -> None:
+        self.view_mode = value
+
+    @rx.event
+    def set_time_range(self, value: str) -> Any:
+        self.time_range = value
+        return PlanningStore.reload_with_time_range(value)
+
+    @rx.event
     def set_project_filter(self, value: list[str]) -> None:
         self.project_filter = value
 
+    @rx.event
     def set_role_filter(self, value: list[str]) -> None:
         self.role_filter = value
 
+    @rx.event
     def set_employee_filter(self, value: list[str]) -> None:
         self.employee_filter = value
 
+    @rx.event
     def set_search_query(self, value: str) -> None:
         self.search_query = value
 
+    @rx.event
     def toggle_project_scope(self) -> None:
         self.project_scope = not self.project_scope
 
+    @rx.event
     def toggle_employee_scope(self) -> None:
         self.employee_scope = not self.employee_scope
 
+    @rx.event
+    def set_draft(self, value: str) -> None:
+        self.draft_value = value
+
+    # === Entity-derived select options ===
+
+    @rx.var(cache=True)
+    def project_select_options(self) -> list[dict[str, str]]:
+        return [
+            {"value": str(p.id), "label": p.name_de or p.code}
+            for p in self.all_projects
+        ]
+
+    @rx.var(cache=True)
+    def employee_select_options(self) -> list[dict[str, str]]:
+        return [
+            {"value": str(e.id), "label": f"{e.first_name} {e.last_name}"}
+            for e in self.available_employees
+        ]
+
+    @rx.var(cache=True)
+    def role_select_options(self) -> list[dict[str, str]]:
+        return [{"value": str(r.id), "label": r.name} for r in self.available_roles]
+
+    # === Computed pivots ===
+
+    def _week_keys(self) -> list[str]:
+        return [w.key for w in self.weeks]
+
+    def _cell(self, key: str, week_key: str) -> GridCell:
+        return GridCell(
+            key=key,
+            week_key=week_key,
+            value=float(self.cells.get(key, 0.0)),
+            is_dirty=key in self.dirty_keys,
+        )
+
+    @rx.var(cache=True)
+    def employee_blocks(self) -> list[EmployeeBlock]:
+        weeks = self.weeks
+        if not weeks:
+            return []
+        wks = self._week_keys()
+        proj_idx = {p["id"]: p for p in self.project_meta}
+        blocks: list[EmployeeBlock] = []
+        for emp in self.employee_meta:
+            emp_id = emp["id"]
+            ab = self.absence_days.get(emp_id, [0.0] * len(wks))
+            absence_cells = [
+                GridCell(week_key=wks[i], value=ab[i] if i < len(ab) else 0.0)
+                for i in range(len(wks))
+            ]
+            roles = [
+                RoleBadge(code=r["code"], full=r["full"], color=r["color"])
+                for r in emp.get("role_badges", [])
+            ]
+            project_rows: list[ProjectAllocationRow] = []
+            for pid in emp.get("project_ids", []):
+                proj = proj_idx.get(pid)
+                if proj is None:
+                    continue
+                code = proj["code"]
+                cells = [self._cell(_ck(emp_id, code, wk), wk) for wk in wks]
+                rname = self.role_lookup.get(f"{emp_id}|{proj['real_id']}", "")
+                rshort = _role_short(rname)
+                rcolor = ROLE_PALETTE.get(rshort, "var(--mantine-color-gray-2)")
+                project_rows.append(
+                    ProjectAllocationRow(
+                        project_id=str(proj["real_id"]),
+                        real_project_id=int(proj["real_id"]),
+                        emp_id=emp_id,
+                        code=code,
+                        name=proj["name"],
+                        color=proj["color"],
+                        role_name=rname,
+                        role_short=rshort,
+                        role_color=rcolor,
+                        cells=cells,
+                    )
+                )
+            block = EmployeeBlock(
+                id=emp_id,
+                real_id=emp["real_id"],
+                name=emp["name"],
+                initials=emp["initials"],
+                job_title=emp.get("job_title", ""),
+                role=emp.get("role_short", ""),
+                role_color=emp.get("role_color", ""),
+                role_full=emp.get("role_full", ""),
+                roles=roles,
+                role_ids=emp.get("role_ids", []),
+                projects=project_rows,
+                absence=AbsenceRow(cells=absence_cells),
+            )
+            block.gesamt = _compute_gesamt(weeks, block)
+            block.heat = _compute_heat(weeks, block)
+            blocks.append(block)
+        return blocks
+
+    @rx.var(cache=True)
+    def project_blocks(self) -> list[ProjectBlock]:
+        weeks = self.weeks
+        if not weeks:
+            return []
+        wks = self._week_keys()
+        emp_idx = {e["id"]: e for e in self.employee_meta}
+        blocks: list[ProjectBlock] = []
+        for proj in self.project_meta:
+            code = proj["code"]
+            emp_rows: list[EmployeeAllocationRow] = []
+            for emp_id in proj.get("employee_ids", []):
+                emp = emp_idx.get(emp_id)
+                if emp is None:
+                    continue
+                cells = [self._cell(_ck(emp_id, code, wk), wk) for wk in wks]
+                rname = self.role_lookup.get(f"{emp_id}|{proj['real_id']}", "")
+                rshort = _role_short(rname)
+                rcolor = ROLE_PALETTE.get(rshort, "var(--mantine-color-gray-2)")
+                emp_rows.append(
+                    EmployeeAllocationRow(
+                        emp_id=emp_id,
+                        real_id=emp["real_id"],
+                        name=emp["name"],
+                        role_name=rname,
+                        role_short=rshort,
+                        role_color=rcolor,
+                        cells=cells,
+                    )
+                )
+            emp_rows.sort(key=lambda r: r.name)
+            block = ProjectBlock(
+                id=proj["id"],
+                real_id=proj["real_id"],
+                code=code,
+                name=proj["name"],
+                color=proj["color"],
+                state=proj.get("state", ""),
+                employees=emp_rows,
+            )
+            block.gesamt = _compute_project_gesamt(weeks, block)
+            block.heat = _compute_project_heat(weeks, block)
+            blocks.append(block)
+        return blocks
+
+    # === Filtered pivots ===
+
     @rx.var(cache=True)
     def filtered_employees(self) -> list[EmployeeBlock]:
-        """Return employees filtered by active project/role/employee/search filters."""
-        result = self.employees
-
-        if self.search_query.strip():
-            q = self.search_query.strip().lower()
+        result = self.employee_blocks
+        q = self.search_query.strip().lower()
+        if q:
             result = [
-                emp
-                for emp in result
-                if q in emp.name.lower() or q in emp.initials.lower()
+                e for e in result if q in e.name.lower() or q in e.initials.lower()
             ]
-
         if self.project_filter:
             result = [
-                emp
-                for emp in result
-                if any(proj.project_id in self.project_filter for proj in emp.projects)
+                e
+                for e in result
+                if any(p.project_id in self.project_filter for p in e.projects)
             ]
-
         if self.role_filter:
             result = [
-                emp
-                for emp in result
-                if any(str(rid) in self.role_filter for rid in emp.role_ids)
+                e
+                for e in result
+                if any(str(rid) in self.role_filter for rid in e.role_ids)
             ]
-
         if self.employee_filter:
-            result = [emp for emp in result if str(emp.real_id) in self.employee_filter]
-
+            result = [e for e in result if str(e.real_id) in self.employee_filter]
         return result
 
     @rx.var(cache=True)
-    def project_filter_label(self) -> str:
-        count = len(self.project_filter)
-        return f'"Projekte ({count})"' if count > 0 else ""
+    def filtered_projects(self) -> list[ProjectBlock]:
+        result = self.project_blocks
+        if self.project_filter:
+            result = [p for p in result if str(p.real_id) in self.project_filter]
+        if self.role_filter:
+            result = [
+                p
+                for p in result
+                if any(
+                    e.role_short in self.role_filter or e.role_name in self.role_filter
+                    for e in p.employees
+                )
+            ]
+        if self.employee_filter:
+            result = [
+                p
+                for p in result
+                if any(str(e.real_id) in self.employee_filter for e in p.employees)
+            ]
+        q = self.search_query.strip().lower()
+        if q:
+            result = [
+                p
+                for p in result
+                if q in p.name.lower()
+                or q in p.code.lower()
+                or any(q in e.name.lower() for e in p.employees)
+            ]
+        return result
 
     @rx.var(cache=True)
-    def role_filter_label(self) -> str:
-        count = len(self.role_filter)
-        return f'"Rollen ({count})"' if count > 0 else ""
+    def employees(self) -> list[EmployeeBlock]:
+        return self.employee_blocks
 
     @rx.var(cache=True)
-    def employee_filter_label(self) -> str:
-        count = len(self.employee_filter)
-        return f'"MA ({count})"' if count > 0 else ""
+    def projects(self) -> list[ProjectBlock]:
+        return self.project_blocks
+
+    @rx.var(cache=True)
+    def has_dirty(self) -> bool:
+        return len(self.dirty_keys) > 0
+
+    @rx.var(cache=True)
+    def avg_heat(self) -> list[HeatCell]:
+        emps = self.employee_blocks
+        if not emps or not self.weeks:
+            return []
+        out: list[HeatCell] = []
+        for idx, week in enumerate(self.weeks):
+            percents = [e.heat[idx].percent for e in emps if idx < len(e.heat)]
+            avg = round(sum(percents) / len(percents)) if percents else 0
+            out.append(
+                HeatCell(
+                    week_key=week.key,
+                    percent=avg,
+                    is_absent=False,
+                    bucket=_heat_bucket(avg),
+                )
+            )
+        return out
 
     @rx.var(cache=True)
     def table_width(self) -> str:
@@ -572,94 +887,40 @@ class PlanningGridState(rx.State):
         return f"{LABEL_COL_PX}px repeat({len(self.weeks)}, {WEEK_COL_PX}px)"
 
     @rx.var(cache=True)
-    def avg_heat(self) -> list[HeatCell]:
-        if not self.employees or not self.weeks:
-            return []
-        result: list[HeatCell] = []
-        for idx, week in enumerate(self.weeks):
-            percents = [
-                emp.heat[idx].percent for emp in self.employees if idx < len(emp.heat)
-            ]
-            avg_pct = round(sum(percents) / len(percents)) if percents else 0
-            result.append(
-                HeatCell(
-                    week_key=week.key,
-                    percent=avg_pct,
-                    is_absent=False,
-                    bucket=_heat_bucket(avg_pct),
-                )
-            )
-        return result
+    def project_filter_label(self) -> str:
+        c = len(self.project_filter)
+        return f'"Projekte ({c})"' if c > 0 else ""
 
-    def _populate(
-        self,
-        weeks: list[WeekColumn],
-        spans: list[MonthSpan],
-        employees: list[EmployeeBlock],
-    ) -> None:
-        for block in employees:
-            if not block.role_full:
-                block.role_full = ROLE_FULL.get(block.role, block.role)
-            block.gesamt = _compute_gesamt(weeks, block)
-            block.heat = _compute_heat(weeks, block)
-        self.weeks = weeks
-        self.month_spans = spans
-        self.employees = employees
-        self.is_loaded = True
-        if employees and employees[0].projects and employees[0].projects[0].cells:
-            self.active_cell = employees[0].projects[0].cells[0].key
-        else:
-            self.active_cell = ""
-        self.editing_cell = ""
-        self.draft_value = ""
+    @rx.var(cache=True)
+    def role_filter_label(self) -> str:
+        c = len(self.role_filter)
+        return f'"Rollen ({c})"' if c > 0 else ""
 
-    def _load_real(
-        self,
-        num_weeks: int,
-        real_emps: list,
-        real_projs: list,
-        allocations: list[Any],
-        capacity_assignments: list[Any] | None = None,
-    ) -> None:
-        weeks, spans = _build_weeks(num_weeks)
-        employees = _build_employees_from_real(real_emps, weeks)
-        projects_lookup = {int(p.id): p for p in real_projs}
-        _apply_allocations(
-            employees,
-            allocations,
-            projects_lookup,
-            [w.key for w in weeks],
-            capacity_assignments=capacity_assignments,
-        )
-        for block in employees:
-            for proj in block.projects:
-                for cell in proj.cells:
-                    cell.key = f"{block.id}|{proj.code}|{cell.week_key}"
-        self._populate(weeks, spans, employees)
+    @rx.var(cache=True)
+    def employee_filter_label(self) -> str:
+        c = len(self.employee_filter)
+        return f'"MA ({c})"' if c > 0 else ""
 
-    async def _fetch_allocations(self, weeks: list[WeekColumn]) -> list[Any]:
+    # === Loading ===
+
+    async def _fetch_data(
+        self, weeks: list[WeekColumn]
+    ) -> tuple[list[Any], list[_CapAssignment]]:
         if not weeks:
-            return []
+            return [], []
         first = datetime.date(*(int(p) for p in weeks[0].key.split("_")))
         last = datetime.date(*(int(p) for p in weeks[-1].key.split("_")))
         async with get_asyncdb_session() as session:
-            results = await capacity_allocation_repo.find_in_range(session, first, last)
-            # Cache role name before expunging to avoid DetachedInstanceError
-            for r in results:
+            allocs = await capacity_allocation_repo.find_in_range(session, first, last)
+            for r in allocs:
                 r._cached_role_name = r.role.name if r.role else ""  # noqa: SLF001
                 session.expunge(r)
-            return results
-
-    async def _fetch_capacity_assignments(self) -> list[Any]:
-        """Fetch all CapacityEntity records as lightweight dicts."""
-        async with get_asyncdb_session() as session:
             from alloq_commons.entities.capacity import CapacityEntity  # noqa: PLC0415
             from sqlmodel import select  # noqa: PLC0415
 
-            result = await session.execute(select(CapacityEntity))
-            entities = list(result.scalars().unique().all())
-            # Extract data while still in session to avoid DetachedInstanceError
-            return [
+            cap_rows = await session.execute(select(CapacityEntity))
+            entities = list(cap_rows.scalars().unique().all())
+            assignments = [
                 _CapAssignment(
                     employee_id=e.employee_id,
                     project_id=e.project_id,
@@ -667,64 +928,72 @@ class PlanningGridState(rx.State):
                 )
                 for e in entities
             ]
+        return list(allocs), assignments
+
+    async def _populate(self, num_weeks: int) -> None:
+        weeks, spans = _build_weeks(num_weeks)
+        allocations, assignments = await self._fetch_data(weeks)
+        wks = [w.key for w in weeks]
+
+        emp_meta, absence_map = _build_employee_meta(self.available_employees, wks)
+        proj_meta, proj_idx = _build_project_meta(self.available_projects)
+        cells, role_lookup, pairs = _ingest_allocations(
+            allocations, assignments, proj_idx, set(wks)
+        )
+        _wire_pairs(emp_meta, proj_idx, pairs)
+
+        self.weeks = weeks
+        self.month_spans = spans
+        self.cells = cells
+        self.dirty_keys = []
+        self.employee_meta = emp_meta
+        self.project_meta = proj_meta
+        self.role_lookup = role_lookup
+        self.absence_days = absence_map
+        self.is_loaded = True
+        self.editing_cell = ""
+        self.draft_value = ""
+        if not self.active_cell:
+            self.active_cell = _initial_active_cell(emp_meta, proj_meta, wks)
+
+    async def _load_entities(self) -> None:
+        async with get_asyncdb_session() as session:
+            projects = await project_repo.find_all(session)
+            all_proj = [Project(**p.to_dict()) for p in projects]
+            all_proj.sort(key=lambda p: (p.name_de or p.code).lower())
+            self.all_projects = all_proj
+            self.available_projects = [
+                p for p in all_proj if p.state != "Abgeschlossen"
+            ]
+            employees = await employee_repo.find_all(session)
+            self.available_employees = [Employee(**e.to_dict()) for e in employees]
+            self.available_employees.sort(key=lambda e: (e.last_name, e.first_name))
+            roles = await role_repo.find_all(session)
+            self.available_roles = [Role(**r.to_dict()) for r in roles]
+            self.available_roles.sort(key=lambda r: r.name)
 
     @rx.event
-    async def load_grid_data(self) -> None:
-        from alloq_project.states.planning_state import PlanningState  # noqa: PLC0415
-
-        planning = await self.get_state(PlanningState)
-        n = TIME_RANGE_WEEKS.get(planning.time_range, TIME_RANGE_WEEKS["3 Monate"])
-        weeks, _spans = _build_weeks(n)
-        allocations = await self._fetch_allocations(weeks)
-        assignments = await self._fetch_capacity_assignments()
-        self._load_real(
-            n,
-            planning.available_employees,
-            planning.available_projects,
-            allocations,
-            capacity_assignments=assignments,
-        )
+    async def load(self) -> AsyncGenerator[Any, None]:
+        """Load entity caches and populate the grid for the current time range."""
+        self.is_loading = True
+        yield
+        await self._load_entities()
+        n = TIME_RANGE_WEEKS.get(self.time_range, TIME_RANGE_WEEKS["3 Monate"])
+        await self._populate(n)
+        self.is_loading = False
+        yield
 
     @rx.event
     async def reload_with_time_range(self, time_range: str) -> None:
-        from alloq_project.states.planning_state import PlanningState  # noqa: PLC0415
-
         n = TIME_RANGE_WEEKS.get(time_range, TIME_RANGE_WEEKS["3 Monate"])
-        planning = await self.get_state(PlanningState)
-        weeks, _spans = _build_weeks(n)
-        allocations = await self._fetch_allocations(weeks)
-        assignments = await self._fetch_capacity_assignments()
-        self._load_real(
-            n,
-            planning.available_employees,
-            planning.available_projects,
-            allocations,
-            capacity_assignments=assignments,
-        )
+        await self._populate(n)
 
-    @rx.event
-    def toggle_employee(self, emp_id: str) -> None:
-        if emp_id in self.collapsed_employees:
-            self.collapsed_employees = [
-                e for e in self.collapsed_employees if e != emp_id
-            ]
-        else:
-            self.collapsed_employees = [*self.collapsed_employees, emp_id]
+    # === Cell editing ===
 
     @rx.event
     def set_active(self, cell_key: str) -> Any:
         self.active_cell = cell_key
         return rx.call_script(_FOCUS_GRID_SCRIPT)
-
-    @rx.event
-    def move_active(self, direction: str) -> None:
-        if self.editing_cell:
-            return
-        if not self.active_cell:
-            return
-        nxt = self._navigate(self.active_cell, direction)
-        if nxt:
-            self.active_cell = nxt
 
     @rx.event
     def start_edit(self, cell_key: str) -> Any:
@@ -736,10 +1005,6 @@ class PlanningGridState(rx.State):
         return rx.call_script(_FOCUS_EDITOR_SCRIPT)
 
     @rx.event
-    def set_draft(self, value: str) -> None:
-        self.draft_value = value
-
-    @rx.event
     def cancel_edit(self) -> Any:
         self.editing_cell = ""
         self.draft_value = ""
@@ -747,74 +1012,44 @@ class PlanningGridState(rx.State):
 
     @rx.event
     def commit_edit(self) -> Any:
-        change = self._commit_current()
+        self._commit_current()
         self.editing_cell = ""
         self.draft_value = ""
-        if change:
-            from alloq_project.states.planning_project_view_state import (  # noqa: PLC0415
-                PlanningProjectViewState,
-            )
-
-            return PlanningProjectViewState.sync_cell(*change)
         return None
 
     @rx.event
     def commit_and_select_next(self, direction: str) -> Any:
-        """Commit current edit, move active to next cell, exit edit mode."""
         cur = self.editing_cell
         if not cur:
             return None
-        change = self._commit_current()
+        self._commit_current()
         nxt = self._navigate(cur, direction)
         self.editing_cell = ""
         self.draft_value = ""
         if nxt:
             self.active_cell = nxt
-        events: list[Any] = [rx.call_script(_FOCUS_GRID_SCRIPT)]
-        if change:
-            from alloq_project.states.planning_project_view_state import (  # noqa: PLC0415
-                PlanningProjectViewState,
-            )
-
-            events.append(PlanningProjectViewState.sync_cell(*change))
-        return events
+        return rx.call_script(_FOCUS_GRID_SCRIPT)
 
     @rx.event
     def commit_and_move(self, direction: str) -> Any:
-        """Commit current edit, move edit to next cell (Tab behavior)."""
         cur = self.editing_cell
         if not cur:
             return None
-        change = self._commit_current()
-        next_key = self._navigate(cur, direction)
-        if next_key:
-            cur_val = self._lookup_value(next_key)
+        self._commit_current()
+        nxt = self._navigate(cur, direction)
+        if nxt:
+            cur_val = self._lookup_value(nxt)
             self.draft_value = "" if cur_val == 0 else _format_de(cur_val)
-            self.active_cell = next_key
-            self.editing_cell = next_key
+            self.active_cell = nxt
+            self.editing_cell = nxt
             self.edit_version += 1
-            events: list[Any] = [rx.call_script(_FOCUS_EDITOR_SCRIPT)]
-            if change:
-                from alloq_project.states.planning_project_view_state import (  # noqa: PLC0415
-                    PlanningProjectViewState,
-                )
-
-                events.append(PlanningProjectViewState.sync_cell(*change))
-            return events
+            return rx.call_script(_FOCUS_EDITOR_SCRIPT)
         self.editing_cell = ""
         self.draft_value = ""
-        events = [rx.call_script(_FOCUS_GRID_SCRIPT)]
-        if change:
-            from alloq_project.states.planning_project_view_state import (  # noqa: PLC0415
-                PlanningProjectViewState,
-            )
-
-            events.append(PlanningProjectViewState.sync_cell(*change))
-        return events
+        return rx.call_script(_FOCUS_GRID_SCRIPT)
 
     @rx.event
     def handle_key(self, key: str) -> Any:
-        """Editor input on_key_down."""
         if key == "Enter":
             return rx.call_script(_BLUR_EDITOR_SCRIPT)
         if key == "Escape":
@@ -824,15 +1059,20 @@ class PlanningGridState(rx.State):
         return None
 
     @rx.event
+    def move_active(self, direction: str) -> None:
+        if self.editing_cell or not self.active_cell:
+            return
+        nxt = self._navigate(self.active_cell, direction)
+        if nxt:
+            self.active_cell = nxt
+
+    @rx.event
     def handle_grid_key(self, key: str) -> Any:
-        """Grid wrapper on_key_down. Only acts when not editing."""
-        if self.editing_cell:
+        if self.editing_cell or not self.active_cell:
             return None
-        if not self.active_cell:
-            return None
-        nav_keys = ("ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight")
-        edit_keys = ("Enter", "F2")
-        if key not in nav_keys and key not in edit_keys:
+        nav = ("ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight")
+        edit = ("Enter", "F2")
+        if key not in nav and key not in edit:
             return None
         if key == "ArrowUp":
             self.move_active("up")
@@ -842,223 +1082,190 @@ class PlanningGridState(rx.State):
             self.move_active("prev")
         elif key == "ArrowRight":
             self.move_active("next")
-        elif key in edit_keys:
+        elif key in edit:
             return self.start_edit(self.active_cell)
         return rx.prevent_default
 
+    # Single-store: writes already canonical. Backward-compat shim.
+    @rx.event
+    def sync_cell(self, cell_key: str, value: float) -> None:
+        self.cells = {**self.cells, cell_key: value}
+        if cell_key not in self.dirty_keys:
+            self.dirty_keys = [*self.dirty_keys, cell_key]
+
+    @rx.event
+    def clear_dirty(self) -> None:
+        self.dirty_keys = []
+
+    # === Internal helpers ===
+
     def _commit_current(self) -> tuple[str, float] | None:
-        """Commit draft value; return (cell_key, new_val) if changed."""
         cur = self.editing_cell
         if not cur:
             return None
         new_val = _parse_de(self.draft_value)
         if new_val is None:
             return None
-        emp_id, proj_code, week_key = cur.split("|")
         cur_val = self._lookup_value(cur)
         if new_val == cur_val:
             return None
-        for emp in self.employees:
-            if emp.id != emp_id:
-                continue
-            for proj in emp.projects:
-                if proj.code != proj_code:
-                    continue
-                for cell in proj.cells:
-                    if cell.week_key == week_key:
-                        cell.value = new_val
-                        cell.is_dirty = True
-                        break
-            emp.gesamt = _compute_gesamt(self.weeks, emp)
-            emp.heat = _compute_heat(self.weeks, emp)
-        self.employees = list(self.employees)
+        self.cells = {**self.cells, cur: new_val}
+        if cur not in self.dirty_keys:
+            self.dirty_keys = [*self.dirty_keys, cur]
         return (cur, new_val)
 
-    @rx.event
-    def sync_cell(self, cell_key: str, value: float) -> None:
-        """Apply a cell change from the project view (cross-state sync)."""
-        try:
-            emp_id, proj_code, week_key = cell_key.split("|")
-        except ValueError:
-            return
-        for emp in self.employees:
-            if emp.id != emp_id:
-                continue
-            for proj in emp.projects:
-                if proj.code != proj_code:
-                    continue
-                for cell in proj.cells:
-                    if cell.week_key == week_key:
-                        cell.value = value
-                        cell.is_dirty = True
-                        break
-            emp.gesamt = _compute_gesamt(self.weeks, emp)
-            emp.heat = _compute_heat(self.weeks, emp)
-        self.employees = list(self.employees)
-
     def _lookup_value(self, cell_key: str) -> float:
-        try:
-            emp_id, proj_code, week_key = cell_key.split("|")
-        except ValueError:
-            return 0.0
-        for emp in self.employees:
-            if emp.id != emp_id:
-                continue
-            for proj in emp.projects:
-                if proj.code != proj_code:
+        return float(self.cells.get(cell_key, 0.0))
+
+    def _row_layout(self) -> list[tuple[str, str]]:
+        if self.view_mode == "Projekte":
+            rows: list[tuple[str, str]] = []
+            for proj in self.project_meta:
+                if proj["id"] in self.collapsed_projects:
                     continue
-                for cell in proj.cells:
-                    if cell.week_key == week_key:
-                        return cell.value
-        return 0.0
-
-    def _collect_dirty(
-        self,
-    ) -> list[tuple[int, int, int, datetime.date, float, EmployeeBlock, GridCell]]:
-        out: list[
-            tuple[int, int, int, datetime.date, float, EmployeeBlock, GridCell]
-        ] = []
-        for emp in self.employees:
-            if not emp.real_id or not emp.role_ids:
+                code = proj["code"]
+                rows.extend((eid, code) for eid in proj.get("employee_ids", []))
+            return rows
+        rows = []
+        proj_idx = {p["id"]: p for p in self.project_meta}
+        for emp in self.employee_meta:
+            if emp["id"] in self.collapsed_employees:
                 continue
-            role_id = emp.role_ids[0]
-            for proj in emp.projects:
-                if not proj.real_project_id:
+            for pid in emp.get("project_ids", []):
+                proj = proj_idx.get(pid)
+                if proj is None:
                     continue
-                for cell in proj.cells:
-                    if not cell.is_dirty:
-                        continue
-                    try:
-                        y, m, d = (int(p) for p in cell.week_key.split("_"))
-                        wk = datetime.date(y, m, d)
-                    except ValueError:
-                        continue
-                    out.append(
-                        (
-                            emp.real_id,
-                            proj.real_project_id,
-                            role_id,
-                            wk,
-                            float(cell.value),
-                            emp,
-                            cell,
-                        )
-                    )
-        return out
-
-    @rx.var(cache=True)
-    def has_dirty(self) -> bool:
-        return any(
-            cell.is_dirty
-            for emp in self.employees
-            for proj in emp.projects
-            for cell in proj.cells
-        )
-
-    @rx.event
-    async def save_grid(self) -> AsyncGenerator[Any, None]:
-        """Persist edited grid cells to capacity_allocations."""
-        dirty = self._collect_dirty()
-        if not dirty:
-            yield rx.toast.info("Keine Änderungen.", position="top-right")
-            return
-        try:
-            async with get_asyncdb_session() as session:
-                for emp_id, proj_id, role_id, wk, pd, _emp, _cell in dirty:
-                    await capacity_allocation_repo.upsert_cell(
-                        session, proj_id, emp_id, role_id, wk, pd
-                    )
-                await session.commit()
-        except Exception as exc:  # noqa: BLE001
-            log.error("Failed to save grid: %s", exc)
-            yield rx.toast.error(
-                f"Speichern fehlgeschlagen: {exc}", position="top-right"
-            )
-            return
-        for *_unused, cell in dirty:
-            cell.is_dirty = False
-        self.employees = list(self.employees)
-        from alloq_project.states.planning_project_view_state import (  # noqa: PLC0415
-            PlanningProjectViewState,
-        )
-
-        yield PlanningProjectViewState.clear_dirty()
-        yield rx.toast.success(
-            f"{len(dirty)} Zellen gespeichert.", position="top-right"
-        )
-
-    @rx.event
-    def clear_dirty(self) -> None:
-        """Clear all dirty flags (called after sibling state saves)."""
-        for emp in self.employees:
-            for proj in emp.projects:
-                for cell in proj.cells:
-                    cell.is_dirty = False
-        self.employees = list(self.employees)
+                rows.append((emp["id"], proj["code"]))
+        return rows
 
     def _navigate(self, cur_key: str, direction: str) -> str:  # noqa: PLR0911
         try:
             emp_id, proj_code, week_key = cur_key.split("|")
         except ValueError:
             return ""
-        week_keys = [w.key for w in self.weeks]
-        rows: list[tuple[str, str]] = [
-            (emp.id, proj.code)
-            for emp in self.employees
-            if emp.id not in self.collapsed_employees
-            for proj in emp.projects
-        ]
-        if not rows:
+        wks = self._week_keys()
+        rows = self._row_layout()
+        if not rows or not wks:
             return ""
         try:
-            week_idx = week_keys.index(week_key)
+            week_idx = wks.index(week_key)
             row_idx = rows.index((emp_id, proj_code))
         except ValueError:
             return ""
-        if direction == "next" and week_idx + 1 < len(week_keys):
-            return f"{emp_id}|{proj_code}|{week_keys[week_idx + 1]}"
+        if direction == "next" and week_idx + 1 < len(wks):
+            return _ck(emp_id, proj_code, wks[week_idx + 1])
         if direction == "prev" and week_idx > 0:
-            return f"{emp_id}|{proj_code}|{week_keys[week_idx - 1]}"
+            return _ck(emp_id, proj_code, wks[week_idx - 1])
         if direction == "down" and row_idx + 1 < len(rows):
             ne, np = rows[row_idx + 1]
-            return f"{ne}|{np}|{week_key}"
+            return _ck(ne, np, week_key)
         if direction == "up" and row_idx > 0:
             ne, np = rows[row_idx - 1]
-            return f"{ne}|{np}|{week_key}"
+            return _ck(ne, np, week_key)
         return ""
 
-    # --- Add / Remove project from employee in grid ---
+    # === Collapse ===
 
-    add_project_emp_id: str = ""
-    add_project_options: list[dict[str, str]] = []
-    add_project_role_options: list[dict[str, str]] = []
+    @rx.event
+    def toggle_employee(self, emp_id: str) -> None:
+        if emp_id in self.collapsed_employees:
+            self.collapsed_employees = [
+                e for e in self.collapsed_employees if e != emp_id
+            ]
+        else:
+            self.collapsed_employees = [*self.collapsed_employees, emp_id]
+
+    @rx.event
+    def toggle_project(self, project_id: str) -> None:
+        if project_id in self.collapsed_projects:
+            self.collapsed_projects = [
+                p for p in self.collapsed_projects if p != project_id
+            ]
+        else:
+            self.collapsed_projects = [*self.collapsed_projects, project_id]
+
+    # === Save ===
+
+    @rx.event
+    async def save_grid(self) -> AsyncGenerator[Any, None]:
+        if not self.dirty_keys:
+            yield rx.toast.info("Keine Änderungen.", position="top-right")
+            return
+        self.is_saving = True
+        yield
+        proj_code_to_real = {p["code"]: p["real_id"] for p in self.project_meta}
+        emp_id_to_real = {e["id"]: e["real_id"] for e in self.employee_meta}
+        emp_role_id: dict[str, int] = {
+            e["id"]: e["role_ids"][0] for e in self.employee_meta if e.get("role_ids")
+        }
+        rows: list[tuple[int, int, int, datetime.date, float]] = []
+        for key in self.dirty_keys:
+            try:
+                emp_id, proj_code, wk_key = key.split("|")
+            except ValueError:
+                continue
+            real_eid = emp_id_to_real.get(emp_id)
+            real_pid = proj_code_to_real.get(proj_code)
+            role_id = emp_role_id.get(emp_id)
+            if not real_eid or not real_pid or not role_id:
+                continue
+            try:
+                y, m, d = (int(p) for p in wk_key.split("_"))
+                wk = datetime.date(y, m, d)
+            except ValueError:
+                continue
+            rows.append(
+                (real_eid, real_pid, role_id, wk, float(self.cells.get(key, 0.0)))
+            )
+        if not rows:
+            yield rx.toast.info("Keine Änderungen.", position="top-right")
+            return
+        try:
+            async with get_asyncdb_session() as session:
+                for emp_id, proj_id, role_id, wk, pd in rows:
+                    await capacity_allocation_repo.upsert_cell(
+                        session, proj_id, emp_id, role_id, wk, pd
+                    )
+                await session.commit()
+        except Exception as exc:  # noqa: BLE001
+            log.error("Failed to save grid: %s", exc)
+            self.is_saving = False
+            yield rx.toast.error(
+                f"Speichern fehlgeschlagen: {exc}", position="top-right"
+            )
+            return
+        self.dirty_keys = []
+        self.is_saving = False
+        yield rx.toast.success(f"{len(rows)} Zellen gespeichert.", position="top-right")
+
+    # === Add / remove project from employee in grid ===
 
     @rx.event
     async def open_add_project_for_employee(self, emp_id: str) -> None:
-        """Open the add-project modal for a specific employee."""
-        from alloq_project.states.planning_state import PlanningState  # noqa: PLC0415
-
         self.add_project_emp_id = emp_id
-        emp = next((e for e in self.employees if e.id == emp_id), None)
+        emp = next((e for e in self.employee_meta if e["id"] == emp_id), None)
         if not emp:
             return
-
-        planning = await self.get_state(PlanningState)
-        assigned_codes = {p.code for p in emp.projects}
+        proj_idx = {p["id"]: p for p in self.project_meta}
+        assigned_codes = {
+            proj_idx[pid]["code"]
+            for pid in emp.get("project_ids", [])
+            if pid in proj_idx
+        }
         self.add_project_options = [
             {"value": str(p.id), "label": f"{p.code} - {p.name_de}"}
-            for p in planning.available_projects
+            for p in self.available_projects
             if p.code not in assigned_codes
         ]
-        emp_role_ids = set(emp.role_ids)
+        emp_role_ids = set(emp.get("role_ids", []))
         self.add_project_role_options = [
             {"value": str(r.id), "label": r.name}
-            for r in planning.available_roles
+            for r in self.available_roles
             if r.id in emp_role_ids
         ]
 
+    @rx.event
     def close_add_project_for_employee(self) -> None:
-        """Close the add-project modal."""
         self.add_project_emp_id = ""
         self.add_project_options = []
         self.add_project_role_options = []
@@ -1067,9 +1274,7 @@ class PlanningGridState(rx.State):
     async def add_project_to_employee_grid(
         self, form_data: dict
     ) -> AsyncGenerator[Any, None]:
-        """Assign a project to an employee and reload grid."""
         from alloq_commons.entities.capacity import CapacityEntity  # noqa: PLC0415
-        from alloq_project.states.planning_state import PlanningState  # noqa: PLC0415
 
         project_id_raw = form_data.get("project_id")
         role_id_raw = form_data.get("role_id")
@@ -1078,28 +1283,24 @@ class PlanningGridState(rx.State):
                 "Bitte Projekt und Rolle auswählen.", position="top-right"
             )
             return
-
         project_id = int(project_id_raw)
         role_id = int(role_id_raw)
-
-        emp = next((e for e in self.employees if e.id == self.add_project_emp_id), None)
+        emp = next(
+            (e for e in self.employee_meta if e["id"] == self.add_project_emp_id),
+            None,
+        )
         if not emp:
             yield rx.toast.error("Mitarbeiter nicht gefunden.", position="top-right")
             return
-
-        planning = await self.get_state(PlanningState)
-        project = next(
-            (p for p in planning.available_projects if p.id == project_id), None
-        )
+        project = next((p for p in self.available_projects if p.id == project_id), None)
         if not project or not project.start_date or not project.end_date:
             yield rx.toast.error("Projekt nicht gefunden.", position="top-right")
             return
-
         try:
             async with get_asyncdb_session() as session:
                 entity = CapacityEntity(
                     project_id=project_id,
-                    employee_id=emp.real_id,
+                    employee_id=emp["real_id"],
                     role_id=role_id,
                     start_date=project.start_date,
                     end_date=project.end_date,
@@ -1108,46 +1309,29 @@ class PlanningGridState(rx.State):
                 session.add(entity)
                 await session.commit()
             self.add_project_emp_id = ""
-            yield PlanningGridState.load_grid_data
-        except Exception as e:
-            log.error("Failed to add project to employee in grid: %s", e)
+            yield PlanningStore.load
+        except Exception as e:  # noqa: BLE001
+            log.error("Failed to add project: %s", e)
             yield rx.toast.error(f"Fehler: {e}", position="top-right")
 
     @rx.event
     async def remove_project_from_employee_grid(
         self, emp_id: str, project_id: int
     ) -> AsyncGenerator[Any, None]:
-        """Remove a project assignment and all allocations for an employee."""
-        from alloq_commons.repositories import (  # noqa: PLC0415
-            capacity_allocation_repo,
-            capacity_repo,
-        )
-
-        emp = next((e for e in self.employees if e.id == emp_id), None)
+        emp = next((e for e in self.employee_meta if e["id"] == emp_id), None)
         if not emp:
             yield rx.toast.error("Mitarbeiter nicht gefunden.", position="top-right")
             return
-
         try:
             async with get_asyncdb_session() as session:
-                # Delete capacity assignment (may not exist for allocation-only rows)
                 await capacity_repo.delete_by_project_and_employee(
-                    session, project_id, emp.real_id
+                    session, project_id, emp["real_id"]
                 )
-                # Delete all weekly allocation rows for this pair
-                deleted_alloc = (
-                    await capacity_allocation_repo.delete_by_project_and_employee(
-                        session, project_id, emp.real_id
-                    )
+                await capacity_allocation_repo.delete_by_project_and_employee(
+                    session, project_id, emp["real_id"]
                 )
-            if not deleted_alloc:
-                log.debug(
-                    "No allocation rows found for project %d, employee %d",
-                    project_id,
-                    emp.real_id,
-                )
-            yield PlanningGridState.load_grid_data
+            yield PlanningStore.load
             yield rx.toast.info("Projektzuweisung entfernt.", position="top-right")
-        except Exception as e:
-            log.error("Failed to remove project from employee in grid: %s", e)
+        except Exception as e:  # noqa: BLE001
+            log.error("Failed to remove project: %s", e)
             yield rx.toast.error(f"Fehler: {e}", position="top-right")

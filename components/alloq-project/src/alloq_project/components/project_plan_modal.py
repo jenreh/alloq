@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import reflex as rx
 from alloq_commons.models.project import Project
-from alloq_project.states.planning_state import PlanningState
+from alloq_project.states.planning_grid_state import PlanningStore
 from alloq_project.states.project_plan_state import ProjectPlanState
 
 import appkit_mantine as mn
@@ -121,7 +121,7 @@ def _step_project_select() -> rx.Component:
             mb="md",
         ),
         mn.box(
-            rx.foreach(PlanningState.available_projects, _project_card),
+            rx.foreach(PlanningStore.available_projects, _project_card),
             style={
                 "maxHeight": "60vh",
                 "overflowY": "auto",

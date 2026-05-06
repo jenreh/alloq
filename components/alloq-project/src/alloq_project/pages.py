@@ -14,11 +14,7 @@ from alloq_project.components.planning_toolbar import planning_toolbar
 from alloq_project.components.project_overview import project_overview
 from alloq_project.components.project_plan_modal import project_plan_modal
 from alloq_project.components.project_toolbar import project_toolbar
-from alloq_project.states.planning_grid_state import PlanningGridState
-from alloq_project.states.planning_project_view_state import (
-    PlanningProjectViewState,
-)
-from alloq_project.states.planning_state import PlanningState
+from alloq_project.states.planning_grid_state import PlanningStore
 from alloq_project.states.project_state import ProjectState
 from appkit_user.authentication.components.components import requires_admin
 from appkit_user.authentication.templates import authenticated
@@ -36,11 +32,7 @@ def create_planning_page(
         navbar=navbar,
         with_header=False,
         admin_only=True,
-        on_load=[
-            PlanningState.load_planning_data,
-            PlanningGridState.load_grid_data,
-            PlanningProjectViewState.load_project_view_data,
-        ],
+        on_load=PlanningStore.load,
     )
     def _planning_page() -> rx.Component:
         return requires_admin(
@@ -52,7 +44,7 @@ def create_planning_page(
                 ),
                 planning_filter_row(),
                 rx.match(
-                    PlanningState.view_mode,
+                    PlanningStore.view_mode,
                     ("Grid", planning_grid()),
                     ("Heatmap", planning_heatmap()),
                     ("Projekte", planning_project_view()),
