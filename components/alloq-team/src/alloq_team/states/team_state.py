@@ -317,6 +317,7 @@ class TeamState(UserSession):
                 manager_id=manager_id,
                 role_ids=role_ids,
                 hours_per_week=float(form_data.get("hours_per_week", 40.0)),
+                internal_hours=int(form_data.get("internal_hours", 4)),
             )
 
             async with get_asyncdb_session() as session:
@@ -329,6 +330,7 @@ class TeamState(UserSession):
                     location=emp_data.location,
                     manager_id=emp_data.manager_id,
                     hours_per_week=emp_data.hours_per_week,
+                    internal_hours=emp_data.internal_hours,
                 )
                 await employee_repo.create(session, entity)
                 await employee_repo.set_roles(session, entity, emp_data.role_ids)
@@ -378,6 +380,7 @@ class TeamState(UserSession):
                 manager_id=manager_id,
                 role_ids=role_ids,
                 hours_per_week=float(form_data.get("hours_per_week", 40.0)),
+                internal_hours=int(form_data.get("internal_hours", 4)),
             )
 
             employee_id = self.selected_employee.id
@@ -396,6 +399,7 @@ class TeamState(UserSession):
                 entity.location = emp_data.location
                 entity.manager_id = emp_data.manager_id
                 entity.hours_per_week = emp_data.hours_per_week
+                entity.internal_hours = emp_data.internal_hours
                 await employee_repo.set_roles(session, entity, emp_data.role_ids)
                 await employee_repo.update(session, entity)
 
@@ -632,12 +636,14 @@ class EmployeeValidationState(rx.State):
     seniority: str = ""
     role_ids: list[str] = []
     hours_per_week: str = "40.0"
+    internal_hours: str = "4"
 
     first_name_error: str = ""
     last_name_error: str = ""
     email_error: str = ""
     role_ids_error: str = ""
     hours_per_week_error: str = ""
+    internal_hours_error: str = ""
 
     @rx.event
     def initialize(
@@ -656,6 +662,7 @@ class EmployeeValidationState(rx.State):
             self.seniority = "Advanced"
             self.role_ids = []
             self.hours_per_week = "40.0"
+            self.internal_hours = "4"
         else:
             self.first_name = employee.first_name
             self.last_name = employee.last_name
@@ -670,12 +677,14 @@ class EmployeeValidationState(rx.State):
             self.seniority = employee.seniority
             self.role_ids = default_role_ids or []
             self.hours_per_week = str(employee.hours_per_week)
+            self.internal_hours = str(employee.internal_hours)
 
         self.first_name_error = ""
         self.last_name_error = ""
         self.email_error = ""
         self.role_ids_error = ""
         self.hours_per_week_error = ""
+        self.internal_hours_error = ""
 
         self.form_version += 1
 
@@ -710,6 +719,10 @@ class EmployeeValidationState(rx.State):
     def set_hours_per_week(self, value: str | float) -> None:
         self.hours_per_week = str(value)
         self.validate_hours_per_week()
+
+    def set_internal_hours(self, value: str | int) -> None:
+        self.internal_hours = str(value)
+        self.validate_internal_hours()
 
     @rx.event
     def validate_first_name(self) -> None:
@@ -779,12 +792,28 @@ class EmployeeValidationState(rx.State):
             self.hours_per_week_error = "Muss eine gültige Zahl sein."
 
     @rx.event
+    def validate_internal_hours(self) -> None:
+        if not self.internal_hours or not str(self.internal_hours).strip():
+            self.internal_hours_error = ""
+            return
+
+        try:
+            val = int(self.internal_hours)
+            if val < 0:
+                self.internal_hours_error = "Muss >= 0 sein."
+            else:
+                self.internal_hours_error = ""
+        except ValueError:
+            self.internal_hours_error = "Muss eine ganze Zahl sein."
+
+    @rx.event
     def validate_all(self) -> None:
         self.validate_first_name()
         self.validate_last_name()
         self.validate_email()
         self.validate_role_ids()
         self.validate_hours_per_week()
+        self.validate_internal_hours()
 
     @rx.var
     def has_errors(self) -> bool:
@@ -794,6 +823,7 @@ class EmployeeValidationState(rx.State):
             or self.email_error
             or self.role_ids_error
             or self.hours_per_week_error
+            or self.internal_hours_error
         )
 
     @rx.var

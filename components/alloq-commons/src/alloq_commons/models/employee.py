@@ -42,6 +42,7 @@ class Employee(BaseModel):
     role_names: list[str] = []
     absences: list[Absence] = []
     hours_per_week: float = 40.0
+    internal_hours: int = 4
     workload_percent: int = 100
     created: datetime | None = None
     updated: datetime | None = None
@@ -65,6 +66,7 @@ class EmployeeCreate(BaseModel):
     manager_id: int | None = None
     role_ids: list[int]
     hours_per_week: float = Field(default=40.0, ge=0)
+    internal_hours: int = Field(default=4, ge=0)
 
 
 class EmployeeUpdate(BaseModel):
@@ -79,3 +81,4 @@ class EmployeeUpdate(BaseModel):
     manager_id: int | None = None
     role_ids: list[int]
     hours_per_week: float = Field(default=40.0, ge=0)
+    internal_hours: int = Field(default=4, ge=0)

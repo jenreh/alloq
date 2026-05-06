@@ -50,6 +50,7 @@ class EmployeeEntity(Entity, Base):
     email: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     location: Mapped[str | None] = mapped_column(String(255), nullable=True)
     hours_per_week: Mapped[float] = mapped_column(Float, nullable=False, default=40.0)
+    internal_hours: Mapped[int] = mapped_column(Integer, nullable=False, default=4)
     manager_id: Mapped[int | None] = mapped_column(
         ForeignKey("employees.id", ondelete="SET NULL"), nullable=True
     )
@@ -91,6 +92,7 @@ class EmployeeEntity(Entity, Base):
             "role_names": [r.name for r in self.roles] if self.roles else [],
             "absences": absences,
             "hours_per_week": self.hours_per_week,
+            "internal_hours": self.internal_hours,
             "created": self.created,
             "updated": self.updated,
         }
