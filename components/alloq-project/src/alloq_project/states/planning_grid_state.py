@@ -605,7 +605,6 @@ class PlanningStore(UserSession):
     project_filter: list[str] = []
     role_filter: list[str] = []
     employee_filter: list[str] = []
-    search_query: str = ""
     project_scope: bool = False
     employee_scope: bool = False
 
@@ -638,10 +637,6 @@ class PlanningStore(UserSession):
     @rx.event
     def set_employee_filter(self, value: list[str]) -> None:
         self.employee_filter = value
-
-    @rx.event
-    def set_search_query(self, value: str) -> None:
-        self.search_query = value
 
     @rx.event
     def toggle_project_scope(self) -> None:
@@ -819,11 +814,6 @@ class PlanningStore(UserSession):
     @rx.var(cache=True)
     def filtered_employees(self) -> list[EmployeeBlock]:
         result = self.employee_blocks
-        q = self.search_query.strip().lower()
-        if q:
-            result = [
-                e for e in result if q in e.name.lower() or q in e.initials.lower()
-            ]
         if self.project_filter:
             result = [
                 e
@@ -859,15 +849,6 @@ class PlanningStore(UserSession):
                 p
                 for p in result
                 if any(str(e.real_id) in self.employee_filter for e in p.employees)
-            ]
-        q = self.search_query.strip().lower()
-        if q:
-            result = [
-                p
-                for p in result
-                if q in p.name.lower()
-                or q in p.code.lower()
-                or any(q in e.name.lower() for e in p.employees)
             ]
         return result
 

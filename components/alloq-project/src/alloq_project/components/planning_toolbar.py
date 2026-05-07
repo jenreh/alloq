@@ -41,14 +41,6 @@ def _toggle_button(
 def planning_toolbar() -> rx.Component:
     """Fixed top-right toolbar for the resource planning page."""
     return rx.flex(
-        mn.text_input(
-            placeholder="Suchen...",
-            left_section=rx.icon("search", size=16),
-            value=PlanningStore.search_query,
-            on_change=PlanningStore.set_search_query,
-            size="sm",
-            w="18rem",
-        ),
         mn.button(
             mn.text("Projekt planen", size="sm"),
             left_section=rx.icon("land-plot", size=20),
