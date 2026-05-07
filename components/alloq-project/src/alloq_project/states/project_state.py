@@ -107,6 +107,7 @@ class ProjectState(UserSession):
     active_tab: str = "status"
 
     # Status form input state
+    status_date: str = ""
     status_progress: int = 0
     status_budget_usage: int = 0
     status_notes: str = ""
@@ -236,6 +237,7 @@ class ProjectState(UserSession):
         self.capacities = []
         self.required_capacities = []
         self.active_tab = "status"
+        self.status_date = datetime.now(tz=UTC).date().isoformat()
         self.status_progress = 0
         self.status_budget_usage = 0
         self.status_notes = ""
@@ -350,6 +352,7 @@ class ProjectState(UserSession):
                 RequiredCapacity(**capacity.to_dict()) for capacity in required_entities
             ]
             self.detail_drawer_open = True
+            self.status_date = datetime.now(tz=UTC).date().isoformat()
             yield ProjectValidationState.initialize(self.selected_project)
 
     @is_authenticated
@@ -576,6 +579,10 @@ class ProjectState(UserSession):
         """Update the status notes field."""
         self.status_notes = value or ""
 
+    def set_status_date(self, value: str) -> None:
+        """Update the status date field."""
+        self.status_date = value or ""
+
     @is_authenticated
     async def add_project_status(self) -> AsyncGenerator[Any, None]:
         """Save current status form as a new history entry."""
@@ -583,11 +590,15 @@ class ProjectState(UserSession):
             return
         project_id = self.selected_project.id
         try:
-            today = datetime.now(tz=UTC).date()
+            status_date = date.fromisoformat(self.status_date[:10])
+        except (ValueError, IndexError):
+            yield rx.toast.error("Ungültiges Datum.", position="top-right")
+            return
+        try:
             async with get_asyncdb_session() as session:
                 entity = ProjectStatusEntity(
                     project_id=project_id,
-                    status_date=today,
+                    status_date=status_date,
                     fortschritt=self.status_progress,
                     budget_verbrauch=self.status_budget_usage,
                     anmerkung=self.status_notes or None,
@@ -598,12 +609,13 @@ class ProjectState(UserSession):
                 new_status = ProjectStatus(
                     id=entity.id,
                     project_id=project_id,
-                    status_date=today.isoformat(),
+                    status_date=status_date.isoformat(),
                     fortschritt=self.status_progress,
                     budget_verbrauch=self.status_budget_usage,
                     anmerkung=self.status_notes,
                 )
             self.statuses = [new_status, *self.statuses]
+            self.status_date = datetime.now(tz=UTC).date().isoformat()
             self.status_progress = 0
             self.status_budget_usage = 0
             self.status_notes = ""

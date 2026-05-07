@@ -123,12 +123,15 @@ def _status_edit_form() -> rx.Component:
     """Inline edit form bound to status draft state vars."""
     return mn.stack(
         mn.simple_grid(
-            mn.text_input(
+            mn.date_input(
                 label="Datum",
                 default_value=ProjectState.status_draft_date,
                 on_change=ProjectState.set_status_draft_date,
                 size="sm",
-                placeholder="YYYY-MM-DD",
+                locale="de",
+                value_format="DD.MM.YYYY",
+                clearable=False,
+                left_section=rx.icon("calendar", size=16),
             ),
             mn.number_input(
                 label="Fortschritt (%)",
@@ -196,33 +199,47 @@ def _status_edit_form() -> rx.Component:
     )
 
 
+def _format_date_de(iso_date: rx.Var) -> rx.Var:
+    """Convert ISO date string (YYYY-MM-DD) to German format (DD.MM.YYYY)."""
+    parts = iso_date.split("-")
+    return parts[2] + "." + parts[1] + "." + parts[0]
+
+
 def _history_row(status: rx.Var) -> rx.Component:
     """Render one row of the status history table with inline edit support."""
     is_expanded = ProjectState.expanded_status_id == status.id
     return mn.box(
         mn.group(
             mn.text(
-                status.status_date,
+                _format_date_de(status.status_date),
                 size="sm",
                 fw="600",
-                w="7rem",
-                style={"flexShrink": "0"},
+                w="6rem",
+                style={"flexShrinkg": "1"},
+            ),
+            mn.text(
+                status.anmerkung,
+                size="xs",
+                c="dimmed",
+                truncate=True,
+                style={"flex": "1"},
             ),
             mn.badge(
                 status.fortschritt.to_string() + " %",
                 variant="light",
                 color="blue",
                 radius="sm",
-                style={"flexShrink": "0"},
+                w="5rem",
+                style={"flexShrink": "0", "textAlign": "center"},
             ),
             mn.badge(
                 status.budget_verbrauch.to_string() + " %",
                 variant="light",
                 color="orange",
                 radius="sm",
-                style={"flexShrink": "0"},
+                w="5rem",
+                style={"flexShrink": "0", "textAlign": "center"},
             ),
-            mn.text(status.anmerkung, size="xs", c="dimmed", style={"flex": "1"}),
             rx.box(
                 mn.action_icon(
                     rx.cond(
@@ -307,6 +324,16 @@ def _status_form() -> rx.Component:
         mn.stack(
             mn.text("Status erfassen", size="sm", fw="700", c="dimmed"),
             mn.simple_grid(
+                mn.date_input(
+                    label="Datum",
+                    default_value=ProjectState.status_date,
+                    on_change=ProjectState.set_status_date,
+                    size="sm",
+                    locale="de",
+                    value_format="DD.MM.YYYY",
+                    clearable=False,
+                    left_section=rx.icon("calendar", size=16),
+                ),
                 mn.number_input(
                     label="Fortschritt (%)",
                     default_value=ProjectState.status_progress,
@@ -329,7 +356,7 @@ def _status_form() -> rx.Component:
                     fixed_decimal_scale=True,
                     suffix=" %",
                 ),
-                cols=2,
+                cols=3,
                 spacing="md",
                 w="100%",
             ),
