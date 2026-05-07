@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import reflex as rx
+from alloq_commons.components.formatters import de_number
 from alloq_project.components.project_card import project_card
 from alloq_project.states.project_state import ProjectState
 
@@ -233,10 +234,8 @@ def _role_capacity_card(role: rx.Var) -> rx.Component:
                                 c="var(--alloq-text-muted)",
                                 nowrap=True,
                             ),
-                            mn.number_formatter(
+                            de_number(
                                 value=role.free_days,
-                                thousand_separator=".",
-                                decimal_separator=",",
                                 minimum_fraction_digits=2,
                                 maximum_fraction_digits=2,
                                 style={
@@ -254,10 +253,8 @@ def _role_capacity_card(role: rx.Var) -> rx.Component:
                                 c="var(--alloq-text-muted)",
                                 nowrap=True,
                             ),
-                            mn.number_formatter(
+                            de_number(
                                 value=role.allocated_days,
-                                thousand_separator=".",
-                                decimal_separator=",",
                                 minimum_fraction_digits=2,
                                 maximum_fraction_digits=2,
                                 style={

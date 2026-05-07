@@ -1,4 +1,5 @@
 import reflex as rx
+from alloq_commons.components.formatters import de_number
 from alloq_commons.models.project import Project, TeamMemberBadge
 from alloq_project.states.project_state import ProjectState
 
@@ -152,20 +153,18 @@ def project_card(project: Project) -> rx.Component:
                 mn.group(
                     _metric(
                         "BUDGET",
-                        mn.number_formatter(
+                        de_number(
                             value=project.budget,
-                            thousand_separator=".",
-                            decimal_separator=",",
                             suffix=" €",
                         ),
                     ),
                     _metric(
                         "VERBRAUCHT",
-                        mn.number_formatter(value=project.current_spent, suffix="%"),
+                        de_number(value=project.current_spent, suffix="%"),
                     ),
                     _metric(
                         "FORTSCHRITT",
-                        mn.number_formatter(value=project.current_progress, suffix="%"),
+                        de_number(value=project.current_progress, suffix="%"),
                     ),
                     justify="space-between",
                     w="100%",

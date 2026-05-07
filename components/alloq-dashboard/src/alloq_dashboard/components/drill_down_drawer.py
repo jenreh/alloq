@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import reflex as rx
+from alloq_commons.components.formatters import de_number
 from alloq_commons.components.forms import section
 from alloq_commons.components.modal_layout import DRAWER_CLASS
 
@@ -27,32 +28,13 @@ HIGH_WORKLOAD_PERCENT = 70
 WORKLOAD_LIMIT_PERCENT = 100
 
 
-def _de_number(
-    value: rx.Var,
-    *,
-    minimum_fraction_digits: int = 0,
-    maximum_fraction_digits: int = 0,
-    suffix: str = "",
-    style: dict[str, str] | None = None,
-) -> rx.Component:
-    return mn.number_formatter(
-        value=value,
-        thousand_separator=".",
-        decimal_separator=",",
-        minimum_fraction_digits=minimum_fraction_digits,
-        maximum_fraction_digits=maximum_fraction_digits,
-        suffix=suffix,
-        style=style,
-    )
-
-
 def _empty_utilization_message(message: str) -> rx.Component:
     return mn.text(message, size="sm", c="var(--alloq-text-muted)")
 
 
 def _utilization_badge(percent: rx.Var) -> rx.Component:
     return mn.badge(
-        _de_number(percent, suffix="%"),
+        de_number(percent, suffix="%"),
         size="lg",
         variant="light",
         color="blue",
@@ -88,7 +70,7 @@ def _free_hours_line(hours: rx.Var) -> rx.Component:
             size="xs",
             c="var(--alloq-text-muted)",
         ),
-        _de_number(
+        de_number(
             hours,
             minimum_fraction_digits=0,
             maximum_fraction_digits=1,

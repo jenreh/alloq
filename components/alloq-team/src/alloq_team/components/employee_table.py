@@ -1,4 +1,5 @@
 import reflex as rx
+from alloq_commons.components.formatters import de_number
 from alloq_commons.models.employee import Employee
 from alloq_team.components.employee_card import (
     _employee_initials,
@@ -90,11 +91,9 @@ def _workload_cell(employee: Employee) -> rx.Component:
             bg="var(--alloq-meter-track)",
         ),
         mn.text(
-            mn.number_formatter(
+            de_number(
                 value=employee.workload_percent,
                 suffix="%",
-                decimal_separator=",",
-                thousand_separator=".",
             ),
             size="sm",
             c=rx.cond(
@@ -138,12 +137,10 @@ def _employee_table_row(employee: Employee) -> rx.Component:
             ),
         ),
         mn.table.td(
-            mn.number_formatter(
+            de_number(
                 value=employee.hours_per_week,
                 suffix=" h/Woche",
                 decimal_scale=1,
-                decimal_separator=",",
-                thousand_separator=".",
             ),
             style=NO_WRAP_CELL_STYLE,
         ),

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import reflex as rx
+from alloq_commons.components.formatters import de_number
 from alloq_project.states.planning_grid_state import (
     LABEL_COL_PX,
     WEEK_COL_PX,
@@ -136,22 +137,21 @@ def _format_de(value: rx.Var[float] | float) -> rx.Component:
     return rx.cond(
         value == 0,
         mn.box(""),
-        mn.number_formatter(
+        de_number(
             value=value,
             decimal_scale=2,
-            decimal_separator=",",
-            thousand_separator=".",
+            minimum_fraction_digits=2,
+            fixed_decimal_scale=True,
         ),
     )
 
 
 def _format_gesamt(value: rx.Var[float]) -> rx.Component:
-    return mn.number_formatter(
+    return de_number(
         value=value,
         decimal_scale=2,
+        minimum_fraction_digits=2,
         fixed_decimal_scale=True,
-        decimal_separator=",",
-        thousand_separator=".",
     )
 
 
