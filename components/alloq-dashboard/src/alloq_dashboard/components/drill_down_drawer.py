@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import reflex as rx
 from alloq_commons.components.forms import section
 from alloq_commons.components.modal_layout import DRAWER_CLASS
@@ -9,27 +11,17 @@ from alloq_commons.components.modal_layout import DRAWER_CLASS
 import appkit_mantine as mn
 from alloq_dashboard.components.cards import (
     DRILL_BUDGET_BURN,
-    DRILL_PROJECT_HEALTH,
-    DRILL_PROJECTS_OVERVIEW,
     DRILL_RISKS,
-    DRILL_UNDER_UTILIZATION,
     DRILL_UTILIZATION,
 )
+from alloq_dashboard.components.shared import ROW_STYLE, severity_badge_color
 from alloq_dashboard.states import (
     BudgetBurnState,
     DashboardState,
-    ProjectHealthState,
-    ProjectsOverviewState,
     RiskState,
     UnderUtilizationState,
     UtilizationState,
 )
-
-ROW_STYLE = {
-    "padding": "8px 12px",
-    "borderRadius": "6px",
-    "backgroundColor": "var(--alloq-surface-muted)",
-}
 
 HIGH_WORKLOAD_PERCENT = 70
 WORKLOAD_LIMIT_PERCENT = 100
@@ -172,67 +164,6 @@ def _project_row(project: rx.Var) -> rx.Component:
     )
 
 
-def _projects_overview_body() -> rx.Component:
-    data = ProjectsOverviewState.data
-    return mn.stack(
-        mn.text("Verteilung", size="sm", fw="600", c="var(--alloq-text)"),
-        mn.group(
-            rx.foreach(
-                data.by_state,
-                lambda s: mn.stack(
-                    mn.text(s.state, size="xs", c="var(--alloq-text-muted)"),
-                    mn.badge(
-                        s.count.to_string(),
-                        size="lg",
-                        color="gray",
-                        variant="light",
-                    ),
-                    gap="4px",
-                    align="center",
-                    style={**ROW_STYLE, "flex": "1"},
-                ),
-            ),
-            gap="sm",
-            w="100%",
-            grow=True,
-        ),
-        mn.divider(),
-        mn.text("Alle Projekte", size="sm", fw="600", c="var(--alloq-text)"),
-        rx.foreach(data.rows, _project_row),
-        gap="sm",
-        w="100%",
-    )
-
-
-def _project_health_body() -> rx.Component:
-    data = ProjectHealthState.data
-    return mn.stack(
-        mn.group(
-            mn.badge(
-                data.at_risk_count.to_string() + " gefährdet",
-                color="red",
-                variant="filled",
-                size="lg",
-            ),
-            mn.badge(
-                data.healthy_count.to_string() + " gesund",
-                color="green",
-                variant="light",
-                size="lg",
-            ),
-            gap="md",
-        ),
-        mn.divider(),
-        rx.cond(
-            data.rows.length() > 0,
-            mn.stack(rx.foreach(data.rows, _project_row), gap="xs"),
-            mn.text("Keine Projekte gefährdet.", c="var(--alloq-text-muted)"),
-        ),
-        gap="md",
-        w="100%",
-    )
-
-
 def _budget_burn_body() -> rx.Component:
     data = BudgetBurnState.data
     return mn.stack(
@@ -274,6 +205,87 @@ def _budget_burn_body() -> rx.Component:
     )
 
 
+def _employee_bucket_sections(
+    row_fn: Callable[[rx.Var], rx.Component],
+    noun: str,
+) -> list[rx.Component]:
+    """Render Überlastet / Gut ausgelastet / Defizit / Abwesend sections."""
+    data = UtilizationState.data
+    summary = UnderUtilizationState.data
+    well_utilized_count = (
+        summary.total_employees
+        - summary.overloaded_count
+        - summary.affected_count
+        - summary.absent_count
+    )
+    return [
+        section(
+            mn.text("Überlastet (> 100%)", size="sm", fw="600"),
+            rx.cond(
+                summary.overloaded_count > 0,
+                rx.foreach(
+                    data.employee_breakdown,
+                    lambda emp: rx.cond(
+                        (emp.current_week_percent > WORKLOAD_LIMIT_PERCENT)
+                        & ~emp.current_week_is_absent,
+                        row_fn(emp),
+                        rx.fragment(),
+                    ),
+                ),
+                _empty_utilization_message(f"Keine {noun} über 100% ausgelastet."),
+            ),
+        ),
+        section(
+            mn.text("Gut ausgelastet (70-100%)", size="sm", fw="600"),
+            rx.cond(
+                well_utilized_count > 0,
+                rx.foreach(
+                    data.employee_breakdown,
+                    lambda emp: rx.cond(
+                        (emp.current_week_percent >= HIGH_WORKLOAD_PERCENT)
+                        & (emp.current_week_percent <= WORKLOAD_LIMIT_PERCENT)
+                        & ~emp.current_week_is_absent,
+                        row_fn(emp),
+                        rx.fragment(),
+                    ),
+                ),
+                _empty_utilization_message(f"Keine {noun} gut ausgelastet."),
+            ),
+        ),
+        section(
+            mn.text("Auslastungsdefizit (< 70%)", size="sm", fw="600"),
+            rx.cond(
+                summary.affected_count > 0,
+                rx.foreach(
+                    data.employee_breakdown,
+                    lambda emp: rx.cond(
+                        (emp.current_week_percent < HIGH_WORKLOAD_PERCENT)
+                        & ~emp.current_week_is_absent,
+                        row_fn(emp),
+                        rx.fragment(),
+                    ),
+                ),
+                _empty_utilization_message(f"Keine {noun} mit Auslastungsdefizit."),
+            ),
+        ),
+        section(
+            mn.text("Abwesend", size="sm", fw="600"),
+            rx.cond(
+                data.current_absent_count > 0,
+                rx.foreach(
+                    data.employee_breakdown,
+                    lambda emp: rx.cond(
+                        emp.current_week_is_absent,
+                        row_fn(emp),
+                        rx.fragment(),
+                    ),
+                ),
+                _empty_utilization_message(f"Keine {noun} abwesend."),
+            ),
+        ),
+    ]
+
+
 def _employee_util_row(emp: rx.Var) -> rx.Component:
     return mn.group(
         mn.stack(
@@ -295,49 +307,8 @@ def _employee_util_row(emp: rx.Var) -> rx.Component:
     )
 
 
-def _employee_current_util_row(emp: rx.Var) -> rx.Component:
-    return mn.group(
-        mn.stack(
-            mn.group(
-                mn.text(emp.name, size="sm", fw="600"),
-                rx.cond(
-                    emp.role_name != "",
-                    mn.badge(
-                        emp.role_name,
-                        size="xs",
-                        color="gray",
-                        variant="light",
-                    ),
-                    rx.fragment(),
-                ),
-                gap="sm",
-                align="center",
-            ),
-            _free_hours_line(emp.free_hours_next_4w),
-            gap="2px",
-            style={"flex": "1 1 0", "minWidth": "0"},
-        ),
-        mn.box(
-            _current_utilization_badge(emp),
-            style={"marginLeft": "auto", "flexShrink": "0"},
-        ),
-        justify="space-between",
-        align="center",
-        wrap="nowrap",
-        w="100%",
-        style=ROW_STYLE,
-    )
-
-
 def _utilization_body() -> rx.Component:
     data = UtilizationState.data
-    summary = UnderUtilizationState.data
-    well_utilized_count = (
-        summary.total_employees
-        - summary.overloaded_count
-        - summary.affected_count
-        - summary.absent_count
-    )
     return mn.stack(
         section(
             mn.text(
@@ -378,200 +349,10 @@ def _utilization_body() -> rx.Component:
                 unit="%",
             ),
         ),
-        section(
-            mn.text("Überlastet (> 100%)", size="sm", fw="600"),
-            rx.cond(
-                summary.overloaded_count > 0,
-                rx.foreach(
-                    data.employee_breakdown,
-                    lambda emp: rx.cond(
-                        (emp.current_week_percent > WORKLOAD_LIMIT_PERCENT)
-                        & ~emp.current_week_is_absent,
-                        _employee_util_row(emp),
-                        rx.fragment(),
-                    ),
-                ),
-                _empty_utilization_message("Keine Mitarbeiter überlastet."),
-            ),
-        ),
-        section(
-            mn.text("Gut ausgelastet (70-100%)", size="sm", fw="600"),
-            rx.cond(
-                well_utilized_count > 0,
-                rx.foreach(
-                    data.employee_breakdown,
-                    lambda emp: rx.cond(
-                        (emp.current_week_percent >= HIGH_WORKLOAD_PERCENT)
-                        & (emp.current_week_percent <= WORKLOAD_LIMIT_PERCENT)
-                        & ~emp.current_week_is_absent,
-                        _employee_util_row(emp),
-                        rx.fragment(),
-                    ),
-                ),
-                _empty_utilization_message("Keine Mitarbeiter gut ausgelastet."),
-            ),
-        ),
-        section(
-            mn.text("Auslastungsdefizit (< 70%)", size="sm", fw="600"),
-            rx.cond(
-                summary.affected_count > 0,
-                rx.foreach(
-                    data.employee_breakdown,
-                    lambda emp: rx.cond(
-                        (emp.current_week_percent < HIGH_WORKLOAD_PERCENT)
-                        & ~emp.current_week_is_absent,
-                        _employee_util_row(emp),
-                        rx.fragment(),
-                    ),
-                ),
-                _empty_utilization_message("Keine Mitarbeiter mit Auslastungsdefizit."),
-            ),
-        ),
-        section(
-            mn.text("Abwesend", size="sm", fw="600"),
-            rx.cond(
-                data.current_absent_count > 0,
-                rx.foreach(
-                    data.employee_breakdown,
-                    lambda emp: rx.cond(
-                        emp.current_week_is_absent,
-                        _employee_util_row(emp),
-                        rx.fragment(),
-                    ),
-                ),
-                _empty_utilization_message("Keine Mitarbeiter abwesend."),
-            ),
-        ),
+        *_employee_bucket_sections(_employee_util_row, "Mitarbeiter"),
         mn.space(h="2rem"),
         gap="md",
         w="100%",
-    )
-
-
-def _under_utilization_body() -> rx.Component:
-    summary = UnderUtilizationState.data
-    data = UtilizationState.data
-    well_utilized_count = (
-        summary.total_employees
-        - summary.overloaded_count
-        - summary.affected_count
-        - summary.absent_count
-    )
-    return mn.stack(
-        mn.group(
-            mn.badge(
-                summary.overloaded_count.to_string() + " über 100%",
-                color="orange",
-                size="lg",
-                variant="filled",
-            ),
-            mn.badge(
-                summary.affected_count.to_string() + " unter 70%",
-                color="yellow",
-                size="lg",
-                variant="filled",
-            ),
-            mn.badge(
-                mn.group(
-                    _de_number(
-                        summary.total_free_hours,
-                        minimum_fraction_digits=0,
-                        maximum_fraction_digits=1,
-                        suffix=" h",
-                    ),
-                    mn.text("frei (4 Wo)"),
-                    gap="4px",
-                ),
-                color="blue",
-                size="lg",
-                variant="light",
-            ),
-            gap="md",
-        ),
-        mn.divider(),
-        section(
-            mn.text("Überlastet (> 100%)", size="sm", fw="600"),
-            rx.cond(
-                summary.overloaded_count > 0,
-                rx.foreach(
-                    data.employee_breakdown,
-                    lambda emp: rx.cond(
-                        (emp.current_week_percent > WORKLOAD_LIMIT_PERCENT)
-                        & ~emp.current_week_is_absent,
-                        _employee_current_util_row(emp),
-                        rx.fragment(),
-                    ),
-                ),
-                _empty_utilization_message(
-                    "Keine Mitarbeitenden über 100% ausgelastet."
-                ),
-            ),
-        ),
-        section(
-            mn.text("Gut ausgelastet (70-100%)", size="sm", fw="600"),
-            rx.cond(
-                well_utilized_count > 0,
-                rx.foreach(
-                    data.employee_breakdown,
-                    lambda emp: rx.cond(
-                        (emp.current_week_percent >= HIGH_WORKLOAD_PERCENT)
-                        & (emp.current_week_percent <= WORKLOAD_LIMIT_PERCENT)
-                        & ~emp.current_week_is_absent,
-                        _employee_current_util_row(emp),
-                        rx.fragment(),
-                    ),
-                ),
-                _empty_utilization_message(
-                    "Keine Mitarbeitenden im Bereich 70-100% ausgelastet."
-                ),
-            ),
-        ),
-        section(
-            mn.text("Auslastungsdefizit (< 70%)", size="sm", fw="600"),
-            rx.cond(
-                summary.affected_count > 0,
-                rx.foreach(
-                    data.employee_breakdown,
-                    lambda emp: rx.cond(
-                        (emp.current_week_percent < HIGH_WORKLOAD_PERCENT)
-                        & ~emp.current_week_is_absent,
-                        _employee_current_util_row(emp),
-                        rx.fragment(),
-                    ),
-                ),
-                _empty_utilization_message(
-                    "Keine Mitarbeitenden unter 70% ausgelastet."
-                ),
-            ),
-        ),
-        section(
-            mn.text("Abwesend", size="sm", fw="600"),
-            rx.cond(
-                data.current_absent_count > 0,
-                rx.foreach(
-                    data.employee_breakdown,
-                    lambda emp: rx.cond(
-                        emp.current_week_is_absent,
-                        _employee_current_util_row(emp),
-                        rx.fragment(),
-                    ),
-                ),
-                _empty_utilization_message("Keine Mitarbeitenden abwesend."),
-            ),
-        ),
-        mn.space(h="2rem"),
-        gap="md",
-        w="100%",
-    )
-
-
-def _severity_color(severity: rx.Var[str]) -> rx.Var[str]:
-    return rx.match(
-        severity,
-        ("high", "red"),
-        ("medium", "yellow"),
-        ("low", "green"),
-        "gray",
     )
 
 
@@ -580,7 +361,7 @@ def _risk_row(risk: rx.Var) -> rx.Component:
         mn.group(
             mn.badge(
                 risk.severity,
-                color=_severity_color(risk.severity),
+                color=severity_badge_color(risk.severity),
                 size="sm",
                 variant="filled",
             ),
@@ -651,11 +432,8 @@ def _risks_body() -> rx.Component:
 def _drill_title(key: rx.Var[str]) -> rx.Var[str]:
     return rx.match(
         key,
-        (DRILL_PROJECTS_OVERVIEW, "Aktuelle Projekte"),
-        (DRILL_PROJECT_HEALTH, "Projekt-Gesundheit"),
         (DRILL_BUDGET_BURN, "Budgetverbrauch"),
         (DRILL_UTILIZATION, "Team-Auslastung"),
-        (DRILL_UNDER_UTILIZATION, "Auslastungslücken"),
         (DRILL_RISKS, "Risiken"),
         "Details",
     )
@@ -667,11 +445,8 @@ def drill_down_drawer() -> rx.Component:
         mn.box(
             rx.match(
                 DashboardState.drill_down,
-                (DRILL_PROJECTS_OVERVIEW, _projects_overview_body()),
-                (DRILL_PROJECT_HEALTH, _project_health_body()),
                 (DRILL_BUDGET_BURN, _budget_burn_body()),
                 (DRILL_UTILIZATION, _utilization_body()),
-                (DRILL_UNDER_UTILIZATION, _under_utilization_body()),
                 (DRILL_RISKS, _risks_body()),
                 rx.fragment(),
             ),

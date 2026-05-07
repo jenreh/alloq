@@ -8,6 +8,11 @@ from alloq_project.states.project_state import ProjectState
 
 import appkit_mantine as mn
 from alloq_dashboard.components.kpi_card import kpi_card
+from alloq_dashboard.components.shared import (
+    ROW_STYLE,
+    severity_badge_color,
+    status_badge_color,
+)
 from alloq_dashboard.states import (
     BudgetBurnState,
     DashboardState,
@@ -19,18 +24,9 @@ from alloq_dashboard.states import (
     UtilizationState,
 )
 
-DRILL_PROJECTS_OVERVIEW = "projects_overview"
-DRILL_PROJECT_HEALTH = "project_health"
 DRILL_BUDGET_BURN = "budget_burn"
 DRILL_UTILIZATION = "utilization"
-DRILL_UNDER_UTILIZATION = "under_utilization"
 DRILL_RISKS = "risks"
-
-_ROW_STYLE = {
-    "padding": "8px 12px",
-    "borderRadius": "6px",
-    "backgroundColor": "var(--alloq-surface-muted)",
-}
 
 
 # --------------------------------------------------------------------------
@@ -69,32 +65,6 @@ def _stat_pill(
     )
 
 
-def _severity_badge_color(severity: rx.Var[str]) -> rx.Var[str]:
-    return rx.match(
-        severity,
-        ("high", "red"),
-        ("Hoch", "red"),
-        ("medium", "yellow"),
-        ("Mittel", "yellow"),
-        ("low", "green"),
-        ("Niedrig", "green"),
-        "gray",
-    )
-
-
-def _status_badge_color(status: rx.Var[str]) -> rx.Var[str]:
-    return rx.match(
-        status,
-        ("open", "red"),
-        ("Offen", "red"),
-        ("in_progress", "yellow"),
-        ("In Bearbeitung", "yellow"),
-        ("done", "green"),
-        ("Erledigt", "green"),
-        "gray",
-    )
-
-
 def projects_overview_card() -> rx.Component:
     data = ProjectsOverviewState.data
     body = mn.stack(
@@ -114,8 +84,6 @@ def projects_overview_card() -> rx.Component:
         error_message=ProjectsOverviewState.error_message,
         icon="folder-kanban",
         compact=True,
-        # background_color=("light-dark(var(--alloq-warm),var(--alloq-accent-soft))"),
-        on_open=DashboardState.open_drill_down(DRILL_PROJECTS_OVERVIEW),
     )
 
 
@@ -138,7 +106,6 @@ def project_health_card() -> rx.Component:
         error_message=ProjectHealthState.error_message,
         icon="triangle-alert",
         compact=True,
-        on_open=DashboardState.open_drill_down(DRILL_PROJECT_HEALTH),
     )
 
 
@@ -461,12 +428,12 @@ def _risk_row(risk: rx.Var) -> rx.Component:
                     risk.severity,
                     size="xs",
                     variant="dot",
-                    color=_severity_badge_color(risk.severity),
+                    color=severity_badge_color(risk.severity),
                 ),
                 mn.badge(
                     risk.mitigation_status,
                     size="xs",
-                    color=_status_badge_color(risk.mitigation_status),
+                    color=status_badge_color(risk.mitigation_status),
                     variant="light",
                 ),
                 gap="xs",
@@ -475,7 +442,7 @@ def _risk_row(risk: rx.Var) -> rx.Component:
         ),
         gap="sm",
         w="100%",
-        style=_ROW_STYLE,
+        style=ROW_STYLE,
     )
 
 

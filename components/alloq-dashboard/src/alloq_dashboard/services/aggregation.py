@@ -753,6 +753,28 @@ def _weekly_utilization_result_to_model(
     )
 
 
+def _to_utilization_employee(emp: _EmployeeRow) -> UtilizationEmployeeInput:
+    return UtilizationEmployeeInput(
+        employee_id=emp.id,
+        name=f"{emp.first_name} {emp.last_name}".strip(),
+        role_name=emp.role_names[0] if emp.role_names else "",
+        internal_hours=emp.internal_hours,
+        absences=tuple(
+            AbsencePeriod(start_date=a.start_date, end_date=a.end_date)
+            for a in emp.absences
+        ),
+    )
+
+
+def _to_utilization_allocation(a: _AllocationRow) -> UtilizationAllocationInput:
+    return UtilizationAllocationInput(
+        project_id=a.project_id,
+        employee_id=a.employee_id,
+        week_start=a.week_start,
+        person_days=a.person_days,
+    )
+
+
 def _utilization_series(
     employees: list[_EmployeeRow],
     allocations: list[_AllocationRow],
@@ -760,28 +782,8 @@ def _utilization_series(
 ) -> TeamUtilizationSeries:
     today = _today()
     return UtilizationService.compute_team_utilization_series(
-        employees=[
-            UtilizationEmployeeInput(
-                employee_id=emp.id,
-                name=f"{emp.first_name} {emp.last_name}".strip(),
-                role_name=emp.role_names[0] if emp.role_names else "",
-                internal_hours=emp.internal_hours,
-                absences=tuple(
-                    AbsencePeriod(start_date=a.start_date, end_date=a.end_date)
-                    for a in emp.absences
-                ),
-            )
-            for emp in employees
-        ],
-        allocations=[
-            UtilizationAllocationInput(
-                project_id=allocation.project_id,
-                employee_id=allocation.employee_id,
-                week_start=allocation.week_start,
-                person_days=allocation.person_days,
-            )
-            for allocation in allocations
-        ],
+        employees=[_to_utilization_employee(emp) for emp in employees],
+        allocations=[_to_utilization_allocation(a) for a in allocations],
         week_starts=weeks,
         current_week_start=_monday(today),
         free_capacity_start=_monday(today),
@@ -844,18 +846,15 @@ async def load_under_utilization() -> UnderUtilizationKpi:
         _utilization_series(employees, allocations, weeks)
     )
 
-    affected: list[EmployeeUtilization] = []
-    overloaded: list[EmployeeUtilization] = []
-    absent_count = 0
-    for emp in breakdown:
-        if emp.current_week_is_absent:
-            absent_count += 1
-            continue
-        if emp.current_week_percent < UNDER_UTIL_THRESHOLD:
-            affected.append(emp)
-        if emp.current_week_percent > OVER_UTIL_THRESHOLD:
-            overloaded.append(emp)
-    affected.sort(key=lambda e: -e.free_hours_next_4w)
+    active = [emp for emp in breakdown if not emp.current_week_is_absent]
+    absent_count = len(breakdown) - len(active)
+    affected = sorted(
+        [emp for emp in active if emp.current_week_percent < UNDER_UTIL_THRESHOLD],
+        key=lambda e: -e.free_hours_next_4w,
+    )
+    overloaded = [
+        emp for emp in active if emp.current_week_percent > OVER_UTIL_THRESHOLD
+    ]
     total_free = round(sum(e.free_hours_next_4w for e in affected), 1)
     return UnderUtilizationKpi(
         affected_count=len(affected),
