@@ -318,6 +318,7 @@ def _project_gesamt_cell(cell: ProjectGesamtCell) -> rx.Component:
             "backgroundColor": "var(--alloq-surface-muted)",
             "color": "var(--alloq-text)",
             "fontWeight": "600",
+            "fontSize": "11px",
         },
     )
 
@@ -328,7 +329,7 @@ def _project_gesamt_row(proj: ProjectBlock) -> rx.Component:
         mn.box(
             mn.text(
                 "Gesamt (allokiert)",
-                size="sm",
+                size="12px",
                 fw="700",
                 c="var(--alloq-text)",
             ),
