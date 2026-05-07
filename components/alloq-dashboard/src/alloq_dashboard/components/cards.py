@@ -57,17 +57,6 @@ def _big_number(value: rx.Var, suffix: str = "") -> rx.Component:
     )
 
 
-def _bucket_color(bucket: rx.Var[str]) -> rx.Var[str]:
-    return rx.match(
-        bucket,
-        ("low", "var(--mantine-color-blue-6)"),
-        ("mid", "var(--mantine-color-green-6)"),
-        ("high", "var(--mantine-color-yellow-6)"),
-        ("over", "var(--mantine-color-red-6)"),
-        "var(--mantine-color-gray-6)",
-    )
-
-
 def _stat_pill(
     label: str,
     value: rx.Var,
@@ -77,17 +66,6 @@ def _stat_pill(
         mn.text(label, size="xs", c="var(--alloq-text-muted)"),
         mn.text(value.to_string(), size="lg", fw="700", c=color),
         gap="2px",
-    )
-
-
-def _state_badge_color(state: rx.Var[str]) -> rx.Var[str]:
-    return rx.match(
-        state,
-        ("Aktiv", "green"),
-        ("Geplant", "gray"),
-        ("Risiko", "red"),
-        ("Abgeschlossen", "violet"),
-        "gray",
     )
 
 
@@ -136,9 +114,7 @@ def projects_overview_card() -> rx.Component:
         error_message=ProjectsOverviewState.error_message,
         icon="folder-kanban",
         compact=True,
-        background_color=(
-            "light-dark(var(--mantine-color-yellow-4),var(--alloq-accent-soft))"
-        ),
+        # background_color=("light-dark(var(--alloq-warm),var(--alloq-accent-soft))"),
         on_open=DashboardState.open_drill_down(DRILL_PROJECTS_OVERVIEW),
     )
 
@@ -167,57 +143,7 @@ def project_health_card() -> rx.Component:
 
 
 # --------------------------------------------------------------------------
-# Card 4 — budget burn
-# --------------------------------------------------------------------------
-
-
-def budget_burn_card() -> rx.Component:
-    data = BudgetBurnState.data
-    body = mn.stack(
-        mn.group(
-            _stat_pill(
-                "Verbraucht (€)",
-                data.total_spent,
-                "var(--mantine-color-red-7)",
-            ),
-            _stat_pill(
-                "Budget (€)",
-                data.total_budget,
-                "var(--alloq-text)",
-            ),
-            _stat_pill(
-                "Quote",
-                data.spent_percent.to_string() + "%",
-                "var(--mantine-color-orange-7)",
-            ),
-            gap="lg",
-        ),
-        rx.cond(
-            data.trend.length() > 0,
-            mn.sparkline(
-                data=data.trend.foreach(lambda p: p.value),
-                h=60,
-                color="var(--mantine-color-orange-6)",
-                stroke_width=2,
-                with_gradient=True,
-                fill_opacity=0.2,
-            ),
-            mn.text("—", size="sm", c="var(--alloq-text-muted)"),
-        ),
-        gap="md",
-    )
-    return kpi_card(
-        title="Budgetverbrauch",
-        body=body,
-        is_loading=BudgetBurnState.is_loading,
-        error_message=BudgetBurnState.error_message,
-        icon="banknote",
-        on_open=DashboardState.open_drill_down(DRILL_BUDGET_BURN),
-    )
-
-
-# --------------------------------------------------------------------------
-# Card 5 — utilization
+# Card 5 — Team Gesundheit
 # --------------------------------------------------------------------------
 
 
@@ -248,7 +174,7 @@ def utilization_card() -> rx.Component:
 
 
 # --------------------------------------------------------------------------
-# Card 6 — under-utilization
+# Card 6 — Auslastung
 # --------------------------------------------------------------------------
 
 
@@ -309,7 +235,7 @@ def under_utilization_card() -> rx.Component:
         error_message=UnderUtilizationState.error_message,
         icon="activity",
         compact=True,
-        on_open=DashboardState.open_drill_down(DRILL_UNDER_UTILIZATION),
+        on_open=DashboardState.open_drill_down(DRILL_UTILIZATION),
     )
 
 
@@ -334,7 +260,12 @@ def _role_capacity_card(role: rx.Var) -> rx.Component:
                     ),
                     mn.group(
                         mn.stack(
-                            mn.text("PT FREI", size="xs", c="var(--alloq-text-muted)"),
+                            mn.text(
+                                "PT FREI",
+                                size="xs",
+                                c="var(--alloq-text-muted)",
+                                nowrap=True,
+                            ),
                             mn.number_formatter(
                                 value=role.free_days,
                                 thousand_separator=".",
@@ -347,10 +278,14 @@ def _role_capacity_card(role: rx.Var) -> rx.Component:
                                 },
                             ),
                             gap="2px",
+                            flex="1 1 0",
                         ),
                         mn.stack(
                             mn.text(
-                                "PT GEPLANT", size="xs", c="var(--alloq-text-muted)"
+                                "PT GEPLANT",
+                                size="xs",
+                                c="var(--alloq-text-muted)",
+                                nowrap=True,
                             ),
                             mn.number_formatter(
                                 value=role.allocated_days,
@@ -364,14 +299,18 @@ def _role_capacity_card(role: rx.Var) -> rx.Component:
                                 },
                             ),
                             gap="2px",
+                            flex="1 1 0",
                         ),
-                        _stat_pill(
-                            "Mitarbeiter",
-                            role.employee_count,
+                        mn.stack(
+                            _stat_pill(
+                                "Mitarbeiter",
+                                role.employee_count,
+                            ),
+                            flex="1 1 0",
                         ),
                         justify="end",
                         nowrap=True,
-                        w="50%",
+                        w="42%",
                     ),
                     justify="space-between",
                     align="top",
@@ -570,15 +509,9 @@ def active_projects_grid_card() -> rx.Component:
                 "Projekt anlegen",
                 size="sm",
                 variant="filled",
-                color="var(--alloq-accent)",
                 auto_contrast=True,
-                left_section=rx.icon("plus", size=20, color="black"),
+                left_section=rx.icon("plus", size=20),
                 on_click=ProjectState.open_add_modal,
-                style={
-                    "_hover": {
-                        "backgroundColor": "var(--alloq-accent-strong)",
-                    },
-                },
             ),
             justify="space-between",
             w="100%",
@@ -603,9 +536,9 @@ def dashboard_grid() -> rx.Component:
         # Section 1: 4 compact KPI cards (top row)
         mn.simple_grid(
             utilization_card(),
+            under_utilization_card(),
             projects_overview_card(),
             project_health_card(),
-            under_utilization_card(),
             cols={"base": 1, "sm": 2, "lg": 4},
             spacing="lg",
             w="100%",

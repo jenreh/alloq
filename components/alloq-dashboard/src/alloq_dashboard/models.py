@@ -110,6 +110,7 @@ class WeeklyUtilization(BaseModel):
     available_days: float = 0.0
     percent: int = 0
     bucket: str = "low"
+    is_absent: bool = False
 
 
 class UtilizationKpi(BaseModel):
@@ -118,6 +119,10 @@ class UtilizationKpi(BaseModel):
     current_percent: int = 0
     current_bucket: str = "low"
     current_week: int = 0
+    current_week_label: str = ""
+    past_weeks_start_label: str = ""
+    past_weeks_end_label: str = ""
+    current_absent_count: int = 0
     weeks: list[WeeklyUtilization] = []
     employee_breakdown: list[EmployeeUtilization] = []
 
@@ -129,6 +134,8 @@ class EmployeeUtilization(BaseModel):
     name: str = ""
     role_name: str = ""
     avg_percent: int = 0
+    current_week_percent: int = 0
+    current_week_is_absent: bool = False
     free_hours_next_4w: float = 0.0
     weeks: list[WeeklyUtilization] = []
 
@@ -140,6 +147,7 @@ class UnderUtilizationKpi(BaseModel):
     total_free_hours: float = 0.0
     total_employees: int = 0
     overloaded_count: int = 0
+    absent_count: int = 0
     top: list[EmployeeUtilization] = []
     rows: list[EmployeeUtilization] = []
 

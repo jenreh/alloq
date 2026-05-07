@@ -7,14 +7,13 @@ import reflex as rx
 import appkit_mantine as mn
 
 CARD_STYLE = {
-    "backgroundColor": "var(--alloq-surface-solid)",
+    "backgroundColor": "var(--alloq-fade-bg)",
     "borderRadius": "var(--mantine-radius-md)",
-    "border": "1px solid var(--alloq-border)",
     "padding": "1.25rem",
     "minHeight": "260px",
     "transition": "background-color 120ms ease",
     "_hover": {
-        "backgroundColor": "var(--alloq-surface-hover)",
+        "backgroundColor": "var(--alloq-fade-bg-hover)",
         "cursor": "pointer",
     },
 }

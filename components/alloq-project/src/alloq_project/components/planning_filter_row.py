@@ -51,14 +51,14 @@ def planning_filter_row() -> rx.Component:
             data=["3 Monate", "6 Monate", "12 Monate"],
             value=PlanningStore.time_range,
             on_change=PlanningStore.set_time_range,
-            color="alloqWarm.5",
+            color="alloqTeal.5",
             radius="md",
             bg="var(--alloq-surface-solid)",
-            style={
-                "& .mantine-SegmentedControl-label[data-active]": {
-                    "color": "black !important"
-                }
-            },
+            # style={
+            #     "& .mantine-SegmentedControl-label[data-active]": {
+            #         "color": "black !important"
+            #     }
+            # },
         ),
         # Project filter
         mn.multi_select(

@@ -7,8 +7,9 @@ import appkit_mantine as mn
 def add_project_button() -> rx.Component:
     """Button to add a new project."""
     return mn.action_icon(
-        rx.icon("plus", size=20, color="black"),
+        rx.icon("plus", size=20),
         variant="filled",
+        auto_contrast=True,
         size="lg",
         radius="md",
         on_click=ProjectState.open_add_modal,

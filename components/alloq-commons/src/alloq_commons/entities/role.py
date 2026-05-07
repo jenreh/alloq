@@ -16,6 +16,7 @@ class RoleEntity(Entity, Base):
     name: Mapped[str] = mapped_column(
         String(255), unique=True, nullable=False, index=True
     )
+    abbreviation: Mapped[str] = mapped_column(String(3), nullable=False, default="")
     description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     ramp_up: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     ramp_down: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -25,6 +26,7 @@ class RoleEntity(Entity, Base):
         return {
             "id": self.id,
             "name": self.name,
+            "abbreviation": self.abbreviation or "",
             "description": self.description or "",
             "ramp_up": self.ramp_up or False,
             "ramp_down": self.ramp_down or False,

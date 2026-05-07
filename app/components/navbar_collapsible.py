@@ -225,17 +225,29 @@ def _rail_section_button(section: dict[str, Any]) -> rx.Component:
     icon_img = section.get("icon_img")
     label = section["label"]
 
-    def _section_icon() -> rx.Component:
+    def _section_icon(is_active: Any = None) -> rx.Component:
         if icon_img:
-            return rx.image(
-                src=rx.color_mode_cond(
+            if is_active is not None:
+                # When active, always use the dark (white stroke) variant
+                src = rx.cond(
+                    is_active,
+                    f"/icons/{icon_img}_dark.svg",
+                    rx.color_mode_cond(
+                        light=f"/icons/{icon_img}.svg",
+                        dark=f"/icons/{icon_img}_dark.svg",
+                    ),
+                )
+            else:
+                src = rx.color_mode_cond(
                     light=f"/icons/{icon_img}.svg",
                     dark=f"/icons/{icon_img}_dark.svg",
-                ),
+                )
+            return rx.image(
+                src=src,
                 style={
                     "width": "24px",
-                    # "height": "18px",
                     "objectFit": "contain",
+                    "marginTop": "2px",
                 },
             )
         return rx.icon(icon_name, size=20)
@@ -257,7 +269,7 @@ def _rail_section_button(section: dict[str, Any]) -> rx.Component:
         is_active_section = panel_open | route_active_when_closed
         target = mn.box(
             mn.center(
-                _section_icon(),
+                _section_icon(is_active_section),
                 w="40px",
                 h="40px",
                 on_click=NavbarCollapseState.select_section(section_id),
@@ -282,7 +294,7 @@ def _rail_section_button(section: dict[str, Any]) -> rx.Component:
         target = mn.box(
             rx.link(
                 mn.center(
-                    _section_icon(),
+                    _section_icon(active),
                     w="40px",
                     h="40px",
                     style={
@@ -377,7 +389,7 @@ def _user_avatar() -> rx.Component:
             size="md",
             ml="3px",
             mb="6px",
-            color="var(--alloq-accent-strong)",
+            color="alloqTeal.5",
         ),
         w="100%",
         p="xs",
@@ -534,9 +546,7 @@ def _rail() -> rx.Component:
         h="100%",
         w=RAIL_WIDTH,
         style={
-            #            "border_right": _BORDER,
             "flex_shrink": "0",
-            "background_color": _RAIL_BG,
         },
     )
 
@@ -707,7 +717,6 @@ def app_navbar_collapsible() -> rx.Component:
                 align="stretch",
                 wrap="nowrap",
                 gap="0",
-                bg=_RAIL_BG,
             ),
             _panel(),
             gap="0",
@@ -716,10 +725,11 @@ def app_navbar_collapsible() -> rx.Component:
             h="calc(100dvh - 64px)",
             style={
                 "border_radius": "var(--radius-3)",
-                "border": _BORDER,
                 "box_shadow": "var(--alloq-shadow-soft)",
                 "overflow": "hidden",
                 "background_color": _RAIL_BG,
+                "backdrop_filter": "blur(12px)",
+                "-webkit-backdrop-filter": "blur(12px)",
             },
         ),
         gap="md",

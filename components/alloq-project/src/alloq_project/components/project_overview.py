@@ -1,4 +1,5 @@
 import reflex as rx
+from alloq_commons.components.modal_layout import DRAWER_CLASS, MODAL_CLASS
 from alloq_commons.models.project import RequiredCapacity
 from alloq_project.components.project_card import project_card
 from alloq_project.components.project_form import (
@@ -34,7 +35,7 @@ def add_project_modal() -> rx.Component:
         on_close=ProjectState.close_add_modal,
         size="lg",
         centered=True,
-        class_name="alloq-project-detail-modal",
+        class_name=MODAL_CLASS,
         overlay_props={"backgroundOpacity": 0.5, "blur": 4},
     )
 
@@ -95,7 +96,7 @@ def project_detail_drawer() -> rx.Component:
         overlay_props={"backgroundOpacity": 0.3, "blur": 3},
         offset="15px",
         radius="md",
-        class_name="alloq-project-detail-drawer",
+        class_name=DRAWER_CLASS,
         with_close_button=True,
         close_on_click_outside=True,
     )

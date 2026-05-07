@@ -2,29 +2,25 @@
     --alloq-bg-base: #faf9f3;
     --alloq-bg-warm: #f6f3e5;
     --alloq-bg-glow: #ead583;
-    --alloq-app-bg:
-                radial-gradient(circle at 50% -10%, rgba(241, 202, 69, 0.22) 0%, transparent 60%),   /* Warm Gold */
-                radial-gradient(circle at -10% 40%, rgba(127, 159, 142, 0.18) 0%, transparent 70%),  /* Sage Green */
-                radial-gradient(circle at 10% -10%, rgba(180, 200, 185, 0.28) 0%, transparent 50%),  /* Pale Green */
-                radial-gradient(circle at 100% 0%, rgba(168, 162, 220, 0.14) 0%, transparent 60%),   /* Soft Lavender */
-                radial-gradient(circle at 0% 100%, rgba(111, 159, 165, 0.18) 0%, transparent 50%);   /* Soft Teal */
+    --alloq-app-bg: radial-gradient(ellipse at 66% 0%, rgba(234, 213, 131, 0.13), rgba(250, 249, 243, 0) 44%),
+        linear-gradient(135deg, #fbfbf7 0%, #f8f7ef 56%, #fbf9f1 100%);
     --alloq-surface: rgba(255, 255, 250, 0.88);
     --alloq-surface-solid: #fffffa;
     --alloq-surface-muted: #f8f5e8;
     --alloq-surface-hover: #f5efd8;
-    --alloq-accent-soft: #e2ede8;
-    --alloq-accent: #6f9fa5;
-    --alloq-accent-strong: #5b858b;
+    --alloq-accent-soft: #f8eaa8;
+    --alloq-accent: #f1ca45;
+    --alloq-accent-strong: #d99f18;
     --alloq-accent-text: #5e4312;
     --alloq-text: #25231d;
     --alloq-text-muted: #777062;
-    --alloq-border: rgba(175, 200, 188, 0.7);
-    --alloq-border-strong: rgba(140, 175, 158, 0.85);
-    --alloq-nav-bg: rgba(251, 250, 244, 0.2);
-    --alloq-nav-panel-bg: rgba(255, 255, 250, 0.2);
-    --alloq-nav-active-bg: #486d73;
-    --alloq-nav-hover-bg: rgba(72, 109, 115, 0.1);
-    --alloq-nav-active-text: #ffffff;
+    --alloq-border: #e7e2cf;
+    --alloq-border-strong: #d8cc9a;
+    --alloq-nav-bg: rgba(251, 250, 244, 0.9);
+    --alloq-nav-panel-bg: rgba(255, 255, 250, 0.84);
+    --alloq-nav-active-bg: #f6d94d;
+    --alloq-nav-hover-bg: #f7f1da;
+    --alloq-nav-active-text: #272014;
     --alloq-shadow-soft: 0 12px 32px rgba(91, 76, 34, 0.07);
     --alloq-meter-track: #efede7;
 
@@ -199,56 +195,52 @@
     --mantine-primary-color-8: var(--mantine-color-alloqWarm-8);
     --mantine-primary-color-9: var(--mantine-color-alloqWarm-9);
 
-    /* Light theme: teal primary to match new color scheme */
-    --mantine-primary-color-filled: var(--mantine-color-teal-6);
-    --mantine-primary-color-filled-hover: var(--mantine-color-teal-7);
-    --mantine-primary-color-light: rgba(72, 109, 115, 0.12);
-    --mantine-primary-color-light-hover: rgba(72, 109, 115, 0.18);
-    --mantine-primary-color-light-color: var(--mantine-color-teal-7);
+    /* Light theme uses shade 5 */
+    --mantine-primary-color-filled: var(--mantine-color-alloqWarm-5);
+    --mantine-primary-color-filled-hover: var(--mantine-color-alloqWarm-6);
+    --mantine-primary-color-light: rgba(241, 202, 69, 0.1);
+    --mantine-primary-color-light-hover: rgba(241, 202, 69, 0.12);
+    --mantine-primary-color-light-color: var(--mantine-color-alloqWarm-5);
 }
 
 .dark, [data-mantine-color-scheme="dark"] {
-    --alloq-bg-base: #141e21;
-    --alloq-bg-warm: #1a2a2e;
-    --alloq-bg-glow: #1e4d42;
-    --alloq-app-bg:
-                radial-gradient(circle at 50% -10%, rgba(30, 64, 175, 0.45) 0%, transparent 60%),  /* Deep Blue */
-                radial-gradient(circle at -10% 40%, rgba(6, 95, 70, 0.4) 0%, transparent 70%),   /* Forest Green */
-                radial-gradient(circle at 10% -10%, rgba(51, 65, 85, 0.5) 0%, transparent 50%),  /* Slate Grey */
-                radial-gradient(circle at 100% 0%, rgba(88, 28, 135, 0.35) 0%, transparent 60%),  /* Deep Purple */
-                radial-gradient(circle at 0% 100%, rgba(13, 148, 136, 0.35) 0%, transparent 50%); /* Teal */
-    --alloq-surface: rgba(22, 34, 38, 0.92);
-    --alloq-surface-solid: #1a2528;
-    --alloq-surface-muted: #1f2f33;
-    --alloq-surface-hover: #253a3e;
-    --alloq-accent-soft: #1e4d42;
-    --alloq-accent: #5b858b;
-    --alloq-accent-strong: #6f9fa5;
-    --alloq-accent-text: #b9dddd;
-    --alloq-text: #e8f0f0;
-    --alloq-text-muted: #9db8b8;
-    --alloq-border: rgba(72, 109, 115, 0.4);
-    --alloq-border-strong: rgba(91, 133, 139, 0.6);
-    --alloq-nav-bg: rgba(26, 37, 40, 0.4);
-    --alloq-nav-panel-bg: rgba(22, 34, 38, 0.4);
-    --alloq-nav-active-bg: #1e4d42;
-    --alloq-nav-hover-bg: #162e28;
-    --alloq-nav-active-text: #c8e8e2;
-    --alloq-shadow-soft: 0 12px 32px rgba(0, 0, 0, 0.35);
-    --alloq-meter-track: #2a3d40;
+    --alloq-bg-base: #1c1710;
+    --alloq-bg-warm: #332614;
+    --alloq-bg-glow: #7a540d;
+    --alloq-app-bg: radial-gradient(circle at 56% 8%, rgba(122, 84, 13, 0.28), rgba(28, 23, 16, 0) 35%),
+        linear-gradient(180deg, #211a11 0%, #1a1712 58%, #171410 100%);
+    --alloq-surface: rgba(35, 29, 20, 0.92);
+    --alloq-surface-solid: #241d14;
+    --alloq-surface-muted: #302517;
+    --alloq-surface-hover: #3b2d18;
+    --alloq-accent-soft: #4a3512;
+    --alloq-accent: #d9a72e;
+    --alloq-accent-strong: #efb83d;
+    --alloq-accent-text: #ffd97a;
+    --alloq-text: #f5ead8;
+    --alloq-text-muted: #c7b79d;
+    --alloq-border: #4b3920;
+    --alloq-border-strong: #80622a;
+    --alloq-nav-bg: rgba(36, 29, 20, 0.92);
+    --alloq-nav-panel-bg: rgba(31, 25, 17, 0.9);
+    --alloq-nav-active-bg: #5a3f13;
+    --alloq-nav-hover-bg: #3f301d;
+    --alloq-nav-active-text: #fff2c2;
+    --alloq-shadow-soft: 0 12px 32px rgba(0, 0, 0, 0.22);
+    --alloq-meter-track: #3a332a;
 
-    --alloq-fade-bg: rgba(255, 255, 255, 0.04);
-    --alloq-fade-bg-hover: rgba(255, 255, 255, 0.08);
-    --alloq-tag-bg: #253a3e;
-    --alloq-item-bg: #1f2f33;
-    --alloq-item-text: #b9dddd;
+    --alloq-fade-bg: rgba(255, 255, 255, 0.05);
+    --alloq-fade-bg-hover: rgba(255, 255, 255, 0.1);
+    --alloq-tag-bg: #373a40;
+    --alloq-item-bg: #2c2e33;
+    --alloq-item-text: #c1c2c5;
 
     /* Dark theme: match primary button to nav active bg */
-    --mantine-primary-color-filled: #1e4d42;
-    --mantine-primary-color-filled-hover: #164038;
-    --mantine-primary-color-light: rgba(30, 77, 66, 0.18);
-    --mantine-primary-color-light-hover: rgba(30, 77, 66, 0.26);
-    --mantine-primary-color-light-color: var(--mantine-color-teal-3);
+    --mantine-primary-color-filled: var(--mantine-color-alloqWarm-6);
+    --mantine-primary-color-filled-hover: var(--mantine-color-alloqWarm-7);
+    --mantine-primary-color-light: rgba(217, 159, 24, 0.15);
+    --mantine-primary-color-light-hover: rgba(217, 159, 24, 0.2);
+    --mantine-primary-color-light-color: var(--mantine-color-alloqWarm-6);
 }
 
 /* ===== Planning grid: 40% transparent data cells (light only) ===== */
@@ -272,7 +264,7 @@
 .alloq-project-detail-modal.mantine-Modal-content,
 .alloq-project-detail-modal .mantine-Modal-content {
     background-color: var(--alloq-surface-muted);
-    border: 1px solid var(--alloq-border);
+    border: 1px solid var(--alloq-accent);
     overflow: hidden;
 }
 

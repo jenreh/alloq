@@ -26,6 +26,10 @@ from alloq_commons.repositories import (
     project_repo,
     role_repo,
 )
+from alloq_commons.services.utilization import (
+    UtilizationAllocationInput,
+    UtilizationService,
+)
 from pydantic import BaseModel
 
 from appkit_commons.database.session import get_asyncdb_session
@@ -76,10 +80,6 @@ ROLE_FULL: dict[str, str] = {
     "AIE": "AI Engineer",
     "RE": "Requirements Engineer",
 }
-
-_HEAT_LOW = 70
-_HEAT_MID = 85
-_HEAT_HIGH = 100
 
 
 # === Models ===
@@ -203,35 +203,15 @@ class _CapAssignment:
 
 
 def _heat_bucket(percent: int) -> str:
-    if percent < _HEAT_LOW:
-        return "low"
-    if percent < _HEAT_MID:
-        return "mid"
-    if percent <= _HEAT_HIGH:
-        return "high"
-    return "over"
+    return UtilizationService.heat_bucket(percent)
 
 
 def _gesamt_bucket(value: float) -> str:
-    if value > 1.0:
-        return "available"
-    if value > 0.0:
-        return "balanced"
-    if value == 0.0:
-        return "neutral"
-    if value >= -1.0:
-        return "tight"
-    return "over"
+    return UtilizationService.gesamt_bucket(value)
 
 
 def _project_heat_bucket(allocated: float) -> str:
-    if allocated <= 0:
-        return "low"
-    if allocated <= 2.0:  # noqa: PLR2004
-        return "mid"
-    if allocated <= 4.0:  # noqa: PLR2004
-        return "high"
-    return "over"
+    return UtilizationService.project_heat_bucket(allocated)
 
 
 def _build_weeks(num_weeks: int) -> tuple[list[WeekColumn], list[MonthSpan]]:
@@ -318,10 +298,15 @@ def _compute_gesamt(weeks: list[WeekColumn], block: EmployeeBlock) -> list[Gesam
         used = sum(p.cells[idx].value for p in block.projects)
         absence = block.absence.cells[idx].value if block.absence.cells else 0.0
         internal = block.internal.cells[idx].value if block.internal.cells else 0.0
-        absent = absence > 0
-        free = week.work_days - internal - used - absence
-        bucket = "absent" if absent else _gesamt_bucket(free)
-        cells.append(GesamtCell(week_key=week.key, value=free, bucket=bucket))
+        result = UtilizationService.compute_employee_gesamt(
+            used_days=used,
+            absence_days=absence,
+            internal_days=internal,
+            work_days=week.work_days,
+        )
+        cells.append(
+            GesamtCell(week_key=week.key, value=result.free_days, bucket=result.bucket)
+        )
     return cells
 
 
@@ -331,27 +316,18 @@ def _compute_heat(weeks: list[WeekColumn], block: EmployeeBlock) -> list[HeatCel
         used = sum(p.cells[idx].value for p in block.projects)
         absence = block.absence.cells[idx].value if block.absence.cells else 0.0
         internal = block.internal.cells[idx].value if block.internal.cells else 0.0
-        fully_absent = absence >= float(_WORK_DAYS_PER_WEEK)
-        available = max(0.0, week.work_days - internal - absence)
-        if fully_absent:
-            pct = (
-                round((used / (week.work_days - internal)) * 100)
-                if (week.work_days - internal) > 0
-                else 0
-            )
-            bucket = "absent"
-        elif available > 0:
-            pct = round((used / available) * 100)
-            bucket = _heat_bucket(pct)
-        else:
-            pct = 0
-            bucket = "low"
+        result = UtilizationService.compute_employee_heat(
+            used_days=used,
+            absence_days=absence,
+            internal_days=internal,
+            work_days=week.work_days,
+        )
         cells.append(
             HeatCell(
                 week_key=week.key,
-                percent=pct,
-                is_absent=fully_absent,
-                bucket=bucket,
+                percent=result.percent,
+                is_absent=result.is_absent,
+                bucket=result.bucket,
             )
         )
     return cells
@@ -365,12 +341,9 @@ def _compute_project_gesamt(
         allocated = sum(
             e.cells[idx].value for e in block.employees if idx < len(e.cells)
         )
+        _, bucket = UtilizationService.compute_project_gesamt(allocated)
         cells.append(
-            ProjectGesamtCell(
-                week_key=week.key,
-                allocated=allocated,
-                bucket=_project_heat_bucket(allocated),
-            )
+            ProjectGesamtCell(week_key=week.key, allocated=allocated, bucket=bucket)
         )
     return cells
 
@@ -384,14 +357,17 @@ def _compute_project_heat(
         allocated = sum(
             e.cells[idx].value for e in block.employees if idx < len(e.cells)
         )
-        capacity = n * week.work_days if n else week.work_days
-        pct = round((allocated / capacity) * 100) if capacity > 0 else 0
+        result = UtilizationService.compute_project_heat(
+            allocated_days=allocated,
+            num_employees=n,
+            work_days=week.work_days,
+        )
         cells.append(
             HeatCell(
                 week_key=week.key,
-                percent=pct,
+                percent=result.percent,
                 is_absent=False,
-                bucket=_heat_bucket(pct),
+                bucket=result.bucket,
             )
         )
     return cells
@@ -475,16 +451,38 @@ def _ingest_allocations(
     cells: dict[str, float] = {}
     role_lookup: dict[str, str] = {}
     pairs: set[tuple[str, int]] = set()
-    for a in allocations:
-        wk = _week_key_for_date(a.week_start)
-        if wk not in wk_set or a.project_id not in proj_idx:
+
+    week_starts = {
+        datetime.date(*(int(part) for part in key.split("_"))) for key in wk_set
+    }
+    normalized_cells = UtilizationService.compute_heatmap_allocation_cells(
+        allocations=[
+            UtilizationAllocationInput(
+                project_id=allocation.project_id,
+                employee_id=allocation.employee_id,
+                week_start=allocation.week_start,
+                person_days=float(allocation.person_days),
+            )
+            for allocation in allocations
+        ],
+        week_starts=week_starts,
+        project_ids=set(proj_idx),
+    )
+    for (employee_id, project_id, week_start), person_days in normalized_cells.items():
+        eid = f"emp-{employee_id}"
+        wk = _week_key_for_date(week_start)
+        cells[_ck(eid, proj_idx[project_id]["code"], wk)] = person_days
+        pairs.add((eid, project_id))
+
+    for allocation in allocations:
+        wk = _week_key_for_date(allocation.week_start)
+        if wk not in wk_set or allocation.project_id not in proj_idx:
             continue
-        eid = f"emp-{a.employee_id}"
-        cells[_ck(eid, proj_idx[a.project_id]["code"], wk)] = float(a.person_days)
-        pairs.add((eid, a.project_id))
-        rn = getattr(a, "_cached_role_name", "")
+        eid = f"emp-{allocation.employee_id}"
+        pairs.add((eid, allocation.project_id))
+        rn = getattr(allocation, "_cached_role_name", "")
         if rn:
-            role_lookup.setdefault(f"{eid}|{a.project_id}", rn)
+            role_lookup.setdefault(f"{eid}|{allocation.project_id}", rn)
     for cap in assignments:
         if cap.project_id not in proj_idx:
             continue
@@ -895,13 +893,13 @@ class PlanningStore(UserSession):
         out: list[HeatCell] = []
         for idx, week in enumerate(self.weeks):
             percents = [e.heat[idx].percent for e in emps if idx < len(e.heat)]
-            avg = round(sum(percents) / len(percents)) if percents else 0
+            avg = UtilizationService.compute_team_average(percents)
             out.append(
                 HeatCell(
                     week_key=week.key,
                     percent=avg,
                     is_absent=False,
-                    bucket=_heat_bucket(avg),
+                    bucket=UtilizationService.heat_bucket(avg),
                 )
             )
         return out

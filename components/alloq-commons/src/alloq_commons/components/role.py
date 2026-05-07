@@ -2,6 +2,11 @@ import reflex as rx
 
 import appkit_mantine as mn
 from alloq_commons.components.forms import section
+from alloq_commons.components.modal_layout import (
+    MODAL_CLASS,
+    modal_footer,
+    modal_form_layout,
+)
 from alloq_commons.models import Role
 from alloq_commons.state.role_states import RoleState
 from appkit_ui.components.dialogs import delete_dialog
@@ -29,6 +34,14 @@ def role_form_fields(role: Role | None = None) -> rx.Component:
                 required=True,
                 max_length=255,
                 left_section=rx.icon("shield", size=16),
+            ),
+            mn.text_input(
+                name="abbreviation",
+                label="Abkürzung",
+                description="Kurzform der Rolle (max. 3 Zeichen).",
+                default_value=role.abbreviation if is_edit_mode else "",
+                required=False,
+                max_length=3,
             ),
             mn.textarea(
                 name="description",
@@ -61,37 +74,6 @@ def role_form_fields(role: Role | None = None) -> rx.Component:
     )
 
 
-def _modal_footer(
-    submit_label: str,
-    on_cancel: rx.EventHandler,
-) -> rx.Component:
-    """Footer buttons for add/edit modals."""
-    return mn.group(
-        mn.button(
-            "Abbrechen",
-            variant="subtle",
-            on_click=on_cancel,
-            color="yellow",
-        ),
-        mn.button(
-            submit_label,
-            type="submit",
-            loading=RoleState.is_loading,
-            px="xl",
-        ),
-        direction="row",
-        gap="md",
-        justify="end",
-        align="center",
-        padding="16px 18px 18px",
-        background="var(--alloq-surface-muted)",
-        width="100%",
-        flex_shrink="0",
-        box_shadow="0 -3px 9px rgba(91, 76, 34, 0.12)",
-        z_index="1",
-    )
-
-
 def _role_modal(
     title: str,
     opened: bool | rx.Var,
@@ -102,40 +84,26 @@ def _role_modal(
 ) -> rx.Component:
     """Shared modal structure for add/edit role."""
     return mn.modal(
-        rx.form.root(
-            rx.flex(
-                rx.box(
-                    content,
-                    flex="1",
-                    min_height="0",
-                    width="100%",
-                    overflow_y="auto",
-                    padding="16px 18px 2rem",
-                    background="var(--alloq-surface-muted)",
-                ),
-                _modal_footer(submit_label, on_close),
+        modal_form_layout(
+            content=mn.flex(
+                content,
+                mn.space(height="2rem"),
                 direction="column",
-                min_height="0",
-                height="100%",
                 width="100%",
-                background="var(--alloq-surface-muted)",
+            ),
+            footer=modal_footer(
+                submit_label,
+                on_close,
+                loading=RoleState.is_loading,
             ),
             on_submit=on_submit,
-            reset_on_submit=False,
-            height="100%",
-            style={
-                "display": "flex",
-                "flexDirection": "column",
-                "height": "100%",
-                "minHeight": "0",
-            },
         ),
         title=title,
         opened=opened,
         on_close=on_close,
         size="md",
         centered=True,
-        class_name="alloq-employee-detail-modal",
+        class_name=MODAL_CLASS,
         overlay_props={"backgroundOpacity": 0.5, "blur": 4},
     )
 

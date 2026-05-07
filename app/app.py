@@ -26,8 +26,8 @@ from app.pages.users import create_users_page
 from app.styles import base_style, base_stylesheets
 
 ALLOQ_THEME = {
-    "primaryColor": "alloqWarm",
-    "primaryShade": {"light": 5, "dark": 6},
+    "primaryColor": "alloqTeal",
+    "primaryShade": {"light": 6, "dark": 7},
     "colors": {
         "alloqWarm": [
             "#fffef8",
@@ -40,7 +40,19 @@ ALLOQ_THEME = {
             "#a97811",
             "#6f4f0f",
             "#3e2d0b",
-        ]
+        ],
+        "alloqTeal": [
+            "#eef8f8",
+            "#d9eeee",
+            "#b9dddd",
+            "#95c7c8",
+            "#6f9fa5",
+            "#5b858b",
+            "#486d73",
+            "#3c5a5f",
+            "#32494e",
+            "#293c40",
+        ],
     },
 }
 

@@ -1,5 +1,9 @@
 import reflex as rx
 from alloq_commons.components.forms import section
+from alloq_commons.components.modal_layout import (
+    modal_footer,
+    modal_form_layout,
+)
 from alloq_commons.models.role import Role
 from alloq_project.states.project_state import (
     PROJECT_COLORS,
@@ -226,26 +230,11 @@ def form_footer(
     disabled: bool | rx.Var[bool] = False,
 ) -> rx.Component:
     """Footer buttons for project forms."""
-    return mn.group(
-        mn.button("Abbrechen", variant="subtle", on_click=on_cancel, color="yellow"),
-        mn.button(
-            submit_label,
-            type="submit",
-            disabled=disabled,
-            loading=ProjectState.is_loading,
-            px="xl",
-            class_name="alloq-submit-btn",
-        ),
-        direction="row",
-        gap="md",
-        justify="end",
-        align="center",
-        padding="16px 18px 18px",
-        background="var(--alloq-surface-muted)",
-        width="100%",
-        flex_shrink="0",
-        box_shadow="0 -3px 9px rgba(91, 76, 34, 0.12)",
-        z_index="1",
+    return modal_footer(
+        submit_label,
+        on_cancel,
+        disabled=disabled,
+        loading=ProjectState.is_loading,
     )
 
 
@@ -255,31 +244,8 @@ def form_layout(
     on_submit: rx.EventHandler,
 ) -> rx.Component:
     """Standardized project form layout."""
-    return rx.form.root(
-        rx.flex(
-            rx.box(
-                content,
-                flex="1",
-                min_height="0",
-                width="100%",
-                overflow_y="auto",
-                padding="16px 18px 0",
-                background="var(--alloq-surface-muted)",
-            ),
-            footer,
-            direction="column",
-            min_height="0",
-            height="100%",
-            width="100%",
-            background="var(--alloq-surface-muted)",
-        ),
+    return modal_form_layout(
+        content=content,
+        footer=footer,
         on_submit=on_submit,
-        reset_on_submit=False,
-        height="100%",
-        style={
-            "display": "flex",
-            "flexDirection": "column",
-            "height": "100%",
-            "minHeight": "0",
-        },
     )

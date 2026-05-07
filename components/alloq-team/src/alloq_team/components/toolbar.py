@@ -8,27 +8,17 @@ def view_mode_toggle() -> rx.Component:
     """Toggle between grid and table view."""
     return mn.group(
         mn.action_icon(
-            rx.icon(
-                "layout-grid",
-                size=20,
-                color=rx.cond(
-                    TeamState.view_mode == "grid", "black", "var(--alloq-text)"
-                ),
-            ),
+            rx.icon("layout-grid", size=20),
             variant=rx.cond(TeamState.view_mode == "grid", "filled", "subtle"),
+            auto_contrast=True,
             size="lg",
             radius="md",
             on_click=lambda: TeamState.set_view_mode("grid"),
         ),
         mn.action_icon(
-            rx.icon(
-                "list",
-                size=20,
-                color=rx.cond(
-                    TeamState.view_mode == "table", "black", "var(--alloq-text)"
-                ),
-            ),
+            rx.icon("list", size=20),
             variant=rx.cond(TeamState.view_mode == "table", "filled", "subtle"),
+            auto_contrast=True,
             size="lg",
             radius="md",
             on_click=lambda: TeamState.set_view_mode("table"),
@@ -40,8 +30,9 @@ def view_mode_toggle() -> rx.Component:
 def add_employee_button() -> rx.Component:
     """Button to add a new employee."""
     return mn.action_icon(
-        rx.icon("plus", size=20, color="black"),
+        rx.icon("plus", size=20),
         variant="filled",
+        auto_contrast=True,
         size="lg",
         radius="md",
         on_click=TeamState.open_add_modal,

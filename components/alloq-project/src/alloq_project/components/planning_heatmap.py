@@ -328,6 +328,7 @@ def _heatmap_footer() -> rx.Component:
             "zIndex": "20",
             "backgroundColor": HEAT_FOOTER_BG,
             "borderTop": "1px solid var(--alloq-border)",
+            "borderBottom": "1px solid var(--alloq-border)",
         },
     )
 

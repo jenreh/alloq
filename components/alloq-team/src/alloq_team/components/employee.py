@@ -1,5 +1,11 @@
 import reflex as rx
 from alloq_commons.components.forms import section
+from alloq_commons.components.modal_layout import (
+    DRAWER_CLASS,
+    MODAL_CLASS,
+    modal_footer,
+    modal_form_layout,
+)
 from alloq_commons.entities.employee import SeniorityLevel
 from alloq_commons.models.employee import Absence
 from alloq_commons.models.project import Capacity
@@ -152,74 +158,17 @@ def employee_form_fields(is_edit: bool = False) -> rx.Component:
     )
 
 
-def _form_footer(
+def _employee_footer(
     submit_label: str,
     on_cancel: rx.EventHandler,
     disabled: bool | rx.Var[bool] = False,
 ) -> rx.Component:
-    """Footer buttons for modals and drawers."""
-    return mn.group(
-        mn.button(
-            "Abbrechen",
-            variant="subtle",
-            on_click=on_cancel,
-            color="yellow",
-        ),
-        mn.button(
-            submit_label,
-            type="submit",
-            disabled=disabled,
-            loading=TeamState.is_loading,
-            px="xl",
-            class_name="alloq-submit-btn",
-        ),
-        direction="row",
-        gap="md",
-        justify="end",
-        align="center",
-        padding="16px 18px 18px",
-        background="var(--alloq-surface-muted)",
-        width="100%",
-        flex_shrink="0",
-        box_shadow="0 -3px 9px rgba(91, 76, 34, 0.12)",
-        z_index="1",
-    )
-
-
-def _form_layout(
-    content: rx.Component,
-    footer: rx.Component,
-    on_submit: rx.EventHandler,
-    reset_on_submit: bool = False,
-) -> rx.Component:
-    """Standardized layout for forms inside modals or drawers."""
-    return rx.form.root(
-        rx.flex(
-            rx.box(
-                content,
-                flex="1",
-                min_height="0",
-                width="100%",
-                overflow_y="auto",
-                padding="16px 18px 0",
-                background="var(--alloq-surface-muted)",
-            ),
-            footer,
-            direction="column",
-            min_height="0",
-            height="100%",
-            width="100%",
-            background="var(--alloq-surface-muted)",
-        ),
-        on_submit=on_submit,
-        reset_on_submit=reset_on_submit,
-        height="100%",
-        style={
-            "display": "flex",
-            "flexDirection": "column",
-            "height": "100%",
-            "minHeight": "0",
-        },
+    """Employee-specific footer (delegates to shared layout)."""
+    return modal_footer(
+        submit_label,
+        on_cancel,
+        disabled=disabled,
+        loading=TeamState.is_loading,
     )
 
 
@@ -229,14 +178,14 @@ def _form_layout(
 def add_employee_modal() -> rx.Component:
     """Modal for adding a new employee."""
     return mn.modal(
-        _form_layout(
+        modal_form_layout(
             content=mn.flex(
                 employee_form_fields(is_edit=False),
                 mn.space(height="1.5rem"),
                 direction="column",
                 width="100%",
             ),
-            footer=_form_footer(
+            footer=_employee_footer(
                 "Mitarbeiter speichern",
                 TeamState.close_add_modal,
                 disabled=EmployeeValidationState.is_form_invalid,
@@ -249,7 +198,7 @@ def add_employee_modal() -> rx.Component:
         on_close=TeamState.close_add_modal,
         size="lg",
         centered=True,
-        class_name="alloq-employee-detail-modal",
+        class_name=MODAL_CLASS,
         overlay_props={"backgroundOpacity": 0.5, "blur": 4},
     )
 
@@ -257,7 +206,7 @@ def add_employee_modal() -> rx.Component:
 def absence_modal() -> rx.Component:
     """Modal for adding an absence period."""
     return mn.modal(
-        _form_layout(
+        modal_form_layout(
             content=mn.flex(
                 section(
                     mn.date_picker_input(
@@ -280,7 +229,7 @@ def absence_modal() -> rx.Component:
                 gap="md",
                 width="100%",
             ),
-            footer=_form_footer("Speichern", TeamState.close_absence_modal),
+            footer=_employee_footer("Speichern", TeamState.close_absence_modal),
             on_submit=TeamState.create_absence,
             reset_on_submit=True,
         ),
@@ -290,7 +239,7 @@ def absence_modal() -> rx.Component:
         size="md",
         centered=True,
         z_index=300,
-        class_name="alloq-employee-detail-modal",
+        class_name=MODAL_CLASS,
         overlay_props={"backgroundOpacity": 0.5, "blur": 4},
     )
 
@@ -378,7 +327,7 @@ def _project_row(capacity: Capacity) -> rx.Component:
 def add_project_modal() -> rx.Component:
     """Modal for assigning a project to an employee."""
     return mn.modal(
-        _form_layout(
+        modal_form_layout(
             content=mn.flex(
                 section(
                     mn.select(
@@ -405,7 +354,7 @@ def add_project_modal() -> rx.Component:
                 gap="md",
                 width="100%",
             ),
-            footer=_form_footer("Zuweisen", TeamState.close_add_project_modal),
+            footer=_employee_footer("Zuweisen", TeamState.close_add_project_modal),
             on_submit=TeamState.assign_project_to_employee,
             reset_on_submit=True,
         ),
@@ -415,7 +364,7 @@ def add_project_modal() -> rx.Component:
         size="md",
         centered=True,
         z_index=300,
-        class_name="alloq-employee-detail-modal",
+        class_name=MODAL_CLASS,
         overlay_props={"backgroundOpacity": 0.5, "blur": 4},
     )
 
@@ -423,7 +372,7 @@ def add_project_modal() -> rx.Component:
 def employee_detail_drawer() -> rx.Component:
     """Right-side drawer showing employee details and working as update dialog."""
     return mn.drawer(
-        _form_layout(
+        modal_form_layout(
             content=mn.stack(
                 employee_form_fields(is_edit=True),
                 section(
@@ -512,7 +461,7 @@ def employee_detail_drawer() -> rx.Component:
                 gap="16px",
                 key=EmployeeValidationState.form_version.to(str),
             ),
-            footer=_form_footer(
+            footer=_employee_footer(
                 "Mitarbeiter aktualisieren",
                 TeamState.close_detail_drawer,
                 disabled=EmployeeValidationState.is_form_invalid,
@@ -533,7 +482,7 @@ def employee_detail_drawer() -> rx.Component:
         overlay_props={"backgroundOpacity": 0.3, "blur": 3},
         offset="15px",
         radius="md",
-        class_name="alloq-employee-detail-drawer",
+        class_name=DRAWER_CLASS,
         with_close_button=True,
         close_on_click_outside=True,
     )

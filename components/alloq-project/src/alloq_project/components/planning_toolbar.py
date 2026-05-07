@@ -19,10 +19,14 @@ def _toggle_button(
             rx.icon(
                 icon,
                 size=18,
-                color=rx.cond(active, "black", "var(--alloq-text)"),
+                color=rx.cond(
+                    active,
+                    "primary",
+                    "var(--alloq-text)",
+                ),
             ),
             variant=rx.cond(active, "filled", "subtle"),
-            bg=rx.cond(active, "alloqWarm.5", "var(--alloq-fade-bg)"),
+            auto_contrast=True,
             on_click=on_click,
             size="sm",
             p="0 8px",
@@ -46,9 +50,10 @@ def planning_toolbar() -> rx.Component:
             w="18rem",
         ),
         mn.button(
-            mn.text("Projekt planen", size="sm", c="black"),
-            left_section=rx.icon("land-plot", size=20, color="black"),
+            mn.text("Projekt planen", size="sm"),
+            left_section=rx.icon("land-plot", size=20),
             variant="filled",
+            auto_contrast=True,
             size="sm",
             padding="0",
             radius="md",
@@ -56,13 +61,9 @@ def planning_toolbar() -> rx.Component:
         ),
         mn.tooltip(
             mn.button(
-                rx.icon("save", size=18, color="black"),
-                variant="filled",
-                bg=rx.cond(
-                    PlanningStore.has_dirty,
-                    "alloqWarm.5",
-                    "var(--alloq-fade-bg)",
-                ),
+                rx.icon("save", size=18),
+                variant=rx.cond(PlanningStore.has_dirty, "filled", "subtle"),
+                auto_contrast=True,
                 on_click=PlanningStore.save_grid,
                 disabled=~PlanningStore.has_dirty | PlanningStore.is_saving,
                 loading=PlanningStore.is_saving,

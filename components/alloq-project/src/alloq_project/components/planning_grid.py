@@ -93,12 +93,6 @@ STICKY_LEFT_HEADER = {
     "backgroundColor": "var(--alloq-surface-muted)",
 }
 
-STICKY_LEFT_NETROW = {
-    "position": "sticky",
-    "left": "0",
-    "zIndex": "40",
-    "backgroundColor": "var(--alloq-surface-solid)",
-}
 
 STICKY_LEFT_GESAMT = {
     "position": "sticky",
@@ -260,12 +254,7 @@ def _work_days_cell(week: WeekColumn) -> rx.Component:
 
 
 def _label_th(text: str, *, accent: bool = False, last: bool = False) -> rx.Component:
-    if accent:
-        sticky = STICKY_LEFT_HEADER_TOP
-    elif last:
-        sticky = STICKY_LEFT_NETROW
-    else:
-        sticky = STICKY_LEFT_HEADER
+    sticky = STICKY_LEFT_HEADER_TOP if accent else STICKY_LEFT_HEADER
     extra = {"borderBottom": "2px solid var(--alloq-border-strong)"} if last else {}
     return mn.box(
         mn.text(text, size="xs", fw="700", c="var(--alloq-text)"),

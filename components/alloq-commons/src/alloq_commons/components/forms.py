@@ -14,7 +14,6 @@ def section(*children: rx.Component) -> rx.Component:
         width="100%",
         padding="18px",
         background="var(--alloq-fade-bg)",
-        # border="1px solid var(--alloq-border)",
         border_radius="8px",
-        box_shadow="0 8px 24px rgba(91, 76, 34, 0.05)",
+        box_shadow="0 8px 24px rgba(0, 0, 0, 0.04)",
     )
