@@ -4,6 +4,22 @@ from pydantic import BaseModel, Field, model_validator
 
 from alloq_commons.entities.project import ProjectStateEnum
 
+_IMPACT_TIER_1 = 20_000
+_IMPACT_TIER_2 = 100_000
+_IMPACT_TIER_3 = 500_000
+_IMPACT_TIER_4 = 1_000_000
+
+
+class RiskMatrixCell(BaseModel):
+    """One cell of the 5x5 risk matrix."""
+
+    w: int = 0
+    a: int = 0
+    score: int = 0
+    risk_numbers: list[int] = []
+    risk_names: list[str] = []
+    color: str = ""
+
 
 class RequiredCapacity(BaseModel):
     """Read model for required project staffing by role."""
@@ -34,9 +50,10 @@ class ProjectStatus(BaseModel):
 
     id: int = 0
     project_id: int = 0
-    status_date: date | None = None
+    status_date: str = ""
     fortschritt: int = 0
     budget_verbrauch: int = 0
+    anmerkung: str = ""
     created: datetime | None = None
     updated: datetime | None = None
 
@@ -48,6 +65,7 @@ class ProjectStatusCreate(BaseModel):
     status_date: date
     fortschritt: int = Field(default=0, ge=0, le=100)
     budget_verbrauch: int = Field(default=0, ge=0, le=100)
+    anmerkung: str = ""
 
 
 class ProjectStatusUpdate(ProjectStatusCreate):
@@ -59,15 +77,34 @@ class Risk(BaseModel):
 
     id: int = 0
     project_id: int = 0
+    number: int = 0
     name: str = ""
     description: str = ""
-    severity: str = "medium"
-    probability: str = "medium"
-    impact: str = "medium"
-    mitigation_status: str = "open"
-    owner: str | None = None
+    probability: int = 3
+    impact: int = 0
+    mitigation_status: str = "Offen"
+    measures: str = ""
+    auswirkung_score: int = 0
+    risiko_score: int = 0
     created: datetime | None = None
     updated: datetime | None = None
+
+    @model_validator(mode="after")
+    def compute_scores(self) -> "Risk":
+        """Compute matrix scores from impact (EUR) and probability (1-5)."""
+        eur = self.impact
+        if eur <= _IMPACT_TIER_1:
+            self.auswirkung_score = 1
+        elif eur <= _IMPACT_TIER_2:
+            self.auswirkung_score = 2
+        elif eur <= _IMPACT_TIER_3:
+            self.auswirkung_score = 3
+        elif eur <= _IMPACT_TIER_4:
+            self.auswirkung_score = 4
+        else:
+            self.auswirkung_score = 5
+        self.risiko_score = self.auswirkung_score * self.probability
+        return self
 
 
 class RiskCreate(BaseModel):
@@ -76,11 +113,10 @@ class RiskCreate(BaseModel):
     project_id: int
     name: str = Field(..., max_length=255)
     description: str = Field(default="", max_length=2000)
-    severity: str = "medium"
-    probability: str = "medium"
-    impact: str = "medium"
-    mitigation_status: str = "open"
-    owner: str | None = Field(default=None, max_length=255)
+    probability: int = Field(default=3, ge=1, le=5)
+    impact: int = Field(default=0, ge=0)
+    mitigation_status: str = "Offen"
+    measures: str = Field(default="", max_length=2000)
 
 
 class RiskUpdate(RiskCreate):

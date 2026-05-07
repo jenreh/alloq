@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class RiskLevel(enum.StrEnum):
-    """Risk level values for severity, probability, and impact."""
+    """Risk level values."""
 
     LOW = "low"
     MEDIUM = "medium"
@@ -38,11 +38,12 @@ class RiskEntity(Entity, Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(String(2000), nullable=True)
-    severity: Mapped[str] = mapped_column(String(20), nullable=False)
-    probability: Mapped[str] = mapped_column(String(20), nullable=False)
-    impact: Mapped[str] = mapped_column(String(20), nullable=False)
-    mitigation_status: Mapped[str] = mapped_column(String(20), nullable=False)
-    owner: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    probability: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    impact: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    mitigation_status: Mapped[str] = mapped_column(
+        String(30), nullable=False, default="Offen"
+    )
+    measures: Mapped[str | None] = mapped_column(String(2000), nullable=True)
 
     project = relationship("ProjectEntity", back_populates="risks")
 
@@ -53,11 +54,10 @@ class RiskEntity(Entity, Base):
             "project_id": self.project_id,
             "name": self.name,
             "description": self.description or "",
-            "severity": self.severity,
             "probability": self.probability,
             "impact": self.impact,
             "mitigation_status": self.mitigation_status,
-            "owner": self.owner,
+            "measures": self.measures or "",
             "created": self.created,
             "updated": self.updated,
         }

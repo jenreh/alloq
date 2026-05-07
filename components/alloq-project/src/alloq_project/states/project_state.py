@@ -7,6 +7,7 @@ import reflex as rx
 from alloq_commons.entities import ProjectEntity, ProjectStatusEntity
 from alloq_commons.entities.project import ProjectStateEnum
 from alloq_commons.entities.required_capacity import RequiredCapacityEntity
+from alloq_commons.entities.risk import RiskEntity
 from alloq_commons.models.project import (
     Capacity,
     Project,
@@ -15,6 +16,7 @@ from alloq_commons.models.project import (
     RequiredCapacity,
     RequiredCapacityCreate,
     Risk,
+    RiskMatrixCell,
 )
 from alloq_commons.models.role import Role
 from alloq_commons.repositories import (
@@ -26,6 +28,7 @@ from alloq_commons.repositories import (
     role_repo,
     status_repo,
 )
+from alloq_project.services.forecast import EVForecastService, EVSummary
 
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_user.authentication.decorators import is_authenticated
@@ -55,6 +58,34 @@ def _parse_localized_int(value: float | str | None) -> int:
     return int(float(raw)) if raw else 0
 
 
+_SCORE_LOW = 4
+_SCORE_MEDIUM = 9
+_SCORE_HIGH = 15
+_SCORE_VERY_HIGH = 20
+
+# Maps impact score (1-5) to a representative EUR value within each tier
+_IMPACT_SCORE_TO_EUR: dict[int, int] = {
+    1: 10_000,
+    2: 60_000,
+    3: 300_000,
+    4: 750_000,
+    5: 1_500_000,
+}
+
+
+def _risk_score_color(score: int) -> str:
+    """Return background color for a risk matrix cell based on score."""
+    if score <= _SCORE_LOW:
+        return "var(--alloq-fade-bg, #FAFAF8)"
+    if score <= _SCORE_MEDIUM:
+        return "#FEFCE4"
+    if score <= _SCORE_HIGH:
+        return "#FFF3BF"
+    if score <= _SCORE_VERY_HIGH:
+        return "#FFE3B3"
+    return "#FFCECE"
+
+
 class ProjectState(UserSession):
     """State for project management."""
 
@@ -73,6 +104,30 @@ class ProjectState(UserSession):
 
     add_modal_open: bool = False
     detail_drawer_open: bool = False
+    active_tab: str = "status"
+
+    # Status form input state
+    status_progress: int = 0
+    status_budget_usage: int = 0
+    status_notes: str = ""
+    status_form_version: int = 0
+
+    # Status edit draft state (0=none, positive=editing existing)
+    expanded_status_id: int = 0
+    status_draft_progress: int = 0
+    status_draft_budget_usage: int = 0
+    status_draft_notes: str = ""
+    status_draft_date: str = ""
+
+    # Risk draft state (0=none, -1=new unsaved, positive=editing existing)
+    expanded_risk_id: int = 0
+    risk_draft_name: str = ""
+    risk_draft_description: str = ""
+    risk_draft_measures: str = ""
+    risk_draft_impact: int = 3
+    risk_draft_probability: int = 3
+    risk_draft_mitigation_status: str = "Offen"
+    risk_draft_form_version: int = 0
 
     search_filter: str = ""
     status_filter: str = "all"
@@ -180,6 +235,22 @@ class ProjectState(UserSession):
         self.risks = []
         self.capacities = []
         self.required_capacities = []
+        self.active_tab = "status"
+        self.status_progress = 0
+        self.status_budget_usage = 0
+        self.status_notes = ""
+        self.expanded_status_id = 0
+        self.status_draft_progress = 0
+        self.status_draft_budget_usage = 0
+        self.status_draft_notes = ""
+        self.status_draft_date = ""
+        self.expanded_risk_id = 0
+        self.risk_draft_name = ""
+        self.risk_draft_description = ""
+        self.risk_draft_measures = ""
+        self.risk_draft_impact = 3
+        self.risk_draft_probability = 3
+        self.risk_draft_mitigation_status = "Offen"
 
     async def _load_projects(self) -> None:
         """Load projects from the database."""
@@ -268,7 +339,10 @@ class ProjectState(UserSession):
             self.statuses = [
                 ProjectStatus(**status.to_dict()) for status in status_entities
             ]
-            self.risks = [Risk(**risk.to_dict()) for risk in risk_entities]
+            self.risks = [
+                Risk(**{**risk.to_dict(), "number": i + 1})
+                for i, risk in enumerate(risk_entities)
+            ]
             self.capacities = [
                 Capacity(**capacity.to_dict()) for capacity in capacity_entities
             ]
@@ -479,6 +553,430 @@ class ProjectState(UserSession):
                 )
             )
         return capacities
+
+    def set_active_tab(self, tab: str) -> None:
+        """Switch the active drawer tab."""
+        self.active_tab = tab
+
+    def set_status_progress(self, value: float | str) -> None:
+        """Update the status progress field."""
+        try:
+            self.status_progress = max(0, min(100, int(float(value or 0))))
+        except (TypeError, ValueError):
+            self.status_progress = 0
+
+    def set_status_budget_usage(self, value: float | str) -> None:
+        """Update the status budget usage field."""
+        try:
+            self.status_budget_usage = max(0, min(100, int(float(value or 0))))
+        except (TypeError, ValueError):
+            self.status_budget_usage = 0
+
+    def set_status_notes(self, value: str) -> None:
+        """Update the status notes field."""
+        self.status_notes = value or ""
+
+    @is_authenticated
+    async def add_project_status(self) -> AsyncGenerator[Any, None]:
+        """Save current status form as a new history entry."""
+        if not self.selected_project:
+            return
+        project_id = self.selected_project.id
+        try:
+            today = datetime.now(tz=UTC).date()
+            async with get_asyncdb_session() as session:
+                entity = ProjectStatusEntity(
+                    project_id=project_id,
+                    status_date=today,
+                    fortschritt=self.status_progress,
+                    budget_verbrauch=self.status_budget_usage,
+                    anmerkung=self.status_notes or None,
+                )
+                await status_repo.create(session, entity)
+                await session.commit()
+                await session.refresh(entity)
+                new_status = ProjectStatus(
+                    id=entity.id,
+                    project_id=project_id,
+                    status_date=today.isoformat(),
+                    fortschritt=self.status_progress,
+                    budget_verbrauch=self.status_budget_usage,
+                    anmerkung=self.status_notes,
+                )
+            self.statuses = [new_status, *self.statuses]
+            self.status_progress = 0
+            self.status_budget_usage = 0
+            self.status_notes = ""
+            self.status_form_version += 1
+            yield rx.toast.info("Status gespeichert.", position="top-right")
+        except Exception as exc:
+            logger.error("Failed to save project status: %s", exc)
+            yield rx.toast.error(
+                "Fehler beim Speichern des Status.",
+                position="top-right",
+            )
+
+    def expand_status(self, status_id: int) -> None:
+        """Toggle the inline edit form for an existing status entry."""
+        if self.expanded_status_id == status_id:
+            self.expanded_status_id = 0
+            return
+        status = next((s for s in self.statuses if s.id == status_id), None)
+        if not status:
+            return
+        self.expanded_status_id = status_id
+        self.status_draft_progress = status.fortschritt
+        self.status_draft_budget_usage = status.budget_verbrauch
+        self.status_draft_notes = status.anmerkung
+        self.status_draft_date = status.status_date
+
+    def collapse_status_edit(self) -> None:
+        """Close the status edit form without saving."""
+        self.expanded_status_id = 0
+
+    def set_status_draft_progress(self, value: float | str) -> None:
+        """Update status draft progress field."""
+        try:
+            self.status_draft_progress = max(0, min(100, int(float(value or 0))))
+        except (TypeError, ValueError):
+            self.status_draft_progress = 0
+
+    def set_status_draft_budget_usage(self, value: float | str) -> None:
+        """Update status draft budget usage field."""
+        try:
+            self.status_draft_budget_usage = max(0, min(100, int(float(value or 0))))
+        except (TypeError, ValueError):
+            self.status_draft_budget_usage = 0
+
+    def set_status_draft_notes(self, value: str) -> None:
+        """Update status draft notes field."""
+        self.status_draft_notes = value or ""
+
+    def set_status_draft_date(self, value: str) -> None:
+        """Update status draft date field."""
+        self.status_draft_date = value or ""
+
+    @is_authenticated
+    async def save_status_draft(self) -> AsyncGenerator[Any, None]:
+        """Persist edits to an existing status entry."""
+        status_id = self.expanded_status_id
+        if status_id <= 0:
+            return
+        try:
+            new_date = date.fromisoformat(self.status_draft_date[:10])
+        except (ValueError, IndexError):
+            yield rx.toast.error("Ungültiges Datum.", position="top-right")
+            return
+        try:
+            async with get_asyncdb_session() as session:
+                entity = await status_repo.find_by_id(session, status_id)
+                if not entity:
+                    yield rx.toast.error("Status nicht gefunden.", position="top-right")
+                    return
+                entity.status_date = new_date
+                entity.fortschritt = self.status_draft_progress
+                entity.budget_verbrauch = self.status_draft_budget_usage
+                entity.anmerkung = self.status_draft_notes or None
+                await session.commit()
+            self.statuses = [
+                ProjectStatus(
+                    **{
+                        **s.model_dump(),
+                        "status_date": new_date.isoformat(),
+                        "fortschritt": self.status_draft_progress,
+                        "budget_verbrauch": self.status_draft_budget_usage,
+                        "anmerkung": self.status_draft_notes,
+                    }
+                )
+                if s.id == status_id
+                else s
+                for s in self.statuses
+            ]
+            self.expanded_status_id = 0
+            yield rx.toast.info("Status aktualisiert.", position="top-right")
+        except Exception as exc:
+            logger.error("Failed to update status %s: %s", status_id, exc)
+            yield rx.toast.error(
+                "Fehler beim Speichern des Status.",
+                position="top-right",
+            )
+
+    @is_authenticated
+    async def delete_project_status(self, status_id: int) -> AsyncGenerator[Any, None]:
+        """Delete a status history entry by ID."""
+        try:
+            async with get_asyncdb_session() as session:
+                deleted = await status_repo.delete_by_id(session, status_id)
+                if not deleted:
+                    return
+                await session.commit()
+            if status_id == self.expanded_status_id:
+                self.expanded_status_id = 0
+            self.statuses = [s for s in self.statuses if s.id != status_id]
+            yield rx.toast.info("Status gelöscht.", position="top-right")
+        except Exception as exc:
+            logger.error("Failed to delete status %s: %s", status_id, exc)
+            yield rx.toast.error(
+                "Fehler beim Löschen des Status.",
+                position="top-right",
+            )
+
+    def add_project_risk(self) -> None:
+        """Open a draft form for a new risk without persisting yet."""
+        self.expanded_risk_id = -1
+        self.risk_draft_name = ""
+        self.risk_draft_description = ""
+        self.risk_draft_measures = ""
+        self.risk_draft_impact = 3
+        self.risk_draft_probability = 3
+        self.risk_draft_mitigation_status = "Offen"
+        self.risk_draft_form_version += 1
+
+    def expand_risk(self, risk_id: int) -> None:
+        """Toggle the inline edit form for an existing risk."""
+        if self.expanded_risk_id == risk_id:
+            self.expanded_risk_id = 0
+            return
+        risk = next((r for r in self.risks if r.id == risk_id), None)
+        if not risk:
+            return
+        self.expanded_risk_id = risk_id
+        self.risk_draft_name = risk.name
+        self.risk_draft_description = risk.description
+        self.risk_draft_measures = risk.measures
+        self.risk_draft_impact = risk.auswirkung_score
+        self.risk_draft_probability = risk.probability
+        self.risk_draft_mitigation_status = risk.mitigation_status
+        self.risk_draft_form_version += 1
+
+    def collapse_risk_edit(self) -> None:
+        """Close the risk edit form without saving."""
+        self.expanded_risk_id = 0
+
+    def set_risk_draft_name(self, value: str) -> None:
+        """Update risk draft name."""
+        self.risk_draft_name = value or ""
+
+    def set_risk_draft_description(self, value: str) -> None:
+        """Update risk draft description."""
+        self.risk_draft_description = value or ""
+
+    def set_risk_draft_measures(self, value: str) -> None:
+        """Update risk draft measures."""
+        self.risk_draft_measures = value or ""
+
+    def set_risk_draft_impact(self, value: str) -> None:
+        """Update risk draft impact score (1-5)."""
+        try:
+            self.risk_draft_impact = max(1, min(5, int(value or 3)))
+        except (TypeError, ValueError):
+            self.risk_draft_impact = 3
+
+    def set_risk_draft_probability(self, value: str) -> None:
+        """Update risk draft probability (1-5)."""
+        try:
+            self.risk_draft_probability = max(1, min(5, int(value or 3)))
+        except (TypeError, ValueError):
+            self.risk_draft_probability = 3
+
+    def set_risk_draft_mitigation_status(self, value: str) -> None:
+        """Update risk draft mitigation status."""
+        self.risk_draft_mitigation_status = value or "Offen"
+
+    @is_authenticated
+    async def save_risk_draft(self) -> AsyncGenerator[Any, None]:
+        """Persist the current risk draft (create new or update existing)."""
+        if not self.selected_project:
+            return
+        project_id = self.selected_project.id
+        try:
+            if self.expanded_risk_id == -1:
+                async with get_asyncdb_session() as session:
+                    entity = RiskEntity(
+                        project_id=project_id,
+                        name=self.risk_draft_name or "Neues Risiko",
+                        description=self.risk_draft_description,
+                        probability=self.risk_draft_probability,
+                        impact=_IMPACT_SCORE_TO_EUR.get(self.risk_draft_impact, 10_000),
+                        mitigation_status=self.risk_draft_mitigation_status,
+                        measures=self.risk_draft_measures or None,
+                    )
+                    await risk_repo.create(session, entity)
+                    await session.commit()
+                    await session.refresh(entity)
+                    new_number = len(self.risks) + 1
+                    new_risk = Risk(**{**entity.to_dict(), "number": new_number})
+                self.risks = [*self.risks, new_risk]
+                self.expanded_risk_id = 0
+                yield rx.toast.info("Risiko gespeichert.", position="top-right")
+            elif self.expanded_risk_id > 0:
+                risk_id = self.expanded_risk_id
+                async with get_asyncdb_session() as session:
+                    entity = await risk_repo.find_by_id(session, risk_id)
+                    if not entity:
+                        yield rx.toast.error(
+                            "Risiko nicht gefunden.", position="top-right"
+                        )
+                        return
+                    entity.name = self.risk_draft_name
+                    entity.description = self.risk_draft_description
+                    entity.measures = self.risk_draft_measures or None
+                    entity.impact = _IMPACT_SCORE_TO_EUR.get(
+                        self.risk_draft_impact, 10_000
+                    )
+                    entity.probability = self.risk_draft_probability
+                    entity.mitigation_status = self.risk_draft_mitigation_status
+                    await session.commit()
+                self.risks = [
+                    Risk(
+                        **{
+                            **r.model_dump(),
+                            "name": self.risk_draft_name,
+                            "description": self.risk_draft_description,
+                            "measures": self.risk_draft_measures,
+                            "impact": _IMPACT_SCORE_TO_EUR.get(
+                                self.risk_draft_impact, 10_000
+                            ),
+                            "probability": self.risk_draft_probability,
+                            "mitigation_status": self.risk_draft_mitigation_status,
+                        }
+                    )
+                    if r.id == risk_id
+                    else r
+                    for r in self.risks
+                ]
+                self.expanded_risk_id = 0
+                yield rx.toast.info("Risiko gespeichert.", position="top-right")
+        except Exception as exc:
+            logger.error("Failed to save risk draft: %s", exc)
+            yield rx.toast.error(
+                "Fehler beim Speichern des Risikos.",
+                position="top-right",
+            )
+
+    @is_authenticated
+    async def update_project_risk(
+        self, risk_id: int, field: str, value: str
+    ) -> AsyncGenerator[Any, None]:
+        """Update a single field on a risk."""
+        try:
+            async with get_asyncdb_session() as session:
+                entity = await risk_repo.find_by_id(session, risk_id)
+                if not entity:
+                    return
+                allowed = {
+                    "name",
+                    "description",
+                    "measures",
+                    "impact",
+                    "probability",
+                    "mitigation_status",
+                }
+                if field not in allowed:
+                    return
+                if field in ("impact", "probability"):
+                    setattr(entity, field, int(float(value or 0)))
+                else:
+                    setattr(entity, field, str(value or ""))
+                await session.commit()
+
+            self.risks = [
+                Risk(
+                    **{
+                        **r.model_dump(),
+                        field: (
+                            int(float(value or 0))
+                            if field in ("impact", "probability")
+                            else str(value or "")
+                        ),
+                    }
+                )
+                if r.id == risk_id
+                else r
+                for r in self.risks
+            ]
+        except Exception as exc:
+            logger.error("Failed to update risk %s: %s", risk_id, exc)
+            yield rx.toast.error(
+                "Fehler beim Aktualisieren des Risikos.",
+                position="top-right",
+            )
+
+    @is_authenticated
+    async def delete_project_risk(self, risk_id: int) -> AsyncGenerator[Any, None]:
+        """Delete a risk by ID and renumber remaining risks."""
+        try:
+            async with get_asyncdb_session() as session:
+                deleted = await risk_repo.delete_by_id(session, risk_id)
+                if not deleted:
+                    return
+                await session.commit()
+            if risk_id == self.expanded_risk_id:
+                self.expanded_risk_id = 0
+            remaining = [r for r in self.risks if r.id != risk_id]
+            self.risks = [
+                Risk(**{**r.model_dump(), "number": i + 1})
+                for i, r in enumerate(remaining)
+            ]
+            yield rx.toast.info("Risiko gelöscht.", position="top-right")
+        except Exception as exc:
+            logger.error("Failed to delete risk %s: %s", risk_id, exc)
+            yield rx.toast.error(
+                "Fehler beim Löschen des Risikos.",
+                position="top-right",
+            )
+
+    @rx.var
+    def sorted_risks(self) -> list[Risk]:
+        """Risks sorted by creation date descending (newest first)."""
+        return sorted(
+            self.risks,
+            key=lambda r: r.created or "",
+            reverse=True,
+        )
+
+    @rx.var
+    def risk_matrix_cells(self) -> list[RiskMatrixCell]:
+        """Return 25 cells for the 5x5 risk matrix (row-major, top to bottom)."""
+        cells = []
+        for w in range(5, 0, -1):
+            for a in range(1, 6):
+                score = w * a
+                risk_numbers = [
+                    r.number
+                    for r in self.risks
+                    if r.probability == w and r.auswirkung_score == a
+                ]
+                risk_names = [
+                    r.name
+                    for r in self.risks
+                    if r.probability == w and r.auswirkung_score == a
+                ]
+                cells.append(
+                    RiskMatrixCell(
+                        w=w,
+                        a=a,
+                        score=score,
+                        risk_numbers=risk_numbers,
+                        risk_names=risk_names,
+                        color=_risk_score_color(score),
+                    )
+                )
+        return cells
+
+    @rx.var
+    def ev_chart_data(self) -> list[dict]:
+        """Build EV chart data with PV, EV, AC and two forecast curves."""
+        if not self.selected_project:
+            return []
+        return EVForecastService.build_chart_data(self.selected_project, self.statuses)
+
+    @rx.var
+    def ev_summary(self) -> EVSummary:
+        """Final AC/EV and EAC forecasts at the latest status."""
+        if not self.selected_project:
+            return EVSummary()
+        return EVForecastService.build_summary(self.selected_project, self.statuses)
 
 
 class ProjectValidationState(rx.State):

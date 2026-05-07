@@ -7,6 +7,8 @@ from alloq_project.components.project_form import (
     form_layout,
     project_form_fields,
 )
+from alloq_project.components.project_risk_tab import risiken_tab
+from alloq_project.components.project_status_tab import status_tab
 from alloq_project.states.project_state import ProjectState, ProjectValidationState
 
 import appkit_mantine as mn
@@ -67,22 +69,61 @@ def _required_capacity_row(capacity: RequiredCapacity) -> rx.Component:
 
 
 def project_detail_drawer() -> rx.Component:
-    """Right-side drawer for editing project details."""
+    """Right-side drawer with Status, Risiken, Daten tabs."""
     return mn.drawer(
-        form_layout(
-            content=mn.flex(
-                project_form_fields(),
-                mn.space(height="1.5rem"),
-                direction="column",
+        rx.flex(
+            rx.box(
+                mn.segmented_control(
+                    data=[
+                        {"value": "status", "label": "Status"},
+                        {"value": "risiken", "label": "Risiken"},
+                        {"value": "daten", "label": "Daten"},
+                    ],
+                    value=ProjectState.active_tab,
+                    on_change=ProjectState.set_active_tab,
+                    full_width=True,
+                    size="sm",
+                    color="alloqTeal.5",
+                    radius="md",
+                    bg="var(--alloq-surface-solid)",
+                    style={"flexShrink": "0"},
+                    w="50%",
+                ),
+                padding="9px 18px",
+                # border_bottom="1px solid var(--alloq-border)",
+                background="var(--alloq-surface-muted)",
+                box_shadow="0 2px 8px rgba(0, 0, 0, 0.08)",
+                z_index="1",
                 width="100%",
-                key=ProjectValidationState.form_version.to(str),
+                flex_shrink="0",
             ),
-            footer=form_footer(
-                "Projekt aktualisieren",
-                ProjectState.close_detail_drawer,
-                disabled=ProjectValidationState.is_form_invalid,
+            rx.cond(
+                ProjectState.active_tab == "daten",
+                form_layout(
+                    content=mn.flex(
+                        project_form_fields(),
+                        mn.space(height="1.5rem"),
+                        direction="column",
+                        width="100%",
+                        key=ProjectValidationState.form_version.to(str),
+                    ),
+                    footer=form_footer(
+                        "Projekt aktualisieren",
+                        ProjectState.close_detail_drawer,
+                        disabled=ProjectValidationState.is_form_invalid,
+                    ),
+                    on_submit=ProjectState.update_project,
+                ),
+                rx.cond(
+                    ProjectState.active_tab == "status",
+                    status_tab(),
+                    risiken_tab(),
+                ),
             ),
-            on_submit=ProjectState.update_project,
+            direction="column",
+            gap="md",
+            height="100%",
+            width="100%",
         ),
         title=rx.cond(
             ProjectState.selected_project,
@@ -92,7 +133,7 @@ def project_detail_drawer() -> rx.Component:
         opened=ProjectState.detail_drawer_open,
         on_close=ProjectState.close_detail_drawer,
         position="right",
-        size="lg",
+        size="xl",
         overlay_props={"backgroundOpacity": 0.3, "blur": 3},
         offset="15px",
         radius="md",
