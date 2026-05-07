@@ -333,7 +333,10 @@ def _utilization_body() -> rx.Component:
     data = UtilizationState.data
     summary = UnderUtilizationState.data
     well_utilized_count = (
-        summary.total_employees - summary.overloaded_count - summary.affected_count
+        summary.total_employees
+        - summary.overloaded_count
+        - summary.affected_count
+        - summary.absent_count
     )
     return mn.stack(
         section(
@@ -449,7 +452,10 @@ def _under_utilization_body() -> rx.Component:
     summary = UnderUtilizationState.data
     data = UtilizationState.data
     well_utilized_count = (
-        summary.total_employees - summary.overloaded_count - summary.affected_count
+        summary.total_employees
+        - summary.overloaded_count
+        - summary.affected_count
+        - summary.absent_count
     )
     return mn.stack(
         mn.group(
