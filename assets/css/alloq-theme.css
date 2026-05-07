@@ -33,6 +33,13 @@
     --alloq-tag-bg: #f3f4f6;
     --alloq-item-bg: #ffffff;
     --alloq-item-text: #4b5563;
+
+    /* Risk matrix cell colors */
+    --alloq-risk-low: #f5f4e8;
+    --alloq-risk-medium: #fdf6c3;
+    --alloq-risk-high: #fde68a;
+    --alloq-risk-very-high: #fcd38d;
+    --alloq-risk-critical: #fca5a5;
     --mantine-color-blue-2: #bfd4dd;
     --mantine-color-blue-3: #94b3c1;
     --mantine-color-blue-4: #6f91a3;
@@ -242,6 +249,13 @@
     --alloq-tag-bg: #253a3e;
     --alloq-item-bg: #1f2f33;
     --alloq-item-text: #b9dddd;
+
+    /* Risk matrix cell colors (dark) */
+    --alloq-risk-low: rgba(200, 220, 180, 0.1);
+    --alloq-risk-medium: rgba(250, 230, 80, 0.2);
+    --alloq-risk-high: rgba(253, 230, 138, 0.7);
+    --alloq-risk-very-high: rgba(252, 211, 141, 0.8);
+    --alloq-risk-critical: rgba(252, 165, 165, 0.9);
 
     /* Dark theme: match primary button to nav active bg */
     --mantine-primary-color-filled: #1e4d42;

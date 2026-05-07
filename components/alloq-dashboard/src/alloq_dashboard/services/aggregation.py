@@ -68,6 +68,9 @@ UNDER_UTIL_THRESHOLD = 70
 OVER_UTIL_THRESHOLD = 100
 BUDGET_DELTA_THRESHOLD = 0.10
 DEADLINE_30_DAYS = 30
+
+_RISK_SCORE_LOW = 4
+_RISK_SCORE_MEDIUM = 9
 DEADLINE_60_DAYS = 60
 DEADLINE_HORIZON_DAYS = 90
 PROGRESS_RISK_THRESHOLD = 80
@@ -122,8 +125,8 @@ class _RiskRow:
     project_id: int
     name: str
     severity: str
-    probability: str
-    impact: str
+    probability: int
+    impact: int
     mitigation_status: str
     owner: str | None
     created_date: date | None
@@ -313,17 +316,27 @@ def _project_to_row(entity: ProjectEntity) -> _ProjectRow:
     )
 
 
+def _severity_from_score(probability: int, impact: int) -> str:
+    """Derive severity label from probability * impact."""
+    score = probability * impact
+    if score <= _RISK_SCORE_LOW:
+        return RiskLevel.LOW.value
+    if score <= _RISK_SCORE_MEDIUM:
+        return RiskLevel.MEDIUM.value
+    return RiskLevel.HIGH.value
+
+
 def _risk_to_row(entity: RiskEntity) -> _RiskRow:
     created = entity.created.date() if entity.created else None
     return _RiskRow(
         id=entity.id,
         project_id=entity.project_id,
         name=entity.name,
-        severity=entity.severity,
+        severity=_severity_from_score(entity.probability, entity.impact),
         probability=entity.probability,
         impact=entity.impact,
         mitigation_status=entity.mitigation_status,
-        owner=entity.owner,
+        owner=None,
         created_date=created,
     )
 

@@ -193,8 +193,8 @@ class RiskItem(BaseModel):
     project_name: str = ""
     name: str = ""
     severity: str = ""
-    probability: str = ""
-    impact: str = ""
+    probability: int = 0
+    impact: int = 0
     mitigation_status: str = ""
     owner: str | None = None
 

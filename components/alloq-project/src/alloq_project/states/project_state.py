@@ -76,14 +76,14 @@ _IMPACT_SCORE_TO_EUR: dict[int, int] = {
 def _risk_score_color(score: int) -> str:
     """Return background color for a risk matrix cell based on score."""
     if score <= _SCORE_LOW:
-        return "var(--alloq-fade-bg, #FAFAF8)"
+        return "var(--alloq-risk-low)"
     if score <= _SCORE_MEDIUM:
-        return "#FEFCE4"
+        return "var(--alloq-risk-medium)"
     if score <= _SCORE_HIGH:
-        return "#FFF3BF"
+        return "var(--alloq-risk-high)"
     if score <= _SCORE_VERY_HIGH:
-        return "#FFE3B3"
-    return "#FFCECE"
+        return "var(--alloq-risk-very-high)"
+    return "var(--alloq-risk-critical)"
 
 
 class ProjectState(UserSession):
