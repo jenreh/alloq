@@ -300,9 +300,18 @@ def _utilization_body() -> rx.Component:
             ),
             mn.bar_chart(
                 data=data.weeks.foreach(
-                    lambda w: {"label": w.week_label, "Auslastung": w.percent}
+                    lambda w: {
+                        "label": w.week_label,
+                        "Auslastung": rx.cond(
+                            w.week_label == data.current_week_label, 0, w.percent
+                        ),
+                        "Aktuelle Woche": rx.cond(
+                            w.week_label == data.current_week_label, w.percent, 0
+                        ),
+                    }
                 ),
                 data_key="label",
+                chart_type="stacked",
                 series=[
                     {
                         "name": "Auslastung",
@@ -310,7 +319,11 @@ def _utilization_body() -> rx.Component:
                             "light-dark(var(--mantine-color-blue-2), "
                             "var(--mantine-color-blue-9))"
                         ),
-                    }
+                    },
+                    {
+                        "name": "Aktuelle Woche",
+                        "color": "var(--mantine-color-blue-6)",
+                    },
                 ],
                 reference_lines=[
                     {

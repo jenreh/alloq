@@ -905,6 +905,12 @@ class PlanningStore(UserSession):
         return out
 
     @rx.var(cache=True)
+    def current_week_key(self) -> str:
+        today = datetime.datetime.now(tz=datetime.UTC).date()
+        monday = today - datetime.timedelta(days=today.weekday())
+        return _week_key_for_date(monday)
+
+    @rx.var(cache=True)
     def table_width(self) -> str:
         return f"{LABEL_COL_PX + len(self.weeks) * WEEK_COL_PX}px"
 

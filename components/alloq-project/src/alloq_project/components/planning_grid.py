@@ -119,6 +119,16 @@ HEADER_BLOCK_STYLE = {
 EMP_HEADER_BG = "var(--alloq-surface-hover)"
 GESAMT_BG = "var(--alloq-surface-muted)"
 
+CURRENT_WEEK_BG = "light-dark(rgba(255, 212, 59, 0.16), rgba(255, 212, 59, 0.08))"
+
+
+def _current_week_bg(
+    week_key: rx.Var[str], fallback: str = "transparent"
+) -> rx.Var[str]:
+    return rx.cond(
+        week_key == PlanningStore.current_week_key, CURRENT_WEEK_BG, fallback
+    )
+
 
 def _row(*children: rx.Component, style: dict | None = None) -> rx.Component:
     return mn.box(
@@ -233,7 +243,7 @@ def _week_label_cell(week: WeekColumn) -> rx.Component:
         style={
             **CELL_BASE,
             "minHeight": HEADER_ROW_HEIGHT,
-            "backgroundColor": "var(--alloq-surface-muted)",
+            "backgroundColor": _current_week_bg(week.key, "var(--alloq-surface-muted)"),
             "fontWeight": "500",
         },
     )
@@ -245,7 +255,7 @@ def _work_days_cell(week: WeekColumn) -> rx.Component:
         style={
             **CELL_BASE,
             "minHeight": HEADER_ROW_HEIGHT,
-            "backgroundColor": "var(--alloq-surface-muted)",
+            "backgroundColor": _current_week_bg(week.key, "var(--alloq-surface-muted)"),
             "fontWeight": "500",
             "fontSize": "11px",
             "borderBottom": "2px solid var(--alloq-border-strong)",
@@ -506,6 +516,7 @@ def _project_value_cell(cell: GridCell) -> rx.Component:
             **CELL_BASE,
             "padding": "0",
             "position": "relative",
+            "backgroundColor": _current_week_bg(cell.week_key),
         },
         custom_attrs={"data-active-cell": rx.cond(is_active, "true", "false")},
     )
@@ -542,7 +553,7 @@ def _absence_value_cell(cell: GridCell) -> rx.Component:
             ),
             mn.text("", size="sm"),
         ),
-        style=CELL_BASE,
+        style={**CELL_BASE, "backgroundColor": _current_week_bg(cell.week_key)},
     )
 
 
@@ -598,7 +609,7 @@ def _internal_value_cell(cell: GridCell) -> rx.Component:
             ),
             mn.text("", size="sm"),
         ),
-        style=CELL_BASE,
+        style={**CELL_BASE, "backgroundColor": _current_week_bg(cell.week_key)},
     )
 
 
@@ -631,11 +642,17 @@ def _internal_row(emp: EmployeeBlock) -> rx.Component:
 
 
 def _gesamt_value_cell(cell: GesamtCell) -> rx.Component:
+    is_current = cell.week_key == PlanningStore.current_week_key
     return mn.box(
         _format_gesamt(cell.value),
         style={
             **CELL_BASE,
             "backgroundColor": _gesamt_bg(cell.bucket),
+            "backgroundImage": rx.cond(
+                is_current,
+                f"linear-gradient({CURRENT_WEEK_BG}, {CURRENT_WEEK_BG})",
+                "none",
+            ),
             "color": _gesamt_color(cell.bucket),
             "fontWeight": "600",
         },

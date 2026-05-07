@@ -13,6 +13,7 @@ from alloq_project.components.planning_grid import (
     STICKY_LEFT_BODY,
     STICKY_LEFT_EMP_HEADER,
     STICKY_LEFT_GESAMT,
+    _current_week_bg,
     _format_de,
     _format_gesamt,
     _label_th,
@@ -291,6 +292,7 @@ def _value_cell(cell: GridCell) -> rx.Component:
             **CELL_BASE,
             "padding": "0",
             "position": "relative",
+            "backgroundColor": _current_week_bg(cell.week_key),
         },
         custom_attrs={"data-active-cell": rx.cond(is_active, "true", "false")},
     )
@@ -315,7 +317,9 @@ def _project_gesamt_cell(cell: ProjectGesamtCell) -> rx.Component:
         _format_gesamt(cell.allocated),
         style={
             **CELL_BASE,
-            "backgroundColor": "var(--alloq-surface-muted)",
+            "backgroundColor": _current_week_bg(
+                cell.week_key, "var(--alloq-surface-muted)"
+            ),
             "color": "var(--alloq-text)",
             "fontWeight": "600",
             "fontSize": "11px",
