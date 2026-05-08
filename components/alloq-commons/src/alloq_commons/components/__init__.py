@@ -2,11 +2,10 @@ from alloq_commons.components.formatters import (
     de_number,
     format_date_de,
     format_date_de_named,
-)
-from alloq_commons.components.dashboard import (
-    ROW_STYLE,
     big_number,
+    ROW_STYLE,
 )
+
 from alloq_commons.components.page_header import page_header
 from alloq_commons.components.role import (
     add_role_button,

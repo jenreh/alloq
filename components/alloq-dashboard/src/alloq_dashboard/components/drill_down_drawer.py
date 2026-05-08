@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import reflex as rx
-from alloq_commons.components.dashboard import ROW_STYLE
+from alloq_commons.components import ROW_STYLE
 from alloq_commons.components.formatters import de_number
 from alloq_commons.components.forms import section
 from alloq_commons.components.modal_layout import DRAWER_CLASS

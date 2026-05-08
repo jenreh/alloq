@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import reflex as rx
-from alloq_commons.components.dashboard import (
+from alloq_commons.components import (
     ROW_STYLE,
 )
 from alloq_commons.components.formatters import format_date_de

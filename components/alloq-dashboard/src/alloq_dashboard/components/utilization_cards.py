@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import reflex as rx
-from alloq_commons.components.dashboard import big_number
+from alloq_commons.components import big_number
 
 import appkit_mantine as mn
 from alloq_dashboard.components.drill_down_drawer import DRILL_UTILIZATION

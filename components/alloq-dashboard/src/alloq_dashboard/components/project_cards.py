@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import reflex as rx
-from alloq_commons.components.dashboard import big_number
+from alloq_commons.components import big_number
 from alloq_project.components.project_card import project_card
 from alloq_project.states.project_state import ProjectState
 
