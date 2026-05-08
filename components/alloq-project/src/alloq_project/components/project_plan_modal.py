@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import reflex as rx
+from alloq_commons.components.formatters import format_date_de
 from alloq_commons.models.project import Project
 from alloq_project.states.planning_grid_state import PlanningStore
 from alloq_project.states.project_plan_state import ProjectPlanState
@@ -52,24 +53,6 @@ def _status_badge(state_var: rx.Var[str]) -> rx.Component:
 def _project_card(project: Project) -> rx.Component:
     return mn.box(
         mn.group(
-            mn.box(
-                mn.text(
-                    project.code.to_string()[:3].upper(),
-                    fw="700",
-                    size="sm",
-                    c="white",
-                ),
-                style={
-                    "width": "44px",
-                    "height": "44px",
-                    "borderRadius": "8px",
-                    "backgroundColor": project.color,
-                    "display": "flex",
-                    "alignItems": "center",
-                    "justifyContent": "center",
-                    "flexShrink": "0",
-                },
-            ),
             mn.stack(
                 mn.text(
                     project.name_de,
@@ -78,11 +61,9 @@ def _project_card(project: Project) -> rx.Component:
                     c="var(--alloq-text)",
                 ),
                 mn.text(
-                    project.code
-                    + " · "
-                    + project.start_date.to_string()
+                    format_date_de(project.start_date)
                     + " → "
-                    + project.end_date.to_string()
+                    + format_date_de(project.end_date)
                     + " · "
                     + project.team_initials.length().to_string()
                     + " Personen",

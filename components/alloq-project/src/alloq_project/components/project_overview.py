@@ -1,6 +1,5 @@
 import reflex as rx
 from alloq_commons.components.modal_layout import DRAWER_CLASS, MODAL_CLASS
-from alloq_commons.models.project import RequiredCapacity
 from alloq_project.components.project_card import project_card
 from alloq_project.components.project_form import (
     form_footer,
@@ -39,32 +38,6 @@ def add_project_modal() -> rx.Component:
         centered=True,
         class_name=MODAL_CLASS,
         overlay_props={"backgroundOpacity": 0.5, "blur": 4},
-    )
-
-
-def _required_capacity_row(capacity: RequiredCapacity) -> rx.Component:
-    """Render one required capacity row in the detail drawer."""
-    return mn.group(
-        mn.text(capacity.role_name, size="sm", fw="700"),
-        mn.badge(
-            capacity.person_days.to_string() + " PD",
-            variant="light",
-            radius="sm",
-            color="yellow",
-            style={
-                "backgroundColor": "var(--alloq-tag-bg)",
-                "color": "var(--alloq-accent-strong)",
-                "textTransform": "none",
-                "fontWeight": "bold",
-            },
-        ),
-        justify="space-between",
-        w="100%",
-        style={
-            "backgroundColor": "var(--alloq-item-bg, var(--alloq-surface-muted))",
-            "padding": "8px 12px",
-            "borderRadius": "6px",
-        },
     )
 
 

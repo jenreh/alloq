@@ -1,5 +1,6 @@
 import reflex as rx
 from alloq_commons.components import de_number
+from alloq_commons.components.formatters import format_date_de
 from alloq_commons.components.forms import section
 from alloq_project.states.project_state import ProjectState
 
@@ -199,19 +200,13 @@ def _status_edit_form() -> rx.Component:
     )
 
 
-def _format_date_de(iso_date: rx.Var) -> rx.Var:
-    """Convert ISO date string (YYYY-MM-DD) to German format (DD.MM.YYYY)."""
-    parts = iso_date.split("-")
-    return parts[2] + "." + parts[1] + "." + parts[0]
-
-
 def _history_row(status: rx.Var) -> rx.Component:
     """Render one row of the status history table with inline edit support."""
     is_expanded = ProjectState.expanded_status_id == status.id
     return mn.box(
         mn.group(
             mn.text(
-                _format_date_de(status.status_date),
+                format_date_de(status.status_date),
                 size="sm",
                 fw="600",
                 w="6rem",

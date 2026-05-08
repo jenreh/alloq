@@ -492,7 +492,7 @@ class ProjectState(UserSession):
                 self._upsert_project(updated_project)
             self.close_detail_drawer()
             yield rx.toast.info(
-                f"Projekt '{project_data.code}' aktualisiert.",
+                f"Projekt '{project_data.name_de}' aktualisiert.",
                 position="top-right",
             )
         except Exception as exc:

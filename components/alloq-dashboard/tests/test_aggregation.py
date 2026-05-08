@@ -31,8 +31,8 @@ def test_project_to_row_counts_only_top_open_risks() -> None:
                 mitigation_status=RiskMitigationStatus.OPEN.value,
             ),
             SimpleNamespace(
-                probability=3,
-                impact=5,
+                probability=5,
+                impact=3,
                 mitigation_status=RiskMitigationStatus.OPEN.value,
             ),
             SimpleNamespace(
@@ -69,7 +69,6 @@ async def test_load_project_health_counts_only_top_open_risks() -> None:
             open_risk_count=1,
         )
     ]
-    # _load_risk_rows now returns only open risks with score >= 16
     risks = [
         aggregation._RiskRow(
             id=1,
@@ -81,7 +80,28 @@ async def test_load_project_health_counts_only_top_open_risks() -> None:
             mitigation_status=RiskMitigationStatus.OPEN.value,
             owner=None,
             created_date=date(2026, 5, 5),
-            updated_date=None,
+        ),
+        aggregation._RiskRow(
+            id=2,
+            project_id=1,
+            name="Below threshold",
+            severity="high",
+            probability=5,
+            impact=3,
+            mitigation_status=RiskMitigationStatus.OPEN.value,
+            owner=None,
+            created_date=date(2026, 5, 5),
+        ),
+        aggregation._RiskRow(
+            id=3,
+            project_id=1,
+            name="Closed top risk",
+            severity="high",
+            probability=5,
+            impact=5,
+            mitigation_status=RiskMitigationStatus.MITIGATED.value,
+            owner=None,
+            created_date=date(2026, 5, 5),
         ),
     ]
 

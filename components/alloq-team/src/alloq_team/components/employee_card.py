@@ -1,4 +1,5 @@
 import reflex as rx
+from alloq_commons.components.formatters import format_date_de
 from alloq_commons.models.employee import Employee
 from alloq_team.states.team_state import TeamState
 
@@ -122,12 +123,6 @@ def _role_tags(employee: Employee) -> rx.Component:
     )
 
 
-def _format_date_de(date_var: rx.Var) -> rx.Var[str]:
-    """Format YYYY-MM-DD to DD.MM.YYYY."""
-    parts = date_var.to(str).split("-")
-    return parts[2] + "." + parts[1] + "." + parts[0]
-
-
 def _absence_list(employee: Employee) -> rx.Component:
     """Abwesenheiten als Liste mit farbigen Indikatoren."""
     return mn.stack(
@@ -151,9 +146,9 @@ def _absence_list(employee: Employee) -> rx.Component:
                 employee.absences,
                 lambda absence: mn.group(
                     mn.text(
-                        _format_date_de(absence.start_date)
+                        format_date_de(absence.start_date)
                         + " bis "
-                        + _format_date_de(absence.end_date),
+                        + format_date_de(absence.end_date),
                         size="0.66rem",
                         ff="'Roboto Mono', monospace",
                         style={

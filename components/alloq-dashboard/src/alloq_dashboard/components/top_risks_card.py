@@ -6,6 +6,7 @@ import reflex as rx
 from alloq_commons.components.dashboard import (
     ROW_STYLE,
 )
+from alloq_commons.components.formatters import format_date_de
 from alloq_commons.entities.risk import RiskMitigationStatus
 from alloq_project.states.project_state import ProjectState
 
@@ -14,12 +15,6 @@ from alloq_dashboard.components.kpi_card import kpi_card
 from alloq_dashboard.states import RiskState
 
 CRITICAL_RISK_SCORE = 25
-
-
-def _format_date_de(iso: rx.Var) -> rx.Var[str]:
-    """Format YYYY-MM-DD to DD.MM.YYYY."""
-    parts = iso.to(str).split("-")
-    return parts[2] + "." + parts[1] + "." + parts[0]
 
 
 def _risk_row(risk: rx.Var) -> rx.Component:
@@ -69,7 +64,7 @@ def _risk_row(risk: rx.Var) -> rx.Component:
                 rx.cond(
                     risk.updated_at != "",
                     mn.text(
-                        _format_date_de(risk.updated_at),
+                        format_date_de(risk.updated_at),
                         size="xs",
                         c="var(--alloq-text-muted)",
                         style={"whiteSpace": "nowrap"},

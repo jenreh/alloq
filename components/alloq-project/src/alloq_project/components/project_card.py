@@ -1,32 +1,10 @@
 import reflex as rx
-from alloq_commons.components.formatters import de_number
+from alloq_commons.components.formatters import de_number, format_date_de_named
 from alloq_commons.models.project import Project, TeamMemberBadge
 from alloq_project.states.project_state import ProjectState
 
 import appkit_mantine as mn
 from appkit_ui.components.dialogs import delete_dialog
-
-
-def _format_date_de(date_var: rx.Var) -> rx.Var[str]:
-    """Format YYYY-MM-DD to DD.MM.YYYY."""
-    parts = date_var.to(str).split("-")
-    month_name = rx.match(
-        parts[1],
-        ("01", "Jan"),
-        ("02", "Feb"),
-        ("03", "März"),
-        ("04", "Apr"),
-        ("05", "Mai"),
-        ("06", "Juni"),
-        ("07", "Juli"),
-        ("08", "Aug"),
-        ("09", "Sep"),
-        ("10", "Okt"),
-        ("11", "Nov"),
-        ("12", "Dez"),
-        "",
-    )
-    return f"{parts[2]}. {month_name} {parts[0]}"
 
 
 def _status_color(state: rx.Var[str]) -> rx.Var[str]:
@@ -81,7 +59,6 @@ def _team_initial(member: TeamMemberBadge) -> rx.Component:
 
 def project_card(project: Project) -> rx.Component:
     """Single project card for the overview grid."""
-    customer_display = rx.cond(project.customer != "", project.customer, project.code)
     return mn.box(
         mn.card(
             mn.stack(
@@ -132,17 +109,32 @@ def project_card(project: Project) -> rx.Component:
                             wrap="nowrap",
                             w="100%",
                         ),
-                        mn.text(
-                            customer_display
-                            + " \u00b7 "
-                            + _format_date_de(project.start_date)
-                            + " \u2192 "
-                            + _format_date_de(project.end_date),
-                            size="xs",
-                            c="dimmed",
-                            truncate=True,
+                        mn.group(
+                            rx.cond(
+                                project.customer != "",
+                                mn.text(
+                                    project.customer + "\u00a0\u00a0\u2022",
+                                    size="xs",
+                                    c="dimmed",
+                                    truncate=True,
+                                    style={"minWidth": 0, "flex": "0 1 auto"},
+                                ),
+                            ),
+                            mn.text(
+                                format_date_de_named(project.start_date)
+                                + " \u2192 "
+                                + format_date_de_named(project.end_date),
+                                size="xs",
+                                c="dimmed",
+                                style={"flexShrink": 0, "whiteSpace": "nowrap"},
+                            ),
+                            w="100%",
+                            pr="6px",
+                            gap="9px",
+                            wrap="nowrap",
                         ),
                         gap="2px",
+                        nowrap=True,
                         style={"minWidth": 0, "flex": 1},
                     ),
                     gap="md",
@@ -209,8 +201,7 @@ def project_card(project: Project) -> rx.Component:
                             mn.text(
                                 project.risk_count.to_string() + " Risiken",
                                 size="xs",
-                                fw="700",
-                                c="var(--mantine-color-red-7)",
+                                c="dimmed",
                             ),
                             gap="4px",
                         ),

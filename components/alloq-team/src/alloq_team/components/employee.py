@@ -1,4 +1,5 @@
 import reflex as rx
+from alloq_commons.components.formatters import format_date_de
 from alloq_commons.components.forms import section
 from alloq_commons.components.modal_layout import (
     DRAWER_CLASS,
@@ -10,7 +11,6 @@ from alloq_commons.entities.employee import SeniorityLevel
 from alloq_commons.models.employee import Absence
 from alloq_commons.models.project import Capacity
 from alloq_team.components.employee_card import (
-    _format_date_de,
     employee_grid,
 )
 from alloq_team.components.employee_table import (
@@ -251,9 +251,9 @@ def _absence_row(absence: Absence) -> rx.Component:
     """Single absence row in the detail drawer matching the card design."""
     return mn.group(
         mn.text(
-            _format_date_de(absence.start_date)
+            format_date_de(absence.start_date)
             + " bis "
-            + _format_date_de(absence.end_date),
+            + format_date_de(absence.end_date),
             size="0.66rem",
             ff="'Roboto Mono', monospace",
             style={
