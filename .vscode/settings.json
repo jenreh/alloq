@@ -80,6 +80,7 @@
   "github.copilot.chat.reviewSelection.enabled": true,
   "github.copilot.chat.terminalChatLocation": "quickChat",
   "github.copilot.chat.newWorkspace.useContext7": true,
+  "github.copilot.chat.agent.backgroundTodoAgent.enabled": true,
   "[yaml]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
