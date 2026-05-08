@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import reflex as rx
-from alloq_project.components.planning_grid import (
+from alloq_project.components.planning_shared import (
     GRID_WRAPPER_STYLE,
     LABEL_COL_WIDTH,
     WEEK_COL_WIDTH,
-    _row,
+    grid_row,
 )
 from alloq_project.states.planning_grid_state import (
     EmployeeBlock,
@@ -140,11 +140,11 @@ def _week_no_cell(week: WeekColumn) -> rx.Component:
 
 def _heatmap_header() -> rx.Component:
     return mn.box(
-        _row(
+        grid_row(
             _heatmap_label_th("Mitarbeiter"),
             rx.foreach(PlanningStore.month_spans, _month_cell),
         ),
-        _row(
+        grid_row(
             mn.box(
                 style={
                     "position": "sticky",
@@ -255,7 +255,7 @@ def _employee_label_cell(emp: EmployeeBlock) -> rx.Component:
 
 
 def _heat_row(emp: EmployeeBlock) -> rx.Component:
-    return _row(
+    return grid_row(
         _employee_label_cell(emp),
         rx.foreach(emp.heat, _heat_pill),
         style={
@@ -298,7 +298,7 @@ def _avg_footer_cell(cell: HeatCell) -> rx.Component:
 
 
 def _heatmap_footer() -> rx.Component:
-    return _row(
+    return grid_row(
         mn.box(
             mn.text(
                 "Durchschnitt Ø",
