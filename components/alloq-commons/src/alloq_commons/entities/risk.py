@@ -25,6 +25,17 @@ class RiskMitigationStatus(enum.StrEnum):
     RESOLVED = "resolved"
 
 
+#: Minimum score (probability * impact) for a risk to appear on the dashboard.
+HIGH_RISK_SCORE_THRESHOLD = 16
+
+#: German display labels for UI selects and badges.
+MITIGATION_STATUS_LABELS: dict[str, str] = {
+    RiskMitigationStatus.OPEN: "Offen",
+    RiskMitigationStatus.MITIGATED: "In Bearbeitung",
+    RiskMitigationStatus.RESOLVED: "Geschlossen",
+}
+
+
 class RiskEntity(Entity, Base):
     """Project risk tracking entity."""
 
@@ -41,7 +52,7 @@ class RiskEntity(Entity, Base):
     probability: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
     impact: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     mitigation_status: Mapped[str] = mapped_column(
-        String(30), nullable=False, default="Offen"
+        String(30), nullable=False, default=RiskMitigationStatus.OPEN.value
     )
     measures: Mapped[str | None] = mapped_column(String(2000), nullable=True)
 

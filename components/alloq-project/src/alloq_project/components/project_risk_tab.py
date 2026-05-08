@@ -1,11 +1,18 @@
 import reflex as rx
 from alloq_commons.components.forms import section
+from alloq_commons.entities.risk import (
+    MITIGATION_STATUS_LABELS,
+    RiskMitigationStatus,
+)
 from alloq_commons.models.project import Risk, RiskMatrixCell
 from alloq_project.states.project_state import ProjectState
 
 import appkit_mantine as mn
 
-_RISK_STATUS_OPTIONS = ["Offen", "In Bearbeitung", "Geschlossen"]
+_RISK_STATUS_OPTIONS = [
+    {"label": label, "value": status.value}
+    for status, label in MITIGATION_STATUS_LABELS.items()
+]
 _PROBABILITY_OPTIONS = ["1", "2", "3", "4", "5"]
 
 _SCORE_LOW = 4
@@ -16,9 +23,9 @@ _SCORE_HIGH = 15
 def _status_badge_color(status: rx.Var) -> rx.Var:
     """Return a Mantine color name based on mitigation status."""
     return rx.cond(
-        status == "Geschlossen",
+        status == RiskMitigationStatus.RESOLVED.value,
         "green",
-        rx.cond(status == "In Bearbeitung", "yellow", "red"),
+        rx.cond(status == RiskMitigationStatus.MITIGATED.value, "yellow", "red"),
     )
 
 
@@ -282,7 +289,13 @@ def _risk_row(risk: Risk) -> rx.Component:
                 },
             ),
             mn.badge(
-                risk.mitigation_status,
+                rx.match(
+                    risk.mitigation_status,
+                    (RiskMitigationStatus.OPEN.value, "Offen"),
+                    (RiskMitigationStatus.MITIGATED.value, "In Bearbeitung"),
+                    (RiskMitigationStatus.RESOLVED.value, "Geschlossen"),
+                    risk.mitigation_status,
+                ),
                 variant="light",
                 radius="sm",
                 size="xs",
@@ -297,22 +310,28 @@ def _risk_row(risk: Risk) -> rx.Component:
                 color=_score_badge_color(risk.risiko_score),
                 style={"flexShrink": "0", "minWidth": "1.4rem", "textAlign": "center"},
             ),
-            mn.action_icon(
-                rx.cond(
-                    is_expanded,
-                    rx.icon("chevron_up", size=14),
-                    rx.icon("chevron_down", size=14),
+            rx.box(
+                mn.action_icon(
+                    rx.cond(
+                        is_expanded,
+                        rx.icon("chevron_up", size=14),
+                        rx.icon("chevron_down", size=14),
+                    ),
+                    variant="subtle",
+                    size="sm",
+                    on_click=ProjectState.expand_risk(risk.id),
                 ),
-                variant="subtle",
-                size="sm",
-                on_click=ProjectState.expand_risk(risk.id),
+                on_click=rx.stop_propagation,
             ),
-            mn.action_icon(
-                rx.icon("trash_2", size=14),
-                variant="subtle",
-                color="red",
-                size="sm",
-                on_click=ProjectState.delete_project_risk(risk.id),
+            rx.box(
+                mn.action_icon(
+                    rx.icon("trash_2", size=14),
+                    variant="subtle",
+                    color="red",
+                    size="sm",
+                    on_click=ProjectState.delete_project_risk(risk.id),
+                ),
+                on_click=rx.stop_propagation,
             ),
             w="100%",
             align="center",
@@ -320,7 +339,7 @@ def _risk_row(risk: Risk) -> rx.Component:
         ),
         rx.cond(
             is_expanded,
-            _risk_edit_form(),
+            rx.box(_risk_edit_form(), on_click=rx.stop_propagation),
             rx.fragment(),
         ),
         style={

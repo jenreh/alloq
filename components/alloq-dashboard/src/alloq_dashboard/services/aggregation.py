@@ -17,13 +17,19 @@ from datetime import UTC, date, timedelta
 from alloq_commons.entities.capacity_allocation import CapacityAllocationEntity
 from alloq_commons.entities.employee import EmployeeEntity
 from alloq_commons.entities.project import ProjectEntity, ProjectStateEnum
-from alloq_commons.entities.risk import RiskEntity, RiskLevel, RiskMitigationStatus
+from alloq_commons.entities.risk import (
+    HIGH_RISK_SCORE_THRESHOLD,
+    RiskEntity,
+    RiskLevel,
+    RiskMitigationStatus,
+)
 from alloq_commons.entities.role import RoleEntity
 from alloq_commons.entities.status import ProjectStatusEntity
 from alloq_commons.repositories import (
     capacity_allocation_repo,
     employee_repo,
     project_repo,
+    risk_repo,
 )
 from alloq_commons.services.utilization import (
     PLANNING_ANCHOR_DATE,
@@ -39,7 +45,6 @@ from sqlmodel import select
 
 from alloq_dashboard.models import (
     BudgetBurnKpi,
-    DeadlineKpi,
     EarnedValuePoint,
     EmployeeUtilization,
     FreeCapacityKpi,
@@ -67,16 +72,14 @@ HORIZON_WEEKS = 12
 UNDER_UTIL_THRESHOLD = 70
 OVER_UTIL_THRESHOLD = 100
 BUDGET_DELTA_THRESHOLD = 0.10
-DEADLINE_30_DAYS = 30
-
-_RISK_SCORE_LOW = 4
-_RISK_SCORE_MEDIUM = 9
-DEADLINE_60_DAYS = 60
-DEADLINE_HORIZON_DAYS = 90
 PROGRESS_RISK_THRESHOLD = 80
 DEADLINE_RISK_DAYS = 30
-TOP_OPEN_RISKS_LIMIT = 5
 SORT_END_DATE_FALLBACK = 9999
+
+
+SEVERITY_LOW_MAX = 4
+SEVERITY_MEDIUM_MAX = 15
+
 
 _ROLE_COLORS = [
     "#4ade80",  # green
@@ -130,6 +133,7 @@ class _RiskRow:
     mitigation_status: str
     owner: str | None
     created_date: date | None
+    updated_date: date | None
 
 
 @dataclass(frozen=True)
@@ -300,6 +304,7 @@ def _project_to_row(entity: ProjectEntity) -> _ProjectRow:
         1
         for r in entity.risks or []
         if r.mitigation_status == RiskMitigationStatus.OPEN.value
+        and r.probability * r.impact >= HIGH_RISK_SCORE_THRESHOLD
     )
     return _ProjectRow(
         id=entity.id,
@@ -319,15 +324,16 @@ def _project_to_row(entity: ProjectEntity) -> _ProjectRow:
 def _severity_from_score(probability: int, impact: int) -> str:
     """Derive severity label from probability * impact."""
     score = probability * impact
-    if score <= _RISK_SCORE_LOW:
+    if score <= SEVERITY_LOW_MAX:
         return RiskLevel.LOW.value
-    if score <= _RISK_SCORE_MEDIUM:
+    if score <= SEVERITY_MEDIUM_MAX:
         return RiskLevel.MEDIUM.value
     return RiskLevel.HIGH.value
 
 
 def _risk_to_row(entity: RiskEntity) -> _RiskRow:
     created = entity.created.date() if entity.created else None
+    updated = entity.updated.date() if entity.updated else None
     return _RiskRow(
         id=entity.id,
         project_id=entity.project_id,
@@ -338,6 +344,7 @@ def _risk_to_row(entity: RiskEntity) -> _RiskRow:
         mitigation_status=entity.mitigation_status,
         owner=None,
         created_date=created,
+        updated_date=updated,
     )
 
 
@@ -394,8 +401,7 @@ async def _load_project_rows(session: AsyncSession) -> list[_ProjectRow]:
 
 
 async def _load_risk_rows(session: AsyncSession) -> list[_RiskRow]:
-    result = await session.execute(select(RiskEntity))
-    entities = list(result.scalars().all())
+    entities = await risk_repo.find_open_by_min_score(session)
     return [_risk_to_row(e) for e in entities]
 
 
@@ -494,13 +500,7 @@ async def load_project_health() -> ProjectHealthKpi:
     risk_trend: list[TrendPoint] = []
     for week_start in trend_weeks:
         cutoff = week_start + timedelta(days=6)
-        opened = sum(
-            1
-            for r in risks
-            if r.created_date
-            and r.created_date <= cutoff
-            and r.mitigation_status == RiskMitigationStatus.OPEN.value
-        )
+        opened = sum(1 for r in risks if r.created_date and r.created_date <= cutoff)
         risk_trend.append(
             TrendPoint(
                 label=_week_label(week_start),
@@ -509,64 +509,16 @@ async def load_project_health() -> ProjectHealthKpi:
             )
         )
 
-    open_risk_count = sum(
-        1 for r in risks if r.mitigation_status == RiskMitigationStatus.OPEN.value
-    )
     return ProjectHealthKpi(
         at_risk_count=len(at_risk),
         healthy_count=len(healthy),
-        total_risk_count=open_risk_count,
+        total_risk_count=len(risks),
         rows=sorted(
             at_risk,
             key=lambda s: s.days_to_end or SORT_END_DATE_FALLBACK,
         ),
         risk_trend=risk_trend,
     )
-
-
-# --------------------------------------------------------------------------
-# Card 3 — deadlines
-# --------------------------------------------------------------------------
-
-
-async def load_deadlines() -> DeadlineKpi:
-    today = _today()
-    async with get_asyncdb_session() as session:
-        projects = await _load_project_rows(session)
-    rows: list[ProjectSummary] = []
-    overdue = next30 = next60 = next90 = 0
-    for p in projects:
-        if p.state == ProjectStateEnum.COMPLETED.value:
-            continue
-        if not p.end_date:
-            continue
-        summary = _project_summary(p, today)
-        delta = (p.end_date - today).days
-        if delta < 0:
-            overdue += 1
-            rows.append(summary)
-        elif delta <= DEADLINE_30_DAYS:
-            next30 += 1
-            rows.append(summary)
-        elif delta <= DEADLINE_60_DAYS:
-            next60 += 1
-            rows.append(summary)
-        elif delta <= DEADLINE_HORIZON_DAYS:
-            next90 += 1
-            rows.append(summary)
-    rows.sort(key=lambda s: s.end_date or date.max)
-    return DeadlineKpi(
-        overdue_count=overdue,
-        next_30=next30,
-        next_60=next60,
-        next_90=next90,
-        rows=rows,
-    )
-
-
-# --------------------------------------------------------------------------
-# Card 4 — budget burn
-# --------------------------------------------------------------------------
 
 
 # --------------------------------------------------------------------------
@@ -996,25 +948,13 @@ async def load_risks() -> RiskKpi:
         projects = await _load_project_rows(session)
 
     project_by_id = {p.id: p for p in projects}
-    open_risks = [
-        r for r in risks if r.mitigation_status == RiskMitigationStatus.OPEN.value
-    ]
 
     severity_count: dict[str, int] = defaultdict(int)
-    for r in open_risks:
+    for r in risks:
         severity_count[r.severity] += 1
 
-    severity_rank = {
-        RiskLevel.HIGH.value: 0,
-        RiskLevel.MEDIUM.value: 1,
-        RiskLevel.LOW.value: 2,
-    }
-    sorted_open = sorted(
-        open_risks,
-        key=lambda r: (severity_rank.get(r.severity, 9), -r.id),
-    )
     top_open: list[RiskItem] = []
-    for r in sorted_open[:TOP_OPEN_RISKS_LIMIT]:
+    for r in risks:
         proj = project_by_id.get(r.project_id)
         top_open.append(
             RiskItem(
@@ -1026,8 +966,10 @@ async def load_risks() -> RiskKpi:
                 severity=r.severity,
                 probability=r.probability,
                 impact=r.impact,
+                score=r.probability * r.impact,
                 mitigation_status=r.mitigation_status,
                 owner=r.owner,
+                updated_at=r.updated_date.isoformat() if r.updated_date else "",
             )
         )
 
@@ -1035,13 +977,7 @@ async def load_risks() -> RiskKpi:
     trend: list[TrendPoint] = []
     for week_start in weeks:
         cutoff = week_start + timedelta(days=6)
-        cnt = sum(
-            1
-            for r in risks
-            if r.created_date
-            and r.created_date <= cutoff
-            and r.mitigation_status == RiskMitigationStatus.OPEN.value
-        )
+        cnt = sum(1 for r in risks if r.created_date and r.created_date <= cutoff)
         trend.append(
             TrendPoint(
                 label=_week_label(week_start),
@@ -1051,7 +987,7 @@ async def load_risks() -> RiskKpi:
         )
 
     return RiskKpi(
-        open_total=len(open_risks),
+        open_total=len(risks),
         open_high=severity_count.get(RiskLevel.HIGH.value, 0),
         open_medium=severity_count.get(RiskLevel.MEDIUM.value, 0),
         open_low=severity_count.get(RiskLevel.LOW.value, 0),

@@ -23,7 +23,6 @@ def _skeleton_body() -> rx.Component:
     return mn.stack(
         mn.skeleton(height="2rem", width="60%"),
         mn.skeleton(height="1rem", width="40%"),
-        mn.skeleton(height="6rem"),
         gap="md",
         w="100%",
     )

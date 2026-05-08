@@ -5,25 +5,19 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import reflex as rx
+from alloq_commons.components.dashboard import ROW_STYLE
 from alloq_commons.components.formatters import de_number
 from alloq_commons.components.forms import section
 from alloq_commons.components.modal_layout import DRAWER_CLASS
 
 import appkit_mantine as mn
-from alloq_dashboard.components.cards import (
-    DRILL_BUDGET_BURN,
-    DRILL_RISKS,
-    DRILL_UTILIZATION,
-)
-from alloq_dashboard.components.shared import ROW_STYLE, severity_badge_color
 from alloq_dashboard.states import (
-    BudgetBurnState,
     DashboardState,
-    RiskState,
     UnderUtilizationState,
     UtilizationState,
 )
 
+DRILL_UTILIZATION = "utilization"
 HIGH_WORKLOAD_PERCENT = 70
 WORKLOAD_LIMIT_PERCENT = 100
 
@@ -78,112 +72,6 @@ def _free_hours_line(hours: rx.Var) -> rx.Component:
             style=muted_text_style,
         ),
         gap="4px",
-    )
-
-
-def _project_row(project: rx.Var) -> rx.Component:
-    return mn.group(
-        mn.stack(
-            mn.group(
-                mn.box(
-                    style={
-                        "width": "4px",
-                        "height": "20px",
-                        "borderRadius": "2px",
-                        "backgroundColor": project.color,
-                        "flexShrink": "0",
-                    },
-                ),
-                mn.text(
-                    project.code + " — " + project.name,
-                    size="sm",
-                    fw="600",
-                    c="var(--alloq-text)",
-                ),
-                mn.badge(project.state, size="xs", color="gray", variant="light"),
-                gap="sm",
-                align="center",
-            ),
-            mn.group(
-                mn.text(
-                    "Fortschritt: " + project.progress.to_string() + "%",
-                    size="xs",
-                    c="var(--alloq-text-muted)",
-                ),
-                mn.text(
-                    "Verbrauch: " + project.spent_percent.to_string() + "%",
-                    size="xs",
-                    c="var(--alloq-text-muted)",
-                ),
-                rx.cond(
-                    project.end_date,
-                    mn.text(
-                        "Ende: " + project.end_date.to_string(),
-                        size="xs",
-                        c="var(--alloq-text-muted)",
-                    ),
-                    rx.fragment(),
-                ),
-                rx.cond(
-                    project.risk_count > 0,
-                    mn.badge(
-                        project.risk_count.to_string() + " Risiko",
-                        size="xs",
-                        color="red",
-                        variant="light",
-                    ),
-                    rx.fragment(),
-                ),
-                gap="md",
-                align="center",
-            ),
-            gap="2px",
-        ),
-        justify="space-between",
-        align="center",
-        w="100%",
-        style=ROW_STYLE,
-    )
-
-
-def _budget_burn_body() -> rx.Component:
-    data = BudgetBurnState.data
-    return mn.stack(
-        mn.group(
-            mn.stack(
-                mn.text("Budget", size="xs", c="var(--alloq-text-muted)"),
-                mn.text(data.total_budget.to_string() + " €", size="lg", fw="700"),
-                gap="2px",
-            ),
-            mn.stack(
-                mn.text("Verbrauch", size="xs", c="var(--alloq-text-muted)"),
-                mn.text(data.total_spent.to_string() + " €", size="lg", fw="700"),
-                gap="2px",
-            ),
-            mn.stack(
-                mn.text("Quote", size="xs", c="var(--alloq-text-muted)"),
-                mn.text(data.spent_percent.to_string() + " %", size="lg", fw="700"),
-                gap="2px",
-            ),
-            gap="lg",
-        ),
-        mn.divider(),
-        mn.text("Verlauf", size="sm", fw="600"),
-        mn.line_chart(
-            data=data.trend.foreach(lambda p: {"label": p.label, "Verbrauch": p.value}),
-            data_key="label",
-            series=[{"name": "Verbrauch", "color": "var(--mantine-color-orange-6)"}],
-            h=180,
-            with_legend=False,
-            with_y_axis=True,
-            grid_axis="y",
-            curve_type="monotone",
-        ),
-        mn.divider(),
-        mn.text("Pro Projekt (sortiert nach Quote)", size="sm", fw="600"),
-        rx.foreach(data.rows, _project_row),
-        gap="md",
-        w="100%",
     )
 
 
@@ -351,85 +239,10 @@ def _utilization_body() -> rx.Component:
     )
 
 
-def _risk_row(risk: rx.Var) -> rx.Component:
-    return mn.stack(
-        mn.group(
-            mn.badge(
-                risk.severity,
-                color=severity_badge_color(risk.severity),
-                size="sm",
-                variant="filled",
-            ),
-            mn.text(risk.name, size="sm", fw="600", c="var(--alloq-text)"),
-            gap="sm",
-            align="center",
-        ),
-        mn.group(
-            mn.text(
-                risk.project_code + " — " + risk.project_name,
-                size="xs",
-                c="var(--alloq-text-muted)",
-            ),
-            rx.cond(
-                risk.owner,
-                mn.text(
-                    "Owner: " + risk.owner.to_string(),
-                    size="xs",
-                    c="var(--alloq-text-muted)",
-                ),
-                rx.fragment(),
-            ),
-            gap="md",
-        ),
-        gap="2px",
-        style=ROW_STYLE,
-    )
-
-
-def _risks_body() -> rx.Component:
-    data = RiskState.data
-    return mn.stack(
-        mn.simple_grid(
-            mn.group(
-                mn.text("Hoch", size="sm"),
-                mn.badge(data.open_high.to_string(), color="red", size="lg"),
-                justify="space-between",
-                style=ROW_STYLE,
-            ),
-            mn.group(
-                mn.text("Mittel", size="sm"),
-                mn.badge(data.open_medium.to_string(), color="yellow", size="lg"),
-                justify="space-between",
-                style=ROW_STYLE,
-            ),
-            mn.group(
-                mn.text("Niedrig", size="sm"),
-                mn.badge(data.open_low.to_string(), color="green", size="lg"),
-                justify="space-between",
-                style=ROW_STYLE,
-            ),
-            cols={"base": 3},
-            spacing="sm",
-            w="100%",
-        ),
-        mn.divider(),
-        mn.text("Top offene Risiken", size="sm", fw="600"),
-        rx.cond(
-            data.top_open.length() > 0,
-            mn.stack(rx.foreach(data.top_open, _risk_row), gap="xs"),
-            mn.text("Keine offenen Risiken.", c="var(--alloq-text-muted)"),
-        ),
-        gap="md",
-        w="100%",
-    )
-
-
 def _drill_title(key: rx.Var[str]) -> rx.Var[str]:
     return rx.match(
         key,
-        (DRILL_BUDGET_BURN, "Budgetverbrauch"),
         (DRILL_UTILIZATION, "Team-Auslastung"),
-        (DRILL_RISKS, "Risiken"),
         "Details",
     )
 
@@ -440,9 +253,7 @@ def drill_down_drawer() -> rx.Component:
         mn.box(
             rx.match(
                 DashboardState.drill_down,
-                (DRILL_BUDGET_BURN, _budget_burn_body()),
                 (DRILL_UTILIZATION, _utilization_body()),
-                (DRILL_RISKS, _risks_body()),
                 rx.fragment(),
             ),
             class_name="alloq-modal-scroll",

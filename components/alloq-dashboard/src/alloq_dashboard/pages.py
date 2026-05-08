@@ -8,7 +8,7 @@ from alloq_project.components.project_overview import (
 )
 
 import appkit_mantine as mn
-from alloq_dashboard.components.cards import dashboard_grid
+from alloq_dashboard.components.dashboard_grid import dashboard_grid
 from alloq_dashboard.components.drill_down_drawer import drill_down_drawer
 from alloq_dashboard.states import DashboardState
 from appkit_user.authentication.components.components import requires_admin

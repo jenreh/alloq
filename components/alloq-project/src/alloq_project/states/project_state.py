@@ -1,13 +1,14 @@
 import logging
 from collections.abc import AsyncGenerator
 from datetime import UTC, date, datetime
+from importlib import import_module
 from typing import Any
 
 import reflex as rx
 from alloq_commons.entities import ProjectEntity, ProjectStatusEntity
 from alloq_commons.entities.project import ProjectStateEnum
 from alloq_commons.entities.required_capacity import RequiredCapacityEntity
-from alloq_commons.entities.risk import RiskEntity
+from alloq_commons.entities.risk import RiskEntity, RiskMitigationStatus
 from alloq_commons.models.project import (
     Capacity,
     Project,
@@ -62,15 +63,6 @@ _SCORE_LOW = 4
 _SCORE_MEDIUM = 9
 _SCORE_HIGH = 15
 _SCORE_VERY_HIGH = 20
-
-# Maps impact score (1-5) to a representative EUR value within each tier
-_IMPACT_SCORE_TO_EUR: dict[int, int] = {
-    1: 10_000,
-    2: 60_000,
-    3: 300_000,
-    4: 750_000,
-    5: 1_500_000,
-}
 
 
 def _risk_score_color(score: int) -> str:
@@ -127,7 +119,7 @@ class ProjectState(UserSession):
     risk_draft_measures: str = ""
     risk_draft_impact: int = 3
     risk_draft_probability: int = 3
-    risk_draft_mitigation_status: str = "Offen"
+    risk_draft_mitigation_status: str = RiskMitigationStatus.OPEN.value
     risk_draft_form_version: int = 0
 
     search_filter: str = ""
@@ -252,7 +244,7 @@ class ProjectState(UserSession):
         self.risk_draft_measures = ""
         self.risk_draft_impact = 3
         self.risk_draft_probability = 3
-        self.risk_draft_mitigation_status = "Offen"
+        self.risk_draft_mitigation_status = RiskMitigationStatus.OPEN.value
 
     async def _load_projects(self) -> None:
         """Load projects from the database."""
@@ -282,6 +274,34 @@ class ProjectState(UserSession):
     def _remove_project(self, project_id: int) -> None:
         """Remove a project from the list by id."""
         self.projects = [p for p in self.projects if p.id != project_id]
+
+    def _sync_selected_project_risk_count(self) -> None:
+        """Sync local risk count into selected and overview project models."""
+        if not self.selected_project:
+            return
+
+        updated_project = Project(
+            **{
+                **self.selected_project.model_dump(),
+                "risk_count": len(self.risks),
+            }
+        )
+        self.selected_project = updated_project
+        self._upsert_project(updated_project)
+
+    def _dashboard_risk_refresh_events(self) -> list[Any]:
+        """Return dashboard refresh events for risk-related KPI cards."""
+        try:
+            dashboard_states = import_module("alloq_dashboard.states")
+            project_health_state = dashboard_states.ProjectHealthState
+            risk_state = dashboard_states.RiskState
+        except (ModuleNotFoundError, AttributeError):
+            return []
+
+        return [
+            project_health_state.load(force=True),
+            risk_state.load(force=True),
+        ]
 
     async def _load_reference_data(self) -> None:
         """Load roles and employees for form controls."""
@@ -354,6 +374,15 @@ class ProjectState(UserSession):
             self.detail_drawer_open = True
             self.status_date = datetime.now(tz=UTC).date().isoformat()
             yield ProjectValidationState.initialize(self.selected_project)
+
+    @is_authenticated
+    async def select_project_with_tab(
+        self, project_id: int, tab: str
+    ) -> AsyncGenerator[Any, None]:
+        """Select a project and open drawer at a specific tab."""
+        self.active_tab = tab
+        async for event in self.select_project(project_id):
+            yield event
 
     @is_authenticated
     async def create_project(self, form_data: dict) -> AsyncGenerator[Any, None]:
@@ -741,7 +770,7 @@ class ProjectState(UserSession):
         self.risk_draft_measures = ""
         self.risk_draft_impact = 3
         self.risk_draft_probability = 3
-        self.risk_draft_mitigation_status = "Offen"
+        self.risk_draft_mitigation_status = RiskMitigationStatus.OPEN.value
         self.risk_draft_form_version += 1
 
     def expand_risk(self, risk_id: int) -> None:
@@ -793,7 +822,7 @@ class ProjectState(UserSession):
 
     def set_risk_draft_mitigation_status(self, value: str) -> None:
         """Update risk draft mitigation status."""
-        self.risk_draft_mitigation_status = value or "Offen"
+        self.risk_draft_mitigation_status = value or RiskMitigationStatus.OPEN.value
 
     @is_authenticated
     async def save_risk_draft(self) -> AsyncGenerator[Any, None]:
@@ -809,7 +838,7 @@ class ProjectState(UserSession):
                         name=self.risk_draft_name or "Neues Risiko",
                         description=self.risk_draft_description,
                         probability=self.risk_draft_probability,
-                        impact=_IMPACT_SCORE_TO_EUR.get(self.risk_draft_impact, 10_000),
+                        impact=self.risk_draft_impact,
                         mitigation_status=self.risk_draft_mitigation_status,
                         measures=self.risk_draft_measures or None,
                     )
@@ -819,7 +848,10 @@ class ProjectState(UserSession):
                     new_number = len(self.risks) + 1
                     new_risk = Risk(**{**entity.to_dict(), "number": new_number})
                 self.risks = [*self.risks, new_risk]
+                self._sync_selected_project_risk_count()
                 self.expanded_risk_id = 0
+                for event in self._dashboard_risk_refresh_events():
+                    yield event
                 yield rx.toast.info("Risiko gespeichert.", position="top-right")
             elif self.expanded_risk_id > 0:
                 risk_id = self.expanded_risk_id
@@ -833,9 +865,7 @@ class ProjectState(UserSession):
                     entity.name = self.risk_draft_name
                     entity.description = self.risk_draft_description
                     entity.measures = self.risk_draft_measures or None
-                    entity.impact = _IMPACT_SCORE_TO_EUR.get(
-                        self.risk_draft_impact, 10_000
-                    )
+                    entity.impact = self.risk_draft_impact
                     entity.probability = self.risk_draft_probability
                     entity.mitigation_status = self.risk_draft_mitigation_status
                     await session.commit()
@@ -846,9 +876,7 @@ class ProjectState(UserSession):
                             "name": self.risk_draft_name,
                             "description": self.risk_draft_description,
                             "measures": self.risk_draft_measures,
-                            "impact": _IMPACT_SCORE_TO_EUR.get(
-                                self.risk_draft_impact, 10_000
-                            ),
+                            "impact": self.risk_draft_impact,
                             "probability": self.risk_draft_probability,
                             "mitigation_status": self.risk_draft_mitigation_status,
                         }
@@ -857,7 +885,10 @@ class ProjectState(UserSession):
                     else r
                     for r in self.risks
                 ]
+                self._sync_selected_project_risk_count()
                 self.expanded_risk_id = 0
+                for event in self._dashboard_risk_refresh_events():
+                    yield event
                 yield rx.toast.info("Risiko gespeichert.", position="top-right")
         except Exception as exc:
             logger.error("Failed to save risk draft: %s", exc)
@@ -930,6 +961,9 @@ class ProjectState(UserSession):
                 Risk(**{**r.model_dump(), "number": i + 1})
                 for i, r in enumerate(remaining)
             ]
+            self._sync_selected_project_risk_count()
+            for event in self._dashboard_risk_refresh_events():
+                yield event
             yield rx.toast.info("Risiko gelöscht.", position="top-right")
         except Exception as exc:
             logger.error("Failed to delete risk %s: %s", risk_id, exc)

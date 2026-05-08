@@ -10,7 +10,6 @@ from alloq_commons.entities import (
     ProjectStatusEntity,
     RequiredCapacityEntity,
     RiskEntity,
-    RiskLevel,
     RiskMitigationStatus,
     RoleEntity,
     SeniorityLevel,
@@ -292,11 +291,9 @@ class TestRiskEntity:
             project_id=1,
             name="Delivery delay",
             description="External dependency may slip",
-            severity=RiskLevel.HIGH.value,
-            probability=RiskLevel.MEDIUM.value,
-            impact=RiskLevel.HIGH.value,
+            probability=4,
+            impact=750000,
             mitigation_status=RiskMitigationStatus.OPEN.value,
-            owner="Anna Hoffmann",
         )
-        assert risk.severity == "high"
+        assert risk.name == "Delivery delay"
         assert risk.mitigation_status == "open"

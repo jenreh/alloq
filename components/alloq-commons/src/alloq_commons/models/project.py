@@ -3,11 +3,7 @@ from datetime import date, datetime
 from pydantic import BaseModel, Field, model_validator
 
 from alloq_commons.entities.project import ProjectStateEnum
-
-_IMPACT_TIER_1 = 20_000
-_IMPACT_TIER_2 = 100_000
-_IMPACT_TIER_3 = 500_000
-_IMPACT_TIER_4 = 1_000_000
+from alloq_commons.entities.risk import RiskMitigationStatus
 
 
 class RiskMatrixCell(BaseModel):
@@ -82,7 +78,7 @@ class Risk(BaseModel):
     description: str = ""
     probability: int = 3
     impact: int = 0
-    mitigation_status: str = "Offen"
+    mitigation_status: str = RiskMitigationStatus.OPEN.value
     measures: str = ""
     auswirkung_score: int = 0
     risiko_score: int = 0
@@ -91,18 +87,8 @@ class Risk(BaseModel):
 
     @model_validator(mode="after")
     def compute_scores(self) -> "Risk":
-        """Compute matrix scores from impact (EUR) and probability (1-5)."""
-        eur = self.impact
-        if eur <= _IMPACT_TIER_1:
-            self.auswirkung_score = 1
-        elif eur <= _IMPACT_TIER_2:
-            self.auswirkung_score = 2
-        elif eur <= _IMPACT_TIER_3:
-            self.auswirkung_score = 3
-        elif eur <= _IMPACT_TIER_4:
-            self.auswirkung_score = 4
-        else:
-            self.auswirkung_score = 5
+        """Compute matrix scores from impact (1-5) and probability (1-5)."""
+        self.auswirkung_score = max(1, min(5, self.impact))
         self.risiko_score = self.auswirkung_score * self.probability
         return self
 
@@ -115,7 +101,7 @@ class RiskCreate(BaseModel):
     description: str = Field(default="", max_length=2000)
     probability: int = Field(default=3, ge=1, le=5)
     impact: int = Field(default=0, ge=0)
-    mitigation_status: str = "Offen"
+    mitigation_status: str = RiskMitigationStatus.OPEN.value
     measures: str = Field(default="", max_length=2000)
 
 

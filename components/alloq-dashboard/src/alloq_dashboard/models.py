@@ -64,23 +64,6 @@ class ProjectHealthKpi(BaseModel):
     risk_trend: list[TrendPoint] = []
 
 
-class DeadlineBucket(BaseModel):
-    """Project count for one deadline horizon."""
-
-    label: str
-    count: int = 0
-
-
-class DeadlineKpi(BaseModel):
-    """KPI payload for deadline watch card."""
-
-    overdue_count: int = 0
-    next_30: int = 0
-    next_60: int = 0
-    next_90: int = 0
-    rows: list[ProjectSummary] = []
-
-
 class EarnedValuePoint(BaseModel):
     """One monthly data point for the Earned Value chart (3 series)."""
 
@@ -195,8 +178,10 @@ class RiskItem(BaseModel):
     severity: str = ""
     probability: int = 0
     impact: int = 0
+    score: int = 0
     mitigation_status: str = ""
     owner: str | None = None
+    updated_at: str = ""
 
 
 class RiskKpi(BaseModel):
@@ -212,7 +197,6 @@ class RiskKpi(BaseModel):
 
 ProjectsOverviewKpi.model_rebuild()
 ProjectHealthKpi.model_rebuild()
-DeadlineKpi.model_rebuild()
 EarnedValuePoint.model_rebuild()
 BudgetBurnKpi.model_rebuild()
 UtilizationKpi.model_rebuild()

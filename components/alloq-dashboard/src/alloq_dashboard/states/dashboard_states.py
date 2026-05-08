@@ -17,7 +17,6 @@ from alloq_project.states.project_state import ProjectState
 
 from alloq_dashboard.models import (
     BudgetBurnKpi,
-    DeadlineKpi,
     FreeCapacityKpi,
     ProjectHealthKpi,
     ProjectsOverviewKpi,
@@ -30,7 +29,7 @@ from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)
 
-CACHE_TTL_SECONDS = 1800  # 30 minutes
+CACHE_TTL_SECONDS = 30  # 30 seconds
 
 
 def _ts_now() -> str:
@@ -73,11 +72,10 @@ class DashboardState(UserSession):
             ProjectState.load_projects,
             ProjectsOverviewState.load,
             ProjectHealthState.load,
-            DeadlineState.load,
             BudgetBurnState.load,
             UtilizationState.load,
             UnderUtilizationState.load,
-            FreeCapacityState.load,
+            RoleCapacityState.load,
             RiskState.load,
         ]
 
@@ -135,35 +133,6 @@ class ProjectHealthState(UserSession):
             payload = await aggregation.load_project_health()
         except Exception as exc:  # noqa: BLE001
             logger.exception("project health load failed")
-            async with self:
-                self.is_loading = False
-                self.error_message = str(exc)
-            return
-        async with self:
-            self.data = payload
-            self.is_loading = False
-            self.last_loaded = _ts_now()
-
-
-class DeadlineState(UserSession):
-    """Card 3 — deadline watch."""
-
-    data: DeadlineKpi = DeadlineKpi()
-    is_loading: bool = False
-    last_loaded: str = ""
-    error_message: str = ""
-
-    @rx.event(background=True)
-    async def load(self, *, force: bool = False) -> None:
-        async with self:
-            if not force and _is_fresh(self.last_loaded):
-                return
-            self.is_loading = True
-            self.error_message = ""
-        try:
-            payload = await aggregation.load_deadlines()
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("deadlines load failed")
             async with self:
                 self.is_loading = False
                 self.error_message = str(exc)
@@ -261,7 +230,7 @@ class UnderUtilizationState(UserSession):
             self.last_loaded = _ts_now()
 
 
-class FreeCapacityState(UserSession):
+class RoleCapacityState(UserSession):
     """Card 7 — free capacity per role over 13 weeks."""
 
     data: FreeCapacityKpi = FreeCapacityKpi()

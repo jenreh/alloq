@@ -3,10 +3,10 @@
 from alloq_dashboard.states.dashboard_states import (
     BudgetBurnState,
     DashboardState,
-    DeadlineState,
-    FreeCapacityState,
+    RoleCapacityState,
     ProjectHealthState,
     ProjectsOverviewState,
+    ProjectState,
     RiskState,
     UnderUtilizationState,
     UtilizationState,
@@ -15,11 +15,11 @@ from alloq_dashboard.states.dashboard_states import (
 __all__ = [
     "BudgetBurnState",
     "DashboardState",
-    "DeadlineState",
-    "FreeCapacityState",
     "ProjectHealthState",
+    "ProjectState",
     "ProjectsOverviewState",
     "RiskState",
+    "RoleCapacityState",
     "UnderUtilizationState",
     "UtilizationState",
 ]
