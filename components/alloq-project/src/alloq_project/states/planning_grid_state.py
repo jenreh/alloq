@@ -270,7 +270,7 @@ def _absence_days_for_week(absences: list, week_start: datetime.date) -> float:
 def _format_de(value: float) -> str:
     if value == int(value):
         return f"{int(value)}"
-    return f"{value:.1f}".replace(".", ",")
+    return f"{value:.2f}".replace(".", ",")
 
 
 def _parse_de(text: str) -> float | None:
@@ -1080,7 +1080,7 @@ class PlanningStore(UserSession):
             self.active_cell = nxt
 
     @rx.event
-    def handle_grid_key(self, key: str) -> Any:
+    def handle_grid_key(self, key: str, modifiers: dict) -> Any:  # noqa: ARG002
         if self.editing_cell or not self.active_cell:
             return None
         nav = ("ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight")
@@ -1133,22 +1133,17 @@ class PlanningStore(UserSession):
     def _row_layout(self) -> list[tuple[str, str]]:
         if self.view_mode == "Projekte":
             rows: list[tuple[str, str]] = []
-            for proj in self.project_meta:
-                if proj["id"] in self.collapsed_projects:
+            for proj in self.filtered_projects:
+                if proj.id in self.collapsed_projects:
                     continue
-                code = proj["code"]
-                rows.extend((eid, code) for eid in proj.get("employee_ids", []))
+                rows.extend((emp.emp_id, proj.code) for emp in proj.employees)
             return rows
-        rows = []
-        proj_idx = {p["id"]: p for p in self.project_meta}
-        for emp in self.employee_meta:
-            if emp["id"] in self.collapsed_employees:
+        rows: list[tuple[str, str]] = []
+        for emp in self.filtered_employees:
+            if emp.id in self.collapsed_employees:
                 continue
-            for pid in emp.get("project_ids", []):
-                proj = proj_idx.get(pid)
-                if proj is None:
-                    continue
-                rows.append((emp["id"], proj["code"]))
+            for proj in emp.projects:
+                rows.append((emp.id, proj.code))
         return rows
 
     def _navigate(self, cur_key: str, direction: str) -> str:  # noqa: PLR0911

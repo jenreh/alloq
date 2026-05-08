@@ -63,10 +63,16 @@
   }
 
   function tryAttach() {
-    var root = document.getElementById('planning-grid-root');
-    if (root) {
-      attach(root);
-    } else {
+    var ids = ['planning-grid-root', 'project-view-root'];
+    var attached = 0;
+    ids.forEach(function (id) {
+      var root = document.getElementById(id);
+      if (root) {
+        attach(root);
+        attached++;
+      }
+    });
+    if (attached < ids.length) {
       setTimeout(tryAttach, 250);
     }
   }
