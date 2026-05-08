@@ -122,7 +122,7 @@ def project_card(project: Project) -> rx.Component:
                             ),
                             mn.text(
                                 format_date_de_named(project.start_date)
-                                + " \u2192 "
+                                + " → "
                                 + format_date_de_named(project.end_date),
                                 size="xs",
                                 c="dimmed",
