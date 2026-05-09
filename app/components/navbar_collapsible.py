@@ -152,7 +152,7 @@ _SECTION_FIRST_URL: Final[dict[str, str]] = {
 class NavbarCollapseState(rx.State):
     """Persisted panel state: open/closed + active section."""
 
-    collapsed: str = rx.LocalStorage("0", name="navbar_collapse_state")
+    collapsed: str = rx.LocalStorage("1", name="navbar_collapse_state")
     active_section_id: str = rx.LocalStorage(
         _DEFAULT_SECTION_ID, name="navbar_active_section"
     )
@@ -681,11 +681,6 @@ def _panel() -> rx.Component:
                 # "border_bottom": _BORDER,
             },
         ),
-        rx.box(
-            class_name=rx.cond(
-                LoadingState.is_loading, "rainbow-gradient-bar", "default-bar"
-            ),
-        ),
         mn.scroll_area.stateful(
             mn.stack(
                 *[_panel_section_content(s) for s in _SECTIONS_WITH_ITEMS],
@@ -724,6 +719,11 @@ def app_navbar_collapsible() -> rx.Component:
     """Two-column desktop navbar: rail + collapsible section panel."""
     return mn.stack(
         _ReactContextImportWorkaround.create(),
+        rx.box(
+            class_name=rx.cond(
+                LoadingState.is_loading, "rainbow-gradient-bar", "default-bar"
+            ),
+        ),
         # _logo(),
         mn.group(
             mn.group(
