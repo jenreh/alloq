@@ -1,7 +1,7 @@
 import logging
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
 
 from alloq_commons.entities import RiskEntity
 from alloq_commons.entities.risk import (

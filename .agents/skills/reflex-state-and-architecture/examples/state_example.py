@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 import reflex as rx
 from knai_myfeature.backend.models import MyItem, MyItemDisplay
 from knai_myfeature.backend.repository import MyItemRepository
-from sqlmodel import select
+from sqlalchemy import select
 
 from appkit_user.authentication.states import UserSession
 

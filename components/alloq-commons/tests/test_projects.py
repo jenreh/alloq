@@ -52,8 +52,8 @@ class TestProjectEntity:
         status = ProjectStatusEntity(
             project_id=1,
             status_date=date(2026, 6, 1),
-            fortschritt=45,
-            budget_verbrauch=30,
+            progress=45,
+            budget_spent=30,
         )
         entity = ProjectEntity(
             code="ML-OPS",

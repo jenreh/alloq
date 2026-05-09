@@ -40,8 +40,8 @@ from alloq_commons.services.utilization import (
     UtilizationService,
     WeekUtilizationResult,
 )
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
 
 from alloq_dashboard.models import (
     BudgetBurnKpi,
@@ -140,8 +140,8 @@ class _RiskRow:
 class _StatusRow:
     project_id: int
     status_date: date
-    fortschritt: int
-    budget_verbrauch: int
+    progress: int
+    budget_spent: int
 
 
 @dataclass(frozen=True)
@@ -315,8 +315,8 @@ def _project_to_row(entity: ProjectEntity) -> _ProjectRow:
         end_date=entity.end_date,
         budget=entity.budget or 0,
         color=entity.color or "#888",
-        progress=latest.fortschritt if latest else 0,
-        spent=latest.budget_verbrauch if latest else 0,
+        progress=latest.progress if latest else 0,
+        spent=latest.budget_spent if latest else 0,
         open_risk_count=open_risks,
     )
 
@@ -352,8 +352,8 @@ def _status_to_row(entity: ProjectStatusEntity) -> _StatusRow:
     return _StatusRow(
         project_id=entity.project_id,
         status_date=entity.status_date,
-        fortschritt=entity.fortschritt,
-        budget_verbrauch=entity.budget_verbrauch,
+        progress=entity.progress,
+        budget_spent=entity.budget_spent,
     )
 
 
@@ -561,7 +561,7 @@ def _build_earned_value_series(
             if not past:
                 continue
             past.sort(key=lambda s: s.status_date)
-            monthly_spent += past[-1].budget_verbrauch
+            monthly_spent += past[-1].budget_spent
         spent_pct = (
             round(monthly_spent / total_budget * 100, 1) if total_budget else 0.0
         )
@@ -572,7 +572,7 @@ def _build_earned_value_series(
             if not past:
                 continue
             past.sort(key=lambda s: s.status_date)
-            progress_vals.append(past[-1].fortschritt)
+            progress_vals.append(past[-1].progress)
         avg_progress = (
             round(sum(progress_vals) / len(progress_vals), 1) if progress_vals else 0.0
         )
@@ -620,7 +620,7 @@ async def load_budget_burn() -> BudgetBurnKpi:
             if not past:
                 continue
             past.sort(key=lambda s: s.status_date)
-            weekly_spent += past[-1].budget_verbrauch
+            weekly_spent += past[-1].budget_spent
         trend.append(
             TrendPoint(
                 label=_week_label(week_start),

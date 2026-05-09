@@ -76,6 +76,28 @@ class EVForecastService:
         return float(budget) + actual_cost - earned_value
 
     @classmethod
+    def compute_status_ev(
+        cls,
+        project_budget: float,
+        progress: int,
+        budget_spent: int,
+    ) -> EVSummary:
+        """Compute EV snapshot for a single status entry."""
+        budget = float(project_budget or 0)
+        if budget == 0:
+            return EVSummary(budget=budget)
+        ev = budget * progress / 100
+        ac = budget * budget_spent / 100
+        return EVSummary(
+            budget=round(budget, 2),
+            earned_value=round(ev, 2),
+            actual_cost=round(ac, 2),
+            eac_linear=round(cls.linear_eac(budget, ev, ac), 2),
+            eac_additive=round(cls.additive_eac(budget, ev, ac), 2),
+            has_data=True,
+        )
+
+    @classmethod
     def build_chart_data(
         cls,
         project: Project,
@@ -114,8 +136,8 @@ class EVForecastService:
             status_date = date.fromisoformat(status.status_date[:10])
             day_offset = (status_date - start).days
             pv = budget * day_offset / total_days
-            ev = budget * status.fortschritt / 100
-            ac = budget * status.budget_verbrauch / 100
+            ev = budget * status.progress / 100
+            ac = budget * status.budget_spent / 100
             is_last = i == len(sorted_statuses) - 1
             points.append(
                 EVChartPoint(
@@ -177,8 +199,8 @@ class EVForecastService:
         if not sorted_statuses or budget == 0:
             return EVSummary(budget=budget)
         last = sorted_statuses[-1]
-        ev = budget * last.fortschritt / 100
-        ac = budget * last.budget_verbrauch / 100
+        ev = budget * last.progress / 100
+        ac = budget * last.budget_spent / 100
         return EVSummary(
             budget=round(budget, 2),
             actual_cost=round(ac, 2),

@@ -929,7 +929,7 @@ class PlanningStore(UserSession):
                 r._cached_role_name = r.role.name if r.role else ""  # noqa: SLF001
                 session.expunge(r)
             from alloq_commons.entities.capacity import CapacityEntity  # noqa: PLC0415
-            from sqlmodel import select  # noqa: PLC0415
+            from sqlalchemy import select  # noqa: PLC0415
 
             cap_rows = await session.execute(select(CapacityEntity))
             entities = list(cap_rows.scalars().unique().all())

@@ -413,8 +413,8 @@ class ProjectState(UserSession):
                     ProjectStatusEntity(
                         project_id=entity.id,
                         status_date=datetime.now(tz=UTC).date(),
-                        fortschritt=0,
-                        budget_verbrauch=0,
+                        progress=0,
+                        budget_spent=0,
                     ),
                 )
                 for capacity in project_data.required_capacities:
@@ -612,6 +612,26 @@ class ProjectState(UserSession):
         """Update the status date field."""
         self.status_date = value or ""
 
+    async def _persist_ev_summary(self) -> None:
+        """Compute EV summary from current and persist values to the project."""
+        if not self.selected_project:
+            return
+        project_id = self.selected_project.id
+        summary = EVForecastService.build_summary(self.selected_project, self.statuses)
+        try:
+            async with get_asyncdb_session() as session:
+                entity = await project_repo.find_by_id(session, project_id)
+                if entity:
+                    entity.ev_earned_value = summary.earned_value
+                    entity.ev_actual_cost = summary.actual_cost
+                    entity.ev_eac_linear = summary.eac_linear
+                    entity.ev_eac_additive = summary.eac_additive
+                    await session.commit()
+        except Exception as exc:
+            logger.error(
+                "Failed to persist EV summary for project %s: %s", project_id, exc
+            )
+
     @is_authenticated
     async def add_project_status(self) -> AsyncGenerator[Any, None]:
         """Save current status form as a new history entry."""
@@ -628,10 +648,20 @@ class ProjectState(UserSession):
                 entity = ProjectStatusEntity(
                     project_id=project_id,
                     status_date=status_date,
-                    fortschritt=self.status_progress,
-                    budget_verbrauch=self.status_budget_usage,
-                    anmerkung=self.status_notes or None,
+                    progress=self.status_progress,
+                    budget_spent=self.status_budget_usage,
+                    notes=self.status_notes or None,
                 )
+                ev = EVForecastService.compute_status_ev(
+                    self.selected_project.budget,
+                    self.status_progress,
+                    self.status_budget_usage,
+                )
+                entity.budget = ev.budget
+                entity.earned_value = ev.earned_value
+                entity.actual_cost = ev.actual_cost
+                entity.eac_linear = ev.eac_linear
+                entity.eac_additive = ev.eac_additive
                 await status_repo.create(session, entity)
                 await session.commit()
                 await session.refresh(entity)
@@ -639,11 +669,17 @@ class ProjectState(UserSession):
                     id=entity.id,
                     project_id=project_id,
                     status_date=status_date.isoformat(),
-                    fortschritt=self.status_progress,
-                    budget_verbrauch=self.status_budget_usage,
-                    anmerkung=self.status_notes,
+                    progress=self.status_progress,
+                    budget_spent=self.status_budget_usage,
+                    notes=self.status_notes,
+                    budget=ev.budget,
+                    earned_value=ev.earned_value,
+                    actual_cost=ev.actual_cost,
+                    eac_linear=ev.eac_linear,
+                    eac_additive=ev.eac_additive,
                 )
             self.statuses = [new_status, *self.statuses]
+            await self._persist_ev_summary()
             self.status_date = datetime.now(tz=UTC).date().isoformat()
             self.status_progress = 0
             self.status_budget_usage = 0
@@ -666,9 +702,9 @@ class ProjectState(UserSession):
         if not status:
             return
         self.expanded_status_id = status_id
-        self.status_draft_progress = status.fortschritt
-        self.status_draft_budget_usage = status.budget_verbrauch
-        self.status_draft_notes = status.anmerkung
+        self.status_draft_progress = status.progress
+        self.status_draft_budget_usage = status.budget_spent
+        self.status_draft_notes = status.notes
         self.status_draft_date = status.status_date
 
     def collapse_status_edit(self) -> None:
@@ -715,18 +751,33 @@ class ProjectState(UserSession):
                     yield rx.toast.error("Status nicht gefunden.", position="top-right")
                     return
                 entity.status_date = new_date
-                entity.fortschritt = self.status_draft_progress
-                entity.budget_verbrauch = self.status_draft_budget_usage
-                entity.anmerkung = self.status_draft_notes or None
+                entity.progress = self.status_draft_progress
+                entity.budget_spent = self.status_draft_budget_usage
+                entity.notes = self.status_draft_notes or None
+                ev = EVForecastService.compute_status_ev(
+                    self.selected_project.budget if self.selected_project else 0,
+                    self.status_draft_progress,
+                    self.status_draft_budget_usage,
+                )
+                entity.budget = ev.budget
+                entity.earned_value = ev.earned_value
+                entity.actual_cost = ev.actual_cost
+                entity.eac_linear = ev.eac_linear
+                entity.eac_additive = ev.eac_additive
                 await session.commit()
             self.statuses = [
                 ProjectStatus(
                     **{
                         **s.model_dump(),
                         "status_date": new_date.isoformat(),
-                        "fortschritt": self.status_draft_progress,
-                        "budget_verbrauch": self.status_draft_budget_usage,
-                        "anmerkung": self.status_draft_notes,
+                        "progress": self.status_draft_progress,
+                        "budget_spent": self.status_draft_budget_usage,
+                        "notes": self.status_draft_notes,
+                        "budget": ev.budget,
+                        "earned_value": ev.earned_value,
+                        "actual_cost": ev.actual_cost,
+                        "eac_linear": ev.eac_linear,
+                        "eac_additive": ev.eac_additive,
                     }
                 )
                 if s.id == status_id
@@ -734,6 +785,7 @@ class ProjectState(UserSession):
                 for s in self.statuses
             ]
             self.expanded_status_id = 0
+            await self._persist_ev_summary()
             yield rx.toast.info("Status aktualisiert.", position="top-right")
         except Exception as exc:
             logger.error("Failed to update status %s: %s", status_id, exc)
@@ -754,6 +806,7 @@ class ProjectState(UserSession):
             if status_id == self.expanded_status_id:
                 self.expanded_status_id = 0
             self.statuses = [s for s in self.statuses if s.id != status_id]
+            await self._persist_ev_summary()
             yield rx.toast.info("Status gelöscht.", position="top-right")
         except Exception as exc:
             logger.error("Failed to delete status %s: %s", status_id, exc)

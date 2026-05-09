@@ -99,7 +99,6 @@ def add_https_middleware(asgi_app: ASGIApp) -> ASGIApp:
 
 
 app = rx.App(
-    theme=rx.theme(accent_color="yellow", gray_color="sand", radius="large"),
     stylesheets=base_stylesheets,
     style=base_style,
     api_transformer=[add_https_middleware],

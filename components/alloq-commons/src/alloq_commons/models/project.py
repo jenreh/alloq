@@ -47,9 +47,14 @@ class ProjectStatus(BaseModel):
     id: int = 0
     project_id: int = 0
     status_date: str = ""
-    fortschritt: int = 0
-    budget_verbrauch: int = 0
-    anmerkung: str = ""
+    progress: int = 0
+    budget_spent: int = 0
+    notes: str = ""
+    budget: float = 0.0
+    earned_value: float = 0.0
+    actual_cost: float = 0.0
+    eac_linear: float = 0.0
+    eac_additive: float = 0.0
     created: datetime | None = None
     updated: datetime | None = None
 
@@ -59,9 +64,9 @@ class ProjectStatusCreate(BaseModel):
 
     project_id: int
     status_date: date
-    fortschritt: int = Field(default=0, ge=0, le=100)
-    budget_verbrauch: int = Field(default=0, ge=0, le=100)
-    anmerkung: str = ""
+    progress: int = Field(default=0, ge=0, le=100)
+    budget_spent: int = Field(default=0, ge=0, le=100)
+    notes: str = ""
 
 
 class ProjectStatusUpdate(ProjectStatusCreate):
@@ -196,6 +201,10 @@ class Project(BaseModel):
     team_members: list[TeamMemberBadge] = []
     risk_count: int = 0
     required_capacities: list[RequiredCapacity] = []
+    ev_earned_value: float = 0.0
+    ev_actual_cost: float = 0.0
+    ev_eac_linear: float = 0.0
+    ev_eac_additive: float = 0.0
     created: datetime | None = None
     updated: datetime | None = None
 

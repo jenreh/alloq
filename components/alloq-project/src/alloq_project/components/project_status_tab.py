@@ -213,14 +213,14 @@ def _history_row(status: rx.Var) -> rx.Component:
                 style={"flexShrinkg": "1"},
             ),
             mn.text(
-                status.anmerkung,
+                status.notes,
                 size="xs",
                 c="dimmed",
                 truncate=True,
                 style={"flex": "1"},
             ),
             mn.badge(
-                status.fortschritt.to_string() + " %",
+                status.progress.to_string() + " %",
                 variant="light",
                 color="blue",
                 radius="sm",
@@ -228,7 +228,7 @@ def _history_row(status: rx.Var) -> rx.Component:
                 style={"flexShrink": "0", "textAlign": "center"},
             ),
             mn.badge(
-                status.budget_verbrauch.to_string() + " %",
+                status.budget_spent.to_string() + " %",
                 variant="light",
                 color="orange",
                 radius="sm",

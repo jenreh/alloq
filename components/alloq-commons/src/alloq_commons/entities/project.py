@@ -2,7 +2,7 @@ import enum
 import logging
 from datetime import date
 
-from sqlalchemy import Column, Date, ForeignKey, Integer, String, Table
+from sqlalchemy import Column, Date, Float, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from appkit_commons.database.entities import Base, Entity
@@ -54,6 +54,18 @@ class ProjectEntity(Entity, Base):
     )
     budget: Mapped[int] = mapped_column(Integer, nullable=False)
     color: Mapped[str] = mapped_column(String(7), nullable=False, default="#FFD43B")
+    ev_earned_value: Mapped[float | None] = mapped_column(
+        Float, nullable=True, default=None
+    )
+    ev_actual_cost: Mapped[float | None] = mapped_column(
+        Float, nullable=True, default=None
+    )
+    ev_eac_linear: Mapped[float | None] = mapped_column(
+        Float, nullable=True, default=None
+    )
+    ev_eac_additive: Mapped[float | None] = mapped_column(
+        Float, nullable=True, default=None
+    )
 
     owners = relationship(
         "EmployeeEntity",
@@ -106,8 +118,8 @@ class ProjectEntity(Entity, Base):
             "budget": self.budget,
             "color": self.color,
             "owner_ids": [owner.id for owner in self.owners] if self.owners else [],
-            "current_progress": latest_status.fortschritt if latest_status else 0,
-            "current_spent": latest_status.budget_verbrauch if latest_status else 0,
+            "current_progress": latest_status.progress if latest_status else 0,
+            "current_spent": latest_status.budget_spent if latest_status else 0,
             "team_initials": self._team_initials(),
             "team_members": self._team_members(),
             "risk_count": len(self.risks) if self.risks else 0,
@@ -116,6 +128,10 @@ class ProjectEntity(Entity, Base):
             ]
             if self.required_capacities
             else [],
+            "ev_earned_value": self.ev_earned_value or 0.0,
+            "ev_actual_cost": self.ev_actual_cost or 0.0,
+            "ev_eac_linear": self.ev_eac_linear or 0.0,
+            "ev_eac_additive": self.ev_eac_additive or 0.0,
             "created": self.created,
             "updated": self.updated,
         }

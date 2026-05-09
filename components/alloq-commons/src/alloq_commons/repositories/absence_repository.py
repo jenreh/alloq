@@ -1,8 +1,8 @@
 import logging
 from datetime import UTC, date, datetime
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
 
 from alloq_commons.entities import AbsenceEntity
 from appkit_commons.database.base_repository import BaseRepository

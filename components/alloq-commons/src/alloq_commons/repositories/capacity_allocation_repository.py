@@ -1,9 +1,8 @@
 import logging
 from datetime import date
 
-from sqlalchemy import and_, delete
+from sqlalchemy import and_, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
 
 from alloq_commons.entities import CapacityAllocationEntity
 from appkit_commons.database.base_repository import BaseRepository

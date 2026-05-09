@@ -63,6 +63,19 @@ _PANEL_BG = "var(--alloq-nav-panel-bg)"
 _BORDER = "1px solid var(--alloq-border)"
 
 
+class _ReactContextImportWorkaround(rx.Component):
+    """Force route-level context imports for Reflex 0.9.2."""
+
+    library = "react"
+    tag = "Fragment"
+
+    def add_imports(self) -> dict[str, list[str]]:
+        return {
+            "react": ["useContext"],
+            "$/utils/context": ["StateContexts"],
+        }
+
+
 # --------------------------------------------------------------------------- #
 # Example section data — each section has its own sub-menu.
 # --------------------------------------------------------------------------- #
@@ -710,6 +723,7 @@ def _panel() -> rx.Component:
 def app_navbar_collapsible() -> rx.Component:
     """Two-column desktop navbar: rail + collapsible section panel."""
     return mn.stack(
+        _ReactContextImportWorkaround.create(),
         # _logo(),
         mn.group(
             mn.group(

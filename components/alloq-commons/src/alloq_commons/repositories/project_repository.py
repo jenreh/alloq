@@ -1,8 +1,7 @@
 import logging
 
-from sqlalchemy import or_
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
 
 from alloq_commons.entities import ProjectEntity
 from appkit_commons.database.base_repository import BaseRepository
