@@ -132,18 +132,28 @@ def edit_role_modal() -> rx.Component:
     )
 
 
-def add_role_button(
-    label: str = "Rolle hinzufügen",
-    icon: str = "plus",
-    icon_size: int = 16,
-    **kwargs,
-) -> rx.Component:
+def add_role_button() -> rx.Component:
     """Button to open the add role modal."""
-    return mn.button(
-        label,
-        left_section=rx.icon(icon, size=icon_size),
+    return mn.action_icon(
+        rx.icon("plus", size=20),
+        variant="filled",
+        auto_contrast=True,
+        size="lg",
+        radius="md",
         on_click=RoleState.open_add_modal,
-        **kwargs,
+    )
+
+
+def role_search_input() -> rx.Component:
+    """Search input for filtering roles by name."""
+    return mn.text_input(
+        placeholder="Rollen suchen...",
+        left_section=rx.icon("search", size=16),
+        left_section_pointer_events="none",
+        value=RoleState.search_filter,
+        on_change=RoleState.set_search_filter,
+        size="sm",
+        w="18rem",
     )
 
 
@@ -244,23 +254,6 @@ def roles_table() -> rx.Component:
     return mn.stack(
         add_role_modal(),
         edit_role_modal(),
-        rx.flex(
-            add_role_button(),
-            mn.text_input(
-                placeholder="Rollen suchen...",
-                left_section=rx.icon("search", size=16),
-                left_section_pointer_events="none",
-                value=RoleState.search_filter,
-                on_change=RoleState.set_search_filter,
-                size="sm",
-                w="18rem",
-            ),
-            rx.spacer(),
-            width="100%",
-            margin_bottom="md",
-            gap="12px",
-            align="center",
-        ),
         mn.table(
             mn.table.thead(
                 mn.table.tr(
@@ -294,4 +287,22 @@ def roles_table() -> rx.Component:
         ),
         w="100%",
         on_mount=RoleState.load_roles,
+    )
+
+
+def roles_toolbar() -> rx.Component:
+    """Top-right role page toolbar."""
+    return rx.flex(
+        role_search_input(),
+        add_role_button(),
+        width="auto",
+        gap="12px",
+        align="center",
+        justify="end",
+        style={
+            "position": "fixed",
+            "top": "2.25rem",
+            "right": "2rem",
+            "z_index": "20",
+        },
     )

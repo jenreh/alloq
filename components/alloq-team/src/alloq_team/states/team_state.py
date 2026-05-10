@@ -22,6 +22,7 @@ from alloq_commons.repositories.project_repository import project_repo
 from alloq_commons.repositories.role_repository import role_repo
 
 from appkit_commons.database.session import get_asyncdb_session
+from appkit_ui.global_states import LoadingState
 from appkit_user.authentication.decorators import is_authenticated
 from appkit_user.authentication.states import UserSession
 
@@ -262,6 +263,7 @@ class TeamState(UserSession):
                     employee=self.selected_employee,
                     default_role_ids=[str(r) for r in self.selected_employee.role_ids],
                 )
+                yield LoadingState.set_is_loading(False)
                 yield
 
     @is_authenticated

@@ -5,8 +5,9 @@ from __future__ import annotations
 import reflex as rx
 
 import appkit_mantine as mn
+from alloq_dashboard.components.drill_down_drawer import DRILL_EARNED_VALUE
 from alloq_dashboard.components.kpi_card import kpi_card
-from alloq_dashboard.states import BudgetBurnState
+from alloq_dashboard.states import BudgetBurnState, DashboardState
 
 
 def earned_value_card() -> rx.Component:
@@ -63,4 +64,5 @@ def earned_value_card() -> rx.Component:
         is_loading=BudgetBurnState.is_loading,
         error_message=BudgetBurnState.error_message,
         icon="trending-up",
+        on_open=DashboardState.open_drill_down(DRILL_EARNED_VALUE),
     )

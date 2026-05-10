@@ -11,6 +11,7 @@ from alloq_commons.entities.required_capacity import RequiredCapacityEntity
 from alloq_commons.entities.risk import RiskEntity, RiskMitigationStatus
 from alloq_commons.models.project import (
     Capacity,
+    CapacityAllocation,
     Project,
     ProjectCreate,
     ProjectStatus,
@@ -21,6 +22,7 @@ from alloq_commons.models.project import (
 )
 from alloq_commons.models.role import Role
 from alloq_commons.repositories import (
+    capacity_allocation_repo,
     capacity_repo,
     employee_repo,
     project_repo,
@@ -32,6 +34,7 @@ from alloq_commons.repositories import (
 from alloq_project.services.forecast import EVForecastService, EVSummary
 
 from appkit_commons.database.session import get_asyncdb_session
+from appkit_ui.global_states import LoadingState
 from appkit_user.authentication.decorators import is_authenticated
 from appkit_user.authentication.states import UserSession
 
@@ -84,6 +87,7 @@ class ProjectState(UserSession):
     projects: list[Project] = []
     selected_project: Project | None = None
     statuses: list[ProjectStatus] = []
+    allocation_plan: list[CapacityAllocation] = []
     risks: list[Risk] = []
     capacities: list[Capacity] = []
     required_capacities: list[RequiredCapacity] = []
@@ -225,6 +229,7 @@ class ProjectState(UserSession):
         self.detail_drawer_open = False
         self.selected_project = None
         self.statuses = []
+        self.allocation_plan = []
         self.risks = []
         self.capacities = []
         self.required_capacities = []
@@ -345,6 +350,7 @@ class ProjectState(UserSession):
             entity = await project_repo.find_by_id(session, project_id)
             if not entity:
                 yield rx.toast.error("Projekt nicht gefunden.", position="top-right")
+                yield LoadingState.set_is_loading(False)
                 return
 
             self.selected_project = Project(**entity.to_dict())
@@ -358,8 +364,15 @@ class ProjectState(UserSession):
                 session,
                 project_id,
             )
+            alloc_entities = await capacity_allocation_repo.find_by_project(
+                session,
+                project_id,
+            )
             self.statuses = [
                 ProjectStatus(**status.to_dict()) for status in status_entities
+            ]
+            self.allocation_plan = [
+                CapacityAllocation(**alloc.to_dict()) for alloc in alloc_entities
             ]
             self.risks = [
                 Risk(**{**risk.to_dict(), "number": i + 1})
@@ -374,6 +387,7 @@ class ProjectState(UserSession):
             self.detail_drawer_open = True
             self.status_date = datetime.now(tz=UTC).date().isoformat()
             yield ProjectValidationState.initialize(self.selected_project)
+            yield LoadingState.set_is_loading(False)
 
     @is_authenticated
     async def select_project_with_tab(
@@ -1068,7 +1082,9 @@ class ProjectState(UserSession):
         """Build EV chart data with PV, EV, AC and two forecast curves."""
         if not self.selected_project:
             return []
-        return EVForecastService.build_chart_data(self.selected_project, self.statuses)
+        return EVForecastService.build_chart_data(
+            self.selected_project, self.statuses, self.allocation_plan
+        )
 
     @rx.var
     def ev_summary(self) -> EVSummary:

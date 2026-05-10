@@ -6,18 +6,20 @@ from collections.abc import Callable
 
 import reflex as rx
 from alloq_commons.components import ROW_STYLE
-from alloq_commons.components.formatters import de_number
+from alloq_commons.components.formatters import de_number, format_date_de
 from alloq_commons.components.forms import section
 from alloq_commons.components.modal_layout import DRAWER_CLASS
 
 import appkit_mantine as mn
 from alloq_dashboard.states import (
+    BudgetBurnState,
     DashboardState,
     UnderUtilizationState,
     UtilizationState,
 )
 
 DRILL_UTILIZATION = "utilization"
+DRILL_EARNED_VALUE = "earned_value"
 HIGH_WORKLOAD_PERCENT = 70
 WORKLOAD_LIMIT_PERCENT = 100
 
@@ -239,10 +241,113 @@ def _utilization_body() -> rx.Component:
     )
 
 
+def _ev_stat_cell(
+    label: str,
+    value: rx.Var,
+    *,
+    color: str | None = None,
+) -> rx.Component:
+    style: dict = {
+        "fontSize": "var(--mantine-font-size-xs)",
+        "fontWeight": "700",
+    }
+    if color:
+        style["color"] = f"var(--mantine-color-{color}-6)"
+    return mn.stack(
+        mn.text(label, size="xs", c="dimmed", fw="500"),
+        de_number(
+            value,
+            decimal_scale=0,
+            fixed_decimal_scale=True,
+            suffix=" \u20ac",
+            style=style,
+        ),
+        gap="1px",
+        align="left",
+    )
+
+
+def _ev_project_row(p: rx.Var) -> rx.Component:
+    return mn.stack(
+        mn.group(
+            mn.text(
+                p.name,
+                size="sm",
+                fw="600",
+                truncate=True,
+                style={"flex": "1 1 0"},
+            ),
+            mn.text(
+                format_date_de(p.start_date) + " → " + format_date_de(p.end_date),
+                size="xs",
+                c="dimmed",
+                style={"flexShrink": "0", "whiteSpace": "nowrap"},
+            ),
+            align="center",
+            gap="xs",
+            w="100%",
+            wrap="nowrap",
+        ),
+        mn.progress(
+            value=p.progress,
+            color=p.color,
+            size="sm",
+            radius="xl",
+            bg="var(--alloq-meter-track)",
+            w="100%",
+        ),
+        mn.simple_grid(
+            _ev_stat_cell("Budget", p.budget),
+            _ev_stat_cell("Prognose lin.", p.ev_eac_linear, color="teal"),
+            _ev_stat_cell("Prognose add.", p.ev_eac_additive, color="violet"),
+            _ev_stat_cell("Fertigst.wert", p.ev_earned_value),
+            _ev_stat_cell("Ist-Kosten", p.ev_actual_cost),
+            cols=5,
+            spacing="xs",
+            w="100%",
+        ),
+        gap="xs",
+        style={
+            **ROW_STYLE,
+            "backgroundColor": "var(--alloq-fade-bg)",
+            "padding": "12px 18px",
+        },
+        w="100%",
+    )
+
+
+def _earned_value_body() -> rx.Component:
+    rows = BudgetBurnState.data.rows
+    return mn.stack(
+        # mn.text("Aktive Projekte", size="sm", fw="600", p="6px 18px"),
+        rx.cond(
+            rows.length() > 0,
+            mn.stack(
+                rx.foreach(
+                    rows,
+                    lambda p: rx.cond(
+                        (p.state == "Aktiv") | (p.state == "Risiko"),
+                        _ev_project_row(p),
+                        rx.fragment(),
+                    ),
+                ),
+                gap="xs",
+                w="100%",
+            ),
+            mn.text(
+                "Keine aktiven Projekte.",
+                size="sm",
+                c="var(--alloq-text-muted)",
+            ),
+        ),
+    )
+
+
 def _drill_title(key: rx.Var[str]) -> rx.Var[str]:
     return rx.match(
         key,
         (DRILL_UTILIZATION, "Team-Auslastung"),
+        (DRILL_EARNED_VALUE, "Budget Prognosen (aktive Projekte)"),
         "Details",
     )
 
@@ -254,6 +359,7 @@ def drill_down_drawer() -> rx.Component:
             rx.match(
                 DashboardState.drill_down,
                 (DRILL_UTILIZATION, _utilization_body()),
+                (DRILL_EARNED_VALUE, _earned_value_body()),
                 rx.fragment(),
             ),
             class_name="alloq-modal-scroll",

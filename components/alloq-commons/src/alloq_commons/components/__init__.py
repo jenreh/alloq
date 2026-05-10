@@ -10,6 +10,7 @@ from alloq_commons.components.page_header import page_header
 from alloq_commons.components.role import (
     add_role_button,
     roles_table,
+    roles_toolbar,
 )
 
 __all__ = [
@@ -21,4 +22,5 @@ __all__ = [
     "format_date_de_named",
     "page_header",
     "roles_table",
+    "roles_toolbar",
 ]

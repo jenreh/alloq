@@ -1,7 +1,7 @@
 from collections.abc import Callable
 
 import reflex as rx
-from alloq_commons.components import page_header, roles_table
+from alloq_commons.components import page_header, roles_table, roles_toolbar
 from alloq_commons.state.role_states import RoleState
 
 import appkit_mantine as mn
@@ -32,6 +32,7 @@ def create_roles_page(
                     title="Rollen verwalten",
                     description="Rollen anlegen, bearbeiten und löschen.",
                 ),
+                roles_toolbar(),
                 roles_table(),
                 width="100%",
                 max_width="1200px",

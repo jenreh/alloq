@@ -5,6 +5,7 @@ from alloq_project.states.project_state import ProjectState
 
 import appkit_mantine as mn
 from appkit_ui.components.dialogs import delete_dialog
+from appkit_ui.global_states import LoadingState
 
 
 def _status_color(state: rx.Var[str]) -> rx.Var[str]:
@@ -222,12 +223,20 @@ def project_card(project: Project) -> rx.Component:
         flex="0 0 auto",
         style={
             "backgroundColor": "var(--alloq-fade-bg)",
+            "cursor": rx.cond(LoadingState.is_loading, "wait", "pointer"),
             "_hover": {
-                "backgroundColor": "var(--alloq-fade-bg-hover)",
-                "cursor": "pointer",
+                "backgroundColor": rx.cond(
+                    LoadingState.is_loading,
+                    "var(--alloq-fade-bg)",
+                    "var(--alloq-fade-bg-hover)",
+                ),
+                "cursor": rx.cond(LoadingState.is_loading, "wait", "pointer"),
             },
             "borderRadius": "var(--mantine-radius-lg)",
             "height": "198px",
         },
-        on_click=ProjectState.select_project(project.id),
+        on_click=[
+            LoadingState.set_is_loading(True),
+            ProjectState.select_project(project.id),
+        ],
     )

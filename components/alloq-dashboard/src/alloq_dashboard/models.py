@@ -52,6 +52,10 @@ class ProjectSummary(BaseModel):
     spent_percent: float = 0.0
     risk_count: int = 0
     color: str = "#888"
+    ev_earned_value: float = 0.0
+    ev_actual_cost: float = 0.0
+    ev_eac_linear: float = 0.0
+    ev_eac_additive: float = 0.0
 
 
 class ProjectHealthKpi(BaseModel):

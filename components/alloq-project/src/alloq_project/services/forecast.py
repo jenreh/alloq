@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from alloq_commons.models.project import Project, ProjectStatus
+from alloq_commons.models.project import CapacityAllocation, Project, ProjectStatus
 from pydantic import BaseModel
 
 _WEEK = timedelta(days=7)
@@ -58,6 +58,39 @@ class EVChartPoint:
 
 def _round2(value: float | None) -> float | None:
     return None if value is None else round(value, 2)
+
+
+def _cumulative_pv(
+    target: date,
+    allocations: list[CapacityAllocation],
+    total_pd: float,
+    budget: float,
+) -> float:
+    """Return cumulative Planned Value up to *target* date.
+
+    For each week:
+        week_value = budget * (week_pt / total_pt)   # proportional budget share
+        pv        += week_value                       # running cumulative
+
+    Weeks fully completed before *target* are counted in full.
+    The week that contains *target* is pro-rated by elapsed days / 7.
+    Weeks starting after *target* are skipped.
+    """
+    if total_pd <= 0:
+        return 0.0
+    pv = 0.0
+    for alloc in allocations:
+        if alloc.week_start is None:
+            continue
+        pd = max(0.0, alloc.person_days)
+        week_value = budget * pd / total_pd  # this week's proportional budget share
+        week_end = alloc.week_start + _WEEK
+        if week_end <= target:
+            pv += week_value  # full week elapsed
+        elif alloc.week_start < target:
+            fraction = (target - alloc.week_start).days / 7
+            pv += week_value * fraction  # partial week
+    return pv
 
 
 class EVForecastService:
@@ -102,8 +135,15 @@ class EVForecastService:
         cls,
         project: Project,
         statuses: list[ProjectStatus],
+        capacity_allocations: list[CapacityAllocation] | None = None,
     ) -> list[dict]:
-        """Build PV/EV/AC + weekly forecast curves for the EV chart."""
+        """Build PV/EV/AC + weekly forecast curves for the EV chart.
+
+        When *capacity_allocations* are provided the Planned Value curve is
+        derived from the cumulative planned person-days (capacity-weighted
+        S-curve).  If no allocations are available the method falls back to
+        linear interpolation over the project duration.
+        """
         if not project.start_date or not project.end_date:
             return []
         start = project.start_date
@@ -112,6 +152,16 @@ class EVForecastService:
         if end <= start or budget == 0:
             return []
         total_days = (end - start).days
+
+        allocs = capacity_allocations or []
+        total_pd = sum(a.person_days for a in allocs if a.week_start is not None)
+        use_capacity = total_pd > 0
+
+        def _pv(d: date) -> float:
+            if use_capacity:
+                return _cumulative_pv(d, allocs, total_pd, float(budget))
+            day_offset = (d - start).days
+            return float(budget) * day_offset / total_days
 
         sorted_statuses = sorted(
             (s for s in statuses if s.status_date),
@@ -134,8 +184,7 @@ class EVForecastService:
 
         for i, status in enumerate(sorted_statuses):
             status_date = date.fromisoformat(status.status_date[:10])
-            day_offset = (status_date - start).days
-            pv = budget * day_offset / total_days
+            pv = _pv(status_date)
             ev = budget * status.progress / 100
             ac = budget * status.budget_spent / 100
             is_last = i == len(sorted_statuses) - 1
@@ -159,13 +208,11 @@ class EVForecastService:
             forecast_span = (end - last_date).days
             week = last_date + _WEEK
             while week < end:
-                day_offset = (week - start).days
                 progress = (week - last_date).days / forecast_span
-                pv = budget * day_offset / total_days
                 points.append(
                     EVChartPoint(
                         label=week.isoformat(),
-                        planned_value=pv,
+                        planned_value=_pv(week),
                         forecast_linear=ac_last + (eac_linear - ac_last) * progress,
                         forecast_additive=ac_last + (eac_additive - ac_last) * progress,
                     )
@@ -182,6 +229,14 @@ class EVForecastService:
         )
 
         points.sort(key=lambda p: p.label)
+
+        # Guarantee PV is monotonically non-decreasing regardless of data quality.
+        pv_running_max = 0.0
+        for point in points:
+            if point.planned_value is not None:
+                pv_running_max = max(pv_running_max, point.planned_value)
+                point.planned_value = pv_running_max
+
         return [point.to_dict() for point in points]
 
     @classmethod

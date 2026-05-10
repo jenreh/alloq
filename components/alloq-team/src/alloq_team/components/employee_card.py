@@ -5,6 +5,7 @@ from alloq_team.states.team_state import TeamState
 
 import appkit_mantine as mn
 from appkit_ui.components.dialogs import delete_dialog
+from appkit_ui.global_states import LoadingState
 
 
 def _seniority_color(seniority: str) -> str:
@@ -254,13 +255,21 @@ def employee_card(employee: Employee, section_key: str) -> rx.Component:
         flex="0 0 auto",
         style={
             "background_color": "var(--alloq-fade-bg)",
+            "cursor": rx.cond(LoadingState.is_loading, "wait", "pointer"),
             "_hover": {
-                "background_color": "var(--alloq-fade-bg-hover)",
-                "cursor": "pointer",
+                "background_color": rx.cond(
+                    LoadingState.is_loading,
+                    "var(--alloq-fade-bg)",
+                    "var(--alloq-fade-bg-hover)",
+                ),
+                "cursor": rx.cond(LoadingState.is_loading, "wait", "pointer"),
             },
             "border_radius": "var(--mantine-radius-lg)",
         },
-        on_click=TeamState.select_employee(employee.id),
+        on_click=[
+            LoadingState.set_is_loading(True),
+            TeamState.select_employee(employee.id),
+        ],
     )
 
 

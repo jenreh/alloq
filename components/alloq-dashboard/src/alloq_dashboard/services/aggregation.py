@@ -120,6 +120,10 @@ class _ProjectRow:
     progress: int
     spent: int
     open_risk_count: int
+    ev_earned_value: float = 0.0
+    ev_actual_cost: float = 0.0
+    ev_eac_linear: float = 0.0
+    ev_eac_additive: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -254,6 +258,10 @@ def _project_summary(row: _ProjectRow, today: date) -> ProjectSummary:
         spent_percent=round(spent_pct, 1),
         risk_count=row.open_risk_count,
         color=row.color or "#888",
+        ev_earned_value=row.ev_earned_value,
+        ev_actual_cost=row.ev_actual_cost,
+        ev_eac_linear=row.ev_eac_linear,
+        ev_eac_additive=row.ev_eac_additive,
     )
 
 
@@ -318,6 +326,10 @@ def _project_to_row(entity: ProjectEntity) -> _ProjectRow:
         progress=latest.progress if latest else 0,
         spent=latest.budget_spent if latest else 0,
         open_risk_count=open_risks,
+        ev_earned_value=entity.ev_earned_value or 0.0,
+        ev_actual_cost=entity.ev_actual_cost or 0.0,
+        ev_eac_linear=entity.ev_eac_linear or 0.0,
+        ev_eac_additive=entity.ev_eac_additive or 0.0,
     )
 
 
@@ -638,7 +650,7 @@ async def load_budget_burn() -> BudgetBurnKpi:
         spent_percent=round(spent_percent, 1),
         trend=trend,
         earned_value=earned_value,
-        rows=sorted(summaries, key=lambda s: -s.spent_percent),
+        rows=sorted(summaries, key=lambda s: -s.progress),
     )
 
 
