@@ -3,6 +3,12 @@
 from __future__ import annotations
 
 import reflex as rx
+from alloq_commons.components.forms import section
+from alloq_commons.components.modal_layout import (
+    MODAL_CLASS,
+    modal_footer,
+    modal_form_layout,
+)
 from alloq_project.components.planning_shared import (
     CELL_BASE,
     CURRENT_WEEK_BG,
@@ -407,39 +413,36 @@ def _employee_block(emp: EmployeeBlock) -> rx.Component:
 def _add_project_modal() -> rx.Component:
     """Modal to assign a project to an employee from the grid."""
     return mn.modal(
-        rx.form.root(
-            mn.stack(
-                mn.select(
-                    name="project_id",
-                    label="Projekt",
-                    data=PlanningStore.add_project_options,
-                    required=True,
-                    searchable=True,
-                    clearable=True,
-                    left_section=rx.icon("folder", size=16),
-                ),
-                mn.select(
-                    name="role_id",
-                    label="Rolle",
-                    data=PlanningStore.add_project_role_options,
-                    required=True,
-                    searchable=True,
-                    clearable=True,
-                    left_section=rx.icon("shield", size=16),
-                ),
-                mn.group(
-                    mn.button(
-                        "Abbrechen",
-                        variant="subtle",
-                        color="yellow",
-                        on_click=PlanningStore.close_add_project_for_employee,
+        modal_form_layout(
+            content=mn.flex(
+                section(
+                    mn.select(
+                        name="project_id",
+                        label="Projekt",
+                        data=PlanningStore.add_project_options,
+                        required=True,
+                        searchable=True,
+                        clearable=True,
+                        left_section=rx.icon("folder", size=16),
                     ),
-                    mn.button("Zuweisen", type="submit"),
-                    justify="end",
-                    gap="md",
+                    mn.select(
+                        name="role_id",
+                        label="Rolle",
+                        data=PlanningStore.add_project_role_options,
+                        required=True,
+                        searchable=True,
+                        clearable=True,
+                        left_section=rx.icon("shield", size=16),
+                    ),
                 ),
+                mn.space(height="2rem"),
+                direction="column",
                 gap="md",
-                p="md",
+                width="100%",
+            ),
+            footer=modal_footer(
+                "Zuweisen",
+                PlanningStore.close_add_project_for_employee,
             ),
             on_submit=PlanningStore.add_project_to_employee_grid,
             reset_on_submit=True,
@@ -450,6 +453,7 @@ def _add_project_modal() -> rx.Component:
         size="md",
         centered=True,
         z_index=300,
+        class_name=MODAL_CLASS,
         overlay_props={"backgroundOpacity": 0.5, "blur": 4},
     )
 
