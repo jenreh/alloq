@@ -26,6 +26,7 @@ from alloq_commons.repositories import (
     capacity_repo,
     employee_repo,
     project_repo,
+    public_holiday_repo,
     required_capacity_repo,
     risk_repo,
     role_repo,
@@ -93,6 +94,8 @@ class ProjectState(UserSession):
     required_capacities: list[RequiredCapacity] = []
     available_roles: list[Role] = []
     available_employees: list[dict[str, str]] = []
+    employee_workload: dict[int, int] = {}
+    holiday_dates: list[date] = []
     is_loading: bool = False
 
     current_user_email: str = ""
@@ -325,6 +328,13 @@ class ProjectState(UserSession):
                 }
                 for entity in employee_entities
             ]
+            self.employee_workload = {
+                entity.id: round(
+                    (float(getattr(entity, "hours_per_week", 40.0) or 40.0) / 40.0)
+                    * 100
+                )
+                for entity in employee_entities
+            }
 
     @is_authenticated
     async def load_projects(self) -> AsyncGenerator[Any, None]:
@@ -374,6 +384,15 @@ class ProjectState(UserSession):
             self.allocation_plan = [
                 CapacityAllocation(**alloc.to_dict()) for alloc in alloc_entities
             ]
+            if self.selected_project.start_date and self.selected_project.end_date:
+                holiday_rows = await public_holiday_repo.find_by_date_range(
+                    session,
+                    self.selected_project.start_date,
+                    self.selected_project.end_date,
+                )
+                self.holiday_dates = [row.date for row in holiday_rows if row.date]
+            else:
+                self.holiday_dates = []
             self.risks = [
                 Risk(**{**risk.to_dict(), "number": i + 1})
                 for i, risk in enumerate(risk_entities)
@@ -1083,7 +1102,11 @@ class ProjectState(UserSession):
         if not self.selected_project:
             return []
         return EVForecastService.build_chart_data(
-            self.selected_project, self.statuses, self.allocation_plan
+            self.selected_project,
+            self.statuses,
+            self.allocation_plan,
+            self.employee_workload,
+            set(self.holiday_dates),
         )
 
     @rx.var

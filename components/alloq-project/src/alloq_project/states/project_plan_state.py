@@ -316,6 +316,7 @@ class ProjectPlanState(rx.State):
     employee_role_filter: str = "all"  # "all" | role_id as str
     employee_pool: list[dict[str, Any]] = []  # snapshot from PlanningStore
     role_options_data: list[dict[str, str]] = []  # snapshot from PlanningStore
+    holiday_dates: list[datetime.date] = []  # snapshot from PlanningStore
     # role_id, role_name, person_days
     required_capacity_snapshot: list[dict[str, Any]] = []
     # employee_id (str) -> already-planned PT in project timeframe (excl. this project)
@@ -475,6 +476,7 @@ class ProjectPlanState(rx.State):
 
         planning = await self.get_state(PlanningStore)
         self.project_pool = list(planning.available_projects)
+        self.holiday_dates = list(planning.holiday_dates)
         self.is_open = True
         self.step = 0
         self.search = ""
@@ -511,6 +513,7 @@ class ProjectPlanState(rx.State):
         )
 
         planning = await self.get_state(PlanningStore)
+        self.holiday_dates = list(planning.holiday_dates)
         proj = next((p for p in planning.available_projects if p.id == pid), None)
         if not proj:
             return
@@ -792,10 +795,13 @@ class ProjectPlanState(rx.State):
         ]
         internal_hours = int(emp.get("internal_hours", 0))
         wp = int(emp.get("workload_percent", 100))
-        work_days_per_week = WORKDAYS_PER_WEEK * (wp / 100)
+        holidays = set(self.holiday_dates)
         prior_by_week = self.planned_pt_by_employee_week.get(str(emp["id"]), {})
         out: list[float] = []
         for ws in weeks_starts:
+            work_days_per_week = UtilizationService.work_days_for_week(
+                ws, holidays, workload_percent=wp
+            )
             absence_days = UtilizationService.absence_days_in_week(absences, ws)
             internal_days = UtilizationService.cap_internal_days(
                 internal_hours, absence_days, work_days=work_days_per_week
@@ -840,9 +846,12 @@ class ProjectPlanState(rx.State):
         ]
         internal_hours = int(emp.get("internal_hours", 0))
         wp = int(emp.get("workload_percent", 100))
-        work_days_per_week = WORKDAYS_PER_WEEK * (wp / 100)
+        holidays = set(self.holiday_dates)
         total = 0.0
         for ws in weeks_starts:
+            work_days_per_week = UtilizationService.work_days_for_week(
+                ws, holidays, workload_percent=wp
+            )
             absence_days = UtilizationService.absence_days_in_week(absences, ws)
             internal_days = UtilizationService.cap_internal_days(
                 internal_hours, absence_days, work_days=work_days_per_week

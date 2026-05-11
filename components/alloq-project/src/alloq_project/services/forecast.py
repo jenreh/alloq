@@ -14,13 +14,64 @@ project end date so the chart shows continuous forecast curves.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, timedelta
 
 from alloq_commons.models.project import CapacityAllocation, Project, ProjectStatus
+from alloq_commons.services.utilization import UtilizationService
 from pydantic import BaseModel
 
 _WEEK = timedelta(days=7)
+_WORK_DAYS_PER_WEEK = 5.0
+
+
+def _scale_allocations(
+    allocations: list[CapacityAllocation],
+    employee_workload: Mapping[int, int] | None,
+    holiday_dates: set[date] | frozenset[date] | None = None,
+) -> list[CapacityAllocation]:
+    """Cap each (employee, week) allocation to the employee's scaled capacity.
+
+    Sums person_days for the same (employee_id, week_start) across roles, then
+    clips the sum to the holiday- and workload-adjusted weekly capacity (via
+    ``UtilizationService.work_days_for_week``). Allocations for employees not
+    in the workload map keep their original person_days.
+    """
+    if not employee_workload:
+        return allocations
+    sums: dict[tuple[int, date], float] = {}
+    keyed: list[tuple[tuple[int, date] | None, CapacityAllocation]] = []
+    for alloc in allocations:
+        if alloc.week_start is None or alloc.employee_id not in employee_workload:
+            keyed.append((None, alloc))
+            continue
+        key = (alloc.employee_id, alloc.week_start)
+        sums[key] = sums.get(key, 0.0) + max(0.0, alloc.person_days)
+        keyed.append((key, alloc))
+
+    caps: dict[tuple[int, date], float] = {
+        key: UtilizationService.work_days_for_week(
+            key[1], holiday_dates, workload_percent=employee_workload[key[0]]
+        )
+        for key in sums
+    }
+    remaining: dict[tuple[int, date], float] = {key: caps[key] for key in sums}
+    scaled: list[CapacityAllocation] = []
+    for key, alloc in keyed:
+        if key is None:
+            scaled.append(alloc)
+            continue
+        original_sum = sums[key]
+        cap = caps[key]
+        if original_sum <= cap:
+            scaled.append(alloc)
+            continue
+        share = alloc.person_days * cap / original_sum if original_sum > 0 else 0.0
+        share = min(share, remaining[key])
+        remaining[key] -= share
+        scaled.append(alloc.model_copy(update={"person_days": share}))
+    return scaled
 
 
 class EVSummary(BaseModel):
@@ -136,6 +187,8 @@ class EVForecastService:
         project: Project,
         statuses: list[ProjectStatus],
         capacity_allocations: list[CapacityAllocation] | None = None,
+        employee_workload: Mapping[int, int] | None = None,
+        holiday_dates: set[date] | frozenset[date] | None = None,
     ) -> list[dict]:
         """Build PV/EV/AC + weekly forecast curves for the EV chart.
 
@@ -153,7 +206,9 @@ class EVForecastService:
             return []
         total_days = (end - start).days
 
-        allocs = capacity_allocations or []
+        allocs = _scale_allocations(
+            capacity_allocations or [], employee_workload, holiday_dates
+        )
         total_pd = sum(a.person_days for a in allocs if a.week_start is not None)
         use_capacity = total_pd > 0
 

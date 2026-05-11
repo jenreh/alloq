@@ -225,18 +225,6 @@ def _project_heat_bucket(allocated: float) -> str:
     return UtilizationService.project_heat_bucket(allocated)
 
 
-def _holidays_in_week(
-    holiday_dates: set[datetime.date], week_start: datetime.date
-) -> int:
-    """Count Mon-Fri public holidays falling within the week."""
-    count = 0
-    for offset in range(_WORK_DAYS_PER_WEEK):
-        day = week_start + datetime.timedelta(days=offset)
-        if day in holiday_dates:
-            count += 1
-    return count
-
-
 def _build_weeks(
     num_weeks: int,
     holiday_dates: set[datetime.date] | None = None,
@@ -246,14 +234,16 @@ def _build_weeks(
     anchor = _anchor_date()
     for i in range(num_weeks):
         d = anchor + datetime.timedelta(days=7 * i)
-        work_days = float(_WORK_DAYS_PER_WEEK - _holidays_in_week(holidays, d))
+        work_days = UtilizationService.work_days_for_week(
+            d, holidays, workload_percent=100, base_work_days=float(_WORK_DAYS_PER_WEEK)
+        )
         weeks.append(
             WeekColumn(
                 key=f"{d.year}_{d.month:02d}_{d.day:02d}",
                 label=f"{d.day}.{d.month}.",
                 week_no=d.isocalendar().week,
                 month_label=f"{GERMAN_MONTHS[d.month - 1]} {d.year % 100}",
-                work_days=max(0.0, work_days),
+                work_days=work_days,
             )
         )
     spans: list[MonthSpan] = []
@@ -322,7 +312,8 @@ def _ck(emp_id: str, proj_code: str, wk_key: str) -> str:
 
 
 def _scaled_work_days(week: WeekColumn, workload_percent: int) -> float:
-    return max(0.0, week.work_days * (workload_percent / 100.0))
+    """Apply workload percentage to a week's holiday-adjusted work days."""
+    return UtilizationService.apply_workload(week.work_days, workload_percent)
 
 
 def _compute_gesamt(weeks: list[WeekColumn], block: EmployeeBlock) -> list[GesamtCell]:
@@ -410,8 +401,15 @@ def _compute_project_heat(
 
 
 def _build_employee_meta(
-    available_employees: list, wks: list[str]
+    available_employees: list,
+    wks: list[str],
+    role_abbrev_by_name: dict[str, str] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, list[float]]]:
+    _abbrev = role_abbrev_by_name or {}
+
+    def _abbrev_for(name: str) -> str:
+        return _abbrev.get(name) or _role_short(name)
+
     week_starts = [datetime.date(*(int(p) for p in k.split("_"))) for k in wks]
     emp_meta: list[dict[str, Any]] = []
     absence_map: dict[str, list[float]] = {}
@@ -422,16 +420,16 @@ def _build_employee_meta(
         ]
         role_badges = [
             {
-                "code": _role_short(rn),
+                "code": _abbrev_for(rn),
                 "full": rn,
                 "color": ROLE_PALETTE.get(
-                    _role_short(rn), "var(--mantine-color-gray-2)"
+                    _abbrev_for(rn), "var(--mantine-color-gray-2)"
                 ),
             }
             for rn in emp.role_names
         ]
         primary = emp.role_names[0] if emp.role_names else ""
-        primary_short = _role_short(primary)
+        primary_short = _abbrev_for(primary)
         emp_meta.append(
             {
                 "id": eid,
@@ -619,6 +617,7 @@ class PlanningStore(UserSession):
 
     weeks: list[WeekColumn] = []
     month_spans: list[MonthSpan] = []
+    holiday_dates: list[datetime.date] = []
     is_loaded: bool = False
 
     cells: dict[str, float] = {}
@@ -725,6 +724,7 @@ class PlanningStore(UserSession):
             return []
         wks = self._week_keys()
         proj_idx = {p["id"]: p for p in self.project_meta}
+        role_abbrev_by_name = {r.name: r.abbreviation for r in self.available_roles}
         blocks: list[EmployeeBlock] = []
         for emp in self.employee_meta:
             emp_id = emp["id"]
@@ -745,7 +745,7 @@ class PlanningStore(UserSession):
                 code = proj["code"]
                 cells = [self._cell(_ck(emp_id, code, wk), wk) for wk in wks]
                 rname = self.role_lookup.get(f"{emp_id}|{proj['real_id']}", "")
-                rshort = _role_short(rname)
+                rshort = role_abbrev_by_name.get(rname) or _role_short(rname)
                 rcolor = ROLE_PALETTE.get(rshort, "var(--mantine-color-gray-2)")
                 project_rows.append(
                     ProjectAllocationRow(
@@ -770,7 +770,9 @@ class PlanningStore(UserSession):
                     value=UtilizationService.cap_internal_days(
                         internal_hours=internal_hours,
                         absence_days=(ab[i] if i < len(ab) else 0.0),
-                        work_days=max(0.0, weeks[i].work_days * (wp / 100.0)),
+                        work_days=UtilizationService.apply_workload(
+                            weeks[i].work_days, wp
+                        ),
                     ),
                 )
                 for i in range(len(wks))
@@ -805,6 +807,7 @@ class PlanningStore(UserSession):
             return []
         wks = self._week_keys()
         emp_idx = {e["id"]: e for e in self.employee_meta}
+        role_abbrev_by_name = {r.name: r.abbreviation for r in self.available_roles}
         blocks: list[ProjectBlock] = []
         for proj in self.project_meta:
             code = proj["code"]
@@ -815,7 +818,7 @@ class PlanningStore(UserSession):
                     continue
                 cells = [self._cell(_ck(emp_id, code, wk), wk) for wk in wks]
                 rname = self.role_lookup.get(f"{emp_id}|{proj['real_id']}", "")
-                rshort = _role_short(rname)
+                rshort = role_abbrev_by_name.get(rname) or _role_short(rname)
                 rcolor = ROLE_PALETTE.get(rshort, "var(--mantine-color-gray-2)")
                 emp_rows.append(
                     EmployeeAllocationRow(
@@ -993,7 +996,10 @@ class PlanningStore(UserSession):
         allocations, assignments = await self._fetch_data(weeks)
         wks = [w.key for w in weeks]
 
-        emp_meta, absence_map = _build_employee_meta(self.available_employees, wks)
+        role_abbrev_by_name = {r.name: r.abbreviation for r in self.available_roles}
+        emp_meta, absence_map = _build_employee_meta(
+            self.available_employees, wks, role_abbrev_by_name
+        )
         proj_meta, proj_idx = _build_project_meta(self.available_projects)
         cells, role_lookup, pairs = _ingest_allocations(
             allocations, assignments, proj_idx, set(wks)
@@ -1002,6 +1008,7 @@ class PlanningStore(UserSession):
 
         self.weeks = weeks
         self.month_spans = spans
+        self.holiday_dates = sorted(holiday_dates)
         self.cells = cells
         self.dirty_keys = []
         self.employee_meta = emp_meta

@@ -169,6 +169,47 @@ class UtilizationService:
         return "over"
 
     # ------------------------------------------------------------------
+    # Holiday + workload helpers (shared work-days computation)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def holidays_in_week(
+        holiday_dates: set[date] | frozenset[date] | None,
+        week_start: date,
+    ) -> int:
+        """Count Mon-Fri public holidays falling within the week."""
+        if not holiday_dates:
+            return 0
+        count = 0
+        for offset in range(WORK_DAYS_PER_WEEK):
+            day = week_start + timedelta(days=offset)
+            if day in holiday_dates:
+                count += 1
+        return count
+
+    @staticmethod
+    def apply_workload(work_days: float, workload_percent: int) -> float:
+        """Scale a baseline work-day count by employee workload percentage."""
+        wp = max(0, int(workload_percent))
+        return max(0.0, work_days * wp / 100.0)
+
+    @classmethod
+    def work_days_for_week(
+        cls,
+        week_start: date,
+        holiday_dates: set[date] | frozenset[date] | None,
+        workload_percent: int = 100,
+        base_work_days: float = float(WORK_DAYS_PER_WEEK),
+    ) -> float:
+        """Return effective work days for one employee in one week.
+
+        Single source of truth for capacity calculations: subtracts public
+        holidays from the base week, then scales by employee workload.
+        """
+        holidays = cls.holidays_in_week(holiday_dates, week_start)
+        return cls.apply_workload(base_work_days - holidays, workload_percent)
+
+    # ------------------------------------------------------------------
     # Absence helpers
     # ------------------------------------------------------------------
 
