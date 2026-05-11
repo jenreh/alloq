@@ -165,6 +165,8 @@ class EmployeeBlock(BaseModel):
     absence: AbsenceRow
     internal: AbsenceRow = AbsenceRow(cells=[])
     internal_days: float = 0.5
+    hours_per_week: float = 40.0
+    workload_percent: int = 100
     gesamt: list[GesamtCell] = []
     heat: list[HeatCell] = []
 
@@ -319,6 +321,10 @@ def _ck(emp_id: str, proj_code: str, wk_key: str) -> str:
     return f"{emp_id}|{proj_code}|{wk_key}"
 
 
+def _scaled_work_days(week: WeekColumn, workload_percent: int) -> float:
+    return max(0.0, week.work_days * (workload_percent / 100.0))
+
+
 def _compute_gesamt(weeks: list[WeekColumn], block: EmployeeBlock) -> list[GesamtCell]:
     cells: list[GesamtCell] = []
     for idx, week in enumerate(weeks):
@@ -329,7 +335,7 @@ def _compute_gesamt(weeks: list[WeekColumn], block: EmployeeBlock) -> list[Gesam
             used_days=used,
             absence_days=absence,
             internal_days=internal,
-            work_days=week.work_days,
+            work_days=_scaled_work_days(week, block.workload_percent),
         )
         cells.append(
             GesamtCell(week_key=week.key, value=result.free_days, bucket=result.bucket)
@@ -347,7 +353,7 @@ def _compute_heat(weeks: list[WeekColumn], block: EmployeeBlock) -> list[HeatCel
             used_days=used,
             absence_days=absence,
             internal_days=internal,
-            work_days=week.work_days,
+            work_days=_scaled_work_days(week, block.workload_percent),
         )
         cells.append(
             HeatCell(
@@ -441,6 +447,8 @@ def _build_employee_meta(
                 "role_badges": role_badges,
                 "role_ids": list(emp.role_ids) if emp.role_ids else [],
                 "internal_hours": getattr(emp, "internal_hours", 4),
+                "hours_per_week": float(getattr(emp, "hours_per_week", 40.0) or 40.0),
+                "workload_percent": int(getattr(emp, "workload_percent", 100) or 100),
                 "project_ids": [],
             }
         )
@@ -755,17 +763,14 @@ class PlanningStore(UserSession):
                 )
             internal_hours = emp.get("internal_hours", 4)
             internal_days = internal_hours / 8.0
+            wp = int(emp.get("workload_percent", 100) or 100)
             internal_cells = [
                 GridCell(
                     week_key=wks[i],
-                    value=max(
-                        0.0,
-                        min(
-                            internal_days,
-                            weeks[i].work_days - ab[i]
-                            if i < len(ab)
-                            else internal_days,
-                        ),
+                    value=UtilizationService.cap_internal_days(
+                        internal_hours=internal_hours,
+                        absence_days=(ab[i] if i < len(ab) else 0.0),
+                        work_days=max(0.0, weeks[i].work_days * (wp / 100.0)),
                     ),
                 )
                 for i in range(len(wks))
@@ -785,6 +790,8 @@ class PlanningStore(UserSession):
                 absence=AbsenceRow(cells=absence_cells),
                 internal=AbsenceRow(cells=internal_cells),
                 internal_days=internal_days,
+                hours_per_week=emp.get("hours_per_week", 40.0),
+                workload_percent=wp,
             )
             block.gesamt = _compute_gesamt(weeks, block)
             block.heat = _compute_heat(weeks, block)

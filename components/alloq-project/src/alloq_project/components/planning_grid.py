@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import reflex as rx
+from alloq_commons.components.formatters import de_number
 from alloq_commons.components.forms import section
 from alloq_commons.components.modal_layout import (
     MODAL_CLASS,
@@ -119,6 +120,13 @@ def _employee_header_row(emp: EmployeeBlock) -> rx.Component:
                         on_click=PlanningStore.toggle_employee(emp.id),
                     ),
                     mn.text(emp.name, size="sm", fw="700", c="var(--alloq-text)"),
+                    de_number(
+                        emp.hours_per_week,
+                        suffix="h/W",
+                        size="xs",
+                        c="var(--alloq-text-muted)",
+                        fw="400",
+                    ),
                     mn.badge(
                         emp.role,
                         size="xs",

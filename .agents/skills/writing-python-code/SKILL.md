@@ -51,6 +51,15 @@ async def handler(value: str) -> AsyncGenerator[Any, Any]:
 - Ruff handles lint + format; run `task format` before committing.
 - Break long calls/strings to fit 88 chars.
 
+### Ruff rules to watch (project-specific)
+
+| Code | Rule | Fix |
+|---|---|---|
+| **UP031** | No `%`-formatting outside logger calls — use f-strings | Replace `"x %s" % val` with `f"x {val}"` |
+| **I001** | Import order | Auto-fixed by `task format` |
+| **PLC0415** | No local imports inside functions or test methods | Move to top of file |
+| **B017** | `pytest.raises(Exception)` too broad | Use specific exception, e.g. `pytest.raises(ValidationError)` |
+
 ## File size rule
 
 No Python file may exceed **1000 lines**. When approaching the limit, apply clean code refactoring strategies.
@@ -95,9 +104,10 @@ async def get_user(session: AsyncSession, user_id: int) -> User | None:
 ## Workflow
 
 1. `task sync` to install/update deps.
-2. Write or adjust tests first (`tests/test_*.py`).
-3. Implement minimal diff.
-4. `task format && task lint && task test`.
+2. **Read the docs first.** If something isn't working, use Context7 or DuckDuckGo to verify the correct API — never guess or change code blindly.
+3. Write or adjust tests first (`tests/test_*.py`).
+4. Implement minimal diff.
+5. `task format && task lint && task test`.
 5. Conventional Commits: `feat:`, `fix:`, `refactor:`, `test:`, `chore:`.
 
 ## Pre-commit checklist

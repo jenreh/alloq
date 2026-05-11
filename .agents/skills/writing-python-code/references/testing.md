@@ -82,3 +82,27 @@ task test                           # Full suite with coverage
 uv run pytest tests -k assistant    # Targeted runs
 uv run pytest tests -x              # Stop on first failure
 ```
+
+## Pytest multi-testpath setup
+
+When the project has two `tests/` directories (e.g. root `tests/` and component `tests/`), both must be registered or `ImportPathMismatchError` will occur:
+
+```toml
+# pyproject.toml
+[tool.pytest.ini_options]
+testpaths = ["tests", "components/alloq-commons/tests"]
+addopts = "--import-mode=importlib"
+```
+
+- Remove `__init__.py` from **component** test directories (but keep it in the root `tests/`).
+- Set `import_mode = "importlib"` — this is the key fix for the mismatch.
+
+## Async SQLite testing dependency
+
+For async in-memory SQLite tests (e.g. `sqlite+aiosqlite://`):
+
+```bash
+uv pip install aiosqlite
+```
+
+Add to `[project.optional-dependencies]` or `[dependency-groups]` in `pyproject.toml` so it's always available in CI.

@@ -267,15 +267,19 @@ Every feature package exports a factory function (not a bare page):
 ```python
 # pages.py
 from appkit_user.authentication.templates import authenticated
+from appkit_user.authentication.components import requires_admin
+import appkit_mantine as mn
 
 def create_my_feature_page(navbar: rx.Component, route: str = "/my-feature", title: str = "My Feature") -> Callable:
     @authenticated(route=route, title=title, navbar=navbar, on_load=MyFeatureState.on_load, admin_only=True)
     def my_feature_page() -> rx.Component:
-        return rx.flex(header(title), my_page_content(), direction="column", gap="4", w="100%", p="2rem")
+        return requires_admin(
+            mn.stack(header(title), my_page_content(), gap="md", w="100%", p="2rem")
+        )
     return my_feature_page
 
 # Register in app/app.py:
-create_my_feature_page(app_navbar())
+create_my_feature_page(app_navbar_collapsible())
 ```
 
 ---
@@ -355,12 +359,20 @@ Always use `get_asyncdb_session()` — not `rx.asession()` — as the session fa
 
 ```python
 # In state event handlers
+from appkit_commons.database.session import get_asyncdb_session
+
 async with get_asyncdb_session() as session:
     items = await my_model_repo.find_all(session)
     entity = await my_model_repo.find_by_id(session, item_id)
     await my_model_repo.create(session, new_entity)
     await my_model_repo.update(session, entity)
     await my_model_repo.delete_by_id(session, item_id)
+```
+
+For authentication checks in event handlers, use:
+
+```python
+from appkit_user.authentication.decorators import is_authenticated
 ```
 
 Never use `rx.asession()` — it does not work in background processors or callbacks outside the Reflex request lifecycle.
@@ -414,7 +426,28 @@ Convert in state: `self.items = [MyModel(**e.to_dict()) for e in entities]`
 
 ---
 
-## 9. Roles & Authorization
+## 9. Alembic Migrations
+
+**Never use `--autogenerate`** — write migrations manually.
+
+### Critical: `down_revision` must use the revision ID, not the filename
+
+```python
+# ✅ CORRECT — use the actual revision ID string from the previous migration file
+revision = "3f7a2d019e5b"
+down_revision = "8a6c1e2b9f04"   # ← read this value from the previous migration's `revision` var
+
+# ❌ WRONG — filename is NOT the revision ID
+down_revision = "2026_05_05_capacity_allocations"
+```
+
+**How to get the right value:** open the previous migration file and copy its `revision = "..."` value.
+
+The `# Revises:` comment in the module docstring must match `down_revision`.
+
+---
+
+## 10. Roles & Authorization
 
 Define new roles in `app/roles.py`:
 
@@ -436,7 +469,7 @@ requires_role(
 
 ---
 
-## 10. Anti-Patterns
+## 11. Anti-Patterns
 
 | Anti-pattern | Correct approach |
 |---|---|
@@ -452,7 +485,7 @@ requires_role(
 
 ---
 
-## 11. File & Naming Conventions
+## 12. File & Naming Conventions
 
 ```
 state/my_feature_state.py        → MyFeatureState(rx.State)
@@ -466,7 +499,7 @@ configuration.py                 → MyFeatureConfig(BaseConfig)
 
 ---
 
-## 12. Form Validation Pattern
+## 13. Form Validation Pattern
 
 Use a **dedicated `rx.State` subclass** (not mixed into the main feature state) to hold form field values, per-field error strings, and validation logic. This keeps form concerns isolated and testable.
 
@@ -528,7 +561,7 @@ async def submit_item(self) -> AsyncGenerator:
 
 ---
 
-## 13. Example Files
+## 14. Example Files
 
 See the `examples/` folder alongside this SKILL.md:
 

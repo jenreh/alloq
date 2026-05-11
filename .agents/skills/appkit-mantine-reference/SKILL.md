@@ -175,6 +175,69 @@ Use `c="dimmed"` for secondary text.
 | `and` / `or` inside `rx.cond(...)` | Use `&` and `\|` operators |
 | Bare Python `if` in component functions | `rx.cond(condition, true_comp, false_comp)` |
 | Bare Python `for` in component functions | `rx.foreach(State.items, render_fn)` |
+| Custom background on `mn.card` via `background_color`/`--card-bg` | `mn.card` ignores these; wrap in `rx.box` with desired `style` |
+| `.to_string()` for number display | Use `de_number(value, ...)` from `alloq_commons.components.formatters` |
+
+## ScrollArea variants
+
+| Variant | Usage |
+|---|---|
+| `mn.scroll_area(...)` | Basic; requires fixed `h` prop. Note: `h` is a Mantine style prop, may not work in wrapper. |
+| `mn.scroll_area.autosize(...)` | **Preferred for lists.** Use `mah` (max-height); auto-sizes up to `mah`, then scrolls. |
+| `mn.scroll_area.stateful(...)` | Stateful variant with `persist_key`; used in navbar. |
+
+Key props: `type` (`"auto"` \| `"always"` \| `"scroll"` \| `"hover"` \| `"never"`), `scrollbar_size`, `scrollbars` (`"x"` \| `"y"` \| `"xy"`), `offset_scrollbars`.
+
+```python
+# Correct — scrollable list up to 400px
+mn.scroll_area.autosize(
+    rx.foreach(State.items, item_row),
+    mah=400,
+    type="hover",
+)
+```
+
+## German number and date formatting
+
+**Always use these helpers — never raw values or `.to_string()`.**
+
+### Numbers
+
+```python
+from alloq_commons.components.formatters import de_number
+
+de_number(emp.hours_per_week, suffix="h/W", size="xs", c="var(--alloq-text-muted)", fw="400")
+# Renders with German separators: 1.234,5 h/W
+# Props: suffix, prefix, size, c, fw, decimal_scale
+```
+
+### Dates (display)
+
+```python
+from alloq_commons.components.formatters import format_date_de, format_date_de_named
+
+format_date_de(date_var)        # → DD.MM.YYYY
+format_date_de_named(date_var)  # → DD. Mon YYYY
+```
+
+### Date inputs
+
+```python
+mn.date_picker_input(
+    value=State.selected_date,
+    on_change=State.set_date,
+    value_format="DD.MM.YYYY",   # Mantine submits in this format too
+)
+
+# Parse in state — handles both DD.MM.YYYY and ISO YYYY-MM-DD:
+def _parse_date(value: str) -> date | None:
+    for fmt in ("%d.%m.%Y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(value, fmt).date()
+        except ValueError:
+            continue
+    return None
+```
 
 ---
 
