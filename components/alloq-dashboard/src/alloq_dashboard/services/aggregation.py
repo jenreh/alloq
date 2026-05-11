@@ -45,7 +45,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from alloq_dashboard.models import (
     BudgetBurnKpi,
-    EarnedValuePoint,
     EmployeeUtilization,
     FreeCapacityKpi,
     MonthlyRoleCapacity,
@@ -56,9 +55,11 @@ from alloq_dashboard.models import (
     RiskKpi,
     RoleCapacity,
     StateCount,
+    TopRiskProject,
     TrendPoint,
     UnderUtilizationKpi,
     UtilizationKpi,
+    WeeklyForecastPoint,
     WeeklyUtilization,
 )
 from appkit_commons.database.session import get_asyncdb_session
@@ -75,6 +76,11 @@ BUDGET_DELTA_THRESHOLD = 0.10
 PROGRESS_RISK_THRESHOLD = 80
 DEADLINE_RISK_DAYS = 30
 SORT_END_DATE_FALLBACK = 9999
+
+FORECAST_WEEKS_BACK = 12
+FORECAST_WEEKS_FORWARD = 2
+YELLOW_OVERRUN_RATIO = 1.10  # > budget but <= 10% over
+TOP_RISKS_LIMIT = 3
 
 
 SEVERITY_LOW_MAX = 4
@@ -120,6 +126,7 @@ class _ProjectRow:
     progress: int
     spent: int
     open_risk_count: int
+    created_date: date | None = None
     ev_earned_value: float = 0.0
     ev_actual_cost: float = 0.0
     ev_eac_linear: float = 0.0
@@ -146,6 +153,11 @@ class _StatusRow:
     status_date: date
     progress: int
     budget_spent: int
+    budget: float | None = None
+    earned_value: float | None = None
+    actual_cost: float | None = None
+    eac_linear: float | None = None
+    eac_additive: float | None = None
 
 
 @dataclass(frozen=True)
@@ -217,11 +229,6 @@ _MONTH_NAMES = (
 
 def _month_label(d: date) -> str:
     return _MONTH_NAMES[d.month - 1]
-
-
-def _build_month_grid(year: int) -> list[date]:
-    """Return the first day of each month for the given calendar year."""
-    return [date(year, m, 1) for m in range(1, 13)]
 
 
 def _build_week_grid(today: date, back: int, forward: int) -> list[date]:
@@ -314,6 +321,7 @@ def _project_to_row(entity: ProjectEntity) -> _ProjectRow:
         if r.mitigation_status == RiskMitigationStatus.OPEN.value
         and r.probability * r.impact >= HIGH_RISK_SCORE_THRESHOLD
     )
+    created = entity.created.date() if entity.created else None
     return _ProjectRow(
         id=entity.id,
         code=entity.code,
@@ -326,6 +334,7 @@ def _project_to_row(entity: ProjectEntity) -> _ProjectRow:
         progress=latest.progress if latest else 0,
         spent=latest.budget_spent if latest else 0,
         open_risk_count=open_risks,
+        created_date=created,
         ev_earned_value=entity.ev_earned_value or 0.0,
         ev_actual_cost=entity.ev_actual_cost or 0.0,
         ev_eac_linear=entity.ev_eac_linear or 0.0,
@@ -366,6 +375,11 @@ def _status_to_row(entity: ProjectStatusEntity) -> _StatusRow:
         status_date=entity.status_date,
         progress=entity.progress,
         budget_spent=entity.budget_spent,
+        budget=entity.budget,
+        earned_value=entity.earned_value,
+        actual_cost=entity.actual_cost,
+        eac_linear=entity.eac_linear,
+        eac_additive=entity.eac_additive,
     )
 
 
@@ -421,6 +435,21 @@ async def _load_status_rows(session: AsyncSession, since: date) -> list[_StatusR
     statement = (
         select(ProjectStatusEntity)
         .where(ProjectStatusEntity.status_date >= since)
+        .order_by(ProjectStatusEntity.status_date)
+    )
+    result = await session.execute(statement)
+    return [_status_to_row(e) for e in result.scalars().all()]
+
+
+async def _load_status_rows_for_projects(
+    session: AsyncSession, project_ids: list[int]
+) -> list[_StatusRow]:
+    """Load all status snapshots for given projects (no date cutoff)."""
+    if not project_ids:
+        return []
+    statement = (
+        select(ProjectStatusEntity)
+        .where(ProjectStatusEntity.project_id.in_(project_ids))
         .order_by(ProjectStatusEntity.status_date)
     )
     result = await session.execute(statement)
@@ -538,63 +567,164 @@ async def load_project_health() -> ProjectHealthKpi:
 # --------------------------------------------------------------------------
 
 
-def _build_earned_value_series(
+def _iso_week_key(d: date) -> str:
+    """Return stable ISO year+week key, e.g. '2026-W19'."""
+    iso = d.isocalendar()
+    return f"{iso.year}-W{iso.week:02d}"
+
+
+def _latest_status_until(statuses: list[_StatusRow], cutoff: date) -> _StatusRow | None:
+    """Newest status with status_date <= cutoff, or None."""
+    candidate: _StatusRow | None = None
+    for s in statuses:
+        if s.status_date <= cutoff and (
+            candidate is None or s.status_date > candidate.status_date
+        ):
+            candidate = s
+    return candidate
+
+
+def _resolve_actual_cost(status: _StatusRow, project_budget: float) -> float:
+    """Prefer actual_cost; else derive from budget * (budget_spent% / 100); else 0."""
+    if status.actual_cost is not None and status.actual_cost > 0:
+        return float(status.actual_cost)
+    if project_budget > 0 and status.budget_spent:
+        return project_budget * (status.budget_spent / 100.0)
+    return 0.0
+
+
+def _resolve_eac_linear(status: _StatusRow, actual_cost: float) -> float:
+    """Prefer eac_linear; else actual_cost / (progress/100); else actual_cost."""
+    if status.eac_linear is not None and status.eac_linear > 0:
+        return float(status.eac_linear)
+    if actual_cost > 0 and status.progress and status.progress > 0:
+        return actual_cost / (status.progress / 100.0)
+    return actual_cost
+
+
+def _resolve_eac_additive(status: _StatusRow, eac_linear: float) -> float:
+    """Prefer eac_additive; else eac_linear; else 0."""
+    if status.eac_additive is not None and status.eac_additive > 0:
+        return float(status.eac_additive)
+    return eac_linear
+
+
+def _classify_overrun(eac_additive: float, budget: float) -> str | None:
+    """Green/yellow/red based on eac_additive vs budget. None if budget <= 0."""
+    if budget <= 0:
+        return None
+    if eac_additive <= budget:
+        return "green"
+    if eac_additive <= budget * YELLOW_OVERRUN_RATIO:
+        return "yellow"
+    return "red"
+
+
+def _build_weekly_forecast_series(
     active: list[_ProjectRow],
     by_project: dict[int, list[_StatusRow]],
-    total_budget: int,
-    today: date,
-) -> list[EarnedValuePoint]:
-    """Build monthly EV series (Budget %, Spent %, Progress %) for the current year."""
-    months = _build_month_grid(today.year)
-    result: list[EarnedValuePoint] = []
-    for m_start in months:
-        last_month = 12
-        if m_start.month == last_month:
-            m_end = date(m_start.year, last_month, 31)
-        else:
-            m_end = date(m_start.year, m_start.month + 1, 1) - timedelta(days=1)
+    week_starts: list[date],
+) -> list[WeeklyForecastPoint]:
+    """Aggregate portfolio budget/forecast per calendar week.
 
-        planned = 0.0
-        for p in active:
-            if not p.start_date or not p.end_date or not p.budget:
-                continue
-            total_days = (p.end_date - p.start_date).days
-            if total_days <= 0:
-                continue
-            elapsed = min((m_end - p.start_date).days, total_days)
-            if elapsed <= 0:
-                continue
-            planned += p.budget * (elapsed / total_days)
-        budget_pct = round(planned / total_budget * 100, 1) if total_budget else 0.0
+    For each week: include project only if its created-date ISO week is at or
+    before this week. Use latest snapshot with status_date <= week_end.
+    Apply fallback chain for actual_cost / eac_linear / eac_additive.
+    """
+    project_created_week: dict[int, date] = {}
+    for p in active:
+        if p.created_date is not None:
+            project_created_week[p.id] = _monday(p.created_date)
 
-        monthly_spent = 0
-        for p in active:
-            past = [s for s in by_project.get(p.id, []) if s.status_date <= m_end]
-            if not past:
-                continue
-            past.sort(key=lambda s: s.status_date)
-            monthly_spent += past[-1].budget_spent
-        spent_pct = (
-            round(monthly_spent / total_budget * 100, 1) if total_budget else 0.0
-        )
+    result: list[WeeklyForecastPoint] = []
+    for week_start in week_starts:
+        week_end = week_start + timedelta(days=6)
+        budget_sum = 0.0
+        actual_cost_sum = 0.0
+        earned_value_sum = 0.0
+        eac_linear_sum = 0.0
+        eac_additive_sum = 0.0
+        active_count = 0
+        green = yellow = red = 0
+        overruns: list[TopRiskProject] = []
 
-        progress_vals = []
         for p in active:
-            past = [s for s in by_project.get(p.id, []) if s.status_date <= m_end]
-            if not past:
+            created_mon = project_created_week.get(p.id)
+            if created_mon is None or created_mon > week_start:
                 continue
-            past.sort(key=lambda s: s.status_date)
-            progress_vals.append(past[-1].progress)
-        avg_progress = (
-            round(sum(progress_vals) / len(progress_vals), 1) if progress_vals else 0.0
-        )
+            statuses = by_project.get(p.id, [])
+            status = _latest_status_until(statuses, week_end)
+            if status is None:
+                continue
+            active_count += 1
+
+            project_budget = (
+                float(status.budget)
+                if status.budget is not None and status.budget > 0
+                else float(p.budget or 0)
+            )
+            actual_cost = _resolve_actual_cost(status, project_budget)
+            eac_linear = _resolve_eac_linear(status, actual_cost)
+            eac_additive = _resolve_eac_additive(status, eac_linear)
+            earned_value = (
+                float(status.earned_value) if status.earned_value is not None else 0.0
+            )
+
+            budget_sum += project_budget
+            actual_cost_sum += actual_cost
+            earned_value_sum += earned_value
+            eac_linear_sum += eac_linear
+            eac_additive_sum += eac_additive
+
+            band = _classify_overrun(eac_additive, project_budget)
+            if band == "green":
+                green += 1
+            elif band == "yellow":
+                yellow += 1
+            elif band == "red":
+                red += 1
+
+            delta = eac_additive - project_budget
+            if delta > 0 and project_budget > 0:
+                overruns.append(
+                    TopRiskProject(
+                        project_id=p.id,
+                        project_name=p.name_de,
+                        abs_delta=round(delta, 2),
+                        pct_delta=round(delta / project_budget * 100, 1),
+                    )
+                )
+
+        overruns.sort(key=lambda r: -r.abs_delta)
+        top_risks = overruns[:TOP_RISKS_LIMIT]
+        forecast_min = min(eac_linear_sum, eac_additive_sum)
+        forecast_max = max(eac_linear_sum, eac_additive_sum)
+        forecast_avg = (eac_linear_sum + eac_additive_sum) / 2 if active_count else 0.0
+        overrun_abs = eac_additive_sum - budget_sum
+        overrun_pct = (overrun_abs / budget_sum * 100) if budget_sum > 0 else 0.0
 
         result.append(
-            EarnedValuePoint(
-                label=_month_label(m_start),
-                budget_pct=budget_pct,
-                spent_pct=spent_pct,
-                progress_pct=avg_progress,
+            WeeklyForecastPoint(
+                week_key=_iso_week_key(week_start),
+                week_label=_week_label(week_start),
+                week_start=week_start,
+                week_end=week_end,
+                active_count=active_count,
+                total_budget=round(budget_sum, 2),
+                actual_cost=round(actual_cost_sum, 2),
+                earned_value=round(earned_value_sum, 2),
+                eac_linear=round(eac_linear_sum, 2),
+                eac_additive=round(eac_additive_sum, 2),
+                forecast_min=round(forecast_min, 2),
+                forecast_max=round(forecast_max, 2),
+                forecast_avg=round(forecast_avg, 2),
+                forecast_band=round(forecast_max - forecast_min, 2),
+                overrun_abs=round(overrun_abs, 2),
+                overrun_pct=round(overrun_pct, 1),
+                green_count=green,
+                yellow_count=yellow,
+                red_count=red,
+                top_risks=top_risks,
             )
         )
     return result
@@ -602,10 +732,16 @@ def _build_earned_value_series(
 
 async def load_budget_burn() -> BudgetBurnKpi:
     today = _today()
-    year_start = date(today.year, 1, 1)
+    week_starts = _build_week_grid(today, FORECAST_WEEKS_BACK, FORECAST_WEEKS_FORWARD)
     async with get_asyncdb_session() as session:
         projects = await _load_project_rows(session)
-        history = await _load_status_rows(session, year_start)
+        active_ids = [
+            p.id
+            for p in projects
+            if p.state
+            in (ProjectStateEnum.ACTIVE.value, ProjectStateEnum.AT_RISK.value)
+        ]
+        history = await _load_status_rows_for_projects(session, active_ids)
 
     active = [
         p
@@ -621,36 +757,51 @@ async def load_budget_burn() -> BudgetBurnKpi:
     for s in history:
         by_project[s.project_id].append(s)
 
-    # Legacy weekly sparkline (backward compat for drill-down)
-    weeks = _build_week_grid(today, TREND_WEEKS_BACK, 1)
-    trend: list[TrendPoint] = []
-    for week_start in weeks:
-        week_end = week_start + timedelta(days=6)
-        weekly_spent = 0
-        for p in active:
-            past = [s for s in by_project.get(p.id, []) if s.status_date <= week_end]
-            if not past:
-                continue
-            past.sort(key=lambda s: s.status_date)
-            weekly_spent += past[-1].budget_spent
-        trend.append(
-            TrendPoint(
-                label=_week_label(week_start),
-                week_start=week_start,
-                value=float(weekly_spent),
-            )
-        )
+    weekly_forecast = _build_weekly_forecast_series(active, by_project, week_starts)
 
-    # Monthly Earned Value series (Budget planned %, Spent %, Progress %)
-    earned_value = _build_earned_value_series(active, by_project, total_budget, today)
+    # Legacy weekly sparkline (kept for drill-down backward compat)
+    trend = [
+        TrendPoint(
+            label=pt.week_label,
+            week_start=pt.week_start,
+            value=pt.actual_cost,
+        )
+        for pt in weekly_forecast
+    ]
+
+    # Summary from most recent non-empty week (prefer current week)
+    today_mon = _monday(today)
+    latest = next(
+        (
+            pt
+            for pt in reversed(weekly_forecast)
+            if pt.week_start and pt.week_start <= today_mon and pt.active_count > 0
+        ),
+        None,
+    )
+    latest_forecast = latest.eac_additive if latest else 0.0
+    latest_budget = latest.total_budget if latest else 0.0
+    latest_delta_abs = latest.overrun_abs if latest else 0.0
+    latest_delta_pct = latest.overrun_pct if latest else 0.0
+    latest_risk_projects = (latest.yellow_count + latest.red_count) if latest else 0
+    latest_top = latest.top_risks[0] if latest and latest.top_risks else None
+    latest_top_name = latest_top.project_name if latest_top else ""
+    latest_top_delta = latest_top.abs_delta if latest_top else 0.0
 
     return BudgetBurnKpi(
         total_budget=total_budget,
         total_spent=total_spent,
         spent_percent=round(spent_percent, 1),
         trend=trend,
-        earned_value=earned_value,
+        weekly_forecast=weekly_forecast,
         rows=sorted(summaries, key=lambda s: -s.progress),
+        latest_forecast=latest_forecast,
+        latest_budget=latest_budget,
+        latest_delta_abs=latest_delta_abs,
+        latest_delta_pct=latest_delta_pct,
+        latest_risk_projects=latest_risk_projects,
+        latest_top_risk_name=latest_top_name,
+        latest_top_risk_delta=latest_top_delta,
     )
 
 

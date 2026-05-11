@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import reflex as rx
-from alloq_commons.components.formatters import format_date_de
+from alloq_commons.components.formatters import de_number, format_date_de
+from alloq_commons.components.modal_layout import MODAL_CLASS
 from alloq_commons.models.project import Project
-from alloq_project.states.planning_grid_state import PlanningStore
 from alloq_project.states.project_plan_state import ProjectPlanState
 
 import appkit_mantine as mn
@@ -83,7 +83,6 @@ def _project_card(project: Project) -> rx.Component:
         on_click=ProjectPlanState.select_project(project.id),
         style={
             "padding": "12px 16px",
-            "borderRadius": "10px",
             "cursor": "pointer",
             "_hover": {"backgroundColor": "var(--alloq-surface-hover)"},
             "borderBottom": "1px solid var(--alloq-border)",
@@ -97,17 +96,19 @@ def _step_project_select() -> rx.Component:
             placeholder="Projekte suchen...",
             value=ProjectPlanState.search,
             on_change=ProjectPlanState.set_search,
-            size="md",
+            size="sm",
             radius="md",
             mb="md",
+            p="0 1rem",
         ),
         mn.box(
-            rx.foreach(PlanningStore.available_projects, _project_card),
+            rx.foreach(ProjectPlanState.visible_projects, _project_card),
             style={
                 "maxHeight": "60vh",
                 "overflowY": "auto",
                 "borderRadius": "10px",
                 "border": "1px solid var(--alloq-border)",
+                "backgroundColor": "var(--alloq-fade-bg)",
             },
         ),
         gap="0",
@@ -124,11 +125,18 @@ def _info_card(label: str, value: rx.Var[str] | str) -> rx.Component:
             c="var(--alloq-text-muted)",
             style={"letterSpacing": "0.06em", "textTransform": "uppercase"},
         ),
-        mn.text(value, size="lg", fw="600", c="var(--alloq-text)"),
+        mn.text(
+            value,
+            size="sm",
+            fw="600",
+            h="42px",
+            c="var(--alloq-text)",
+            align_content="center",
+        ),
         style={
             "padding": "12px 16px",
             "borderRadius": "10px",
-            "backgroundColor": "var(--alloq-surface-muted)",
+            "backgroundColor": "var(--alloq-fade-bg)",
             "flex": "1",
         },
     )
@@ -147,6 +155,7 @@ def _editable_card(
             size="xs",
             fw="700",
             c="var(--alloq-text-muted)",
+            mb="3px",
             style={"letterSpacing": "0.06em", "textTransform": "uppercase"},
         ),
         mn.number_input(
@@ -155,12 +164,12 @@ def _editable_card(
             min=min_,
             step=step,
             hide_controls=False,
-            size="md",
+            size="sm",
         ),
         style={
             "padding": "12px 16px",
             "borderRadius": "10px",
-            "backgroundColor": "var(--alloq-surface-muted)",
+            "backgroundColor": "var(--alloq-fade-bg)",
             "flex": "1",
         },
     )
@@ -207,7 +216,11 @@ def _chart_stats() -> rx.Component:
             "cap " + ProjectPlanState.cap_value.to_string() + " PT",
             size="xs",
             fw="600",
-            c="var(--mantine-color-red-7)",
+            c=rx.cond(
+                ProjectPlanState.shortfall,
+                "var(--mantine-color-red-7)",
+                "var(--alloq-text-muted)",
+            ),
         ),
         gap="md",
         align="center",
@@ -234,12 +247,16 @@ def _distribution_chart() -> rx.Component:
     return mn.stack(
         mn.group(
             mn.text(
-                "Wochenverteilung (PT)", size="sm", fw="600", c="var(--alloq-text)"
+                "Wochenverteilung (PT)",
+                size="sm",
+                fw="600",
+                c="var(--alloq-text)",
             ),
             _chart_stats(),
             justify="space-between",
             w="100%",
             align="center",
+            p="0 1rem",
         ),
         mn.box(
             mn.group(
@@ -247,7 +264,7 @@ def _distribution_chart() -> rx.Component:
                 gap="3px",
                 align="flex-end",
                 w="100%",
-                style={"height": "150px", "position": "relative"},
+                style={"height": "120px", "position": "relative"},
             ),
             _cap_line(),
             style={
@@ -266,6 +283,7 @@ def _distribution_chart() -> rx.Component:
             ),
             rx.fragment(),
         ),
+        mn.space(h="2rem"),
         gap="xs",
         w="100%",
     )
@@ -285,7 +303,7 @@ def _ramp_card(
                 mn.text(label, size="sm", fw="500", c="var(--alloq-text)"),
                 mn.text(
                     value.to_string() + " Wo.",
-                    size="md",
+                    size="sm",
                     fw="700",
                     c="var(--alloq-text)",
                 ),
@@ -299,8 +317,8 @@ def _ramp_card(
                 min=0,
                 max=max_var,
                 step=1,
-                color="dark",
-                size="md",
+                # color="dark",
+                size="sm",
                 radius="xl",
             ),
             mn.group(
@@ -312,10 +330,9 @@ def _ramp_card(
             gap="sm",
         ),
         style={
-            "padding": "16px 18px",
-            "borderRadius": "14px",
-            "backgroundColor": "var(--alloq-surface-muted)",
-            "border": "1px solid var(--alloq-border)",
+            "padding": "12px 16px",
+            "borderRadius": "10px",
+            "backgroundColor": "var(--alloq-fade-bg)",
             "flex": "1",
         },
     )
@@ -328,7 +345,7 @@ def _capacity_card() -> rx.Component:
                 mn.text("Kapazität / Wo.", size="sm", fw="500", c="var(--alloq-text)"),
                 mn.text(
                     ProjectPlanState.gtk_count.to_string() + " GTK",
-                    size="md",
+                    size="sm",
                     fw="700",
                     c="var(--alloq-text)",
                 ),
@@ -343,7 +360,7 @@ def _capacity_card() -> rx.Component:
                 max=30,
                 step=0.5,
                 color="dark",
-                size="md",
+                size="sm",
                 radius="xl",
             ),
             mn.text(
@@ -355,8 +372,8 @@ def _capacity_card() -> rx.Component:
             gap="sm",
         ),
         style={
-            "padding": "16px 18px",
-            "borderRadius": "14px",
+            "padding": "12px 16px",
+            "borderRadius": "10px",
             "backgroundColor": "light-dark("
             "var(--mantine-color-yellow-0), rgba(241,202,69,0.08))",
             "border": "1px solid var(--mantine-color-yellow-3)",
@@ -427,35 +444,24 @@ def _step_verteilung() -> rx.Component:
     )
 
 
-def _step_placeholder(title: str) -> rx.Component:
-    return mn.center(
-        mn.stack(
-            mn.text(title, size="lg", fw="600", c="var(--alloq-text-muted)"),
-            mn.text(
-                "Noch nicht implementiert.",
-                size="sm",
-                c="var(--alloq-text-muted)",
-            ),
-            align="center",
-            gap="xs",
-        ),
-        py="xl",
-    )
-
-
 def _preview_bar(bar: dict) -> rx.Component:
     return mn.tooltip(
         mn.box(
             style={
                 "flex": "1",
                 "minWidth": "6px",
-                "height": bar["h_pct"] + "%",
-                "backgroundColor": "var(--mantine-color-yellow-5)",
+                "height": rx.cond(bar["absent"], "100%", bar["h_pct"] + "%"),
+                "backgroundColor": rx.cond(
+                    bar["absent"],
+                    "var(--mantine-color-blue-2)",
+                    "var(--mantine-color-yellow-5)",
+                ),
                 "borderRadius": "2px 2px 0 0",
                 "minHeight": "2px",
+                "opacity": rx.cond(bar["absent"], "0.6", "1"),
             },
         ),
-        label=bar["pt"] + " PT",
+        label=rx.cond(bar["absent"], "Abwesend", bar["pt"] + " PT"),
         position="top",
         with_arrow=True,
     )
@@ -569,18 +575,6 @@ def _step_preview() -> rx.Component:
     )
 
 
-def _role_chip(opt: dict) -> rx.Component:
-    active = ProjectPlanState.employee_role_filter == opt["value"]
-    return mn.button(
-        opt["label"],
-        variant=rx.cond(active, "filled", "default"),
-        color="dark",
-        size="xs",
-        radius="xl",
-        on_click=ProjectPlanState.set_employee_role_filter(opt["value"]),
-    )
-
-
 def _stat_card(
     label: str,
     value: rx.Var[str] | str,
@@ -594,12 +588,41 @@ def _stat_card(
             c="var(--alloq-text-muted)",
             style={"letterSpacing": "0.06em", "textTransform": "uppercase"},
         ),
-        mn.text(value, size="lg", fw="700", c=accent),
+        mn.text(value, size="sm", fw="700", c=accent),
         style={
-            "padding": "10px 14px",
-            "borderRadius": "10px",
-            "backgroundColor": "var(--alloq-surface-muted)",
-            "border": "1px solid var(--alloq-border)",
+            "padding": "6px 12px",
+            "borderRadius": "8px",
+            "backgroundColor": "var(--alloq-fade-bg)",
+            "flex": "1",
+            "minWidth": "0",
+        },
+    )
+
+
+def _num_stat_card(
+    label: str,
+    value: rx.Var,
+    suffix: str = "",
+    accent: rx.Var[str] | str = "var(--alloq-text)",
+) -> rx.Component:
+    return mn.box(
+        mn.text(
+            label,
+            size="xs",
+            fw="700",
+            c="var(--alloq-text-muted)",
+            style={"letterSpacing": "0.06em", "textTransform": "uppercase"},
+        ),
+        mn.text(
+            de_number(value, suffix=suffix, maximum_fraction_digits=1),
+            size="sm",
+            fw="700",
+            c=accent,
+        ),
+        style={
+            "padding": "6px 12px",
+            "borderRadius": "8px",
+            "backgroundColor": "var(--alloq-fade-bg)",
             "flex": "1",
             "minWidth": "0",
         },
@@ -608,13 +631,15 @@ def _stat_card(
 
 def _capacity_summary() -> rx.Component:
     return mn.group(
-        _stat_card(
+        _num_stat_card(
             "Bedarf gesamt",
-            ProjectPlanState.required_pt_total.to_string() + " PT",
+            ProjectPlanState.required_pt_total,
+            suffix=" PT",
         ),
-        _stat_card(
+        _num_stat_card(
             "Ausgewählt",
-            ProjectPlanState.selected_capacity_pt.to_string() + " PT",
+            ProjectPlanState.selected_capacity_pt,
+            suffix=" PT",
             accent=rx.cond(
                 ProjectPlanState.selected_capacity_pt
                 >= ProjectPlanState.required_pt_total,
@@ -622,105 +647,73 @@ def _capacity_summary() -> rx.Component:
                 "var(--alloq-text)",
             ),
         ),
-        _stat_card(
+        _num_stat_card(
             "Verfügbar im Zeitraum",
-            ProjectPlanState.available_capacity_pt.to_string() + " PT",
+            ProjectPlanState.available_capacity_pt,
+            suffix=" PT",
         ),
         gap="sm",
         w="100%",
         align="stretch",
         wrap="nowrap",
+        p="0 1rem",
     )
 
 
-def _role_requirement_card(rc: dict) -> rx.Component:
-    return mn.box(
+def _role_requirement_badge(rc: dict) -> rx.Component:
+    return mn.badge(
         mn.group(
-            mn.stack(
-                mn.text(
-                    rc["role_name"],
-                    size="xs",
-                    fw="700",
-                    c="var(--alloq-text-muted)",
-                    style={
-                        "letterSpacing": "0.06em",
-                        "textTransform": "uppercase",
-                    },
+            mn.text(
+                rc["role_name"],
+                size="xs",
+                fw="600",
+            ),
+            mn.text(
+                de_number(
+                    rc["assigned_pt"],
+                    maximum_fraction_digits=1,
                 ),
-                mn.group(
-                    mn.text(
-                        rc["assigned_pt"],
-                        size="md",
-                        fw="700",
-                        c=rx.cond(
-                            rc["covered"] == "true",
-                            "var(--mantine-color-green-7)",
-                            "var(--alloq-text)",
-                        ),
-                    ),
-                    mn.text(
-                        "/ " + rc["required_pt"] + " PT",
-                        size="sm",
-                        c="var(--alloq-text-muted)",
-                    ),
-                    gap="4px",
-                    align="baseline",
+                "/",
+                de_number(
+                    rc["required_pt"],
+                    maximum_fraction_digits=1,
                 ),
-                gap="2px",
-                style={"flex": "1", "minWidth": "0"},
+                size="xs",
+                fw="700",
             ),
             rx.cond(
                 rc["covered"] == "true",
-                rx.icon(
-                    "circle-check-big",
-                    size=18,
-                    color="var(--mantine-color-green-6)",
-                ),
-                rx.icon(
-                    "circle-alert",
-                    size=18,
-                    color="var(--mantine-color-orange-6)",
-                ),
+                rx.icon("circle-check-big", size=12),
+                rx.icon("circle-alert", size=12),
             ),
-            gap="sm",
+            gap="6px",
             align="center",
             wrap="nowrap",
-            w="100%",
         ),
-        style={
-            "padding": "10px 14px",
-            "borderRadius": "10px",
-            "backgroundColor": "var(--alloq-surface-muted)",
-            "border": "1px solid var(--alloq-border)",
-            "flex": "1",
-            "minWidth": "180px",
-        },
+        size="sm",
+        variant="light",
+        radius="xl",
+        color=rx.cond(
+            rc["covered"] == "true",
+            "green",
+            "orange",
+        ),
     )
 
 
 def _role_requirements_row() -> rx.Component:
     return rx.cond(
         ProjectPlanState.required_roles_display.length() > 0,
-        mn.stack(
-            mn.text(
-                "Rollenbedarf",
-                size="xs",
-                fw="700",
-                c="var(--alloq-text-muted)",
-                style={"letterSpacing": "0.06em", "textTransform": "uppercase"},
-            ),
-            mn.group(
-                rx.foreach(
-                    ProjectPlanState.required_roles_display,
-                    _role_requirement_card,
-                ),
-                gap="sm",
-                w="100%",
-                wrap="wrap",
-                align="stretch",
+        mn.group(
+            rx.foreach(
+                ProjectPlanState.required_roles_display,
+                _role_requirement_badge,
             ),
             gap="xs",
             w="100%",
+            wrap="wrap",
+            align="center",
+            p="0 1rem",
         ),
         rx.fragment(),
     )
@@ -825,26 +818,19 @@ def _employee_row(emp: dict) -> rx.Component:
                     style={"flexShrink": "0"},
                 ),
             ),
-            mn.badge(
-                emp["seniority"],
-                size="sm",
-                radius="xl",
-                variant="light",
-                color="gray",
-            ),
             gap="md",
             align="center",
             wrap="nowrap",
             w="100%",
         ),
         style={
-            "padding": "0 14px",
+            "padding": "0 1rem",
             "borderBottom": "1px solid var(--alloq-border)",
             "_hover": {"backgroundColor": "var(--alloq-surface-hover)"},
             "backgroundColor": rx.cond(
                 emp["selected"],
                 "var(--alloq-surface-muted)",
-                "transparent",
+                "var(--alloq-fade-bg)",
             ),
         },
     )
@@ -855,58 +841,15 @@ def _step_mitarbeiter() -> rx.Component:
         _capacity_summary(),
         _role_requirements_row(),
         mn.box(
-            style={
-                "height": "1px",
-                "backgroundColor": "var(--alloq-border)",
-                "width": "100%",
-            },
-        ),
-        mn.group(
-            mn.text(
-                ProjectPlanState.selected_count.to_string()
-                + " von "
-                + ProjectPlanState.filtered_count.to_string()
-                + " ausgewählt",
-                size="sm",
-                fw="600",
-                c="var(--alloq-text)",
-            ),
-            mn.group(
-                mn.button(
-                    "Alle auswählen",
-                    variant="subtle",
-                    color="dark",
-                    size="xs",
-                    radius="xl",
-                    on_click=ProjectPlanState.select_all_filtered,
-                ),
-                mn.button(
-                    "Auswahl löschen",
-                    variant="subtle",
-                    color="dark",
-                    size="xs",
-                    radius="xl",
-                    on_click=ProjectPlanState.clear_employee_selection,
-                ),
-                gap="2px",
-            ),
-            justify="space-between",
-            w="100%",
-            align="center",
-        ),
-        mn.group(
-            rx.foreach(ProjectPlanState.role_options_data, _role_chip),
-            gap="xs",
-            wrap="wrap",
-        ),
-        mn.box(
             rx.foreach(ProjectPlanState.filtered_employees, _employee_row),
+            m="0 1rem",
             style={
                 "borderRadius": "10px",
                 "border": "1px solid var(--alloq-border)",
                 "overflow": "hidden",
             },
         ),
+        mn.space(h="2rem"),
         gap="md",
         w="100%",
     )
@@ -915,13 +858,14 @@ def _step_mitarbeiter() -> rx.Component:
 def _stepper() -> rx.Component:
     return mn.stepper(
         mn.stepper.step(label="Projekt", description=""),
-        mn.stepper.step(label="Verteilung", description=""),
+        mn.stepper.step(label="Planungsdaten", description=""),
         mn.stepper.step(label="Mitarbeiter", description=""),
         mn.stepper.step(label="Vorschau", description=""),
         active=ProjectPlanState.step,
         size="sm",
-        color="dark",
+        color="yellow",
         w="100%",
+        p="0 1rem",
     )
 
 
@@ -940,8 +884,7 @@ def _footer() -> rx.Component:
     return mn.group(
         mn.button(
             "Abbrechen",
-            variant="default",
-            radius="xl",
+            variant="subtle",
             on_click=ProjectPlanState.close_modal,
         ),
         mn.group(
@@ -950,7 +893,6 @@ def _footer() -> rx.Component:
                 mn.button(
                     "Zurück",
                     variant="default",
-                    radius="xl",
                     on_click=ProjectPlanState.prev_step,
                 ),
                 rx.fragment(),
@@ -961,14 +903,14 @@ def _footer() -> rx.Component:
                     "Weiter →",
                     variant="filled",
                     color="dark",
-                    radius="xl",
+                    px="xl",
                     on_click=ProjectPlanState.next_step,
                 ),
                 mn.button(
                     "Speichern",
                     variant="filled",
                     color="dark",
-                    radius="xl",
+                    px="xl",
                     on_click=ProjectPlanState.save_plan,
                 ),
             ),
@@ -976,51 +918,41 @@ def _footer() -> rx.Component:
         ),
         justify="space-between",
         w="100%",
-        pt="md",
+        class_name="alloq-modal-footer",
+    )
+
+
+def _stepper_bar() -> rx.Component:
+    return mn.box(
+        _stepper(),
+        style={
+            "padding": "12px 18px 8px",
+            "background": "var(--alloq-surface-muted)",
+            # "borderBottom": "1px solid var(--alloq-border)",
+            "flexShrink": "0",
+        },
     )
 
 
 def project_plan_modal() -> rx.Component:
     return mn.modal(
-        mn.box(
-            mn.box(
-                mn.stack(
-                    _stepper(),
-                    _content(),
-                    gap="lg",
-                ),
-                style={
-                    "overflowY": "auto",
-                    "overflowX": "hidden",
-                    "flex": "1",
-                    "minHeight": "0",
-                    "paddingRight": "8px",
-                },
+        rx.flex(
+            _stepper_bar(),
+            rx.box(
+                _content(),
+                class_name="alloq-modal-scroll",
             ),
-            mn.box(
-                _footer(),
-                style={
-                    "borderTop": "1px solid var(--alloq-border)",
-                    "backgroundColor": "var(--alloq-surface-solid)",
-                    "paddingTop": "12px",
-                    "marginTop": "12px",
-                    "flexShrink": "0",
-                },
-            ),
-            style={
-                "display": "flex",
-                "flexDirection": "column",
-                "height": "min(85vh, 900px)",
-                "width": "100%",
-            },
+            _footer(),
+            direction="column",
+            class_name="alloq-modal-inner",
         ),
         title=ProjectPlanState.title,
         opened=ProjectPlanState.is_open,
         on_close=ProjectPlanState.close_modal,
         size="xl",
         centered=True,
-        radius="lg",
-        padding="lg",
+        class_name=[MODAL_CLASS, "alloq-plan-modal"],
+        overlay_props={"backgroundOpacity": 0.5, "blur": 4},
     )
 
 

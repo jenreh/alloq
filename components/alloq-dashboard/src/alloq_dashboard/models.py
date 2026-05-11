@@ -68,13 +68,38 @@ class ProjectHealthKpi(BaseModel):
     risk_trend: list[TrendPoint] = []
 
 
-class EarnedValuePoint(BaseModel):
-    """One monthly data point for the Earned Value chart (3 series)."""
+class TopRiskProject(BaseModel):
+    """Top budget-overrun project per week."""
 
-    label: str = ""
-    budget_pct: float = 0.0
-    spent_pct: float = 0.0
-    progress_pct: float = 0.0
+    project_id: int = 0
+    project_name: str = ""
+    abs_delta: float = 0.0
+    pct_delta: float = 0.0
+
+
+class WeeklyForecastPoint(BaseModel):
+    """Portfolio aggregate for one calendar week."""
+
+    week_key: str = ""
+    week_label: str = ""
+    week_start: date | None = None
+    week_end: date | None = None
+    active_count: int = 0
+    total_budget: float = 0.0
+    actual_cost: float = 0.0
+    earned_value: float = 0.0
+    eac_linear: float = 0.0
+    eac_additive: float = 0.0
+    forecast_min: float = 0.0
+    forecast_max: float = 0.0
+    forecast_avg: float = 0.0
+    forecast_band: float = 0.0
+    overrun_abs: float = 0.0
+    overrun_pct: float = 0.0
+    green_count: int = 0
+    yellow_count: int = 0
+    red_count: int = 0
+    top_risks: list[TopRiskProject] = []
 
 
 class BudgetBurnKpi(BaseModel):
@@ -84,8 +109,15 @@ class BudgetBurnKpi(BaseModel):
     total_spent: int = 0
     spent_percent: float = 0.0
     trend: list[TrendPoint] = []
-    earned_value: list[EarnedValuePoint] = []
+    weekly_forecast: list[WeeklyForecastPoint] = []
     rows: list[ProjectSummary] = []
+    latest_forecast: float = 0.0
+    latest_budget: float = 0.0
+    latest_delta_abs: float = 0.0
+    latest_delta_pct: float = 0.0
+    latest_risk_projects: int = 0
+    latest_top_risk_name: str = ""
+    latest_top_risk_delta: float = 0.0
 
 
 class WeeklyUtilization(BaseModel):
@@ -201,7 +233,8 @@ class RiskKpi(BaseModel):
 
 ProjectsOverviewKpi.model_rebuild()
 ProjectHealthKpi.model_rebuild()
-EarnedValuePoint.model_rebuild()
+TopRiskProject.model_rebuild()
+WeeklyForecastPoint.model_rebuild()
 BudgetBurnKpi.model_rebuild()
 UtilizationKpi.model_rebuild()
 UnderUtilizationKpi.model_rebuild()

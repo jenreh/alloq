@@ -11,11 +11,11 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(xargs cat *)",
       "Bash(.venv.mac/bin/ruff check *)",
-      "Bash(.venv.mac/bin/python -c ' *)",
-      "Bash(.venv.mac/bin/pytest components/alloq-commons/tests components/alloq-project/tests components/alloq-team/tests -x --tb=short)",
-      "Bash(.venv.mac/bin/pytest components/alloq-commons/tests components/alloq-project/tests --tb=short)",
-      "Bash(.venv.mac/bin/pytest components/alloq-commons/tests --ignore=components/alloq-commons/tests/test_employees.py components/alloq-project/tests --ignore=components/alloq-project/tests/test_planning_project_view_state.py --tb=short)",
-      "Bash(.venv.mac/bin/pytest components/alloq-dashboard/tests --tb=short)"
+      "Bash(.venv.mac/bin/python -c *)",
+      "Bash(.venv.mac/bin/pytest *)",
+      "Bash(.venv.mac/bin/python -m pytest *)",
+      "Bash(git stash *)",
+      "WebFetch(domain:mantine.dev)"
     ]
   }
 }

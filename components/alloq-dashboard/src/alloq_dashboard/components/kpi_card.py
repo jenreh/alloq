@@ -11,6 +11,9 @@ CARD_STYLE = {
     "borderRadius": "var(--mantine-radius-md)",
     "padding": "1.25rem",
     "minHeight": "260px",
+    "height": "100%",
+    "display": "flex",
+    "flexDirection": "column",
     "transition": "background-color 120ms ease",
     "_hover": {
         "backgroundColor": "var(--alloq-fade-bg-hover)",
@@ -73,6 +76,7 @@ def kpi_card(
         error_block,
         gap="md",
         w="100%",
+        style={"flex": "1", "minHeight": "0"},
     )
 
     style = dict(CARD_STYLE)

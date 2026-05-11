@@ -345,6 +345,14 @@
     max-height: calc(100dvh - 200px);
 }
 
+.alloq-plan-modal .mantine-Modal-body {
+    min-height: 540px;
+}
+
+.alloq-plan-modal .alloq-modal-inner {
+    flex: 1;
+}
+
 /* Shared form inner layout classes */
 .alloq-modal-form {
     display: flex;

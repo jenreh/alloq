@@ -43,12 +43,20 @@ log = logging.getLogger(__name__)
 LABEL_COL_PX: int = 300
 WEEK_COL_PX: int = 60
 _WORK_DAYS_PER_WEEK: int = 5
-ANCHOR_DATE = datetime.date(2026, 4, 27)
+WEEKS_BEFORE_CURRENT = 1
 TIME_RANGE_WEEKS: dict[str, int] = {
     "3 Monate": 13,
     "6 Monate": 26,
     "12 Monate": 52,
 }
+
+
+def _anchor_date() -> datetime.date:
+    """Rolling anchor: Monday of (current week - WEEKS_BEFORE_CURRENT)."""
+    today = datetime.date.today()  # noqa: DTZ011
+    monday = today - datetime.timedelta(days=today.weekday())
+    return monday - datetime.timedelta(weeks=WEEKS_BEFORE_CURRENT)
+
 
 GERMAN_MONTHS = [
     "Jan",
@@ -216,8 +224,9 @@ def _project_heat_bucket(allocated: float) -> str:
 
 def _build_weeks(num_weeks: int) -> tuple[list[WeekColumn], list[MonthSpan]]:
     weeks: list[WeekColumn] = []
+    anchor = _anchor_date()
     for i in range(num_weeks):
-        d = ANCHOR_DATE + datetime.timedelta(days=7 * i)
+        d = anchor + datetime.timedelta(days=7 * i)
         weeks.append(
             WeekColumn(
                 key=f"{d.year}_{d.month:02d}_{d.day:02d}",

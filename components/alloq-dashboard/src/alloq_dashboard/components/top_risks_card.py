@@ -86,15 +86,25 @@ def _risk_row(risk: rx.Var) -> rx.Component:
 
 def top_risks_card() -> rx.Component:
     data = RiskState.data
-    body = rx.cond(
-        data.top_open.length() > 0,
-        mn.scroll_area.autosize(
-            mn.stack(rx.foreach(data.top_open, _risk_row), gap="xs"),
-            mah="240px",
-            type="auto",
-            scrollbar_size=6,
+    body = mn.box(
+        rx.cond(
+            data.top_open.length() > 0,
+            mn.scroll_area(
+                mn.stack(rx.foreach(data.top_open, _risk_row), gap="xs"),
+                type="auto",
+                scrollbar_size=6,
+                h="100%",
+                w="100%",
+            ),
+            mn.text("Keine offenen Risiken.", size="sm", c="var(--alloq-text-muted)"),
         ),
-        mn.text("Keine offenen Risiken.", size="sm", c="var(--alloq-text-muted)"),
+        style={
+            "flex": "1",
+            "minHeight": "0",
+            "display": "flex",
+            "flexDirection": "column",
+            "width": "100%",
+        },
     )
     return kpi_card(
         title="Kritische Risiken",

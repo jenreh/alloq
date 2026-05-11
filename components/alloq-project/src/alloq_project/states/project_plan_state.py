@@ -10,7 +10,13 @@ from typing import Any, TypedDict
 
 import reflex as rx
 from alloq_commons.entities import CapacityAllocationEntity
+from alloq_commons.entities.project import ProjectStateEnum
+from alloq_commons.models.project import Project
 from alloq_commons.repositories import capacity_allocation_repo
+from alloq_commons.services.utilization import (
+    AbsencePeriod,
+    UtilizationService,
+)
 
 from appkit_commons.database.session import get_asyncdb_session
 
@@ -20,6 +26,7 @@ log = logging.getLogger(__name__)
 class _BarData(TypedDict):
     pt: str
     h_pct: str
+    absent: bool
 
 
 class _PreviewRow(TypedDict):
@@ -49,6 +56,8 @@ GERMAN_MONTHS_LONG = [
 
 WORKDAYS_PER_WEEK = 5
 PT_QUANTA_PER_WEEK = 4  # weekly steps: 0, 0.25, 0.5, 0.75, 1.0 * cap
+AVAIL_EPSILON = 0.05  # week treated as unavailable below this PT threshold
+REMAINING_EPSILON = 0.005  # water-fill termination threshold
 
 
 def _distribute(
@@ -86,9 +95,17 @@ def _distribute(
     quantum = cap_per_week / PT_QUANTA_PER_WEEK
     if quantum <= 0:
         return [0.0] * weeks
+    # Per-week upper bound respects ramp shape: each week i may hold at most
+    # round(w_i * PT_QUANTA_PER_WEEK) quanta (capped at PT_QUANTA_PER_WEEK).
+    per_week_max = [
+        max(0, min(PT_QUANTA_PER_WEEK, round(w * PT_QUANTA_PER_WEEK))) for w in weights
+    ]
+    shape_max_q = sum(per_week_max)
     target_q = round(total_pt / quantum)
-    target_q = max(0, min(target_q, weeks * PT_QUANTA_PER_WEEK))
-    snapped = [max(0, min(PT_QUANTA_PER_WEEK, round(v / quantum))) for v in raw]
+    target_q = max(0, min(target_q, shape_max_q))
+    snapped = [
+        max(0, min(per_week_max[i], round(raw[i] / quantum))) for i in range(weeks)
+    ]
     diff = target_q - sum(snapped)
     if diff != 0:
         residuals = sorted(
@@ -98,13 +115,163 @@ def _distribute(
         for _, i in residuals:
             if diff == 0:
                 break
-            if diff > 0 and snapped[i] < PT_QUANTA_PER_WEEK:
+            if diff > 0 and snapped[i] < per_week_max[i]:
                 snapped[i] += 1
                 diff -= 1
             elif diff < 0 and snapped[i] > 0:
                 snapped[i] -= 1
                 diff += 1
     return [round(s * quantum, 2) for s in snapped]
+
+
+def _cap_at(weekly_avail: list[float], idx: int) -> float:
+    return weekly_avail[idx] if 0 <= idx < len(weekly_avail) else 0.0
+
+
+def _fill_rampup(
+    result: list[float],
+    remaining: float,
+    ramp_up: int,
+    weekly_avail: list[float],
+) -> float:
+    """Fractional fill in ramp-up window. Returns remaining PT."""
+    for i in range(ramp_up):
+        if remaining <= REMAINING_EPSILON:
+            break
+        cap_i = _cap_at(weekly_avail, i)
+        if cap_i <= AVAIL_EPSILON:
+            continue
+        weight = (i + 1) / (ramp_up + 1)
+        take = min(weight * cap_i, cap_i, remaining)
+        result[i] = take
+        remaining -= take
+    return remaining
+
+
+def _fill_plateau(
+    result: list[float],
+    remaining: float,
+    ramp_up: int,
+    weeks: int,
+    weekly_avail: list[float],
+) -> tuple[float, int]:
+    """Saturate weeks left-to-right after ramp-up. Returns (remaining, last_filled)."""
+    last_filled = ramp_up - 1
+    for i in range(ramp_up, weeks):
+        if remaining <= REMAINING_EPSILON:
+            break
+        cap_i = _cap_at(weekly_avail, i)
+        if cap_i <= AVAIL_EPSILON:
+            continue
+        take = min(cap_i, remaining)
+        result[i] = take
+        remaining -= take
+        last_filled = i
+    return remaining, last_filled
+
+
+def _taper_tail(
+    result: list[float],
+    first_taper: int,
+    last_filled: int,
+    ramp_down: int,
+) -> float:
+    """Taper result[first_taper..last_filled] by ramp weights. Returns reclaimed PT."""
+    reclaim = 0.0
+    for offset, idx in enumerate(range(first_taper, last_filled + 1)):
+        weight = (ramp_down - offset) / (ramp_down + 1)
+        new_val = result[idx] * weight
+        reclaim += result[idx] - new_val
+        result[idx] = new_val
+    return reclaim
+
+
+def _extend_tail(
+    result: list[float],
+    weekly_avail: list[float],
+    start_idx: int,
+    weeks: int,
+    reclaim: float,
+) -> tuple[float, int]:
+    """Place reclaim into full-cap weeks past start_idx. Returns (reclaim, new_last)."""
+    new_last = start_idx - 1
+    next_idx = start_idx
+    while reclaim > REMAINING_EPSILON and next_idx < weeks:
+        cap_i = _cap_at(weekly_avail, next_idx)
+        if cap_i > AVAIL_EPSILON:
+            take = min(cap_i, reclaim)
+            result[next_idx] = take
+            reclaim -= take
+            new_last = next_idx
+        next_idx += 1
+    return reclaim, new_last
+
+
+def _spill_back(
+    result: list[float],
+    weekly_avail: list[float],
+    limit: int,
+    reclaim: float,
+) -> None:
+    """Spill leftover reclaim into earlier full-cap weeks (no new tail consumed)."""
+    for i in range(limit):
+        if reclaim <= REMAINING_EPSILON:
+            break
+        cap_i = _cap_at(weekly_avail, i)
+        room = cap_i - result[i]
+        if room > REMAINING_EPSILON:
+            take = min(room, reclaim)
+            result[i] += take
+            reclaim -= take
+
+
+def _apply_rampdown(
+    result: list[float],
+    ramp_up: int,
+    ramp_down: int,
+    weeks: int,
+    weekly_avail: list[float],
+    last_filled: int,
+) -> None:
+    """Iteratively taper tail + extend until reclaim absorbed or weeks exhausted."""
+    for _ in range(weeks):
+        first_taper = max(ramp_up, last_filled - ramp_down + 1)
+        reclaim = _taper_tail(result, first_taper, last_filled, ramp_down)
+        reclaim, new_last = _extend_tail(
+            result, weekly_avail, last_filled + 1, weeks, reclaim
+        )
+        if new_last <= last_filled:
+            _spill_back(result, weekly_avail, first_taper, reclaim)
+            return
+        last_filled = new_last
+        if reclaim <= REMAINING_EPSILON:
+            return
+
+
+def _distribute_with_avail(
+    total_pt: float,
+    weeks: int,
+    ramp_up: int,
+    ramp_down: int,
+    weekly_avail: list[float],
+) -> list[float]:
+    """Front-load total_pt over weeks: saturate early weeks at their per-week cap.
+
+    weekly_avail[i] = max PT week i can absorb (0 for absence / no capacity).
+    Optional ramp_up: weeks 0..ramp_up-1 take fractional share of their cap.
+    Plateau: each remaining week takes full cap until pt exhausted.
+    Optional ramp_down: taper last ramp_down filled weeks, extend tail with reclaim.
+    """
+    if weeks <= 0 or not weekly_avail:
+        return []
+    ramp_up = max(0, min(ramp_up, weeks))
+    ramp_down = max(0, min(ramp_down, weeks - ramp_up))
+    result = [0.0] * weeks
+    remaining = _fill_rampup(result, float(total_pt), ramp_up, weekly_avail)
+    _, last_filled = _fill_plateau(result, remaining, ramp_up, weeks, weekly_avail)
+    if ramp_down > 0 and last_filled >= ramp_up:
+        _apply_rampdown(result, ramp_up, ramp_down, weeks, weekly_avail, last_filled)
+    return [round(v, 2) for v in result]
 
 
 def _weeks_between(start: datetime.date, end: datetime.date) -> int:
@@ -129,6 +296,7 @@ class ProjectPlanState(rx.State):
 
     # Step 0: project selection
     search: str = ""
+    project_pool: list[Project] = []
     selected_project_id: str = ""
     selected_project_code: str = ""
     selected_project_name: str = ""
@@ -152,12 +320,18 @@ class ProjectPlanState(rx.State):
     required_capacity_snapshot: list[dict[str, Any]] = []
     # employee_id (str) -> already-planned PT in project timeframe (excl. this project)
     planned_pt_by_employee: dict[str, float] = {}
+    # employee_id (str) -> {week_iso: pt} prior allocations (excl. this project)
+    planned_pt_by_employee_week: dict[str, dict[str, float]] = {}
     # employee_id (str) -> PT user wants to plan for this project
     planned_by_employee: dict[str, float] = {}
     # employee_id (str) -> chosen role_id for this project
     role_by_employee: dict[str, int] = {}
     # role_id (str) -> role name lookup
     role_name_by_id: dict[str, str] = {}
+    # role_id (str) -> {"ramp_up": bool, "ramp_down": bool}
+    # ramp_up=True  -> role IS needed during ramp-up phase (durchgehend ab Start)
+    # ramp_up=False -> role ramps up gradually with the project
+    role_ramps_by_id: dict[str, dict[str, bool]] = {}
 
     @rx.var(cache=True)
     def num_weeks(self) -> int:
@@ -225,14 +399,27 @@ class ProjectPlanState(rx.State):
         return round(self.distribution_max / WORKDAYS_PER_WEEK, 1)
 
     @rx.var(cache=True)
+    def shape_capacity(self) -> float:
+        """Max PT this ramp shape fits given effective_weeks and cap."""
+        weeks = self.effective_weeks
+        if weeks <= 0 or self.cap_value <= 0:
+            return 0.0
+        r = min(self.ramp_up, weeks)
+        d = min(self.ramp_down, max(0, weeks - r))
+        sum_weights = max(0.0, weeks - r / 2.0 - d / 2.0)
+        return round(self.cap_value * sum_weights, 1)
+
+    @rx.var(cache=True)
     def shortfall(self) -> bool:
-        return self.distribution_sum < float(self.total_pt) - 0.5
+        return float(self.total_pt) > self.shape_capacity + 0.5
 
     @rx.var(cache=True)
     def shortfall_msg(self) -> str:
         return (
-            f"Kapazität zu knapp: nur {self.distribution_sum:.0f} von "
-            f"{self.total_pt} PT passen. Projekt verlängern oder Limit erhöhen."
+            f"Kapazität zu knapp: nur {self.shape_capacity:.0f} von "
+            f"{self.total_pt} PT passen in {self.effective_weeks} Wochen "
+            f"(Cap {self.cap_value:.1f} PT/Wo). "
+            "Projekt verlängern, Ramps verkürzen oder Kapazität erhöhen."
         )
 
     @rx.var(cache=True)
@@ -281,7 +468,13 @@ class ProjectPlanState(rx.State):
         return "Projekt planen"
 
     @rx.event
-    def open_modal(self) -> None:
+    async def open_modal(self) -> None:
+        from alloq_project.states.planning_grid_state import (  # noqa: PLC0415
+            PlanningStore,
+        )
+
+        planning = await self.get_state(PlanningStore)
+        self.project_pool = list(planning.available_projects)
         self.is_open = True
         self.step = 0
         self.search = ""
@@ -293,6 +486,23 @@ class ProjectPlanState(rx.State):
     @rx.event
     def set_search(self, value: str) -> None:
         self.search = value
+
+    @rx.var(cache=True)
+    def visible_projects(self) -> list[Project]:
+        """Projects with state 'Geplant' filtered by case-insensitive search."""
+        needle = self.search.strip().lower()
+        out: list[Project] = []
+        for p in self.project_pool:
+            if p.state != ProjectStateEnum.PLANNED:
+                continue
+            if (
+                needle
+                and needle not in (p.name_de or "").lower()
+                and needle not in (p.code or "").lower()
+            ):
+                continue
+            out.append(p)
+        return out
 
     @rx.event
     async def select_project(self, pid: int) -> None:
@@ -330,6 +540,15 @@ class ProjectPlanState(rx.State):
                 "role_ids": list(e.role_ids),
                 "seniority": e.seniority or "",
                 "workload_percent": int(e.workload_percent or 100),
+                "internal_hours": int(e.internal_hours or 0),
+                "absences": [
+                    {
+                        "start": a.start_date.isoformat() if a.start_date else "",
+                        "end": a.end_date.isoformat() if a.end_date else "",
+                    }
+                    for a in (e.absences or [])
+                    if a.start_date and a.end_date
+                ],
             }
             for e in planning.available_employees
         ]
@@ -349,36 +568,51 @@ class ProjectPlanState(rx.State):
             for rc in proj.required_capacities
             if rc.role_id
         ]
-        self.planned_pt_by_employee = await self._load_planned_pt(
+        self.planned_pt_by_employee_week = await self._load_planned_pt_per_week(
             proj.id, proj.start_date, proj.end_date
         )
+        self.planned_pt_by_employee = {
+            eid: round(sum(week_map.values()), 2)
+            for eid, week_map in self.planned_pt_by_employee_week.items()
+        }
         self.planned_by_employee = {}
         self.role_by_employee = {}
         self.role_name_by_id = {str(r.id): r.name for r in planning.available_roles}
+        self.role_ramps_by_id = {
+            str(r.id): {"ramp_up": bool(r.ramp_up), "ramp_down": bool(r.ramp_down)}
+            for r in planning.available_roles
+        }
         self.step = 1
 
-    async def _load_planned_pt(
+    async def _load_planned_pt_per_week(
         self,
         project_id: int,
         start: datetime.date | None,
         end: datetime.date | None,
-    ) -> dict[str, float]:
-        """Sum prior PT per employee in [start, end], excluding current project."""
+    ) -> dict[str, dict[str, float]]:
+        """Prior PT per employee per week in [start, end], excluding current project.
+
+        Returns {employee_id_str: {week_iso: pt}}. week_iso is the Monday ISO date.
+        """
         if not start or not end:
             return {}
-        totals: dict[str, float] = {}
+        out: dict[str, dict[str, float]] = {}
         try:
             async with get_asyncdb_session() as session:
                 rows = await capacity_allocation_repo.find_in_range(session, start, end)
                 for r in rows:
                     if r.project_id == project_id:
                         continue
+                    if r.week_start is None:
+                        continue
                     key = str(r.employee_id)
-                    totals[key] = totals.get(key, 0.0) + float(r.person_days or 0.0)
+                    wk = r.week_start.isoformat()
+                    bucket = out.setdefault(key, {})
+                    bucket[wk] = bucket.get(wk, 0.0) + float(r.person_days or 0.0)
         except Exception as exc:  # noqa: BLE001
             log.warning("Failed to load existing allocations: %s", exc)
             return {}
-        return totals
+        return out
 
     def num_weeks_from(self, start: str, end: str) -> int:
         try:
@@ -398,8 +632,26 @@ class ProjectPlanState(rx.State):
         if self.step > 0:
             self.step -= 1
 
+    async def _refresh_prior_allocations(self) -> None:
+        """Re-fetch prior per-week allocations for current [start_iso, end_iso]."""
+        if not self.selected_project_id or not self.start_iso or not self.end_iso:
+            return
+        try:
+            pid = int(self.selected_project_id)
+            s = datetime.date.fromisoformat(self.start_iso)
+            e = datetime.date.fromisoformat(self.end_iso)
+        except (ValueError, TypeError):
+            return
+        self.planned_pt_by_employee_week = await self._load_planned_pt_per_week(
+            pid, s, e
+        )
+        self.planned_pt_by_employee = {
+            eid: round(sum(week_map.values()), 2)
+            for eid, week_map in self.planned_pt_by_employee_week.items()
+        }
+
     @rx.event
-    def set_num_weeks(self, value: float | str) -> None:
+    async def set_num_weeks(self, value: float | str) -> None:
         """Edit week count by adjusting end_iso from start_iso."""
         try:
             n = int(float(value))
@@ -415,6 +667,7 @@ class ProjectPlanState(rx.State):
         self.end_iso = (s + datetime.timedelta(days=7 * n - 1)).isoformat()
         self.ramp_up = min(self.ramp_up, n)
         self.ramp_down = min(self.ramp_down, n)
+        await self._refresh_prior_allocations()
 
     @rx.event
     def set_total_pt(self, value: int | str) -> None:
@@ -464,17 +717,19 @@ class ProjectPlanState(rx.State):
     @rx.var(cache=True)
     def filtered_employees(self) -> list[dict[str, Any]]:
         """Employees matching role filter, with selection state and capacity labels."""
-        weeks = self.num_weeks
+        weeks_starts = self._project_weeks()
         out: list[dict[str, Any]] = []
         for e in self.employee_pool:
             if not self._matches_filter(e["role_ids"]):
                 continue
             wp = int(e.get("workload_percent", 100))
-            gross = round(weeks * WORKDAYS_PER_WEEK * (wp / 100), 1)
+            gross = self._gross_capacity(e, weeks_starts)
             planned_other = float(self.planned_pt_by_employee.get(str(e["id"]), 0.0))
-            net = max(0.0, round(gross - planned_other, 1))
-            available_label = f"{net:g} PT"
-            sub_label = f"{wp}% · belegt {planned_other:g} / {gross:g} PT"
+            net = self._free_pt(e, weeks_starts)
+            available_label = f"{net:g} PT".replace(".", ",")
+            sub_label = f"{wp}% · belegt {planned_other:g} / {gross:g} PT".replace(
+                ".", ","
+            )
             plan_pt = float(self.planned_by_employee.get(str(e["id"]), 0.0))
             plan_pct = round((plan_pt / net) * 100, 0) if net > 0 else 0.0
             role_id = self._emp_role_id(e)
@@ -504,19 +759,115 @@ class ProjectPlanState(rx.State):
     def filtered_count(self) -> int:
         return len(self.filtered_employees)
 
-    def _net_pt_for(self, e: dict[str, Any], weeks: int) -> float:
-        wp = int(e.get("workload_percent", 100))
-        gross = weeks * WORKDAYS_PER_WEEK * (wp / 100)
-        planned = float(self.planned_pt_by_employee.get(str(e["id"]), 0.0))
-        return max(0.0, gross - planned)
+    def _project_weeks(self) -> list[datetime.date]:
+        """Mon-anchored week starts spanning the project window."""
+        if not self.start_iso:
+            return []
+        try:
+            s = datetime.date.fromisoformat(self.start_iso)
+        except ValueError:
+            return []
+        monday = s - datetime.timedelta(days=s.weekday())
+        return [monday + datetime.timedelta(weeks=i) for i in range(self.num_weeks)]
+
+    def _weekly_avail(
+        self, emp: dict[str, Any], weeks_starts: list[datetime.date]
+    ) -> list[float]:
+        """Per-week PT free for this project.
+
+        weekly_avail[i] = work_days_per_week - absence_days - capped_internal
+        - prior_allocations_in_other_projects[week], floored at 0.
+        work_days_per_week scales by workload_percent. Internal hours capped
+        against remaining capacity after absence.
+        """
+        if not weeks_starts:
+            return []
+        absences = [
+            AbsencePeriod(
+                start_date=datetime.date.fromisoformat(a["start"]),
+                end_date=datetime.date.fromisoformat(a["end"]),
+            )
+            for a in emp.get("absences", [])
+            if a.get("start") and a.get("end")
+        ]
+        internal_hours = int(emp.get("internal_hours", 0))
+        wp = int(emp.get("workload_percent", 100))
+        work_days_per_week = WORKDAYS_PER_WEEK * (wp / 100)
+        prior_by_week = self.planned_pt_by_employee_week.get(str(emp["id"]), {})
+        out: list[float] = []
+        for ws in weeks_starts:
+            absence_days = UtilizationService.absence_days_in_week(absences, ws)
+            internal_days = UtilizationService.cap_internal_days(
+                internal_hours, absence_days, work_days=work_days_per_week
+            )
+            prior = float(prior_by_week.get(ws.isoformat(), 0.0))
+            free = work_days_per_week - absence_days - internal_days - prior
+            out.append(max(0.0, free))
+        return out
+
+    def _weekly_absent(
+        self, emp: dict[str, Any], weeks_starts: list[datetime.date]
+    ) -> list[bool]:
+        """Per-week absence flag (true if any absence overlaps the week)."""
+        if not weeks_starts:
+            return []
+        absences = [
+            AbsencePeriod(
+                start_date=datetime.date.fromisoformat(a["start"]),
+                end_date=datetime.date.fromisoformat(a["end"]),
+            )
+            for a in emp.get("absences", [])
+            if a.get("start") and a.get("end")
+        ]
+        return [
+            UtilizationService.absence_days_in_week(absences, ws) > 0
+            for ws in weeks_starts
+        ]
+
+    def _gross_capacity(
+        self, emp: dict[str, Any], weeks_starts: list[datetime.date]
+    ) -> float:
+        """Gross capacity over project window (absence+internal subtracted)."""
+        if not weeks_starts:
+            return 0.0
+        absences = [
+            AbsencePeriod(
+                start_date=datetime.date.fromisoformat(a["start"]),
+                end_date=datetime.date.fromisoformat(a["end"]),
+            )
+            for a in emp.get("absences", [])
+            if a.get("start") and a.get("end")
+        ]
+        internal_hours = int(emp.get("internal_hours", 0))
+        wp = int(emp.get("workload_percent", 100))
+        work_days_per_week = WORKDAYS_PER_WEEK * (wp / 100)
+        total = 0.0
+        for ws in weeks_starts:
+            absence_days = UtilizationService.absence_days_in_week(absences, ws)
+            internal_days = UtilizationService.cap_internal_days(
+                internal_hours, absence_days, work_days=work_days_per_week
+            )
+            total += max(0.0, work_days_per_week - absence_days - internal_days)
+        return round(total, 1)
+
+    def _free_pt(self, emp: dict[str, Any], weeks_starts: list[datetime.date]) -> float:
+        """Free PT this project may use: capacity minus prior other-project alloc."""
+        return round(sum(self._weekly_avail(emp, weeks_starts)), 1)
+
+    def _net_pt_for(
+        self, e: dict[str, Any], weeks_starts: list[datetime.date]
+    ) -> float:
+        return self._free_pt(e, weeks_starts)
 
     @rx.var(cache=True)
     def available_capacity_pt(self) -> float:
         """Net PT (gross minus already-planned) across the pool over project weeks."""
-        weeks = self.num_weeks
-        if weeks <= 0:
+        weeks_starts = self._project_weeks()
+        if not weeks_starts:
             return 0.0
-        return round(sum(self._net_pt_for(e, weeks) for e in self.employee_pool), 1)
+        return round(
+            sum(self._net_pt_for(e, weeks_starts) for e in self.employee_pool), 1
+        )
 
     @rx.var(cache=True)
     def selected_capacity_pt(self) -> float:
@@ -563,21 +914,23 @@ class ProjectPlanState(rx.State):
         return rows
 
     def _available_pt_for(self, eid: int) -> float:
-        weeks = self.num_weeks
-        if weeks <= 0:
+        weeks_starts = self._project_weeks()
+        if not weeks_starts:
             return 0.0
         emp = next((e for e in self.employee_pool if e["id"] == eid), None)
         if emp is None:
             return 0.0
-        wp = int(emp.get("workload_percent", 100))
-        gross = weeks * WORKDAYS_PER_WEEK * (wp / 100)
-        prior = float(self.planned_pt_by_employee.get(str(eid), 0.0))
-        return max(0.0, round(gross - prior, 1))
+        return self._free_pt(emp, weeks_starts)
 
     @rx.var(cache=True)
     def preview_rows(self) -> list[_PreviewRow]:
-        """Per-employee planned distribution for the preview step."""
-        weeks = self.effective_weeks
+        """Per-employee planned distribution for the preview step.
+
+        Spans the full project window (num_weeks), not the project-chart
+        effective_weeks. Each employee distributes their planned PT across
+        the whole window, capped per-week by their own free capacity.
+        """
+        weeks = self.num_weeks
         rows: list[_PreviewRow] = []
         if weeks <= 0:
             return rows
@@ -591,6 +944,7 @@ class ProjectPlanState(rx.State):
             except (ValueError, TypeError):
                 continue
         sel = set(self.selected_employee_ids)
+        weeks_starts = self._project_weeks()
         for emp in self.employee_pool:
             eid = emp["id"]
             if eid not in sel:
@@ -599,18 +953,18 @@ class ProjectPlanState(rx.State):
             if pt <= 0:
                 continue
             rid = self._emp_role_id(emp)
-            wp = int(emp.get("workload_percent", 100))
-            cap_per_week = WORKDAYS_PER_WEEK * (wp / 100)
-            weekly = _distribute(
-                pt, weeks, self.ramp_up, self.ramp_down, cap_per_week=cap_per_week
-            )
+            eff_up, eff_down = self._effective_ramps_for(emp)
+            weekly_caps = self._weekly_avail(emp, weeks_starts)
+            absent_flags = self._weekly_absent(emp, weeks_starts)
+            weekly = _distribute_with_avail(pt, weeks, eff_up, eff_down, weekly_caps)
             wmax = max(weekly) if weekly else 0.0
             bars: list[_BarData] = [
                 {
                     "pt": f"{v:g}",
                     "h_pct": f"{(v / wmax * 100) if wmax > 0 else 0:.1f}",
+                    "absent": absent_flags[i] if i < len(absent_flags) else False,
                 }
-                for v in weekly
+                for i, v in enumerate(weekly)
             ]
             rows.append(
                 _PreviewRow(
@@ -720,6 +1074,16 @@ class ProjectPlanState(rx.State):
             if self.role_name_by_id.get(str(rid))
         ]
 
+    def _effective_ramps_for(self, emp: dict[str, Any]) -> tuple[int, int]:
+        """Per-employee ramp shape. Role.ramp_up=True means the role is needed
+        during ramp-up (durchgehend ab Start) -> no ramp-up shape for that emp.
+        """
+        rid = self._emp_role_id(emp)
+        flags = self.role_ramps_by_id.get(str(rid), {})
+        eff_up = 0 if flags.get("ramp_up") else self.ramp_up
+        eff_down = 0 if flags.get("ramp_down") else self.ramp_down
+        return eff_up, eff_down
+
     @rx.event
     def set_emp_role(self, eid: int, value: str) -> None:
         try:
@@ -757,18 +1121,19 @@ class ProjectPlanState(rx.State):
                     emp_role[emp["id"]] = rid
         if not emp_role:
             return []
-        weeks = self.effective_weeks
+        weeks = self.num_weeks
+        weeks_starts = self._project_weeks()
         rows: list[CapacityAllocationEntity] = []
         for emp_id, role_id in emp_role.items():
             pt = float(self.planned_by_employee.get(str(emp_id), 0.0))
             if pt <= 0 or weeks <= 0:
                 continue
             emp = next((e for e in self.employee_pool if e["id"] == emp_id), None)
-            wp = int(emp.get("workload_percent", 100)) if emp else 100
-            cap_per_week = WORKDAYS_PER_WEEK * (wp / 100)
-            weekly = _distribute(
-                pt, weeks, self.ramp_up, self.ramp_down, cap_per_week=cap_per_week
-            )
+            if emp is None:
+                continue
+            eff_up, eff_down = self._effective_ramps_for(emp)
+            weekly_caps = self._weekly_avail(emp, weeks_starts)
+            weekly = _distribute_with_avail(pt, weeks, eff_up, eff_down, weekly_caps)
             for w_idx, w_pt in enumerate(weekly):
                 if w_pt <= 0:
                     continue
