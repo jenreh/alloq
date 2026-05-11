@@ -127,6 +127,11 @@ FOOTER_SECTIONS: Final[list[dict[str, Any]]] = [
                 "icon": "shield",
                 "url": "/admin/roles",
             },
+            {
+                "label": "Feiertage",
+                "icon": "calendar-days",
+                "url": "/admin/holidays",
+            },
         ],
     },
 ]

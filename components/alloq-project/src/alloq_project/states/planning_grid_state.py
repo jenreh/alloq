@@ -24,6 +24,7 @@ from alloq_commons.repositories import (
     capacity_repo,
     employee_repo,
     project_repo,
+    public_holiday_repo,
     role_repo,
 )
 from alloq_commons.services.utilization import (
@@ -222,18 +223,35 @@ def _project_heat_bucket(allocated: float) -> str:
     return UtilizationService.project_heat_bucket(allocated)
 
 
-def _build_weeks(num_weeks: int) -> tuple[list[WeekColumn], list[MonthSpan]]:
+def _holidays_in_week(
+    holiday_dates: set[datetime.date], week_start: datetime.date
+) -> int:
+    """Count Mon-Fri public holidays falling within the week."""
+    count = 0
+    for offset in range(_WORK_DAYS_PER_WEEK):
+        day = week_start + datetime.timedelta(days=offset)
+        if day in holiday_dates:
+            count += 1
+    return count
+
+
+def _build_weeks(
+    num_weeks: int,
+    holiday_dates: set[datetime.date] | None = None,
+) -> tuple[list[WeekColumn], list[MonthSpan]]:
+    holidays = holiday_dates or set()
     weeks: list[WeekColumn] = []
     anchor = _anchor_date()
     for i in range(num_weeks):
         d = anchor + datetime.timedelta(days=7 * i)
+        work_days = float(_WORK_DAYS_PER_WEEK - _holidays_in_week(holidays, d))
         weeks.append(
             WeekColumn(
                 key=f"{d.year}_{d.month:02d}_{d.day:02d}",
                 label=f"{d.day}.{d.month}.",
                 week_no=d.isocalendar().week,
                 month_label=f"{GERMAN_MONTHS[d.month - 1]} {d.year % 100}",
-                work_days=5.0,
+                work_days=max(0.0, work_days),
             )
         )
     spans: list[MonthSpan] = []
@@ -925,6 +943,16 @@ class PlanningStore(UserSession):
 
     # === Loading ===
 
+    async def _fetch_holidays(self, num_weeks: int) -> set[datetime.date]:
+        """Load public holidays covering the rolling planning window."""
+        if num_weeks <= 0:
+            return set()
+        anchor = _anchor_date()
+        end = anchor + datetime.timedelta(days=7 * num_weeks - 1)
+        async with get_asyncdb_session() as session:
+            rows = await public_holiday_repo.find_by_date_range(session, anchor, end)
+            return {row.date for row in rows if row.date}
+
     async def _fetch_data(
         self, weeks: list[WeekColumn]
     ) -> tuple[list[Any], list[_CapAssignment]]:
@@ -953,7 +981,8 @@ class PlanningStore(UserSession):
         return list(allocs), assignments
 
     async def _populate(self, num_weeks: int) -> None:
-        weeks, spans = _build_weeks(num_weeks)
+        holiday_dates = await self._fetch_holidays(num_weeks)
+        weeks, spans = _build_weeks(num_weeks, holiday_dates)
         allocations, assignments = await self._fetch_data(weeks)
         wks = [w.key for w in weeks]
 

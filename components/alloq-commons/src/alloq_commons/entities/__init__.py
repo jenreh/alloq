@@ -3,6 +3,7 @@ from alloq_commons.entities.capacity import CapacityEntity
 from alloq_commons.entities.capacity_allocation import CapacityAllocationEntity
 from alloq_commons.entities.employee import EmployeeEntity, SeniorityLevel
 from alloq_commons.entities.project import ProjectEntity
+from alloq_commons.entities.public_holiday import PublicHolidayEntity
 from alloq_commons.entities.required_capacity import RequiredCapacityEntity
 from alloq_commons.entities.risk import (
     MITIGATION_STATUS_LABELS,
@@ -21,6 +22,7 @@ __all__ = [
     "EmployeeEntity",
     "ProjectEntity",
     "ProjectStatusEntity",
+    "PublicHolidayEntity",
     "RequiredCapacityEntity",
     "RiskEntity",
     "RiskLevel",

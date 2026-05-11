@@ -15,6 +15,7 @@ from alloq_commons.models.project import (
     RiskCreate,
     RiskUpdate,
 )
+from alloq_commons.models.public_holiday import PublicHoliday, PublicHolidayCreate
 from alloq_commons.models.role import Role, RoleCreate
 
 __all__ = [
@@ -27,6 +28,8 @@ __all__ = [
     "ProjectStatusCreate",
     "ProjectStatusUpdate",
     "ProjectUpdate",
+    "PublicHoliday",
+    "PublicHolidayCreate",
     "RequiredCapacity",
     "RequiredCapacityCreate",
     "RequiredCapacityUpdate",

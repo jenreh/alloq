@@ -20,6 +20,7 @@ from appkit_user.user_management.pages import (
 )
 
 from app.components.navbar_collapsible import app_navbar_collapsible
+from app.pages.holidays import create_holidays_page
 from app.pages.profile import create_profile_page
 from app.pages.roles import create_roles_page
 from app.pages.users import create_users_page
@@ -86,6 +87,7 @@ create_password_reset_request_page()
 create_password_reset_confirm_page()
 create_users_page(app_navbar_collapsible())
 create_roles_page(app_navbar_collapsible())
+create_holidays_page(app_navbar_collapsible())
 create_team_overview_page(app_navbar_collapsible())
 create_projects_overview_page(app_navbar_collapsible())
 create_planning_page(app_navbar_collapsible())
