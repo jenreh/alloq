@@ -1,6 +1,6 @@
 [project]
 name = "Alloq"
-version = "0.1.0"
+version = "0.2.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
@@ -65,7 +65,7 @@ alloq-team = { workspace = true }
 
 [tool.bumpversion]
 commit = false
-current_version = "0.1.0"
+current_version = "0.2.0"
 tag = false
 allow-dirty = false
 

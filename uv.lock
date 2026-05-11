@@ -36,7 +36,7 @@ wheels = [
 
 [[package]]
 name = "alloq"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -95,12 +95,12 @@ dev = [
 
 [[package]]
 name = "alloq-commons"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "components/alloq-commons" }
 
 [[package]]
 name = "alloq-dashboard"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "components/alloq-dashboard" }
 dependencies = [
     { name = "alloq-project" },
@@ -115,7 +115,7 @@ requires-dist = [
 
 [[package]]
 name = "alloq-project"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "components/alloq-project" }
 dependencies = [
     { name = "alloq-commons" },
@@ -126,7 +126,7 @@ requires-dist = [{ name = "alloq-commons", editable = "components/alloq-commons"
 
 [[package]]
 name = "alloq-team"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "components/alloq-team" }
 dependencies = [
     { name = "alloq-commons" },
