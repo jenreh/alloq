@@ -139,6 +139,51 @@ def _project_section(title: str, projects: rx.Var) -> rx.Component:
     )
 
 
+def _no_projects_state() -> rx.Component:
+    """Empty state when no projects match the current filter."""
+    has_filter = (ProjectState.search_filter != "") | (
+        ProjectState.status_filter != "all"
+    )
+    return mn.center(
+        mn.stack(
+            mn.center(
+                rx.icon("briefcase", size=48, color="var(--mantine-color-gray-5)"),
+            ),
+            rx.cond(
+                has_filter,
+                mn.text(
+                    "Keine Projekte gefunden.",
+                    size="lg",
+                    fw="500",
+                    c="gray",
+                    ta="center",
+                ),
+                mn.stack(
+                    mn.text(
+                        "Noch keine Projekte vorhanden.",
+                        size="lg",
+                        fw="500",
+                        c="gray",
+                        ta="center",
+                    ),
+                    mn.text(
+                        "Erstellen Sie Ihr erstes Projekt.",
+                        size="sm",
+                        c="dimmed",
+                        ta="center",
+                    ),
+                    gap="xs",
+                    align="center",
+                ),
+            ),
+            gap="md",
+            align="center",
+        ),
+        py="4rem",
+        width="100%",
+    )
+
+
 def project_grid() -> rx.Component:
     """Grid view of all projects, split into 'my projects' and 'other projects'."""
     return rx.cond(
@@ -152,10 +197,15 @@ def project_grid() -> rx.Component:
             ),
             py="xl",
         ),
-        mn.stack(
-            _project_section("Meine Projekte", ProjectState.my_projects),
-            _project_section("Weitere Projekte", ProjectState.other_projects),
-            gap="xl",
+        rx.cond(
+            (ProjectState.my_projects.length() == 0)
+            & (ProjectState.other_projects.length() == 0),
+            _no_projects_state(),
+            mn.stack(
+                _project_section("Meine Projekte", ProjectState.my_projects),
+                _project_section("Weitere Projekte", ProjectState.other_projects),
+                gap="xl",
+            ),
         ),
     )
 

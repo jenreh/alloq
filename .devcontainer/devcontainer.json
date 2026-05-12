@@ -7,7 +7,8 @@
 	"remoteUser": "vscode",
 	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
 	"containerEnv": {
-		"WORKSPACE": "/workspaces/${localWorkspaceFolderBasename}"
+		"WORKSPACE": "/workspaces/${localWorkspaceFolderBasename}",
+		"UV_PROJECT_ENVIRONMENT": ".venv"
 	},
 	"mounts": [
 		"source=${localEnv:HOME}${env:USERPROFILE}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached"

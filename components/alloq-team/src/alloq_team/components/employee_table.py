@@ -247,6 +247,48 @@ def _employee_table_section(title: str, employees: rx.Var) -> rx.Component:
     )
 
 
+def _no_employees_table_state() -> rx.Component:
+    """Empty state when no employees match the current filter (table view)."""
+    return mn.center(
+        mn.stack(
+            mn.center(
+                rx.icon("users", size=48, color="var(--mantine-color-gray-5)"),
+            ),
+            rx.cond(
+                TeamState.search_filter != "",
+                mn.text(
+                    "Keine Mitarbeiter gefunden.",
+                    size="lg",
+                    fw="500",
+                    c="gray",
+                    ta="center",
+                ),
+                mn.stack(
+                    mn.text(
+                        "Noch keine Mitarbeiter vorhanden.",
+                        size="lg",
+                        fw="500",
+                        c="gray",
+                        ta="center",
+                    ),
+                    mn.text(
+                        "Fügen Sie Ihren ersten Mitarbeiter hinzu.",
+                        size="sm",
+                        c="dimmed",
+                        ta="center",
+                    ),
+                    gap="xs",
+                    align="center",
+                ),
+            ),
+            gap="md",
+            align="center",
+        ),
+        py="4rem",
+        width="100%",
+    )
+
+
 def employee_table() -> rx.Component:
     """Table view of all employees."""
     return rx.cond(
@@ -260,9 +302,16 @@ def employee_table() -> rx.Component:
             ),
             py="xl",
         ),
-        mn.stack(
-            _employee_table_section("Meine Mitarbeiter", TeamState.my_employees),
-            _employee_table_section("Weitere Mitarbeiter", TeamState.other_employees),
-            gap="xl",
+        rx.cond(
+            (TeamState.my_employees.length() == 0)
+            & (TeamState.other_employees.length() == 0),
+            _no_employees_table_state(),
+            mn.stack(
+                _employee_table_section("Meine Mitarbeiter", TeamState.my_employees),
+                _employee_table_section(
+                    "Weitere Mitarbeiter", TeamState.other_employees
+                ),
+                gap="xl",
+            ),
         ),
     )

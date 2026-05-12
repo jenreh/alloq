@@ -8,7 +8,7 @@ reflex:
 
 app:
   version: 0.2.0
-  name: ProjectKit
+  name: Alloq
   logging: logging.prod.yaml
   environment: prod
   backend_timeout: 180 # seconds
@@ -30,6 +30,7 @@ app:
     server_url: https://localhost
     server_port: 8080
 
+    # Optional OAuth providers (uncomment and configure if needed)
     oauth_providers:
       - provider: "github"
         client_id: secret:mn-oauth-github-client-id
