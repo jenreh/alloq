@@ -3,27 +3,26 @@ applyTo: "**"
 description: "Main instructions for the Alloq project - Reflex.dev based app for resource management and planning for software teams with comprehensive development workflow and architecture guidelines"
 ---
 
-# Alloq — Reflex.dev based app for resource managment and planning for software teams
+# Alloq — Reflex.dev resource management & planning for software teams
 
-> **Purpose:** Guide GitHub Copilot & Copilot Chat to align suggestions with our tech stack, workflows, and quality bars.
-> **Stacks:** Python 3.14 · Reflex.dev (web routing, components, state) · FastAPI · SQLModel · Alembic · Pydantic · appkit_mantine (UI components)
+> **Stack:** Python 3.14 · Reflex.dev · FastAPI · SQLModel · Alembic · Pydantic · appkit_mantine
 
 ---
 
 ## 1) Golden Rules
 
-1. **Think → Memory → Tools → Code → Memory.** Start with step-by-step reasoning (using the tool code-reasoning); **search Memory first**; pick tools; code minimal diff; **write learnings back to Memory**.
-2. **Tests are truth.** On failures: **fix code first**. Change tests only if they clearly diverge from spec.
-3. **Small, safe changes.** Prefer smallest viable diff; add tests for new behavior **before** code. Keep it as simple as possible!
-4. **Consistency > cleverness.** Follow this file's SOPs and stack idioms.
-5. **Memory multiplies.** Persist decisions, patterns, error signatures, and proven fixes.
-6. **Files ≤ 1000 lines.** No Python file may exceed 1000 lines of code. When a file approaches or exceeds this limit, refactor using clean code principles (see §5).
-7. Do NOT generate extensive documentation, summaries or comments unless explicitly requested.
-8. Do NOT use `--autogenerate` for new Alembic migrations; write them manually.
-9. Do NOT use `cat` to create new files; ALWAYS use the available tools!
-10. When logging, user **logger.debug** as the default level; use logger.info for important runtime events; reserve logger.warning/error for actual issues. **NEVER use `print` for logging.**
+1. **Think → Memory → Tools → Code → Memory.** Use code-reasoning; search Memory first; minimal diff; write learnings back.
+2. **Tests are truth.** Failures → fix code first. Change tests only if clearly wrong spec.
+3. **Minimal diff.** Add tests before code. Keep simple.
+4. **Consistency > cleverness.** Follow SOPs and stack idioms.
+5. **Memory multiplies.** Persist decisions, patterns, error signatures, proven fixes.
+6. **Files ≤ 1000 lines.** Exceed → refactor (see §5).
+7. No extensive docs/summaries/comments unless requested.
+8. No `--autogenerate` for Alembic migrations; write manually.
+9. No `cat` to create files; use tools.
+10. Log default: `logger.debug`. Important events: `logger.info`. Issues only: `logger.warning/error`. **No `print`.**
 
-> Rule of thumb: prefer *local* changes over cross-module refactors.
+> Prefer *local* changes over cross-module refactors.
 
 ---
 
@@ -53,41 +52,39 @@ plan:end -->
 ## 3) Tooling Decision Matrix
 
 | Situation | Primary | Secondary | Store to Memory |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | API/pattern uncertainty | **Context7** | — | Canonical snippet + link; edge cases |
 | Ecosystem bug/issue | **DuckDuckGo** | Context7 | Minimal repro; versions; workaround |
 | Repeated test failure | **Memory (search)** | Context7 | Error signature → fix; root cause |
 | New feature scaffold | **Context7** | — | How‑to snippet; checklist |
 | House style/tooling | **This file** | Context7 | Checklist results |
 
-**Prefer official docs; widen via web search when cross-version issues arise.**
+Prefer official docs; widen via web search for cross-version issues.
 
 ---
 
 ## 4) SOP — Development Workflow
 
-**Task Runner:** Use `task` commands (via `Taskfile.dist.yml`) instead of `make`.
+**Task Runner:** `task` (via `Taskfile.dist.yml`), not `make`.
 
 ### Prepare
 
-1. **Memory first:** search for prior solutions and patterns.
-2. **Reasoning plan:** use the *Task Bootstrap Pattern*.
-3. **Sync tools:** `task sync` (uses **uv**, Python 3.13).
-4. **Baseline:** `task test` to snapshot current failures.
+1. Memory first — search prior solutions.
+2. Reasoning plan — Task Bootstrap Pattern.
+3. `task sync` (uv, Python 3.13).
+4. `task test` — snapshot current failures.
 
 ### Triage Failures
 
-- Read the **first** failing assertion; map to spec.
-- If tests match spec → fix code. If tests diverge → document and adjust spec/tests (after approval).
+- Read first failing assertion; map to spec.
+- Tests match spec → fix code. Diverge → document; adjust spec/tests (after approval).
 - Add/adjust unit tests to codify expected behavior.
 
 ### Implement (Minimal Diff)
 
-- Tests-first for new behavior.
-- Use only approved stacks.
-- Apply design patterns where appropriate (see §5).
-- **NEVER use `print` for logging.** Always use the `logging` module.
-- **Logging (no f-strings):**
+- Tests-first for new behavior. Approved stacks only. Apply design patterns (see §5).
+- **No `print`.** Use `logging` module.
+- **No f-strings in logger calls:**
 
   ```python
   import logging
@@ -98,90 +95,88 @@ plan:end -->
 
 ### Quality Gates
 
-- Lint/format/type: `task lint`, `task format`.
-- Tests: `task test` with coverage ≥ **80%** for non-Reflex classes and Reflex states.
+- `task lint`, `task format`.
+- `task test` — coverage ≥ **80%** non-Reflex classes & Reflex states.
 
 ### Commit & PR
 
 - Conventional Commits (`feat:`, `fix:`, `refactor:`…).
-- PR must include: description, `Closes #123`, UI screenshots, migration rationale.
+- PR: description, `Closes #123`, UI screenshots, migration rationale.
 
-### Learn
-
-- Reflect; extract learnings; write to **Memory**.
+### Learn → write to **Memory**
 
 ---
 
 ## 5) Python Code & Testing
 
-Python code style, clean code principles, design patterns, and testing strategy are maintained in the **writing-python-code** skill. Key rules:
+Full rules in **writing-python-code** skill. Key:
 
-- **Python 3.14** only; deps via **uv**; line length **88** chars.
-- **No f-strings in logger calls** — use parameterized logging.
-- **Files ≤ 1000 lines** — refactor via clean code patterns.
-- **Coverage ≥ 80%** for non-Reflex classes and Reflex State classes.
-- **Type annotations** on all functions and methods.
+- Python 3.14; uv; line length **88**.
+- No f-strings in logger calls.
+- Files ≤ 1000 lines.
+- Coverage ≥ 80% non-Reflex classes & State classes.
+- Type annotations on all functions/methods.
 
 ---
 
 ## 6) Reflex Best Practices
 
-General Reflex patterns are maintained in the **reflex-state-and-architecture** skill. The following are **appkit-specific** rules:
+Full rules in **reflex-state-and-architecture** skill. Appkit-specific:
 
-- **Substates & Mixins:** Split large state classes into feature-based mixins. State vars stay on the main class; methods are organized by concern in separate mixin classes.
-- **Background Task Event Chaining:** Background tasks cannot be called directly from other event handlers — always yield the class method reference: `yield MyState.background_task`.
-- **rx.cond operators:** Use `&` and `|` instead of `and`/`or`.
-- **Database Access:** Do not use `rx.session()` in background processors, callbacks, or pure Python utilities. Use `appkit_commons.database.session_manager.get_session_manager().session()` instead.
-
----
-
-## 7) Using appkit_mantine Components
-
-Component API, event handler patterns, and usage examples are maintained in the **appkit-mantine-reference** skill. Key project-wide rules:
-
-- **Import:** `import appkit_mantine as mn` — Mantine 9.2.0.
-- **Never redeclare inherited props** — base classes (`MantineComponentBase` → `MantineLayoutComponentBase` → `MantineInputComponentBase`) provide ~40 common props. Only define component-specific props.
-- **MantineProvider** is auto-injected at priority 44 — no manual wrapping needed.
+- **Substates & Mixins:** State vars on main class; methods split by concern in mixins.
+- **Background Task Chaining:** Yield class method ref: `yield MyState.background_task`.
+- **rx.cond operators:** `&` and `|`, not `and`/`or`.
+- **DB Access:** No `rx.session()` in background/callbacks/utils. Use `appkit_commons.database.session_manager.get_session_manager().session()`.
 
 ---
 
-## 8) Security & Config Hygiene
+## 7) appkit_mantine Components
 
-- No credentials in code/history; use `.env` locally, Key Vault in prod.
-- Prefer non-secret YAML; override with env `__` pattern.
-- Parameterized logs; avoid sensitive values.
-- Access Pydantic `SecretStr` fields via `.get_secret_value()`.
-- Update vulnerable deps promptly; document CVE-driven updates in commits and **Memory**.
+Full API in **appkit-mantine-reference** skill. Rules:
+
+- `import appkit_mantine as mn` — Mantine 9.2.0.
+- Never redeclare inherited props — `MantineComponentBase` → `MantineLayoutComponentBase` → `MantineInputComponentBase` provide ~40 common props.
+- `MantineProvider` auto-injected at priority 44 — no manual wrap.
+
+---
+
+## 8) Security & Config
+
+- No credentials in code/history; `.env` local, Key Vault prod.
+- Non-secret YAML; env `__` override pattern.
+- Parameterized logs; no sensitive values.
+- `SecretStr` → `.get_secret_value()`.
+- Update vulnerable deps; document CVE-driven updates in commits & Memory.
 
 ---
 
 ## 9) Search SOPs
 
-- **Context7 first** for framework truths; cite sources in **Memory**.
-- **DuckDuckGo** for cross-version issues; prefer official docs, well-known repos.
-- Capture only the **final answer** in **Memory**: minimal snippet + rationale + version pins + link.
+- **Context7 first** for framework truths; cite in Memory.
+- **DuckDuckGo** for cross-version issues; prefer official docs.
+- Store only final answer: minimal snippet + rationale + version pins + link.
 
 ---
 
 ## 10) Pre‑PR Checklist
 
 - [ ] Tests added/updated; all green
-- [ ] Coverage ≥ 80% for non-Reflex classes and Reflex states
-- [ ] Lint/format/type checks pass (`task format && task lint`)
-- [ ] No Python file exceeds 1000 lines
-- [ ] Design patterns applied where appropriate
+- [ ] Coverage ≥ 80% non-Reflex classes & Reflex states
+- [ ] `task format && task lint` pass
+- [ ] No file > 1000 lines
+- [ ] Design patterns applied
 - [ ] Migrations reviewed & documented
-- [ ] **Memory updated** (decisions, patterns, error→fix links)
+- [ ] Memory updated (decisions, patterns, error→fix)
 - [ ] PR description complete; links/screenshots added
 
 ---
 
-## 11) Use the available Skills
+## 11) Skills
 
 | Skill | Purpose |
-|---|---|
-| `writing-python-code` | Python 3.14 code style, logging, type annotations, design patterns, testing strategy |
-| `reflex-state-and-architecture` | Reflex state design, event handlers, background tasks, form validation, page factory, service registry, repository pattern, database models, project architecture |
-| `appkit-mantine-reference` | Complete API reference for appkit_mantine components — inputs, layout, overlays, charts, data display, navigation. Use when creating any visible UI with mn.* components |
-| `testing-reflex-state` | Pytest unit tests for Reflex State classes — event handlers, computed vars, substates |
-| `multi-stage-dockerfile` | Optimized multi-stage Dockerfiles, layer caching, security hardening, healthchecks |
+| --- | --- |
+| `writing-python-code` | Python 3.14 style, logging, type annotations, design patterns, testing |
+| `reflex-state-and-architecture` | State design, event handlers, background tasks, form validation, page factory, service registry, repo pattern, DB models, architecture |
+| `appkit-mantine-reference` | Full API for appkit_mantine components — inputs, layout, overlays, charts, data display, navigation |
+| `testing-reflex-state` | Pytest unit tests for Reflex State — event handlers, computed vars, substates |
+| `multi-stage-dockerfile` | Optimized multi-stage Dockerfiles, layer caching, security, healthchecks |
