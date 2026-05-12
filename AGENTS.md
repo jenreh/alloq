@@ -21,6 +21,7 @@ description: "Main instructions for the Alloq project - Reflex.dev based app for
 8. No `--autogenerate` for Alembic migrations; write manually.
 9. No `cat` to create files; use tools.
 10. Log default: `logger.debug`. Important events: `logger.info`. Issues only: `logger.warning/error`. **No `print`.**
+11. **Caveman skill** applies to all writes here.
 
 > Prefer *local* changes over cross-module refactors.
 
@@ -88,9 +89,10 @@ Prefer official docs; widen via web search for cross-version issues.
 
   ```python
   import logging
+
   log = logging.getLogger(__name__)
-  log.info("Loaded items: %d", count)      # ✅
-  # log.info(f"Loaded items: {count}")     # ❌
+  log.info("Loaded items: %d", count)  # ✅
+  # log.info(f"Loaded items: {count}") # ❌
   ```
 
 ### Quality Gates
