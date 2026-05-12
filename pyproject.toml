@@ -10,13 +10,12 @@ dependencies = [
     "alloq-dashboard",
     "alloq-project",
     "alloq-team",
-    "appkit-user==1.9.7",
-    "appkit-mantine==1.9.7",
-    "appkit-commons==1.9.7",
-    "appkit-ui==1.9.7",
+    "appkit-user==1.10.2",
+    "appkit-mantine==1.10.2",
+    "appkit-commons==1.10.2",
+    "appkit-ui==1.10.2",
     "psycopg[binary,pool]==3.3.4",
-    "reflex==0.9.2",
-    #"sqlmodel>=0.0.38",
+    "reflex==0.9.2.post1",
 ]
 
 [dependency-groups]

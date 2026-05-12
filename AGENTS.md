@@ -11,7 +11,7 @@ description: "Main instructions for the Alloq project - Reflex.dev based app for
 
 ## 1) Golden Rules
 
-1. **Think → Memory → Tools → Code → Memory.** Use code-reasoning; search Memory first; minimal diff; write learnings back.
+1. **Think → Memory → Tools → Code → Memory.** Use code-reasoning; search Memory and claude-context first; minimal diff; write learnings back.
 2. **Tests are truth.** Failures → fix code first. Change tests only if clearly wrong spec.
 3. **Minimal diff.** Add tests before code. Keep simple.
 4. **Consistency > cleverness.** Follow SOPs and stack idioms.
