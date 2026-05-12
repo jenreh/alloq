@@ -1,6 +1,6 @@
 ---
 applyTo: "**"
-description: "Main Copilot instructions for the Alloq project - Reflex.dev based app for resource management and planning for software teams with comprehensive development workflow and architecture guidelines"
+description: "Main instructions for the Alloq project - Reflex.dev based app for resource management and planning for software teams with comprehensive development workflow and architecture guidelines"
 ---
 
 # Alloq — Reflex.dev based app for resource managment and planning for software teams
@@ -55,7 +55,7 @@ plan:end -->
 | Situation | Primary | Secondary | Store to Memory |
 |---|---|---|---|
 | API/pattern uncertainty | **Context7** | — | Canonical snippet + link; edge cases |
-| Ecosystem bug/issue | **DuckDuckGo** | — | Minimal repro; versions; workaround |
+| Ecosystem bug/issue | **DuckDuckGo** | Context7 | Minimal repro; versions; workaround |
 | Repeated test failure | **Memory (search)** | Context7 | Error signature → fix; root cause |
 | New feature scaffold | **Context7** | — | How‑to snippet; checklist |
 | House style/tooling | **This file** | Context7 | Checklist results |
@@ -69,22 +69,26 @@ plan:end -->
 **Task Runner:** Use `task` commands (via `Taskfile.dist.yml`) instead of `make`.
 
 ### Prepare
+
 1. **Memory first:** search for prior solutions and patterns.
 2. **Reasoning plan:** use the *Task Bootstrap Pattern*.
 3. **Sync tools:** `task sync` (uses **uv**, Python 3.13).
 4. **Baseline:** `task test` to snapshot current failures.
 
 ### Triage Failures
+
 - Read the **first** failing assertion; map to spec.
 - If tests match spec → fix code. If tests diverge → document and adjust spec/tests (after approval).
 - Add/adjust unit tests to codify expected behavior.
 
 ### Implement (Minimal Diff)
+
 - Tests-first for new behavior.
 - Use only approved stacks.
 - Apply design patterns where appropriate (see §5).
 - **NEVER use `print` for logging.** Always use the `logging` module.
 - **Logging (no f-strings):**
+
   ```python
   import logging
   log = logging.getLogger(__name__)
@@ -93,14 +97,17 @@ plan:end -->
   ```
 
 ### Quality Gates
+
 - Lint/format/type: `task lint`, `task format`.
 - Tests: `task test` with coverage ≥ **80%** for non-Reflex classes and Reflex states.
 
 ### Commit & PR
+
 - Conventional Commits (`feat:`, `fix:`, `refactor:`…).
 - PR must include: description, `Closes #123`, UI screenshots, migration rationale.
 
 ### Learn
+
 - Reflect; extract learnings; write to **Memory**.
 
 ---
@@ -109,7 +116,7 @@ plan:end -->
 
 Python code style, clean code principles, design patterns, and testing strategy are maintained in the **writing-python-code** skill. Key rules:
 
-- **Python 3.13** only; deps via **uv**; line length **88** chars.
+- **Python 3.14** only; deps via **uv**; line length **88** chars.
 - **No f-strings in logger calls** — use parameterized logging.
 - **Files ≤ 1000 lines** — refactor via clean code patterns.
 - **Coverage ≥ 80%** for non-Reflex classes and Reflex State classes.
@@ -132,7 +139,7 @@ General Reflex patterns are maintained in the **reflex-state-and-architecture** 
 
 Component API, event handler patterns, and usage examples are maintained in the **appkit-mantine-reference** skill. Key project-wide rules:
 
-- **Import:** `import appkit_mantine as mn` — Mantine 8.3.14.
+- **Import:** `import appkit_mantine as mn` — Mantine 9.2.0.
 - **Never redeclare inherited props** — base classes (`MantineComponentBase` → `MantineLayoutComponentBase` → `MantineInputComponentBase`) provide ~40 common props. Only define component-specific props.
 - **MantineProvider** is auto-injected at priority 44 — no manual wrapping needed.
 
