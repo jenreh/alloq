@@ -8,6 +8,8 @@ from appkit_user.authentication.components.components import requires_admin
 from appkit_user.authentication.templates import authenticated
 from appkit_user.user_management.components.user import (
     add_user_button,
+    add_user_modal,
+    edit_user_modal,
     search_user_input,
     user_table_view,
 )
@@ -52,6 +54,12 @@ def create_users_page(
     def _users_page() -> rx.Component:
         return requires_admin(
             mn.stack(
+                # Rendered here because this page composes user_table_view()
+                # plus its own toolbar instead of users_table(), which is what
+                # otherwise mounts these two. Without them the add/edit buttons
+                # flip UserState.*_modal_open but nothing is on screen to react.
+                add_user_modal(),
+                edit_user_modal(),
                 page_header(
                     nav_path=["Administration", "Benutzer"],
                     title="Benutzer verwalten",
