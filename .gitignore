@@ -112,16 +112,4 @@ var/
 venv.bak/
 venv/
 wheels/
-.playwright-mcp/page-2026-09-09T20-34-12-728Z.yml
-.playwright-mcp/page-2026-09-09T20-34-32-661Z.yml
-.playwright-mcp/page-2026-09-09T20-36-22-814Z.yml
-.playwright-mcp/page-2026-09-09T20-41-38-733Z.yml
-.playwright-mcp/page-2026-09-09T20-41-48-058Z.yml
-.playwright-mcp/page-2026-09-09T20-42-21-501Z.yml
-.playwright-mcp/page-2026-09-09T20-42-31-417Z.yml
-.playwright-mcp/page-2026-09-09T20-42-35-143Z.yml
-.playwright-mcp/page-2026-09-09T20-42-43-776Z.yml
-.playwright-mcp/page-2026-09-09T20-43-44-865Z.yml
-.playwright-mcp/page-2026-09-09T20-44-19-393Z.yml
-.playwright-mcp/page-2026-09-09T20-44-27-281Z.yml
-.playwright-mcp/page-2026-09-09T20-45-20-673Z.yml
+.playwright-mcp/

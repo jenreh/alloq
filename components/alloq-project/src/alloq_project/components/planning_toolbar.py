@@ -10,31 +10,46 @@ import appkit_mantine as mn
 def _toggle_button(
     icon: str,
     active: bool,
-    tooltip: str,
+    tooltip_on: str,
+    tooltip_off: str,
     on_click: Callable,
 ) -> rx.Component:
-    """Reusable toggle button with tooltip for the planning toolbar."""
+    """Reusable toggle button for the planning toolbar.
+
+    The tooltip explains the current filter state and what a click does,
+    so the icon-only button is understandable on hover.
+
+    The button is wrapped in a box because its state-dependent props make
+    Reflex compile it into a memoized sub-component, which cannot receive
+    the ref that Mantine's tooltip attaches to its child. Without a plain
+    ref-forwarding element in between, the tooltip never opens.
+    """
     return mn.tooltip(
-        mn.button(
-            rx.icon(
-                icon,
-                size=18,
-                color=rx.cond(
-                    active,
-                    "primary",
-                    "var(--alloq-text)",
+        mn.box(
+            mn.button(
+                rx.icon(
+                    icon,
+                    size=18,
+                    color=rx.cond(
+                        active,
+                        "primary",
+                        "var(--alloq-text)",
+                    ),
                 ),
+                variant=rx.cond(active, "filled", "subtle"),
+                auto_contrast=True,
+                on_click=on_click,
+                size="sm",
+                p="0 8px",
+                radius="md",
             ),
-            variant=rx.cond(active, "filled", "subtle"),
-            auto_contrast=True,
-            on_click=on_click,
-            size="sm",
-            p="0 8px",
-            radius="md",
+            display="flex",
         ),
-        label=tooltip,
+        label=rx.cond(active, tooltip_on, tooltip_off),
         with_arrow=True,
         position="bottom",
+        multiline=True,
+        w=240,
     )
 
 
@@ -72,14 +87,28 @@ def planning_toolbar() -> rx.Component:
             _toggle_button(
                 icon="folder-open",
                 active=PlanningStore.project_scope,
-                tooltip="Nur meine Projekte",
+                tooltip_on=(
+                    "Es werden nur eigene Projekte angezeigt. Klicken, um "
+                    "wieder alle Projekte zu sehen."
+                ),
+                tooltip_off=(
+                    "Es werden alle Projekte angezeigt. Klicken, um auf die "
+                    "eigenen Projekte zu filtern."
+                ),
                 on_click=PlanningStore.toggle_project_scope,
             ),
             # Employee scope toggle
             _toggle_button(
                 icon="users",
                 active=PlanningStore.employee_scope,
-                tooltip="Nur meine Mitarbeiter",
+                tooltip_on=(
+                    "Es werden nur eigene Mitarbeiter angezeigt. Klicken, um "
+                    "wieder alle Mitarbeiter zu sehen."
+                ),
+                tooltip_off=(
+                    "Es werden alle Mitarbeiter angezeigt. Klicken, um auf "
+                    "die eigenen Mitarbeiter zu filtern."
+                ),
                 on_click=PlanningStore.toggle_employee_scope,
             ),
             gap="4px",
