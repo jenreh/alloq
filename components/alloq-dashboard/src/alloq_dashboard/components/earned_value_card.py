@@ -104,7 +104,7 @@ _DE_TICK_FORMATTER = (
 def _forecast_chart() -> rx.Component:
     data = BudgetBurnState.data.weekly_forecast
     return _composite_chart_fmt(
-        data=data.foreach(
+        data=data.map(
             lambda p: {
                 "KW": p.week_label,
                 "Risikoband": [p.forecast_min, p.forecast_max],

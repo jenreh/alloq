@@ -94,7 +94,7 @@ def _role_capacity_card(role: rx.Var) -> rx.Component:
                 rx.cond(
                     role.weeks.length() > 0,
                     mn.area_chart(
-                        data=role.weeks.foreach(
+                        data=role.weeks.map(
                             lambda p: {"label": p.label, "Frei": p.value}
                         ),
                         data_key="label",

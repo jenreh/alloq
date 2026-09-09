@@ -4,10 +4,9 @@ import reflex as rx
 from alloq_dashboard.pages import create_dashboard_page
 from alloq_project.pages import create_planning_page, create_projects_overview_page
 from alloq_team.pages import create_team_overview_page
-from reflex.assets import asset
 from starlette.types import ASGIApp
 
-import appkit_mantine.base
+import appkit_mantine as am
 from appkit_commons.middleware import ForceHTTPSMiddleware
 from appkit_user.authentication.pages import (  # noqa: F401
     azure_oauth_callback_page,
@@ -57,24 +56,7 @@ ALLOQ_THEME = {
     },
 }
 
-ALLOQ_MANTINE_PROVIDER_PATH = asset(
-    path="mantine_provider.js",
-    shared=True,
-).importable_path
-
-
-class _CustomMemoizedMantineProvider(appkit_mantine.base.MemoizedMantineProvider):
-    library = ALLOQ_MANTINE_PROVIDER_PATH
-    theme: rx.Var[dict]
-
-
-appkit_mantine.base.MantineComponentBase._get_app_wrap_components = staticmethod(  # noqa: SLF001
-    lambda: {
-        (44, "MantineProvider"): _CustomMemoizedMantineProvider.create(
-            theme=ALLOQ_THEME  # type: ignore[call-arg]
-        ),
-    }
-)
+am.set_app_theme(am.create_theme(**ALLOQ_THEME))
 
 logging.basicConfig(level=logging.DEBUG)
 create_login_page()

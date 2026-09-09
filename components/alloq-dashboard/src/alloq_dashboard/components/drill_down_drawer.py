@@ -189,7 +189,7 @@ def _utilization_body() -> rx.Component:
                 fw="600",
             ),
             mn.bar_chart(
-                data=data.weeks.foreach(
+                data=data.weeks.map(
                     lambda w: {
                         "label": w.week_label,
                         "Auslastung": rx.cond(
