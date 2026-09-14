@@ -27,6 +27,12 @@ from alloq_commons.repositories import (
     public_holiday_repo,
     role_repo,
 )
+from alloq_commons.services.quick_project import (
+    NEW_PROJECT_OPTION,
+    NEW_PROJECT_VALUE,
+    QuickProjectError,
+    create_quick_project,
+)
 from alloq_commons.services.utilization import (
     UtilizationAllocationInput,
     UtilizationService,
@@ -57,6 +63,11 @@ def _anchor_date() -> datetime.date:
     today = datetime.date.today()  # noqa: DTZ011
     monday = today - datetime.timedelta(days=today.weekday())
     return monday - datetime.timedelta(weeks=WEEKS_BEFORE_CURRENT)
+
+
+def _sorted_projects(projects: list[Project]) -> list[Project]:
+    """Sort projects by display name, case-insensitive."""
+    return sorted(projects, key=lambda p: (p.name_de or p.code).lower())
 
 
 GERMAN_MONTHS = [
@@ -648,8 +659,24 @@ class PlanningStore(UserSession):
     add_project_emp_id: str = ""
     add_project_options: list[dict[str, str]] = []
     add_project_role_options: list[dict[str, str]] = []
+    add_project_selected: str = ""
+    quick_project_name: str = ""
+    quick_project_code: str = ""
+    is_quick_creating: bool = False
 
     # === Setters ===
+
+    @rx.event
+    def set_add_project_selected(self, value: str) -> None:
+        self.add_project_selected = value or ""
+
+    @rx.event
+    def set_quick_project_name(self, value: str) -> None:
+        self.quick_project_name = value
+
+    @rx.event
+    def set_quick_project_code(self, value: str) -> None:
+        self.quick_project_code = value
 
     @rx.event
     def set_view_mode(self, value: str) -> None:
@@ -1024,8 +1051,7 @@ class PlanningStore(UserSession):
     async def _load_entities(self) -> None:
         async with get_asyncdb_session() as session:
             projects = await project_repo.find_all(session)
-            all_proj = [Project(**p.to_dict()) for p in projects]
-            all_proj.sort(key=lambda p: (p.name_de or p.code).lower())
+            all_proj = _sorted_projects([Project(**p.to_dict()) for p in projects])
             self.all_projects = all_proj
             self.available_projects = [
                 p for p in all_proj if p.state != "Abgeschlossen"
@@ -1304,23 +1330,45 @@ class PlanningStore(UserSession):
 
     # === Add / remove project from employee in grid ===
 
-    @rx.event
-    async def open_add_project_for_employee(self, emp_id: str) -> None:
-        self.add_project_emp_id = emp_id
-        emp = next((e for e in self.employee_meta if e["id"] == emp_id), None)
-        if not emp:
-            return
+    @rx.var
+    def quick_create_active(self) -> bool:
+        """True while the inline quick-create fields should be shown."""
+        return self.add_project_selected == NEW_PROJECT_VALUE
+
+    def _rebuild_add_project_options(self) -> None:
+        emp = next(
+            (e for e in self.employee_meta if e["id"] == self.add_project_emp_id),
+            None,
+        )
         proj_idx = {p["id"]: p for p in self.project_meta}
         assigned_codes = {
             proj_idx[pid]["code"]
-            for pid in emp.get("project_ids", [])
+            for pid in (emp or {}).get("project_ids", [])
             if pid in proj_idx
         }
         self.add_project_options = [
-            {"value": str(p.id), "label": f"{p.code} - {p.name_de}"}
-            for p in self.available_projects
-            if p.code not in assigned_codes
+            NEW_PROJECT_OPTION,
+            *(
+                {"value": str(p.id), "label": f"{p.code} - {p.name_de}"}
+                for p in self.available_projects
+                if p.code not in assigned_codes
+            ),
         ]
+
+    def _reset_quick_create(self) -> None:
+        self.add_project_selected = ""
+        self.quick_project_name = ""
+        self.quick_project_code = ""
+        self.is_quick_creating = False
+
+    @rx.event
+    async def open_add_project_for_employee(self, emp_id: str) -> None:
+        self.add_project_emp_id = emp_id
+        self._reset_quick_create()
+        emp = next((e for e in self.employee_meta if e["id"] == emp_id), None)
+        if not emp:
+            return
+        self._rebuild_add_project_options()
         emp_role_ids = set(emp.get("role_ids", []))
         self.add_project_role_options = [
             {"value": str(r.id), "label": r.name}
@@ -1333,6 +1381,38 @@ class PlanningStore(UserSession):
         self.add_project_emp_id = ""
         self.add_project_options = []
         self.add_project_role_options = []
+        self._reset_quick_create()
+
+    @rx.event
+    async def quick_create_project(self) -> AsyncGenerator[Any, None]:
+        """Create a project from the inline fields and select it."""
+        self.is_quick_creating = True
+        yield
+        try:
+            async with get_asyncdb_session() as session:
+                project = await create_quick_project(
+                    session, self.quick_project_name, self.quick_project_code
+                )
+                await session.commit()
+        except QuickProjectError as exc:
+            self.is_quick_creating = False
+            yield rx.toast.error(str(exc), position="top-right")
+            return
+        except Exception as exc:  # noqa: BLE001
+            log.error("Failed to quick-create project: %s", exc)
+            self.is_quick_creating = False
+            yield rx.toast.error(f"Fehler: {exc}", position="top-right")
+            return
+        self.all_projects = _sorted_projects([*self.all_projects, project])
+        self.available_projects = _sorted_projects([*self.available_projects, project])
+        self._rebuild_add_project_options()
+        self.add_project_selected = str(project.id)
+        self.quick_project_name = ""
+        self.quick_project_code = ""
+        self.is_quick_creating = False
+        yield rx.toast.success(
+            f"Projekt '{project.code}' angelegt.", position="top-right"
+        )
 
     @rx.event
     async def add_project_to_employee_grid(
@@ -1340,8 +1420,13 @@ class PlanningStore(UserSession):
     ) -> AsyncGenerator[Any, None]:
         from alloq_commons.entities.capacity import CapacityEntity  # noqa: PLC0415
 
-        project_id_raw = form_data.get("project_id")
+        project_id_raw = self.add_project_selected
         role_id_raw = form_data.get("role_id")
+        if project_id_raw == NEW_PROJECT_VALUE:
+            yield rx.toast.error(
+                "Bitte das neue Projekt zuerst anlegen.", position="top-right"
+            )
+            return
         if not project_id_raw or not role_id_raw:
             yield rx.toast.error(
                 "Bitte Projekt und Rolle auswählen.", position="top-right"
@@ -1373,6 +1458,7 @@ class PlanningStore(UserSession):
                 session.add(entity)
                 await session.commit()
             self.add_project_emp_id = ""
+            self._reset_quick_create()
             yield PlanningStore.load
         except Exception as e:  # noqa: BLE001
             log.error("Failed to add project: %s", e)

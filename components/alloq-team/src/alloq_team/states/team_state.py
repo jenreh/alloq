@@ -20,6 +20,12 @@ from alloq_commons.repositories.capacity_repository import capacity_repo
 from alloq_commons.repositories.employee_repository import employee_repo
 from alloq_commons.repositories.project_repository import project_repo
 from alloq_commons.repositories.role_repository import role_repo
+from alloq_commons.services.quick_project import (
+    NEW_PROJECT_OPTION,
+    NEW_PROJECT_VALUE,
+    QuickProjectError,
+    create_quick_project,
+)
 
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_ui.global_states import LoadingState
@@ -54,6 +60,10 @@ class TeamState(UserSession):
     all_projects: list[Project] = []
     employee_capacities: list[Capacity] = []
     add_project_modal_open: bool = False
+    add_project_selected: str = ""
+    quick_project_name: str = ""
+    quick_project_code: str = ""
+    is_quick_creating: bool = False
 
     def toggle_section_expanded(self, section_key: str) -> None:
         """Toggle the expanded state of all cards in an employee section."""
@@ -154,18 +164,47 @@ class TeamState(UserSession):
         """Projects not yet assigned to the selected employee."""
         assigned_ids = {c.project_id for c in self.employee_capacities}
         return [
-            {"value": str(p.id), "label": f"{p.code} - {p.name_de}"}
-            for p in self.all_projects
-            if p.id not in assigned_ids
+            NEW_PROJECT_OPTION,
+            *(
+                {"value": str(p.id), "label": f"{p.code} - {p.name_de}"}
+                for p in self.all_projects
+                if p.id not in assigned_ids
+            ),
         ]
+
+    @rx.var
+    def quick_create_active(self) -> bool:
+        """True while the inline quick-create fields should be shown."""
+        return self.add_project_selected == NEW_PROJECT_VALUE
+
+    def set_add_project_selected(self, value: str) -> None:
+        """Store the selected project option."""
+        self.add_project_selected = value or ""
+
+    def set_quick_project_name(self, value: str) -> None:
+        """Store the typed name for the project to be quick-created."""
+        self.quick_project_name = value
+
+    def set_quick_project_code(self, value: str) -> None:
+        """Store the typed code for the project to be quick-created."""
+        self.quick_project_code = value
+
+    def _reset_quick_create(self) -> None:
+        """Clear the project selection and inline quick-create fields."""
+        self.add_project_selected = ""
+        self.quick_project_name = ""
+        self.quick_project_code = ""
+        self.is_quick_creating = False
 
     def open_add_project_modal(self) -> None:
         """Open the add-project-to-employee modal."""
+        self._reset_quick_create()
         self.add_project_modal_open = True
 
     def close_add_project_modal(self) -> None:
         """Close the add-project-to-employee modal."""
         self.add_project_modal_open = False
+        self._reset_quick_create()
 
     def open_add_modal(self) -> list[rx.event.EventSpec]:
         """Open the add employee modal."""
@@ -557,7 +596,12 @@ class TeamState(UserSession):
             yield rx.toast.error("Kein Mitarbeiter ausgewählt.", position="top-right")
             return
 
-        project_id_raw = form_data.get("project_id")
+        project_id_raw = self.add_project_selected
+        if project_id_raw == NEW_PROJECT_VALUE:
+            yield rx.toast.error(
+                "Bitte das neue Projekt zuerst anlegen.", position="top-right"
+            )
+            return
         if not project_id_raw:
             yield rx.toast.error("Bitte ein Projekt auswählen.", position="top-right")
             return
@@ -595,6 +639,34 @@ class TeamState(UserSession):
         except Exception as e:
             logger.error("Failed to assign project: %s", e)
             yield rx.toast.error(f"Fehler beim Zuweisen: {e}", position="top-right")
+
+    @is_authenticated
+    async def quick_create_project(self) -> AsyncGenerator[Any, None]:
+        """Create a project from the inline fields and select it."""
+        self.is_quick_creating = True
+        yield
+        try:
+            async with get_asyncdb_session() as session:
+                project = await create_quick_project(
+                    session, self.quick_project_name, self.quick_project_code
+                )
+                await session.commit()
+        except QuickProjectError as exc:
+            self.is_quick_creating = False
+            yield rx.toast.error(str(exc), position="top-right")
+            return
+        except Exception as exc:
+            logger.error("Failed to quick-create project: %s", exc)
+            self.is_quick_creating = False
+            yield rx.toast.error(f"Fehler: {exc}", position="top-right")
+            return
+
+        self.all_projects = [*self.all_projects, project]
+        self.add_project_selected = str(project.id)
+        self.quick_project_name = ""
+        self.quick_project_code = ""
+        self.is_quick_creating = False
+        yield rx.toast.info(f"Projekt '{project.code}' angelegt.", position="top-right")
 
     @is_authenticated
     async def remove_project_from_employee(

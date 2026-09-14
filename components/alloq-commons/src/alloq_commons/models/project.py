@@ -175,6 +175,31 @@ class CapacityAllocationUpdate(CapacityAllocationCreate):
     """Write model for updating a weekly allocation."""
 
 
+class ResourcePeriod(BaseModel):
+    """Consecutive weekly allocations of one employee in one project role."""
+
+    key: str = ""
+    employee_id: int = 0
+    employee_name: str = ""
+    role_id: int = 0
+    role_name: str = ""
+    start: str = ""
+    end: str = ""
+    days_per_week: float = 0.0
+    total_pt: float = 0.0
+
+
+class ResourceCandidate(BaseModel):
+    """Employee that can be planned for a role in a date range."""
+
+    employee_id: int = 0
+    name: str = ""
+    seniority: str = ""
+    avg_free_days: float = 0.0
+    conflict_weeks: int = 0
+    already_planned: bool = False
+
+
 class TeamMemberBadge(BaseModel):
     """Minimal read model for a team member badge in a project card."""
 

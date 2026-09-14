@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import reflex as rx
 from alloq_commons.components.formatters import de_number
-from alloq_commons.components.forms import section
+from alloq_commons.components.forms import quick_project_fields, section
 from alloq_commons.components.modal_layout import (
     MODAL_CLASS,
     modal_footer,
@@ -428,10 +428,24 @@ def _add_project_modal() -> rx.Component:
                         name="project_id",
                         label="Projekt",
                         data=PlanningStore.add_project_options,
+                        value=PlanningStore.add_project_selected,
+                        on_change=PlanningStore.set_add_project_selected,
                         required=True,
                         searchable=True,
                         clearable=True,
                         left_section=rx.icon("folder", size=16),
+                    ),
+                    rx.cond(
+                        PlanningStore.quick_create_active,
+                        quick_project_fields(
+                            name_value=PlanningStore.quick_project_name,
+                            on_name_change=PlanningStore.set_quick_project_name,
+                            code_value=PlanningStore.quick_project_code,
+                            on_code_change=PlanningStore.set_quick_project_code,
+                            on_create=PlanningStore.quick_create_project,
+                            loading=PlanningStore.is_quick_creating,
+                        ),
+                        rx.fragment(),
                     ),
                     mn.select(
                         name="role_id",

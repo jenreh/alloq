@@ -1,6 +1,6 @@
 import reflex as rx
 from alloq_commons.components.formatters import format_date_de
-from alloq_commons.components.forms import section
+from alloq_commons.components.forms import quick_project_fields, section
 from alloq_commons.components.modal_layout import (
     DRAWER_CLASS,
     MODAL_CLASS,
@@ -334,10 +334,24 @@ def add_project_modal() -> rx.Component:
                         name="project_id",
                         label="Projekt",
                         data=TeamState.unassigned_project_options,
+                        value=TeamState.add_project_selected,
+                        on_change=TeamState.set_add_project_selected,
                         required=True,
                         searchable=True,
                         clearable=True,
                         left_section=rx.icon("folder", size=16),
+                    ),
+                    rx.cond(
+                        TeamState.quick_create_active,
+                        quick_project_fields(
+                            name_value=TeamState.quick_project_name,
+                            on_name_change=TeamState.set_quick_project_name,
+                            code_value=TeamState.quick_project_code,
+                            on_code_change=TeamState.set_quick_project_code,
+                            on_create=TeamState.quick_create_project,
+                            loading=TeamState.is_quick_creating,
+                        ),
+                        rx.fragment(),
                     ),
                     mn.select(
                         name="role_id",
