@@ -1,13 +1,4 @@
----
-applyTo: "**"
-description: "Main instructions for the Alloq project - Reflex.dev based app for resource management and planning for software teams with comprehensive development workflow and architecture guidelines"
----
-
-# Alloq — Reflex.dev resource management & planning for software teams
-
-> **Stack:** Python 3.14 · Reflex.dev · FastAPI · SQLModel · Alembic · Pydantic · appkit_mantine
-
----
+# AGENTS.md
 
 ## 1) Golden Rules
 
@@ -21,7 +12,6 @@ description: "Main instructions for the Alloq project - Reflex.dev based app for
 8. No `--autogenerate` for Alembic migrations; write manually.
 9. No `cat` to create files; use tools.
 10. Log default: `logger.debug`. Important events: `logger.info`. Issues only: `logger.warning/error`. **No `print`.**
-11. **Caveman skill** applies to all writes here.
 
 > Prefer *local* changes over cross-module refactors.
 
@@ -95,54 +85,34 @@ Prefer official docs; widen via web search for cross-version issues.
   # log.info(f"Loaded items: {count}") # ❌
   ```
 
+- After every code change, run `task lint` — not just at PR time.
+
 ### Quality Gates
 
-- `task lint`, `task format`.
+- `task lint`, `task format`, `task typecheck`.
 - `task test` — coverage ≥ **80%** non-Reflex classes & Reflex states.
 
-### Commit & PR
-
-- Conventional Commits (`feat:`, `fix:`, `refactor:`…).
-- PR: description, `Closes #123`, UI screenshots, migration rationale.
-
 ### Learn → write to **Memory**
+
+### Dependencies
+
+- add dependencies always be using `uv add <library name>`
 
 ---
 
 ## 5) Python Code & Testing
 
-Full rules in **writing-python-code** skill. Key:
+Full rules in **python-coding** skill. Key:
 
 - Python 3.14; uv; line length **88**.
 - No f-strings in logger calls.
-- Files ≤ 1000 lines.
-- Coverage ≥ 80% non-Reflex classes & State classes.
-- Type annotations on all functions/methods.
+- Files **≤ 1000 lines**.
+- Test coverage ≥ 80%.
+- Type annotations on **all** functions/methods.
 
 ---
 
-## 6) Reflex Best Practices
-
-Full rules in **reflex-state-and-architecture** skill. Appkit-specific:
-
-- **Substates & Mixins:** State vars on main class; methods split by concern in mixins.
-- **Background Task Chaining:** Yield class method ref: `yield MyState.background_task`.
-- **rx.cond operators:** `&` and `|`, not `and`/`or`.
-- **DB Access:** No `rx.session()` in background/callbacks/utils. Use `appkit_commons.database.session_manager.get_session_manager().session()`.
-
----
-
-## 7) appkit_mantine Components
-
-Full API in **appkit-mantine-reference** skill. Rules:
-
-- `import appkit_mantine as mn` — Mantine 9.2.0.
-- Never redeclare inherited props — `MantineComponentBase` → `MantineLayoutComponentBase` → `MantineInputComponentBase` provide ~40 common props.
-- `MantineProvider` auto-injected at priority 44 — no manual wrap.
-
----
-
-## 8) Security & Config
+## 6) Security & Config
 
 - No credentials in code/history; `.env` local, Key Vault prod.
 - Non-secret YAML; env `__` override pattern.
@@ -152,7 +122,7 @@ Full API in **appkit-mantine-reference** skill. Rules:
 
 ---
 
-## 9) Search SOPs
+## 7) Search SOPs
 
 - **Context7 first** for framework truths; cite in Memory.
 - **DuckDuckGo** for cross-version issues; prefer official docs.
@@ -160,25 +130,37 @@ Full API in **appkit-mantine-reference** skill. Rules:
 
 ---
 
-## 10) Pre‑PR Checklist
+## 8) Task Checklist / Definition of Done
 
 - [ ] Tests added/updated; all green
-- [ ] Coverage ≥ 80% non-Reflex classes & Reflex states
-- [ ] `task format && task lint` pass
+- [ ] Coverage ≥ 80%
+- [ ] `task format && task lint && task typecheck` pass
 - [ ] No file > 1000 lines
-- [ ] Design patterns applied
+- [ ] Clean architecture, no code smells, used python-clean-code principles
 - [ ] Migrations reviewed & documented
-- [ ] Memory updated (decisions, patterns, error→fix)
-- [ ] PR description complete; links/screenshots added
+- [ ] Documentation & README.md updated
+- [ ] Memory updated (decisions, patterns, error→fix, learnings)
 
 ---
 
-## 11) Skills
+## 9) Skills
 
 | Skill | Purpose |
 | --- | --- |
-| `writing-python-code` | Python 3.14 style, logging, type annotations, design patterns, testing |
+| `python-coding` | Python 3.14 style, logging, type annotations, design patterns, testing |
+| `python-clean-code` | Enforce Clean Code Developer (CCD) architecture and software quality principles |
+| `code-cleanup` | Refactor and simplify Python files modified in the current session if they get complex/big |
+| `boost` | Use when the user wants to refine, sharpen, or expand a rough idea into a detailed implementation prompt |
+
+| Skill | Purpose |
+| --- | --- |
+| `python-coding` | Python 3.14 style, logging, type annotations, design patterns, testing |
+| `python-clean-code` | Enforce Clean Code Developer (CCD) architecture and software quality principles |
+| `code-cleanup` | Refactor and simplify Python files modified in the current session if they get complex/big |
+| `boost` | Use when the user wants to refine, sharpen, or expand a rough idea into a detailed implementation prompt |
 | `reflex-state-and-architecture` | State design, event handlers, background tasks, form validation, page factory, service registry, repo pattern, DB models, architecture |
+| `reflex-testing-state` | Pytest unit tests for Reflex State — event handlers, computed vars, substates |
+| `reflex-docs` | Reflex.dev framework documentation |
+| `frontend-design` | Create distinctive, production-grade frontend interfaces |
 | `appkit-mantine-reference` | Full API for appkit_mantine components — inputs, layout, overlays, charts, data display, navigation |
-| `testing-reflex-state` | Pytest unit tests for Reflex State — event handlers, computed vars, substates |
-| `multi-stage-dockerfile` | Optimized multi-stage Dockerfiles, layer caching, security, healthchecks |
+| `appkit-commons` | app configuration, service registry, DB repository pattern, DB entities, DB custom column types, scheduler |

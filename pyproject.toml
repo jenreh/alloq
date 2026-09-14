@@ -15,7 +15,7 @@ dependencies = [
     "appkit-commons==1.14.0",
     "appkit-ui==1.14.0",
     "psycopg[binary,pool]==3.3.5",
-    "reflex==0.9.10.post2",
+    "reflex==0.9.11",
 ]
 
 [dependency-groups]
@@ -23,12 +23,12 @@ dev = [
     "aiosqlite==0.22.1",
     "bump-my-version==1.5.1",
     "detect-secrets==1.5.0",
-    "faker==40.38.0",
+    "faker==40.39.0",
     "pre-commit==4.6.2",
     "pytest_asyncio==1.4.0",
     "pytest-cov==7.1.0",
     "pytest==9.1.1",
-    "ruff==0.16.6",
+    "ruff==0.16.7",
 ]
 
 [tool.setuptools.packages.find]
