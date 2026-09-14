@@ -1,4 +1,4 @@
-exclude: '^\.github/skills/'
+exclude: '^(\.agent/skills/|reflex\.lock/)'
 default_install_hook_types:
   - pre-commit
   - post-checkout
