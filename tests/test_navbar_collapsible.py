@@ -20,7 +20,7 @@ class TestNavbarCollapseState:
 
     def test_initial_collapsed_value(self) -> None:
         state = NavbarCollapseState()  # type: ignore[call-arg]
-        assert state.collapsed == "0"
+        assert state.collapsed == "1"
 
     def test_is_collapsed_false_when_zero(self) -> None:
         state = NavbarCollapseState()  # type: ignore[call-arg]

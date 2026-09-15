@@ -55,6 +55,64 @@ class TestProjectState:
         assert len(result) == 1
         assert result[0].code == "RISK"
 
+    def test_view_mode_defaults_to_grid(self) -> None:
+        state = ProjectState()  # type: ignore[call-arg]
+        assert state.view_mode == "grid"
+
+    def test_set_view_mode_accepts_known_modes(self) -> None:
+        state = ProjectState()  # type: ignore[call-arg]
+        state.set_view_mode("table")
+        assert state.view_mode == "table"
+        state.set_view_mode("grid")
+        assert state.view_mode == "grid"
+
+    def test_set_view_mode_ignores_unknown_mode(self) -> None:
+        state = ProjectState()  # type: ignore[call-arg]
+        state.set_view_mode("table")
+        state.set_view_mode("kanban")
+        assert state.view_mode == "table"
+
+    def test_sort_defaults(self) -> None:
+        state = ProjectState()  # type: ignore[call-arg]
+        assert state.sort_column == "name"
+        assert state.sort_desc is False
+
+    def test_toggle_sort_same_column_flips_direction(self) -> None:
+        state = ProjectState()  # type: ignore[call-arg]
+        state.toggle_sort("name")
+        assert state.sort_column == "name"
+        assert state.sort_desc is True
+        state.toggle_sort("name")
+        assert state.sort_desc is False
+
+    def test_toggle_sort_new_column_resets_ascending(self) -> None:
+        state = ProjectState()  # type: ignore[call-arg]
+        state.toggle_sort("name")
+        state.toggle_sort("budget")
+        assert state.sort_column == "budget"
+        assert state.sort_desc is False
+
+    def test_toggle_sort_ignores_unknown_column(self) -> None:
+        state = ProjectState()  # type: ignore[call-arg]
+        state.toggle_sort("bogus")
+        assert state.sort_column == "name"
+        assert state.sort_desc is False
+
+    def test_my_and_other_projects_follow_sort_order(self) -> None:
+        state = ProjectState()  # type: ignore[call-arg]
+        state.current_employee_id = 7
+        state.projects = [
+            Project(code="M1", name_de="Mine A", budget=100, owner_ids=[7]),
+            Project(code="O1", name_de="Other A", budget=300),
+            Project(code="M2", name_de="Mine B", budget=200, owner_ids=[7]),
+            Project(code="O2", name_de="Other B", budget=50),
+        ]
+        state.toggle_sort("budget")
+        state.toggle_sort("budget")
+
+        assert [p.code for p in state.my_projects] == ["M2", "M1"]
+        assert [p.code for p in state.other_projects] == ["O1", "O2"]
+
 
 class TestProjectValidationState:
     """Tests for project validation state."""

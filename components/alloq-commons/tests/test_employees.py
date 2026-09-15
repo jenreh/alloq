@@ -6,15 +6,15 @@ import pytest
 from alloq_commons.entities.absence import AbsenceEntity
 from alloq_commons.entities.employee import EmployeeEntity, SeniorityLevel
 from alloq_commons.entities.role import RoleEntity
-from alloq_commons.repositories.absence_repository import AbsenceRepository
-from alloq_commons.repositories.employee_repository import EmployeeRepository
-from alloq_team.models.employee import (
+from alloq_commons.models.employee import (
     Absence,
     AbsenceCreate,
     Employee,
     EmployeeCreate,
     EmployeeUpdate,
 )
+from alloq_commons.repositories.absence_repository import AbsenceRepository
+from alloq_commons.repositories.employee_repository import EmployeeRepository
 from alloq_team.states.team_state import TeamState
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -158,6 +158,17 @@ class TestTeamState:
             (2, "Anna", "Alpha"),
             (1, "Clara", "Beta"),
         ]
+
+    def test_view_mode_defaults_to_grid(self) -> None:
+        state = TeamState()  # type: ignore[call-arg]
+        assert state.view_mode == "grid"
+
+    def test_set_view_mode_switches_and_ignores_unknown(self) -> None:
+        state = TeamState()  # type: ignore[call-arg]
+        state.set_view_mode("table")
+        assert state.view_mode == "table"
+        state.set_view_mode("kanban")
+        assert state.view_mode == "table"
 
 
 class TestEmployeeCreateModel:

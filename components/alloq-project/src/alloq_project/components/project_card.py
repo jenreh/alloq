@@ -8,7 +8,7 @@ from appkit_ui.components.dialogs import delete_dialog
 from appkit_ui.global_states import LoadingState
 
 
-def _status_color(state: rx.Var[str]) -> rx.Var[str]:
+def status_color(state: rx.Var[str]) -> rx.Var[str]:
     """Return the project status badge color."""
     return rx.match(
         state,
@@ -20,7 +20,7 @@ def _status_color(state: rx.Var[str]) -> rx.Var[str]:
     )
 
 
-def _project_initials(project: Project) -> rx.Component:
+def project_initials(project: Project) -> rx.Component:
     """Render project customer avatar."""
     customer_display = rx.cond(project.customer != "", project.customer, project.code)
     return mn.avatar(
@@ -45,7 +45,7 @@ def _metric(label: str, value: str | rx.Var | rx.Component) -> rx.Component:
     )
 
 
-def _team_initial(member: TeamMemberBadge) -> rx.Component:
+def team_initial(member: TeamMemberBadge) -> rx.Component:
     """Render one team member initial badge with a tooltip showing the full name."""
     return mn.tooltip(
         mn.avatar(
@@ -64,7 +64,7 @@ def project_card(project: Project) -> rx.Component:
         mn.card(
             mn.stack(
                 mn.group(
-                    _project_initials(project),
+                    project_initials(project),
                     mn.stack(
                         mn.group(
                             mn.text(
@@ -78,7 +78,7 @@ def project_card(project: Project) -> rx.Component:
                             mn.group(
                                 mn.badge(
                                     project.state,
-                                    color=_status_color(project.state),
+                                    color=status_color(project.state),
                                     variant="light",
                                     radius="xl",
                                     size="md",
@@ -175,7 +175,7 @@ def project_card(project: Project) -> rx.Component:
                         rx.cond(
                             project.team_initials.length() > 0,
                             mn.avatar.group(
-                                rx.foreach(project.team_members, _team_initial),
+                                rx.foreach(project.team_members, team_initial),
                             ),
                         ),
                         mn.text(

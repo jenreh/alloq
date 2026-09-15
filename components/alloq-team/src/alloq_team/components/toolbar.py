@@ -1,30 +1,8 @@
 import reflex as rx
+from alloq_commons.components.view_mode_toggle import view_mode_toggle
 from alloq_team.states.team_state import TeamState
 
 import appkit_mantine as mn
-
-
-def view_mode_toggle() -> rx.Component:
-    """Toggle between grid and table view."""
-    return mn.group(
-        mn.action_icon(
-            rx.icon("layout-grid", size=20),
-            variant=rx.cond(TeamState.view_mode == "grid", "filled", "subtle"),
-            auto_contrast=True,
-            size="lg",
-            radius="md",
-            on_click=lambda: TeamState.set_view_mode("grid"),
-        ),
-        mn.action_icon(
-            rx.icon("list", size=20),
-            variant=rx.cond(TeamState.view_mode == "table", "filled", "subtle"),
-            auto_contrast=True,
-            size="lg",
-            radius="md",
-            on_click=lambda: TeamState.set_view_mode("table"),
-        ),
-        gap="2px",
-    )
 
 
 def add_employee_button() -> rx.Component:
@@ -69,7 +47,7 @@ def team_toolbar() -> rx.Component:
         employee_search_bar(),
         add_employee_button(),
         mn.space(w="xs"),
-        view_mode_toggle(),
+        view_mode_toggle(TeamState.view_mode, TeamState.set_view_mode),
         width="auto",
         gap="12px",
         align="center",

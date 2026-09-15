@@ -1,13 +1,16 @@
 import reflex as rx
 from alloq_commons.components.modal_layout import DRAWER_CLASS, MODAL_CLASS
+from alloq_commons.models.view_mode import VIEW_MODE_GRID
 from alloq_project.components.project_card import project_card
 from alloq_project.components.project_form import (
     form_footer,
     form_layout,
     project_form_fields,
 )
+from alloq_project.components.project_resource_tab import ressourcen_tab
 from alloq_project.components.project_risk_tab import risiken_tab
 from alloq_project.components.project_status_tab import status_tab
+from alloq_project.components.project_table import project_table
 from alloq_project.states.project_state import ProjectState, ProjectValidationState
 
 import appkit_mantine as mn
@@ -42,13 +45,14 @@ def add_project_modal() -> rx.Component:
 
 
 def project_detail_drawer() -> rx.Component:
-    """Right-side drawer with Status, Risiken, Daten tabs."""
+    """Right-side drawer with Status, Ressourcen, Risiken, Daten tabs."""
     return mn.drawer(
         rx.flex(
             rx.box(
                 mn.segmented_control(
                     data=[
                         {"value": "status", "label": "Status"},
+                        {"value": "ressourcen", "label": "Ressourcen"},
                         {"value": "risiken", "label": "Risiken"},
                         {"value": "daten", "label": "Daten"},
                     ],
@@ -60,7 +64,7 @@ def project_detail_drawer() -> rx.Component:
                     radius="md",
                     bg="var(--alloq-surface-solid)",
                     style={"flexShrink": "0"},
-                    w="50%",
+                    w="66%",
                 ),
                 padding="9px 18px",
                 # border_bottom="1px solid var(--alloq-border)",
@@ -70,28 +74,29 @@ def project_detail_drawer() -> rx.Component:
                 width="100%",
                 flex_shrink="0",
             ),
-            rx.cond(
-                ProjectState.active_tab == "daten",
-                form_layout(
-                    content=mn.flex(
-                        project_form_fields(),
-                        mn.space(height="1.5rem"),
-                        direction="column",
-                        width="100%",
-                        key=ProjectValidationState.form_version.to(str),
+            rx.match(
+                ProjectState.active_tab,
+                (
+                    "daten",
+                    form_layout(
+                        content=mn.flex(
+                            project_form_fields(),
+                            mn.space(height="1.5rem"),
+                            direction="column",
+                            width="100%",
+                            key=ProjectValidationState.form_version.to(str),
+                        ),
+                        footer=form_footer(
+                            "Projekt aktualisieren",
+                            ProjectState.close_detail_drawer,
+                            disabled=ProjectValidationState.is_form_invalid,
+                        ),
+                        on_submit=ProjectState.update_project,
                     ),
-                    footer=form_footer(
-                        "Projekt aktualisieren",
-                        ProjectState.close_detail_drawer,
-                        disabled=ProjectValidationState.is_form_invalid,
-                    ),
-                    on_submit=ProjectState.update_project,
                 ),
-                rx.cond(
-                    ProjectState.active_tab == "status",
-                    status_tab(),
-                    risiken_tab(),
-                ),
+                ("status", status_tab()),
+                ("ressourcen", ressourcen_tab()),
+                risiken_tab(),
             ),
             direction="column",
             gap="md",
@@ -215,7 +220,11 @@ def project_overview() -> rx.Component:
     return mn.stack(
         add_project_modal(),
         project_detail_drawer(),
-        project_grid(),
+        rx.cond(
+            ProjectState.view_mode == VIEW_MODE_GRID,
+            project_grid(),
+            project_table(_no_projects_state()),
+        ),
         gap="md",
         width="100%",
     )

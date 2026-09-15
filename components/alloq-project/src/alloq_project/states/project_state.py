@@ -21,6 +21,7 @@ from alloq_commons.models.project import (
     RiskMatrixCell,
 )
 from alloq_commons.models.role import Role
+from alloq_commons.models.view_mode import VIEW_MODE_GRID, VIEW_MODES
 from alloq_commons.repositories import (
     capacity_allocation_repo,
     capacity_repo,
@@ -33,6 +34,11 @@ from alloq_commons.repositories import (
     status_repo,
 )
 from alloq_project.services.forecast import EVForecastService, EVSummary
+from alloq_project.services.project_sorting import (
+    DEFAULT_SORT_COLUMN,
+    SORT_COLUMNS,
+    sort_projects,
+)
 
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_ui.global_states import LoadingState
@@ -131,7 +137,9 @@ class ProjectState(UserSession):
 
     search_filter: str = ""
     status_filter: str = "all"
-    view_mode: str = "grid"
+    view_mode: str = rx.LocalStorage(VIEW_MODE_GRID, name="alloq_projects_view_mode")
+    sort_column: str = DEFAULT_SORT_COLUMN
+    sort_desc: bool = False
 
     @rx.var(cache=False)
     def current_date(self) -> str:
@@ -147,8 +155,16 @@ class ProjectState(UserSession):
         self.status_filter = value or "all"
 
     def set_view_mode(self, mode: str) -> None:
-        """Set view mode. Currently only grid is rendered."""
-        self.view_mode = mode
+        """Switch between grid and table view; unknown modes are ignored."""
+        if mode in VIEW_MODES:
+            self.view_mode = mode
+
+    def toggle_sort(self, column: str) -> None:
+        """Sort by column; clicking the active column flips the direction."""
+        if column not in SORT_COLUMNS:
+            return
+        self.sort_desc = column == self.sort_column and not self.sort_desc
+        self.sort_column = column
 
     @rx.var
     def filtered_projects(self) -> list[Project]:
@@ -171,7 +187,7 @@ class ProjectState(UserSession):
                 project for project in projects if project.state == self.status_filter
             ]
 
-        return projects
+        return sort_projects(projects, self.sort_column, self.sort_desc)
 
     @rx.var
     def my_projects(self) -> list[Project]:

@@ -1,5 +1,11 @@
 import reflex as rx
 from alloq_commons.components.formatters import de_number
+from alloq_commons.components.table_styles import (
+    NO_WRAP_CELL_STYLE,
+    TABLE_HEADER_STYLE,
+    TABLE_STYLE,
+    TABLE_WRAPPER_STYLE,
+)
 from alloq_commons.models.employee import Employee
 from alloq_team.components.employee_card import (
     _employee_initials,
@@ -8,36 +14,9 @@ from alloq_team.states.team_state import TeamState
 
 import appkit_mantine as mn
 from appkit_ui.components.dialogs import delete_dialog
-from appkit_ui.styles import sticky_header_style
 
 HIGH_WORKLOAD_PERCENT = 75
 WORKLOAD_LIMIT_PERCENT = 100
-
-TABLE_HEADER_STYLE = {
-    **sticky_header_style,
-    "backgroundColor": "var(--alloq-surface-solid)",
-}
-
-TABLE_STYLE = {
-    "borderCollapse": "collapse",
-    "borderSpacing": "0",
-    "margin": "0",
-    "width": "100%",
-    "tableLayout": "fixed",
-}
-
-TABLE_WRAPPER_STYLE = {
-    "backgroundColor": "var(--alloq-fade-bg)",
-    "borderRadius": "var(--mantine-radius-sm)",
-    "margin": "0",
-    "overflowX": "auto",
-    "overflowY": "hidden",
-    "padding": "0",
-}
-
-NO_WRAP_CELL_STYLE = {
-    "whiteSpace": "nowrap",
-}
 
 
 def _workload_color(workload_percent: int) -> str:

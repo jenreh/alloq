@@ -167,12 +167,38 @@ class CapacityAllocationRepository(
         await session.flush()
         return result.rowcount > 0
 
+    async def delete_for_project_employee_in_range(
+        self,
+        session: AsyncSession,
+        project_id: int,
+        employee_id: int,
+        start: date,
+        end: date,
+        *,
+        role_id: int | None = None,
+    ) -> int:
+        """Delete a pair's rows with week_start in [start, end], optionally by role."""
+        conditions = [
+            CapacityAllocationEntity.project_id == project_id,
+            CapacityAllocationEntity.employee_id == employee_id,
+            CapacityAllocationEntity.week_start >= start,
+            CapacityAllocationEntity.week_start <= end,
+        ]
+        if role_id is not None:
+            conditions.append(CapacityAllocationEntity.role_id == role_id)
+        result = await session.execute(
+            delete(CapacityAllocationEntity).where(and_(*conditions))
+        )
+        await session.flush()
+        return result.rowcount
+
     async def upsert_cell(
         self,
         session: AsyncSession,
         project_id: int,
         employee_id: int,
         role_id: int,
+        *,
         week_start: date,
         person_days: float,
     ) -> CapacityAllocationEntity:

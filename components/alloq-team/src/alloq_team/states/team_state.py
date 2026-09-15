@@ -15,6 +15,7 @@ from alloq_commons.models.employee import (
 )
 from alloq_commons.models.project import Capacity, Project
 from alloq_commons.models.role import Role
+from alloq_commons.models.view_mode import VIEW_MODE_GRID, VIEW_MODES
 from alloq_commons.repositories.absence_repository import absence_repo
 from alloq_commons.repositories.capacity_repository import capacity_repo
 from alloq_commons.repositories.employee_repository import employee_repo
@@ -54,7 +55,7 @@ class TeamState(UserSession):
     absence_date_range: list[str] = []
 
     search_filter: str = ""
-    view_mode: str = "grid"
+    view_mode: str = rx.LocalStorage(VIEW_MODE_GRID, name="alloq_team_view_mode")
     expanded_sections: list[str] = []
 
     all_projects: list[Project] = []
@@ -88,8 +89,9 @@ class TeamState(UserSession):
         self.search_filter = value
 
     def set_view_mode(self, mode: str) -> None:
-        """Switch between grid and table view."""
-        self.view_mode = mode
+        """Switch between grid and table view; unknown modes are ignored."""
+        if mode in VIEW_MODES:
+            self.view_mode = mode
 
     @rx.var
     def filtered_employees(self) -> list[Employee]:

@@ -1,4 +1,5 @@
 import reflex as rx
+from alloq_commons.components.view_mode_toggle import view_mode_toggle
 from alloq_project.states.project_state import ProjectState
 
 import appkit_mantine as mn
@@ -65,6 +66,8 @@ def project_toolbar() -> rx.Component:
         project_search_bar(),
         project_status_filter(),
         add_project_button(),
+        mn.space(w="xs"),
+        view_mode_toggle(ProjectState.view_mode, ProjectState.set_view_mode),
         width="auto",
         gap="12px",
         align="center",
