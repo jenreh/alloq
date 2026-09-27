@@ -1,11 +1,12 @@
-"""Single source of truth for planning data, edit state, and views.
+"""Single source of truth for planning data and views.
 
 Allocations live once in `cells` keyed canonically by
 ``"{employee_id}|{project_code}|{week_key}"``. The two pivots — employee
 blocks (Grid view) and project blocks (Project view) — are computed views of
-the same store. Edits flow through the editor handlers, which update the
-canonical map and mark keys dirty; both pivots reflect changes atomically.
-No cross-state sync is needed.
+the same store. Selection, navigation and in-cell editing run client-side in
+the ``GridController`` component, which sends committed batches to
+``apply_cell_changes``; dirtiness is tracked against the last loaded/saved
+snapshot.
 """
 
 from __future__ import annotations
@@ -33,581 +34,72 @@ from alloq_commons.services.quick_project import (
     QuickProjectError,
     create_quick_project,
 )
-from alloq_commons.services.utilization import (
-    UtilizationAllocationInput,
-    UtilizationService,
+from alloq_commons.services.utilization import UtilizationService
+from alloq_project.services.planning_builders import (
+    ROLE_PALETTE,
+    CapAssignment,
+    anchor_date,
+    build_employee_meta,
+    build_project_meta,
+    build_weeks,
+    cell_key,
+    compute_gesamt,
+    compute_heat,
+    compute_project_gesamt,
+    compute_project_heat,
+    dirty_keys_for,
+    ingest_allocations,
+    parse_cell_changes,
+    role_short,
+    sorted_projects,
+    week_key_for_date,
+    wire_pairs,
 )
-from pydantic import BaseModel
+from alloq_project.states.planning_models import (
+    LABEL_COL_PX,
+    TIME_RANGE_WEEKS,
+    WEEK_COL_PX,
+    AbsenceRow,
+    EmployeeAllocationRow,
+    EmployeeBlock,
+    GesamtCell,
+    GridCell,
+    HeatCell,
+    MonthSpan,
+    ProjectAllocationRow,
+    ProjectBlock,
+    ProjectGesamtCell,
+    RoleBadge,
+    WeekColumn,
+)
 
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_user.authentication.states import UserSession
 
 log = logging.getLogger(__name__)
 
-
-# === Constants ===
-
-LABEL_COL_PX: int = 300
-WEEK_COL_PX: int = 60
-_WORK_DAYS_PER_WEEK: int = 5
-WEEKS_BEFORE_CURRENT = 1
-TIME_RANGE_WEEKS: dict[str, int] = {
-    "3 Monate": 13,
-    "6 Monate": 26,
-    "12 Monate": 52,
-}
-
-
-def _anchor_date() -> datetime.date:
-    """Rolling anchor: Monday of (current week - WEEKS_BEFORE_CURRENT)."""
-    today = datetime.date.today()  # noqa: DTZ011
-    monday = today - datetime.timedelta(days=today.weekday())
-    return monday - datetime.timedelta(weeks=WEEKS_BEFORE_CURRENT)
-
-
-def _sorted_projects(projects: list[Project]) -> list[Project]:
-    """Sort projects by display name, case-insensitive."""
-    return sorted(projects, key=lambda p: (p.name_de or p.code).lower())
-
-
-GERMAN_MONTHS = [
-    "Jan",
-    "Feb",
-    "Mär",
-    "Apr",
-    "Mai",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Okt",
-    "Nov",
-    "Dez",
+__all__ = [
+    "LABEL_COL_PX",
+    "WEEK_COL_PX",
+    "EmployeeAllocationRow",
+    "EmployeeBlock",
+    "GesamtCell",
+    "GridCell",
+    "HeatCell",
+    "MonthSpan",
+    "PlanningStore",
+    "ProjectAllocationRow",
+    "ProjectBlock",
+    "ProjectGesamtCell",
+    "WeekColumn",
 ]
 
-ROLE_PALETTE: dict[str, str] = {
-    "PM": "var(--mantine-color-violet-1)",
-    "AIA": "var(--mantine-color-orange-1)",
-    "DS": "var(--mantine-color-blue-1)",
-    "AIE": "var(--mantine-color-teal-1)",
-    "RE": "var(--mantine-color-pink-1)",
-}
+GRID_VIEW = "Grid"
+PROJECT_VIEW = "Projekte"
+HEATMAP_VIEW = "Heatmap"
 
-ROLE_FULL: dict[str, str] = {
-    "PM": "Project Manager",
-    "AIA": "AI Architect",
-    "DS": "Data Scientist",
-    "AIE": "AI Engineer",
-    "RE": "Requirements Engineer",
-}
 
-
-# === Models ===
-
-
-class WeekColumn(BaseModel):
-    key: str
-    label: str
-    week_no: int = 0
-    month_label: str
-    work_days: float
-
-
-class MonthSpan(BaseModel):
-    label: str
-    span: int
-
-
-class GridCell(BaseModel):
-    key: str = ""
-    week_key: str
-    value: float
-    is_dirty: bool = False
-
-
-class GesamtCell(BaseModel):
-    week_key: str
-    value: float
-    bucket: str
-
-
-class HeatCell(BaseModel):
-    week_key: str
-    percent: int
-    is_absent: bool = False
-    bucket: str = "low"
-
-
-class ProjectAllocationRow(BaseModel):
-    project_id: str
-    real_project_id: int = 0
-    emp_id: str = ""
-    code: str
-    name: str
-    color: str
-    role_name: str = ""
-    role_short: str = ""
-    role_color: str = ""
-    cells: list[GridCell] = []
-
-
-class AbsenceRow(BaseModel):
-    cells: list[GridCell] = []
-
-
-class RoleBadge(BaseModel):
-    code: str
-    full: str
-    color: str
-
-
-class EmployeeBlock(BaseModel):
-    id: str
-    real_id: int = 0
-    name: str
-    initials: str
-    job_title: str = ""
-    role: str
-    role_color: str
-    role_full: str = ""
-    roles: list[RoleBadge] = []
-    role_ids: list[int] = []
-    projects: list[ProjectAllocationRow] = []
-    absence: AbsenceRow
-    internal: AbsenceRow = AbsenceRow(cells=[])
-    internal_days: float = 0.5
-    hours_per_week: float = 40.0
-    workload_percent: int = 100
-    gesamt: list[GesamtCell] = []
-    heat: list[HeatCell] = []
-
-
-class EmployeeAllocationRow(BaseModel):
-    emp_id: str = ""
-    real_id: int = 0
-    name: str = ""
-    role_name: str = ""
-    role_short: str = ""
-    role_color: str = ""
-    cells: list[GridCell] = []
-
-
-class ProjectGesamtCell(BaseModel):
-    week_key: str = ""
-    allocated: float = 0.0
-    bucket: str = "low"
-
-
-class ProjectBlock(BaseModel):
-    id: str = ""
-    real_id: int = 0
-    code: str = ""
-    name: str = ""
-    color: str = ""
-    state: str = ""
-    employees: list[EmployeeAllocationRow] = []
-    gesamt: list[ProjectGesamtCell] = []
-    heat: list[HeatCell] = []
-
-
-class _CapAssignment:
-    """Lightweight transport for CapacityEntity rows (avoids detached ORM)."""
-
-    __slots__ = ("employee_id", "project_id", "role_id", "role_name")
-
-    def __init__(
-        self, employee_id: int, project_id: int, role_id: int | None, role_name: str
-    ) -> None:
-        self.employee_id = employee_id
-        self.project_id = project_id
-        self.role_id = role_id
-        self.role_name = role_name
-
-
-# === Pure helpers ===
-
-
-def _heat_bucket(percent: int) -> str:
-    return UtilizationService.heat_bucket(percent)
-
-
-def _gesamt_bucket(value: float) -> str:
-    return UtilizationService.gesamt_bucket(value)
-
-
-def _project_heat_bucket(allocated: float) -> str:
-    return UtilizationService.project_heat_bucket(allocated)
-
-
-def _build_weeks(
-    num_weeks: int,
-    holiday_dates: set[datetime.date] | None = None,
-) -> tuple[list[WeekColumn], list[MonthSpan]]:
-    holidays = holiday_dates or set()
-    weeks: list[WeekColumn] = []
-    anchor = _anchor_date()
-    for i in range(num_weeks):
-        d = anchor + datetime.timedelta(days=7 * i)
-        work_days = UtilizationService.work_days_for_week(
-            d, holidays, workload_percent=100, base_work_days=float(_WORK_DAYS_PER_WEEK)
-        )
-        weeks.append(
-            WeekColumn(
-                key=f"{d.year}_{d.month:02d}_{d.day:02d}",
-                label=f"{d.day}.{d.month}.",
-                week_no=d.isocalendar().week,
-                month_label=f"{GERMAN_MONTHS[d.month - 1]} {d.year % 100}",
-                work_days=work_days,
-            )
-        )
-    spans: list[MonthSpan] = []
-    for w in weeks:
-        if spans and spans[-1].label == w.month_label:
-            spans[-1].span += 1
-        else:
-            spans.append(MonthSpan(label=w.month_label, span=1))
-    return weeks, spans
-
-
-def _week_key_for_date(d: datetime.date) -> str:
-    return f"{d.year}_{d.month:02d}_{d.day:02d}"
-
-
-def _role_short(name: str) -> str:
-    if not name:
-        return "—"
-    words = name.split()
-    if len(words) >= 2:  # noqa: PLR2004
-        return "".join(w[0] for w in words[:3]).upper()
-    return name[:3].upper()
-
-
-def _absence_days_for_week(absences: list, week_start: datetime.date) -> float:
-    week_end = week_start + datetime.timedelta(days=4)
-    total = 0.0
-    for a in absences:
-        if not (a.start_date and a.end_date):
-            continue
-        overlap_start = max(a.start_date, week_start)
-        overlap_end = min(a.end_date, week_end)
-        if overlap_start > overlap_end:
-            continue
-        day = overlap_start
-        while day <= overlap_end:
-            if day.weekday() < _WORK_DAYS_PER_WEEK:
-                total += 1.0
-            day += datetime.timedelta(days=1)
-    return total
-
-
-def _format_de(value: float) -> str:
-    if value == int(value):
-        return f"{int(value)}"
-    return f"{value:.2f}".replace(".", ",")
-
-
-def _parse_de(text: str) -> float | None:
-    s = text.strip()
-    if not s:
-        return 0.0
-    s = s.replace(",", ".")
-    try:
-        v = float(s)
-    except ValueError:
-        return None
-    if v < 0:
-        return None
-    return v
-
-
-def _ck(emp_id: str, proj_code: str, wk_key: str) -> str:
-    """Canonical cell key."""
-    return f"{emp_id}|{proj_code}|{wk_key}"
-
-
-def _scaled_work_days(week: WeekColumn, workload_percent: int) -> float:
-    """Apply workload percentage to a week's holiday-adjusted work days."""
-    return UtilizationService.apply_workload(week.work_days, workload_percent)
-
-
-def _compute_gesamt(weeks: list[WeekColumn], block: EmployeeBlock) -> list[GesamtCell]:
-    cells: list[GesamtCell] = []
-    for idx, week in enumerate(weeks):
-        used = sum(p.cells[idx].value for p in block.projects)
-        absence = block.absence.cells[idx].value if block.absence.cells else 0.0
-        internal = block.internal.cells[idx].value if block.internal.cells else 0.0
-        result = UtilizationService.compute_employee_gesamt(
-            used_days=used,
-            absence_days=absence,
-            internal_days=internal,
-            work_days=_scaled_work_days(week, block.workload_percent),
-        )
-        cells.append(
-            GesamtCell(week_key=week.key, value=result.free_days, bucket=result.bucket)
-        )
-    return cells
-
-
-def _compute_heat(weeks: list[WeekColumn], block: EmployeeBlock) -> list[HeatCell]:
-    cells: list[HeatCell] = []
-    for idx, week in enumerate(weeks):
-        used = sum(p.cells[idx].value for p in block.projects)
-        absence = block.absence.cells[idx].value if block.absence.cells else 0.0
-        internal = block.internal.cells[idx].value if block.internal.cells else 0.0
-        result = UtilizationService.compute_employee_heat(
-            used_days=used,
-            absence_days=absence,
-            internal_days=internal,
-            work_days=_scaled_work_days(week, block.workload_percent),
-        )
-        cells.append(
-            HeatCell(
-                week_key=week.key,
-                percent=result.percent,
-                is_absent=result.is_absent,
-                bucket=result.bucket,
-            )
-        )
-    return cells
-
-
-def _compute_project_gesamt(
-    weeks: list[WeekColumn], block: ProjectBlock
-) -> list[ProjectGesamtCell]:
-    cells: list[ProjectGesamtCell] = []
-    for idx, week in enumerate(weeks):
-        allocated = sum(
-            e.cells[idx].value for e in block.employees if idx < len(e.cells)
-        )
-        _, bucket = UtilizationService.compute_project_gesamt(allocated)
-        cells.append(
-            ProjectGesamtCell(week_key=week.key, allocated=allocated, bucket=bucket)
-        )
-    return cells
-
-
-def _compute_project_heat(
-    weeks: list[WeekColumn], block: ProjectBlock
-) -> list[HeatCell]:
-    cells: list[HeatCell] = []
-    n = len(block.employees)
-    for idx, week in enumerate(weeks):
-        allocated = sum(
-            e.cells[idx].value for e in block.employees if idx < len(e.cells)
-        )
-        result = UtilizationService.compute_project_heat(
-            allocated_days=allocated,
-            num_employees=n,
-            work_days=week.work_days,
-        )
-        cells.append(
-            HeatCell(
-                week_key=week.key,
-                percent=result.percent,
-                is_absent=False,
-                bucket=result.bucket,
-            )
-        )
-    return cells
-
-
-# === Population helpers ===
-
-
-def _build_employee_meta(
-    available_employees: list,
-    wks: list[str],
-    role_abbrev_by_name: dict[str, str] | None = None,
-) -> tuple[list[dict[str, Any]], dict[str, list[float]]]:
-    _abbrev = role_abbrev_by_name or {}
-
-    def _abbrev_for(name: str) -> str:
-        return _abbrev.get(name) or _role_short(name)
-
-    week_starts = [datetime.date(*(int(p) for p in k.split("_"))) for k in wks]
-    emp_meta: list[dict[str, Any]] = []
-    absence_map: dict[str, list[float]] = {}
-    for emp in available_employees:
-        eid = f"emp-{emp.id}"
-        absence_map[eid] = [
-            _absence_days_for_week(emp.absences, ws) for ws in week_starts
-        ]
-        role_badges = [
-            {
-                "code": _abbrev_for(rn),
-                "full": rn,
-                "color": ROLE_PALETTE.get(
-                    _abbrev_for(rn), "var(--mantine-color-gray-2)"
-                ),
-            }
-            for rn in emp.role_names
-        ]
-        primary = emp.role_names[0] if emp.role_names else ""
-        primary_short = _abbrev_for(primary)
-        emp_meta.append(
-            {
-                "id": eid,
-                "real_id": int(emp.id),
-                "name": f"{emp.first_name} {emp.last_name}".strip(),
-                "initials": (f"{emp.first_name[:1]}{emp.last_name[:1]}".upper() or "?"),
-                "job_title": emp.job_title or "",
-                "role_short": primary_short,
-                "role_color": ROLE_PALETTE.get(
-                    primary_short, "var(--mantine-color-gray-2)"
-                ),
-                "role_full": primary or ROLE_FULL.get(primary_short, primary_short),
-                "role_badges": role_badges,
-                "role_ids": list(emp.role_ids) if emp.role_ids else [],
-                "internal_hours": getattr(emp, "internal_hours", 4),
-                "hours_per_week": float(getattr(emp, "hours_per_week", 40.0) or 40.0),
-                "workload_percent": int(getattr(emp, "workload_percent", 100) or 100),
-                "project_ids": [],
-            }
-        )
-    return emp_meta, absence_map
-
-
-def _build_project_meta(
-    available_projects: list,
-) -> tuple[list[dict[str, Any]], dict[int, dict[str, Any]]]:
-    proj_meta: list[dict[str, Any]] = []
-    proj_idx: dict[int, dict[str, Any]] = {}
-    for p in available_projects:
-        real = int(p.id)
-        code = p.code or ((p.name_de or "—")[:8].upper())
-        entry: dict[str, Any] = {
-            "id": f"proj-{real}",
-            "real_id": real,
-            "code": code,
-            "name": p.name_de or "—",
-            "color": p.color or "var(--mantine-color-gray-5)",
-            "state": getattr(p, "state", ""),
-            "employee_ids": [],
-        }
-        proj_meta.append(entry)
-        proj_idx[real] = entry
-    return proj_meta, proj_idx
-
-
-def _ingest_allocations(
-    allocations: list[Any],
-    assignments: list[_CapAssignment],
-    proj_idx: dict[int, dict[str, Any]],
-    wk_set: set[str],
-) -> tuple[dict[str, float], dict[str, str], dict[str, int], set[tuple[str, int]]]:
-    cells: dict[str, float] = {}
-    role_lookup: dict[str, str] = {}
-    role_id_lookup: dict[str, int] = {}
-    pairs: set[tuple[str, int]] = set()
-
-    week_starts = {
-        datetime.date(*(int(part) for part in key.split("_"))) for key in wk_set
-    }
-    normalized_cells = UtilizationService.compute_heatmap_allocation_cells(
-        allocations=[
-            UtilizationAllocationInput(
-                project_id=allocation.project_id,
-                employee_id=allocation.employee_id,
-                week_start=allocation.week_start,
-                person_days=float(allocation.person_days),
-            )
-            for allocation in allocations
-        ],
-        week_starts=week_starts,
-        project_ids=set(proj_idx),
-    )
-    for (employee_id, project_id, week_start), person_days in normalized_cells.items():
-        eid = f"emp-{employee_id}"
-        wk = _week_key_for_date(week_start)
-        cells[_ck(eid, proj_idx[project_id]["code"], wk)] = person_days
-        pairs.add((eid, project_id))
-
-    for allocation in allocations:
-        wk = _week_key_for_date(allocation.week_start)
-        if wk not in wk_set or allocation.project_id not in proj_idx:
-            continue
-        eid = f"emp-{allocation.employee_id}"
-        pairs.add((eid, allocation.project_id))
-        pair_key = f"{eid}|{allocation.project_id}"
-        rn = getattr(allocation, "_cached_role_name", "")
-        if rn:
-            role_lookup.setdefault(pair_key, rn)
-        if allocation.role_id:
-            role_id_lookup.setdefault(pair_key, allocation.role_id)
-    for cap in assignments:
-        if cap.project_id not in proj_idx:
-            continue
-        eid = f"emp-{cap.employee_id}"
-        pairs.add((eid, cap.project_id))
-        pair_key = f"{eid}|{cap.project_id}"
-        if cap.role_name:
-            role_lookup.setdefault(pair_key, cap.role_name)
-        if cap.role_id:
-            role_id_lookup.setdefault(pair_key, cap.role_id)
-    return cells, role_lookup, role_id_lookup, pairs
-
-
-def _wire_pairs(
-    emp_meta: list[dict[str, Any]],
-    proj_idx: dict[int, dict[str, Any]],
-    pairs: set[tuple[str, int]],
-) -> None:
-    emp_by_id = {e["id"]: e for e in emp_meta}
-    for eid, real_pid in pairs:
-        emp = emp_by_id.get(eid)
-        proj = proj_idx.get(real_pid)
-        if emp is None or proj is None:
-            continue
-        pid_str = f"proj-{real_pid}"
-        if pid_str not in emp["project_ids"]:
-            emp["project_ids"].append(pid_str)
-        if eid not in proj["employee_ids"]:
-            proj["employee_ids"].append(eid)
-
-
-def _initial_active_cell(
-    emp_meta: list[dict[str, Any]],
-    proj_meta: list[dict[str, Any]],
-    wks: list[str],
-) -> str:
-    if not wks:
-        return ""
-    proj_by_id = {p["id"]: p for p in proj_meta}
-    for emp in emp_meta:
-        if not emp["project_ids"]:
-            continue
-        pid = emp["project_ids"][0]
-        proj = proj_by_id.get(pid)
-        if proj:
-            return _ck(emp["id"], proj["code"], wks[0])
-    return ""
-
-
-# === Focus / editor scripts ===
-
-_FOCUS_GRID_SCRIPT = (
-    "setTimeout(() => "
-    "(document.getElementById('planning-grid-root') || "
-    "document.getElementById('project-view-root'))?.focus("
-    "{preventScroll:true}), 0)"
-)
-
-_FOCUS_EDITOR_SCRIPT = (
-    "setTimeout(() => {"
-    "const el = document.querySelector('.grid-editor input');"
-    "if (el) { el.focus(); el.select(); }"
-    "}, 0)"
-)
-
-_BLUR_EDITOR_SCRIPT = (
-    "const el = document.querySelector('.grid-editor input');"
-    "if (el) el.blur();"
-    "setTimeout(() => "
-    "(document.getElementById('planning-grid-root') || "
-    "document.getElementById('project-view-root'))?.focus("
-    "{preventScroll:true}), 0);"
-)
-
+# === State ===
 
 # === State ===
 
@@ -642,7 +134,9 @@ class PlanningStore(UserSession):
     is_loaded: bool = False
 
     cells: dict[str, float] = {}
+    saved_cells: dict[str, float] = {}
     dirty_keys: list[str] = []
+    grid_revision: int = 0
 
     employee_meta: list[dict[str, Any]] = []
     project_meta: list[dict[str, Any]] = []
@@ -653,10 +147,6 @@ class PlanningStore(UserSession):
     view_mode: str = "Grid"
     time_range: str = "3 Monate"
     is_saving: bool = False
-    active_cell: str = ""
-    editing_cell: str = ""
-    draft_value: str = ""
-    edit_version: int = 0
 
     project_filter: list[str] = []
     role_filter: list[str] = []
@@ -718,10 +208,6 @@ class PlanningStore(UserSession):
     def toggle_employee_scope(self) -> None:
         self.employee_scope = not self.employee_scope
 
-    @rx.event
-    def set_draft(self, value: str) -> None:
-        self.draft_value = value
-
     # === Entity-derived select options ===
 
     @rx.var(cache=True)
@@ -755,7 +241,7 @@ class PlanningStore(UserSession):
             is_dirty=key in self.dirty_keys,
         )
 
-    @rx.var(cache=True)
+    @rx.var(cache=True, backend=True)
     def employee_blocks(self) -> list[EmployeeBlock]:
         weeks = self.weeks
         if not weeks:
@@ -781,9 +267,9 @@ class PlanningStore(UserSession):
                 if proj is None:
                     continue
                 code = proj["code"]
-                cells = [self._cell(_ck(emp_id, code, wk), wk) for wk in wks]
+                cells = [self._cell(cell_key(emp_id, code, wk), wk) for wk in wks]
                 rname = self.role_lookup.get(f"{emp_id}|{proj['real_id']}", "")
-                rshort = role_abbrev_by_name.get(rname) or _role_short(rname)
+                rshort = role_abbrev_by_name.get(rname) or role_short(rname)
                 rcolor = ROLE_PALETTE.get(rshort, "var(--mantine-color-gray-2)")
                 project_rows.append(
                     ProjectAllocationRow(
@@ -833,12 +319,12 @@ class PlanningStore(UserSession):
                 hours_per_week=emp.get("hours_per_week", 40.0),
                 workload_percent=wp,
             )
-            block.gesamt = _compute_gesamt(weeks, block)
-            block.heat = _compute_heat(weeks, block)
+            block.gesamt = compute_gesamt(weeks, block)
+            block.heat = compute_heat(weeks, block)
             blocks.append(block)
         return blocks
 
-    @rx.var(cache=True)
+    @rx.var(cache=True, backend=True)
     def project_blocks(self) -> list[ProjectBlock]:
         weeks = self.weeks
         if not weeks:
@@ -854,13 +340,14 @@ class PlanningStore(UserSession):
                 emp = emp_idx.get(emp_id)
                 if emp is None:
                     continue
-                cells = [self._cell(_ck(emp_id, code, wk), wk) for wk in wks]
+                cells = [self._cell(cell_key(emp_id, code, wk), wk) for wk in wks]
                 rname = self.role_lookup.get(f"{emp_id}|{proj['real_id']}", "")
-                rshort = role_abbrev_by_name.get(rname) or _role_short(rname)
+                rshort = role_abbrev_by_name.get(rname) or role_short(rname)
                 rcolor = ROLE_PALETTE.get(rshort, "var(--mantine-color-gray-2)")
                 emp_rows.append(
                     EmployeeAllocationRow(
                         emp_id=emp_id,
+                        project_code=code,
                         real_id=emp["real_id"],
                         name=emp["name"],
                         role_name=rname,
@@ -879,8 +366,8 @@ class PlanningStore(UserSession):
                 state=proj.get("state", ""),
                 employees=emp_rows,
             )
-            block.gesamt = _compute_project_gesamt(weeks, block)
-            block.heat = _compute_project_heat(weeks, block)
+            block.gesamt = compute_project_gesamt(weeks, block)
+            block.heat = compute_project_heat(weeks, block)
             blocks.append(block)
         return blocks
 
@@ -888,6 +375,8 @@ class PlanningStore(UserSession):
 
     @rx.var(cache=True)
     def filtered_employees(self) -> list[EmployeeBlock]:
+        if self.view_mode != GRID_VIEW:
+            return []
         result = self.employee_blocks
         if self.project_filter:
             result = [
@@ -907,6 +396,8 @@ class PlanningStore(UserSession):
 
     @rx.var(cache=True)
     def filtered_projects(self) -> list[ProjectBlock]:
+        if self.view_mode != PROJECT_VIEW:
+            return []
         result = self.project_blocks
         if self.project_filter:
             result = [p for p in result if str(p.real_id) in self.project_filter]
@@ -930,9 +421,11 @@ class PlanningStore(UserSession):
     @rx.var(cache=True)
     def employees(self) -> list[EmployeeBlock]:
         _ = self.cells  # explicit dependency for heatmap reactivity
+        if self.view_mode != HEATMAP_VIEW:
+            return []
         return self.employee_blocks
 
-    @rx.var(cache=True)
+    @rx.var(cache=True, backend=True)
     def projects(self) -> list[ProjectBlock]:
         return self.project_blocks
 
@@ -944,7 +437,7 @@ class PlanningStore(UserSession):
     def avg_heat(self) -> list[HeatCell]:
         _ = self.cells  # explicit dependency for heatmap reactivity
         emps = self.employee_blocks
-        if not emps or not self.weeks:
+        if self.view_mode != HEATMAP_VIEW or not emps or not self.weeks:
             return []
         out: list[HeatCell] = []
         for idx, week in enumerate(self.weeks):
@@ -964,7 +457,7 @@ class PlanningStore(UserSession):
     def current_week_key(self) -> str:
         today = datetime.datetime.now(tz=datetime.UTC).date()
         monday = today - datetime.timedelta(days=today.weekday())
-        return _week_key_for_date(monday)
+        return week_key_for_date(monday)
 
     @rx.var(cache=True)
     def table_width(self) -> str:
@@ -995,7 +488,7 @@ class PlanningStore(UserSession):
         """Load public holidays covering the rolling planning window."""
         if num_weeks <= 0:
             return set()
-        anchor = _anchor_date()
+        anchor = anchor_date()
         end = anchor + datetime.timedelta(days=7 * num_weeks - 1)
         async with get_asyncdb_session() as session:
             rows = await public_holiday_repo.find_by_date_range(session, anchor, end)
@@ -1003,7 +496,7 @@ class PlanningStore(UserSession):
 
     async def _fetch_data(
         self, weeks: list[WeekColumn]
-    ) -> tuple[list[Any], list[_CapAssignment]]:
+    ) -> tuple[list[Any], list[CapAssignment]]:
         if not weeks:
             return [], []
         first = datetime.date(*(int(p) for p in weeks[0].key.split("_")))
@@ -1019,7 +512,7 @@ class PlanningStore(UserSession):
             cap_rows = await session.execute(select(CapacityEntity))
             entities = list(cap_rows.scalars().unique().all())
             assignments = [
-                _CapAssignment(
+                CapAssignment(
                     employee_id=e.employee_id,
                     project_id=e.project_id,
                     role_id=e.role_id,
@@ -1031,40 +524,38 @@ class PlanningStore(UserSession):
 
     async def _populate(self, num_weeks: int) -> None:
         holiday_dates = await self._fetch_holidays(num_weeks)
-        weeks, spans = _build_weeks(num_weeks, holiday_dates)
+        weeks, spans = build_weeks(num_weeks, holiday_dates)
         allocations, assignments = await self._fetch_data(weeks)
         wks = [w.key for w in weeks]
 
         role_abbrev_by_name = {r.name: r.abbreviation for r in self.available_roles}
-        emp_meta, absence_map = _build_employee_meta(
+        emp_meta, absence_map = build_employee_meta(
             self.available_employees, wks, role_abbrev_by_name
         )
-        proj_meta, proj_idx = _build_project_meta(self.available_projects)
-        cells, role_lookup, role_id_lookup, pairs = _ingest_allocations(
+        proj_meta, proj_idx = build_project_meta(self.available_projects)
+        cells, role_lookup, role_id_lookup, pairs = ingest_allocations(
             allocations, assignments, proj_idx, set(wks)
         )
-        _wire_pairs(emp_meta, proj_idx, pairs)
+        wire_pairs(emp_meta, proj_idx, pairs)
 
         self.weeks = weeks
         self.month_spans = spans
         self.holiday_dates = sorted(holiday_dates)
         self.cells = cells
+        self.saved_cells = dict(cells)
         self.dirty_keys = []
+        self.grid_revision += 1
         self.employee_meta = emp_meta
         self.project_meta = proj_meta
         self.role_lookup = role_lookup
         self.role_id_lookup = role_id_lookup
         self.absence_days = absence_map
         self.is_loaded = True
-        self.editing_cell = ""
-        self.draft_value = ""
-        if not self.active_cell:
-            self.active_cell = _initial_active_cell(emp_meta, proj_meta, wks)
 
     async def _load_entities(self) -> None:
         async with get_asyncdb_session() as session:
             projects = await project_repo.find_all(session)
-            all_proj = _sorted_projects([Project(**p.to_dict()) for p in projects])
+            all_proj = sorted_projects([Project(**p.to_dict()) for p in projects])
             self.all_projects = all_proj
             self.available_projects = [
                 p for p in all_proj if p.state != "Abgeschlossen"
@@ -1094,174 +585,38 @@ class PlanningStore(UserSession):
 
     # === Cell editing ===
 
-    @rx.event
-    def set_active(self, cell_key: str) -> Any:
-        self.active_cell = cell_key
-        return rx.call_script(_FOCUS_GRID_SCRIPT)
+    def _editable_rows(self) -> set[tuple[str, str]]:
+        """(emp_id, project_code) pairs that are rendered as editable rows."""
+        code_by_pid = {p["id"]: p["code"] for p in self.project_meta}
+        return {
+            (emp["id"], code_by_pid[pid])
+            for emp in self.employee_meta
+            for pid in emp.get("project_ids", [])
+            if pid in code_by_pid
+        }
 
     @rx.event
-    def start_edit(self, cell_key: str) -> Any:
-        cur = self._lookup_value(cell_key)
-        self.draft_value = "" if cur == 0 else _format_de(cur)
-        self.active_cell = cell_key
-        self.editing_cell = cell_key
-        self.edit_version += 1
-        return rx.call_script(_FOCUS_EDITOR_SCRIPT)
-
-    @rx.event
-    def cancel_edit(self) -> Any:
-        self.editing_cell = ""
-        self.draft_value = ""
-        return rx.call_script(_FOCUS_GRID_SCRIPT)
-
-    @rx.event
-    def commit_edit(self) -> Any:
-        self._commit_current()
-        self.editing_cell = ""
-        self.draft_value = ""
+    def apply_cell_changes(self, changes: list[dict[str, Any]]) -> Any:
+        """Apply a batch of committed cell edits from the grid controller."""
+        updates, rejected = parse_cell_changes(
+            changes, self._editable_rows(), set(self._week_keys())
+        )
+        if updates:
+            self.cells = {**self.cells, **updates}
+            self.dirty_keys = dirty_keys_for(self.cells, self.saved_cells)
+        if rejected:
+            log.warning("Rejected %d invalid cell change(s)", rejected)
+            return self.notify_rejected(rejected)
         return None
 
     @rx.event
-    def commit_and_select_next(self, direction: str) -> Any:
-        cur = self.editing_cell
-        if not cur:
+    def notify_rejected(self, count: int) -> Any:
+        """Tell the user that pasted cells were skipped as invalid."""
+        if count <= 0:
             return None
-        self._commit_current()
-        nxt = self._navigate(cur, direction)
-        self.editing_cell = ""
-        self.draft_value = ""
-        if nxt:
-            self.active_cell = nxt
-        return rx.call_script(_FOCUS_GRID_SCRIPT)
-
-    @rx.event
-    def commit_and_move(self, direction: str) -> Any:
-        cur = self.editing_cell
-        if not cur:
-            return None
-        self._commit_current()
-        nxt = self._navigate(cur, direction)
-        if nxt:
-            cur_val = self._lookup_value(nxt)
-            self.draft_value = "" if cur_val == 0 else _format_de(cur_val)
-            self.active_cell = nxt
-            self.editing_cell = nxt
-            self.edit_version += 1
-            return rx.call_script(_FOCUS_EDITOR_SCRIPT)
-        self.editing_cell = ""
-        self.draft_value = ""
-        return rx.call_script(_FOCUS_GRID_SCRIPT)
-
-    @rx.event
-    def handle_key(self, key: str) -> Any:
-        if key == "Enter":
-            return rx.call_script(_BLUR_EDITOR_SCRIPT)
-        if key == "Escape":
-            return self.cancel_edit()
-        if key == "Tab":
-            return self.commit_and_move("next")
-        return None
-
-    @rx.event
-    def move_active(self, direction: str) -> None:
-        if self.editing_cell or not self.active_cell:
-            return
-        nxt = self._navigate(self.active_cell, direction)
-        if nxt:
-            self.active_cell = nxt
-
-    @rx.event
-    def handle_grid_key(self, key: str, modifiers: dict) -> Any:  # noqa: ARG002
-        if self.editing_cell or not self.active_cell:
-            return None
-        nav = ("ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight")
-        edit = ("Enter", "F2")
-        if key not in nav and key not in edit:
-            return None
-        if key == "ArrowUp":
-            self.move_active("up")
-        elif key == "ArrowDown":
-            self.move_active("down")
-        elif key == "ArrowLeft":
-            self.move_active("prev")
-        elif key == "ArrowRight":
-            self.move_active("next")
-        elif key in edit:
-            return self.start_edit(self.active_cell)
-        return rx.prevent_default
-
-    # Single-store: writes already canonical. Backward-compat shim.
-    @rx.event
-    def sync_cell(self, cell_key: str, value: float) -> None:
-        self.cells = {**self.cells, cell_key: value}
-        if cell_key not in self.dirty_keys:
-            self.dirty_keys = [*self.dirty_keys, cell_key]
-
-    @rx.event
-    def clear_dirty(self) -> None:
-        self.dirty_keys = []
-
-    # === Internal helpers ===
-
-    def _commit_current(self) -> tuple[str, float] | None:
-        cur = self.editing_cell
-        if not cur:
-            return None
-        new_val = _parse_de(self.draft_value)
-        if new_val is None:
-            return None
-        cur_val = self._lookup_value(cur)
-        if new_val == cur_val:
-            return None
-        self.cells = {**self.cells, cur: new_val}
-        if cur not in self.dirty_keys:
-            self.dirty_keys = [*self.dirty_keys, cur]
-        return (cur, new_val)
-
-    def _lookup_value(self, cell_key: str) -> float:
-        return float(self.cells.get(cell_key, 0.0))
-
-    def _row_layout(self) -> list[tuple[str, str]]:
-        if self.view_mode == "Projekte":
-            rows: list[tuple[str, str]] = []
-            for proj in self.filtered_projects:
-                if proj.id in self.collapsed_projects:
-                    continue
-                rows.extend((emp.emp_id, proj.code) for emp in proj.employees)
-            return rows
-        rows: list[tuple[str, str]] = []
-        for emp in self.filtered_employees:
-            if emp.id in self.collapsed_employees:
-                continue
-            for proj in emp.projects:
-                rows.append((emp.id, proj.code))
-        return rows
-
-    def _navigate(self, cur_key: str, direction: str) -> str:  # noqa: PLR0911
-        try:
-            emp_id, proj_code, week_key = cur_key.split("|")
-        except ValueError:
-            return ""
-        wks = self._week_keys()
-        rows = self._row_layout()
-        if not rows or not wks:
-            return ""
-        try:
-            week_idx = wks.index(week_key)
-            row_idx = rows.index((emp_id, proj_code))
-        except ValueError:
-            return ""
-        if direction == "next" and week_idx + 1 < len(wks):
-            return _ck(emp_id, proj_code, wks[week_idx + 1])
-        if direction == "prev" and week_idx > 0:
-            return _ck(emp_id, proj_code, wks[week_idx - 1])
-        if direction == "down" and row_idx + 1 < len(rows):
-            ne, np = rows[row_idx + 1]
-            return _ck(ne, np, week_key)
-        if direction == "up" and row_idx > 0:
-            ne, np = rows[row_idx - 1]
-            return _ck(ne, np, week_key)
-        return ""
+        return rx.toast.warning(
+            f"{count} ungültige Eingabe(n) ignoriert.", position="top-right"
+        )
 
     # === Collapse ===
 
@@ -1287,6 +642,8 @@ class PlanningStore(UserSession):
 
     @rx.event
     async def save_grid(self) -> AsyncGenerator[Any, None]:
+        if self.is_saving:
+            return
         if not self.dirty_keys:
             yield rx.toast.info("Keine Änderungen.", position="top-right")
             return
@@ -1339,6 +696,7 @@ class PlanningStore(UserSession):
                 f"Speichern fehlgeschlagen: {exc}", position="top-right"
             )
             return
+        self.saved_cells = dict(self.cells)
         self.dirty_keys = []
         self.is_saving = False
         yield rx.toast.success(f"{len(rows)} Zellen gespeichert.", position="top-right")
@@ -1418,8 +776,8 @@ class PlanningStore(UserSession):
             self.is_quick_creating = False
             yield rx.toast.error(f"Fehler: {exc}", position="top-right")
             return
-        self.all_projects = _sorted_projects([*self.all_projects, project])
-        self.available_projects = _sorted_projects([*self.available_projects, project])
+        self.all_projects = sorted_projects([*self.all_projects, project])
+        self.available_projects = sorted_projects([*self.available_projects, project])
         self._rebuild_add_project_options()
         self.add_project_selected = str(project.id)
         self.quick_project_name = ""

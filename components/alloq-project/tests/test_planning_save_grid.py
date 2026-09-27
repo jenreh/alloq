@@ -9,7 +9,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from alloq_commons.models.employee import Employee
 from alloq_commons.models.project import Project
-from alloq_project.states.planning_grid_state import PlanningStore, _build_weeks
+from alloq_project.services.planning_builders import build_weeks
+from alloq_project.states.planning_grid_state import PlanningStore
 
 ROLE_A = 3
 ROLE_B = 5
@@ -105,7 +106,7 @@ class TestSaveGridRole:
 
     @pytest.mark.asyncio
     async def test_existing_allocation_role_takes_precedence(self) -> None:
-        weeks, _ = _build_weeks(2)
+        weeks, _ = build_weeks(2)
         week = datetime.date(*(int(p) for p in weeks[0].key.split("_")))
         allocations = [_allocation(ROLE_B, week)]
 

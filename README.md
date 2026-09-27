@@ -104,6 +104,7 @@ Each `components/*` package is a uv workspace member with its own `pyproject.tom
 
 ```bash
 task test       # Run tests with coverage
+task test:js    # Run JavaScript unit tests (node --test)
 task lint       # Lint with ruff
 task format     # Auto-format with ruff
 task db:upgrade # Apply pending migrations
@@ -123,6 +124,26 @@ task db:revision -- "description"  # Create new migration
 Weekly capacity grid with per-employee allocation, over/under-utilization highlighting, and role badges.
 
 ![Resource Planning](doc/planning.png)
+
+Capacities are edited like in a spreadsheet (reusable `excel_grid` component in
+`alloq_commons.components.excel_grid`). Selection, navigation and editing run in the
+browser; only committed values are sent to the server, and changes are kept until you save.
+Leaving the page with unsaved changes (sidebar, links, Back) asks whether to stay, discard or
+save & leave; closing or reloading the tab shows the browser's warning.
+
+| Keys | Action |
+| --- | --- |
+| Arrow keys | Move; ↓/↑ continue into the next/previous employee (or project) |
+| Ctrl+Arrow | Jump to the edge of the current employee block, then to the next one |
+| Home / End, Ctrl+Home / Ctrl+End, PageUp / PageDown | Row start/end, first/last cell, page |
+| Tab / Shift+Tab, Enter / Shift+Enter | Move right/left, down/up (also commits an edit) |
+| Type a number, F2, double-click | Edit (typing replaces, F2 keeps the value); Esc cancels |
+| Shift+Arrow, Shift+click, mouse drag, Ctrl+A | Select a range (Ctrl+A: employee block, twice: all) |
+| Ctrl+C / Ctrl+X / Ctrl+V | Copy/cut/paste as tab-separated values (works with Excel) |
+| Delete / Backspace | Clear selection |
+| Ctrl+D / Ctrl+R | Fill down / right |
+| Ctrl+Z / Ctrl+Y | Undo / redo |
+| Ctrl+S | Save |
 
 ### Projects
 
