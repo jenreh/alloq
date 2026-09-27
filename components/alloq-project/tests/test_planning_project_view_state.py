@@ -205,7 +205,9 @@ def _populated_store(
     wks = [w.key for w in weeks]
     emp_meta, absence_map = _build_employee_meta(employees, wks)
     proj_meta, proj_idx = _build_project_meta(projects)
-    cells, role_lookup, pairs = _ingest_allocations(allocations, [], proj_idx, set(wks))
+    cells, role_lookup, _, pairs = _ingest_allocations(
+        allocations, [], proj_idx, set(wks)
+    )
     _wire_pairs(emp_meta, proj_idx, pairs)
 
     state = PlanningStore()  # type: ignore[call-arg]
