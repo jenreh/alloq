@@ -3,6 +3,9 @@
 import datetime
 from unittest.mock import MagicMock
 
+from alloq_commons.models.employee import Employee
+from alloq_commons.models.project import Project
+from alloq_commons.models.role import Role
 from alloq_project.services.planning_builders import (
     build_employee_meta,
     build_project_meta,
@@ -300,6 +303,30 @@ class TestPlanningStoreProjectView:
         state = self._two_project_store()
         state.employee_filter = ["2"]
         assert [p.code for p in state.filtered_projects] == ["B"]
+
+    def test_filtered_projects_by_role(self) -> None:
+        state = self._two_project_store()
+        state.available_roles = [Role(id=3, name="Developer", abbreviation="DEV")]
+        state.role_lookup = {"emp-1|1": "Developer"}
+        state.role_filter = ["3"]
+        assert [p.code for p in state.filtered_projects] == ["A"]
+
+    def test_filtered_projects_by_project_scope(self) -> None:
+        state = self._two_project_store()
+        state.current_employee_id = 9
+        state.all_projects = [Project(id=1), Project(id=2, owner_ids=[9])]
+        state.project_scope = True
+        assert [p.code for p in state.filtered_projects] == ["B"]
+
+    def test_filtered_projects_by_employee_scope(self) -> None:
+        state = self._two_project_store()
+        state.current_employee_id = 9
+        state.available_employees = [
+            Employee(id=1, manager_id=9),
+            Employee(id=2, manager_id=5),
+        ]
+        state.employee_scope = True
+        assert [p.code for p in state.filtered_projects] == ["A"]
 
     def test_toggle_project(self) -> None:
         state = PlanningStore()  # type: ignore[call-arg]

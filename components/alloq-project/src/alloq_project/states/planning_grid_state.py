@@ -47,13 +47,18 @@ from alloq_project.services.planning_builders import (
     compute_heat,
     compute_project_gesamt,
     compute_project_heat,
+    current_week_key,
     dirty_keys_for,
+    employee_id_by_email,
+    employee_summary,
     ingest_allocations,
+    managed_employee_ids,
+    owned_project_ids,
     parse_cell_changes,
+    project_summary,
     role_short,
     sorted_projects,
     split_edits,
-    week_key_for_date,
     wire_pairs,
 )
 from alloq_project.states.planning_models import (
@@ -156,6 +161,7 @@ class PlanningStore(UserSession):
     employee_filter: list[str] = []
     project_scope: bool = False
     employee_scope: bool = False
+    current_employee_id: int | None = None
 
     collapsed_employees: list[str] = []
     collapsed_projects: list[str] = []
@@ -252,6 +258,7 @@ class PlanningStore(UserSession):
         wks = self._week_keys()
         proj_idx = {p["id"]: p for p in self.project_meta}
         role_abbrev_by_name = {r.name: r.abbreviation for r in self.available_roles}
+        from_key = current_week_key()
         blocks: list[EmployeeBlock] = []
         for emp in self.employee_meta:
             emp_id = emp["id"]
@@ -324,6 +331,7 @@ class PlanningStore(UserSession):
             )
             block.gesamt = compute_gesamt(weeks, block)
             block.heat = compute_heat(weeks, block)
+            block.planned_days, block.available_days = employee_summary(block, from_key)
             blocks.append(block)
         return blocks
 
@@ -335,6 +343,7 @@ class PlanningStore(UserSession):
         wks = self._week_keys()
         emp_idx = {e["id"]: e for e in self.employee_meta}
         role_abbrev_by_name = {r.name: r.abbreviation for r in self.available_roles}
+        from_key = current_week_key()
         blocks: list[ProjectBlock] = []
         for proj in self.project_meta:
             code = proj["code"]
@@ -371,6 +380,7 @@ class PlanningStore(UserSession):
             )
             block.gesamt = compute_project_gesamt(weeks, block)
             block.heat = compute_project_heat(weeks, block)
+            block.planned_days, block.role_totals = project_summary(block, from_key)
             blocks.append(block)
         return blocks
 
@@ -381,6 +391,14 @@ class PlanningStore(UserSession):
         if self.view_mode != GRID_VIEW:
             return []
         result = self.employee_blocks
+        if self.project_scope:
+            own = owned_project_ids(self.all_projects, self.current_employee_id)
+            result = [e for e in result if any(p.project_id in own for p in e.projects)]
+        if self.employee_scope:
+            mine = managed_employee_ids(
+                self.available_employees, self.current_employee_id
+            )
+            result = [e for e in result if str(e.real_id) in mine]
         if self.project_filter:
             result = [
                 e
@@ -402,16 +420,24 @@ class PlanningStore(UserSession):
         if self.view_mode != PROJECT_VIEW:
             return []
         result = self.project_blocks
+        if self.project_scope:
+            own = owned_project_ids(self.all_projects, self.current_employee_id)
+            result = [p for p in result if str(p.real_id) in own]
+        if self.employee_scope:
+            mine = managed_employee_ids(
+                self.available_employees, self.current_employee_id
+            )
+            result = [
+                p for p in result if any(str(e.real_id) in mine for e in p.employees)
+            ]
         if self.project_filter:
             result = [p for p in result if str(p.real_id) in self.project_filter]
         if self.role_filter:
+            names = {
+                r.name for r in self.available_roles if str(r.id) in self.role_filter
+            }
             result = [
-                p
-                for p in result
-                if any(
-                    e.role_short in self.role_filter or e.role_name in self.role_filter
-                    for e in p.employees
-                )
+                p for p in result if any(e.role_name in names for e in p.employees)
             ]
         if self.employee_filter:
             result = [
@@ -458,9 +484,7 @@ class PlanningStore(UserSession):
 
     @rx.var(cache=True)
     def current_week_key(self) -> str:
-        today = datetime.datetime.now(tz=datetime.UTC).date()
-        monday = today - datetime.timedelta(days=today.weekday())
-        return week_key_for_date(monday)
+        return current_week_key()
 
     @rx.var(cache=True)
     def table_width(self) -> str:
@@ -581,6 +605,13 @@ class PlanningStore(UserSession):
             roles = await role_repo.find_all(session)
             self.available_roles = [Role(**r.to_dict()) for r in roles]
             self.available_roles.sort(key=lambda r: r.name)
+        await self._resolve_current_employee()
+
+    async def _resolve_current_employee(self) -> None:
+        """Map the logged-in user to an employee for the scope toggles."""
+        user = await self.authenticated_user
+        email = user.email if user and user.email else ""
+        self.current_employee_id = employee_id_by_email(self.available_employees, email)
 
     @rx.event
     async def load(self) -> AsyncGenerator[Any, None]:

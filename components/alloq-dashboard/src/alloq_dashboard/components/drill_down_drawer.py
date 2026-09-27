@@ -346,7 +346,7 @@ def _earned_value_body() -> rx.Component:
 def _drill_title(key: rx.Var[str]) -> rx.Var[str]:
     return rx.match(
         key,
-        (DRILL_UTILIZATION, "Team-Auslastung"),
+        (DRILL_UTILIZATION, "Auslastung"),
         (DRILL_EARNED_VALUE, "Budget Prognosen (aktive Projekte)"),
         "Details",
     )

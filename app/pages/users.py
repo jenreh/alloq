@@ -49,7 +49,7 @@ def create_users_page(
         navbar=navbar,
         with_header=False,
         admin_only=True,
-        on_load=[UserState.set_available_roles(ALL_ROLES)],
+        on_load=[UserState.set_available_roles(ALL_ROLES), UserState.load_users],
     )
     def _users_page() -> rx.Component:
         return requires_admin(

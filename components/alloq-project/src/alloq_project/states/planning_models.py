@@ -75,6 +75,12 @@ class RoleBadge(BaseModel):
     color: str
 
 
+class RoleTotal(BaseModel):
+    code: str = ""
+    color: str = ""
+    days: float = 0.0
+
+
 class EmployeeBlock(BaseModel):
     id: str
     real_id: int = 0
@@ -94,6 +100,8 @@ class EmployeeBlock(BaseModel):
     workload_percent: int = 100
     gesamt: list[GesamtCell] = []
     heat: list[HeatCell] = []
+    planned_days: float = 0.0
+    available_days: float = 0.0
 
 
 class EmployeeAllocationRow(BaseModel):
@@ -123,3 +131,5 @@ class ProjectBlock(BaseModel):
     employees: list[EmployeeAllocationRow] = []
     gesamt: list[ProjectGesamtCell] = []
     heat: list[HeatCell] = []
+    planned_days: float = 0.0
+    role_totals: list[RoleTotal] = []

@@ -1,0 +1,1 @@
+/Users/jens/Workspace/projekte/alloq/.venv.mac/lib/python3.14/site-packages/appkit_mantine/tree_advanced.jsx

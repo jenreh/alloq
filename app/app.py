@@ -26,10 +26,10 @@ from app.pages.roles import create_roles_page
 from app.pages.users import create_users_page
 from app.styles import base_style, base_stylesheets
 
-ALLOQ_THEME = {
-    "primaryColor": "alloqTeal",
-    "primaryShade": {"light": 6, "dark": 7},
-    "colors": {
+ALLOQ_THEME = am.create_theme(
+    primary_color="alloqTeal",
+    primary_shade={"light": 6, "dark": 7},
+    colors={
         "alloqWarm": [
             "#fffef8",
             "#fbf8ed",
@@ -55,9 +55,9 @@ ALLOQ_THEME = {
             "#293c40",
         ],
     },
-}
+)
 
-am.set_app_theme(am.create_theme(**ALLOQ_THEME))
+am.set_app_theme(ALLOQ_THEME)
 
 logging.basicConfig(level=logging.DEBUG)
 create_login_page()

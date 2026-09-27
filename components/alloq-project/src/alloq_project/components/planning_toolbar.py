@@ -78,7 +78,7 @@ def planning_toolbar() -> rx.Component:
                 p="0 8px",
                 radius="md",
             ),
-            label="Änderungen speichern",
+            label="Änderungen speichern (STRG+S)",
             with_arrow=True,
             position="bottom",
         ),

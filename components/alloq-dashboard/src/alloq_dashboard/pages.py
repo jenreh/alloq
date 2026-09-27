@@ -40,7 +40,7 @@ def create_dashboard_page(
             mn.stack(
                 page_header(
                     nav_path="Willkommen zurück, Jens!",
-                    title="Aktuelle Team-Auslastung",
+                    title="Aktuelle Auslastung",
                     description=(
                         "Überwachen Sie wichtige Kennzahlen "
                         "und verfügbare Kapazitäten, um die Ressourcenplanung "

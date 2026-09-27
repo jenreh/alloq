@@ -3,14 +3,18 @@
 import datetime
 import math
 from contextlib import asynccontextmanager
+from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, PropertyMock, patch
 
 import pytest
+from alloq_commons.models.employee import Employee
+from alloq_commons.models.project import Project
 from alloq_project.services.planning_builders import (
     build_weeks,
     cell_key,
     dirty_keys_for,
+    employee_id_by_email,
     parse_cell_changes,
 )
 from alloq_project.states.planning_grid_state import PlanningStore
@@ -294,10 +298,59 @@ class TestSettersAndLabels:
         state.project_filter = ["1"]
         assert [e.id for e in state.filtered_employees] == ["emp-1"]
 
+    def test_filtered_employees_by_project_scope(self) -> None:
+        state = _store()
+        state.current_employee_id = 9
+        state.all_projects = [Project(id=1, owner_ids=[9]), Project(id=2)]
+        state.toggle_project_scope()
+        assert [e.id for e in state.filtered_employees] == ["emp-1"]
+
+    def test_filtered_employees_by_employee_scope(self) -> None:
+        state = _store()
+        state.current_employee_id = 9
+        state.available_employees = [
+            Employee(id=1, manager_id=5),
+            Employee(id=2, manager_id=9),
+        ]
+        state.toggle_employee_scope()
+        assert [e.id for e in state.filtered_employees] == ["emp-2"]
+
+    def test_scope_without_current_employee_shows_nothing(self) -> None:
+        state = _store()
+        state.all_projects = [Project(id=1, owner_ids=[9])]
+        state.toggle_project_scope()
+        assert state.filtered_employees == []
+
     def test_notify_rejected_ignores_zero(self) -> None:
         state = PlanningStore()  # type: ignore[call-arg]
         assert state.notify_rejected(0) is None
         assert state.notify_rejected(2) is not None
+
+
+class TestEmployeeIdByEmail:
+    def test_matches_case_insensitively(self) -> None:
+        employees = [Employee(id=1, email="a@x.de"), Employee(id=2, email="B@x.de")]
+        assert employee_id_by_email(employees, "b@X.de") == 2
+
+    def test_no_match_or_no_email(self) -> None:
+        employees = [Employee(id=1, email=None)]
+        assert employee_id_by_email(employees, "a@x.de") is None
+        assert employee_id_by_email(employees, "") is None
+
+    @pytest.mark.asyncio
+    async def test_resolve_current_employee_from_logged_in_user(self) -> None:
+        state = PlanningStore()  # type: ignore[call-arg]
+        state.available_employees = [Employee(id=7, email="me@x.de")]
+
+        async def _user() -> Any:
+            return SimpleNamespace(email="me@x.de")
+
+        with patch.object(
+            PlanningStore, "authenticated_user", new_callable=PropertyMock
+        ) as user:
+            user.side_effect = _user
+            await state._resolve_current_employee()
+        assert state.current_employee_id == 7
 
 
 class TestLoading:

@@ -172,6 +172,63 @@ def format_gesamt(value: rx.Var[float]) -> rx.Component:
 
 
 # ---------------------------------------------------------------------------
+# Block header info (pinned beside the label column)
+# ---------------------------------------------------------------------------
+
+SUMMARY_TOOLTIP = "Ab der aktuellen Woche bis zum Ende des Zeitraums"
+
+
+def summary_stat(label: str, value: rx.Var[float]) -> rx.Component:
+    """Muted label followed by a person-day figure."""
+    return mn.group(
+        mn.text(label, size="xs", c="var(--alloq-text-muted)"),
+        de_number(
+            value=value,
+            decimal_scale=2,
+            fixed_decimal_scale=True,
+            suffix=" PT",
+            size="xs",
+            fw="600",
+            c="var(--alloq-text)",
+        ),
+        gap="4px",
+        align="center",
+        wrap="nowrap",
+    )
+
+
+def block_header_info_cell(*children: rx.Component, background: str) -> rx.Component:
+    """Week-column part of a block header; its content stays horizontally pinned."""
+    return mn.box(
+        mn.tooltip(
+            mn.group(
+                *children,
+                gap="md",
+                align="center",
+                wrap="nowrap",
+                style={
+                    "position": "sticky",
+                    "left": LABEL_COL_WIDTH,
+                    "padding": "0 12px",
+                },
+            ),
+            label=SUMMARY_TOOLTIP,
+            open_delay=400,
+        ),
+        style={
+            **CELL_BASE,
+            "gridColumn": "2 / -1",
+            "justifyContent": "flex-start",
+            "padding": "0",
+            "backgroundColor": background,
+            "borderTop": "1px solid var(--alloq-border-strong)",
+            "borderBottom": "1px solid var(--alloq-border-strong)",
+            "borderRight": "none",
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
 # Shared header components
 # ---------------------------------------------------------------------------
 

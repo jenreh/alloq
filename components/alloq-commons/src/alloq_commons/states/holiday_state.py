@@ -109,9 +109,14 @@ class HolidayState(rx.State):
 
     @is_authenticated
     async def load_holidays(self) -> AsyncGenerator[Any, None]:
-        """Load holidays for the current year."""
-        self.is_loading = True
-        yield
+        """Load holidays for the current year.
+
+        The loading row only replaces the table on the first load; revisits
+        refresh the existing rows in place to avoid a flicker.
+        """
+        if not self.holidays:
+            self.is_loading = True
+            yield
         try:
             await self._load_holidays()
         finally:

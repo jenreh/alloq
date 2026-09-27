@@ -1,6 +1,7 @@
 """Styles for the app."""
 
 import reflex as rx
+from reflex.components.component import ComponentStyle
 
 accent_bg_color = "var(--alloq-accent-soft)"
 accent_color = "var(--alloq-accent)"
@@ -60,7 +61,7 @@ base_stylesheets = [
     "css/alloq-theme.css",
 ]
 
-base_style = {
+base_style: ComponentStyle = {
     "font_family": "Roboto Flex",
     rx.icon: {
         "stroke_width": "1.5px",

@@ -1,11 +1,14 @@
 """Tests for public holiday management."""
 
+from contextlib import asynccontextmanager
 from datetime import date
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from alloq_commons.entities.public_holiday import PublicHolidayEntity
 from alloq_commons.models.public_holiday import PublicHoliday, PublicHolidayCreate
 from alloq_commons.repositories.public_holiday_repository import PublicHolidayRepository
+from alloq_commons.states.holiday_state import HolidayState
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -223,3 +226,60 @@ class TestPublicHolidayRepository:
 
         found = await repo.find_by_id(async_session, holiday_id)
         assert found is None
+
+
+# ============================================================================
+# State Tests
+# ============================================================================
+
+
+class TestHolidayStateLoading:
+    """Loading-flag behaviour of HolidayState.load_holidays."""
+
+    @staticmethod
+    async def _collect_loading_flags(state: HolidayState) -> list[bool]:
+        @asynccontextmanager
+        async def _session_ctx():
+            yield AsyncMock()
+
+        login_state = MagicMock()
+        login_state.is_authenticated = AsyncMock(return_value=True)()
+        object.__setattr__(state, "get_state", AsyncMock(return_value=login_state))
+        mock_repo = AsyncMock()
+        mock_repo.find_by_year = AsyncMock(return_value=[])
+
+        flags = []
+        with (
+            patch(
+                "alloq_commons.states.holiday_state.get_asyncdb_session",
+                _session_ctx,
+            ),
+            patch(
+                "alloq_commons.states.holiday_state.public_holiday_repo",
+                mock_repo,
+            ),
+        ):
+            async for _ in state.load_holidays():
+                flags.append(state.is_loading)
+        mock_repo.find_by_year.assert_awaited_once()
+        return flags
+
+    @pytest.mark.asyncio
+    async def test_first_load_shows_loading_row(self) -> None:
+        state = HolidayState()  # type: ignore[call-arg]
+
+        flags = await self._collect_loading_flags(state)
+
+        assert True in flags
+        assert state.is_loading is False
+
+    @pytest.mark.asyncio
+    async def test_reload_keeps_rows_when_already_loaded(self) -> None:
+        """Revisiting the page must not swap existing rows for the spinner."""
+        state = HolidayState()  # type: ignore[call-arg]
+        state.holidays = [PublicHoliday(id=1, name="Neujahr")]
+
+        flags = await self._collect_loading_flags(state)
+
+        assert True not in flags
+        assert state.is_loading is False

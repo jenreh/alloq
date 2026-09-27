@@ -6,6 +6,7 @@ import datetime
 import math
 from typing import Any
 
+from alloq_commons.models.employee import Employee
 from alloq_commons.models.project import Project
 from alloq_commons.services.utilization import (
     UtilizationAllocationInput,
@@ -20,6 +21,7 @@ from alloq_project.states.planning_models import (
     MonthSpan,
     ProjectBlock,
     ProjectGesamtCell,
+    RoleTotal,
     WeekColumn,
 )
 
@@ -31,6 +33,37 @@ def anchor_date() -> datetime.date:
     today = datetime.date.today()  # noqa: DTZ011
     monday = today - datetime.timedelta(days=today.weekday())
     return monday - datetime.timedelta(weeks=WEEKS_BEFORE_CURRENT)
+
+
+def current_week_key() -> str:
+    """Week key of the Monday of the current week (same clock as the anchor)."""
+    monday = anchor_date() + datetime.timedelta(weeks=WEEKS_BEFORE_CURRENT)
+    return week_key_for_date(monday)
+
+
+def employee_id_by_email(employees: list[Employee], email: str) -> int | None:
+    """Id of the employee whose email matches (case-insensitive), if any."""
+    wanted = email.strip().casefold()
+    if not wanted:
+        return None
+    return next(
+        (e.id for e in employees if (e.email or "").strip().casefold() == wanted),
+        None,
+    )
+
+
+def owned_project_ids(projects: list[Project], employee_id: int | None) -> set[str]:
+    """Ids (as str) of projects the employee is an owner of."""
+    if employee_id is None:
+        return set()
+    return {str(p.id) for p in projects if employee_id in p.owner_ids}
+
+
+def managed_employee_ids(employees: list[Employee], manager_id: int | None) -> set[str]:
+    """Ids (as str) of employees reporting to the given manager."""
+    if manager_id is None:
+        return set()
+    return {str(e.id) for e in employees if e.manager_id == manager_id}
 
 
 def sorted_projects(projects: list[Project]) -> list[Project]:
@@ -297,6 +330,43 @@ def compute_project_heat(
             )
         )
     return cells
+
+
+def employee_summary(block: EmployeeBlock, from_key: str) -> tuple[float, float]:
+    """Planned and available person-days from ``from_key`` onward.
+
+    Planned sums all project cells; available sums the free days of weeks
+    that still have capacity (overbooked weeks count as zero).
+    """
+    planned = sum(
+        cell.value
+        for project in block.projects
+        for cell in project.cells
+        if cell.week_key >= from_key
+    )
+    available = sum(
+        max(cell.value, 0.0) for cell in block.gesamt if cell.week_key >= from_key
+    )
+    return round(planned, 2), round(available, 2)
+
+
+def project_summary(
+    block: ProjectBlock, from_key: str
+) -> tuple[float, list[RoleTotal]]:
+    """Planned person-days from ``from_key`` onward, in total and per role."""
+    totals: dict[str, RoleTotal] = {}
+    for emp in block.employees:
+        days = sum(c.value for c in emp.cells if c.week_key >= from_key)
+        entry = totals.setdefault(
+            emp.role_short, RoleTotal(code=emp.role_short, color=emp.role_color)
+        )
+        entry.days += days
+    roles = [
+        RoleTotal(code=r.code, color=r.color, days=round(r.days, 2))
+        for r in sorted(totals.values(), key=lambda r: r.code)
+        if round(r.days, 2) > 0
+    ]
+    return round(sum(r.days for r in totals.values()), 2), roles
 
 
 # === Population helpers ===

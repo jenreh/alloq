@@ -19,6 +19,7 @@ from alloq_project.components.planning_shared import (
     STICKY_LEFT_BODY,
     STICKY_LEFT_EMP_HEADER,
     STICKY_LEFT_GESAMT,
+    block_header_info_cell,
     current_week_bg,
     editable_value_cell,
     format_de,
@@ -26,6 +27,7 @@ from alloq_project.components.planning_shared import (
     grid_row,
     header_block,
     planning_excel_grid,
+    summary_stat,
 )
 from alloq_project.states.planning_grid_state import (
     EmployeeBlock,
@@ -166,16 +168,10 @@ def _employee_header_row(emp: EmployeeBlock) -> rx.Component:
                 "borderBottom": "1px solid var(--alloq-border-strong)",
             },
         ),
-        mn.box(
-            "",
-            style={
-                **CELL_BASE,
-                "gridColumn": "2 / -1",
-                "backgroundColor": EMP_HEADER_BG,
-                "borderTop": "1px solid var(--alloq-border-strong)",
-                "borderBottom": "1px solid var(--alloq-border-strong)",
-                "borderRight": "none",
-            },
+        block_header_info_cell(
+            summary_stat("Geplant", emp.planned_days),
+            summary_stat("Verfügbar", emp.available_days),
+            background=EMP_HEADER_BG,
         ),
     )
 

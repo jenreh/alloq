@@ -4,18 +4,21 @@ from __future__ import annotations
 
 import reflex as rx
 from alloq_commons.components.excel_grid import grid_row_attrs
+from alloq_commons.components.formatters import de_number
 from alloq_project.components.planning_shared import (
     CELL_BASE,
     LABEL_CELL_BASE,
     STICKY_LEFT_BODY,
     STICKY_LEFT_EMP_HEADER,
     STICKY_LEFT_GESAMT,
+    block_header_info_cell,
     current_week_bg,
     editable_value_cell,
     format_gesamt,
     grid_row,
     header_block,
     planning_excel_grid,
+    summary_stat,
 )
 from alloq_project.states.planning_grid_state import (
     EmployeeAllocationRow,
@@ -23,6 +26,7 @@ from alloq_project.states.planning_grid_state import (
     ProjectBlock,
     ProjectGesamtCell,
 )
+from alloq_project.states.planning_models import RoleTotal
 
 import appkit_mantine as mn
 
@@ -32,6 +36,28 @@ PROJ_HEADER_BG = "var(--alloq-surface-hover)"
 # ---------------------------------------------------------------------------
 # Project header row
 # ---------------------------------------------------------------------------
+
+
+def _role_total_badge(role: RoleTotal) -> rx.Component:
+    """Role abbreviation with its planned person-days."""
+    return mn.badge(
+        mn.group(
+            mn.text(role.code, span=True, fw="700", fz="inherit"),
+            de_number(value=role.days, decimal_scale=2, fixed_decimal_scale=True),
+            gap="4px",
+            wrap="nowrap",
+        ),
+        size="sm",
+        radius="sm",
+        variant="filled",
+        color="gray",
+        style={
+            "backgroundColor": role.color,
+            "color": "var(--alloq-text)",
+            "textTransform": "none",
+            "fontWeight": "500",
+        },
+    )
 
 
 def _project_header_row(proj: ProjectBlock) -> rx.Component:
@@ -88,16 +114,10 @@ def _project_header_row(proj: ProjectBlock) -> rx.Component:
                 "borderBottom": "1px solid var(--alloq-border-strong)",
             },
         ),
-        mn.box(
-            "",
-            style={
-                **CELL_BASE,
-                "gridColumn": "2 / -1",
-                "backgroundColor": PROJ_HEADER_BG,
-                "borderTop": "1px solid var(--alloq-border-strong)",
-                "borderBottom": "1px solid var(--alloq-border-strong)",
-                "borderRight": "none",
-            },
+        block_header_info_cell(
+            summary_stat("Geplant", proj.planned_days),
+            rx.foreach(proj.role_totals, _role_total_badge),
+            background=PROJ_HEADER_BG,
         ),
     )
 

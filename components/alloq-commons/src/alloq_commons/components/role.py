@@ -75,6 +75,7 @@ def role_form_fields(role: Role | None = None) -> rx.Component:
 
 
 def _role_modal(
+    *,
     title: str,
     opened: bool | rx.Var,
     on_close: rx.EventHandler,
@@ -286,7 +287,6 @@ def roles_table() -> rx.Component:
             w="100%",
         ),
         w="100%",
-        on_mount=RoleState.load_roles,
     )
 
 

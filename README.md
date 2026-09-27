@@ -143,6 +143,7 @@ save & leave; closing or reloading the tab shows the browser's warning.
 | Ctrl+C / Ctrl+X / Ctrl+V | Copy/cut/paste as tab-separated values (works with Excel) |
 | Delete / Backspace | Clear selection |
 | Ctrl+D / Ctrl+R | Fill down / right |
+| Drag the fill handle (small square at the selection's bottom-right) | Copy the selected value(s) into the dragged-over cells; Esc cancels |
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 | Ctrl+S | Save |
 

@@ -81,9 +81,14 @@ class RoleState(rx.State):
     async def load_roles(
         self, limit: int = 200, offset: int = 0
     ) -> AsyncGenerator[Any, None]:
-        """Load all roles from the database."""
-        self.is_loading = True
-        yield
+        """Load all roles from the database.
+
+        The loading row only replaces the table on the first load; revisits
+        refresh the existing rows in place to avoid a flicker.
+        """
+        if not self.roles:
+            self.is_loading = True
+            yield
         try:
             await self._load_roles(limit, offset)
         finally:

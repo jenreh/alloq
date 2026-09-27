@@ -1,0 +1,1 @@
+/Users/jens/Workspace/projekte/alloq/components/alloq-commons/src/alloq_commons/components/excel_grid/excel_grid.jsx
