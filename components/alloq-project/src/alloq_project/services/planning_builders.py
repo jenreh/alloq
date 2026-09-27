@@ -73,11 +73,14 @@ ROLE_FULL: dict[str, str] = {
 class CapAssignment:
     """Lightweight transport for CapacityEntity rows (avoids detached ORM)."""
 
-    __slots__ = ("employee_id", "project_id", "role_name")
+    __slots__ = ("employee_id", "project_id", "role_id", "role_name")
 
-    def __init__(self, employee_id: int, project_id: int, role_name: str) -> None:
+    def __init__(
+        self, employee_id: int, project_id: int, role_id: int | None, role_name: str
+    ) -> None:
         self.employee_id = employee_id
         self.project_id = project_id
+        self.role_id = role_id
         self.role_name = role_name
 
 
@@ -360,9 +363,10 @@ def ingest_allocations(
     assignments: list[CapAssignment],
     proj_idx: dict[int, dict[str, Any]],
     wk_set: set[str],
-) -> tuple[dict[str, float], dict[str, str], set[tuple[str, int]]]:
+) -> tuple[dict[str, float], dict[str, str], dict[str, int], set[tuple[str, int]]]:
     cells: dict[str, float] = {}
     role_lookup: dict[str, str] = {}
+    role_id_lookup: dict[str, int] = {}
     pairs: set[tuple[str, int]] = set()
 
     week_starts = {
@@ -393,17 +397,23 @@ def ingest_allocations(
             continue
         eid = f"emp-{allocation.employee_id}"
         pairs.add((eid, allocation.project_id))
+        pair_key = f"{eid}|{allocation.project_id}"
         rn = getattr(allocation, "_cached_role_name", "")
         if rn:
-            role_lookup.setdefault(f"{eid}|{allocation.project_id}", rn)
+            role_lookup.setdefault(pair_key, rn)
+        if allocation.role_id:
+            role_id_lookup.setdefault(pair_key, allocation.role_id)
     for cap in assignments:
         if cap.project_id not in proj_idx:
             continue
         eid = f"emp-{cap.employee_id}"
         pairs.add((eid, cap.project_id))
+        pair_key = f"{eid}|{cap.project_id}"
         if cap.role_name:
-            role_lookup.setdefault(f"{eid}|{cap.project_id}", cap.role_name)
-    return cells, role_lookup, pairs
+            role_lookup.setdefault(pair_key, cap.role_name)
+        if cap.role_id:
+            role_id_lookup.setdefault(pair_key, cap.role_id)
+    return cells, role_lookup, role_id_lookup, pairs
 
 
 def wire_pairs(

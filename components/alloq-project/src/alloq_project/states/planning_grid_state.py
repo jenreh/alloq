@@ -141,6 +141,7 @@ class PlanningStore(UserSession):
     employee_meta: list[dict[str, Any]] = []
     project_meta: list[dict[str, Any]] = []
     role_lookup: dict[str, str] = {}
+    role_id_lookup: dict[str, int] = {}
     absence_days: dict[str, list[float]] = {}
 
     view_mode: str = "Grid"
@@ -514,6 +515,7 @@ class PlanningStore(UserSession):
                 CapAssignment(
                     employee_id=e.employee_id,
                     project_id=e.project_id,
+                    role_id=e.role_id,
                     role_name=e.role.name if e.role else "",
                 )
                 for e in entities
@@ -531,7 +533,7 @@ class PlanningStore(UserSession):
             self.available_employees, wks, role_abbrev_by_name
         )
         proj_meta, proj_idx = build_project_meta(self.available_projects)
-        cells, role_lookup, pairs = ingest_allocations(
+        cells, role_lookup, role_id_lookup, pairs = ingest_allocations(
             allocations, assignments, proj_idx, set(wks)
         )
         wire_pairs(emp_meta, proj_idx, pairs)
@@ -546,6 +548,7 @@ class PlanningStore(UserSession):
         self.employee_meta = emp_meta
         self.project_meta = proj_meta
         self.role_lookup = role_lookup
+        self.role_id_lookup = role_id_lookup
         self.absence_days = absence_map
         self.is_loaded = True
 
@@ -659,7 +662,9 @@ class PlanningStore(UserSession):
                 continue
             real_eid = emp_id_to_real.get(emp_id)
             real_pid = proj_code_to_real.get(proj_code)
-            role_id = emp_role_id.get(emp_id)
+            role_id = self.role_id_lookup.get(
+                f"{emp_id}|{real_pid}"
+            ) or emp_role_id.get(emp_id)
             if not real_eid or not real_pid or not role_id:
                 continue
             try:
