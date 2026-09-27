@@ -8,6 +8,7 @@ from starlette.types import ASGIApp
 
 import appkit_mantine as am
 from appkit_commons.middleware import ForceHTTPSMiddleware
+from appkit_user.authentication import add_session_guard, install_session_filter
 from appkit_user.authentication.pages import (  # noqa: F401
     azure_oauth_callback_page,
     github_oauth_callback_page,
@@ -85,5 +86,7 @@ def add_https_middleware(asgi_app: ASGIApp) -> ASGIApp:
 app = rx.App(
     stylesheets=base_stylesheets,
     style=base_style,
-    api_transformer=[add_https_middleware],
+    api_transformer=[add_session_guard, add_https_middleware],
 )
+
+install_session_filter(app)
