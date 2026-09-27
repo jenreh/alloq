@@ -189,6 +189,25 @@ def parse_cell_changes(
     return updates, rejected
 
 
+def split_edits(
+    edits: dict[str, float],
+    editable_rows: set[tuple[str, str]],
+    week_keys: set[str],
+) -> tuple[dict[str, float], dict[str, float]]:
+    """Split unsaved edits into those shown in the loaded grid and the rest."""
+    visible: dict[str, float] = {}
+    hidden: dict[str, float] = {}
+    for key, value in edits.items():
+        parts = key.split("|")
+        shown = (
+            len(parts) == 3  # noqa: PLR2004
+            and (parts[0], parts[1]) in editable_rows
+            and parts[2] in week_keys
+        )
+        (visible if shown else hidden)[key] = value
+    return visible, hidden
+
+
 def dirty_keys_for(cells: dict[str, float], saved: dict[str, float]) -> list[str]:
     """Keys whose current value differs from the last loaded/saved snapshot."""
     return sorted(key for key, value in cells.items() if value != saved.get(key, 0.0))

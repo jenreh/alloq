@@ -52,6 +52,7 @@ from alloq_project.services.planning_builders import (
     parse_cell_changes,
     role_short,
     sorted_projects,
+    split_edits,
     week_key_for_date,
     wire_pairs,
 )
@@ -136,6 +137,8 @@ class PlanningStore(UserSession):
     cells: dict[str, float] = {}
     saved_cells: dict[str, float] = {}
     dirty_keys: list[str] = []
+    # Unsaved edits whose row/week is not part of the loaded time range.
+    hidden_edits: dict[str, float] = {}
     grid_revision: int = 0
 
     employee_meta: list[dict[str, Any]] = []
@@ -431,7 +434,7 @@ class PlanningStore(UserSession):
 
     @rx.var(cache=True)
     def has_dirty(self) -> bool:
-        return len(self.dirty_keys) > 0
+        return len(self.dirty_keys) > 0 or len(self.hidden_edits) > 0
 
     @rx.var(cache=True)
     def avg_heat(self) -> list[HeatCell]:
@@ -522,7 +525,15 @@ class PlanningStore(UserSession):
             ]
         return list(allocs), assignments
 
-    async def _populate(self, num_weeks: int) -> None:
+    def _unsaved_edits(self) -> dict[str, float]:
+        """All unsaved edits, including those outside the loaded range."""
+        return {
+            **self.hidden_edits,
+            **{key: self.cells.get(key, 0.0) for key in self.dirty_keys},
+        }
+
+    async def _populate(self, num_weeks: int, *, keep_edits: bool = False) -> None:
+        pending = self._unsaved_edits() if keep_edits else {}
         holiday_dates = await self._fetch_holidays(num_weeks)
         weeks, spans = build_weeks(num_weeks, holiday_dates)
         allocations, assignments = await self._fetch_data(weeks)
@@ -541,15 +552,19 @@ class PlanningStore(UserSession):
         self.weeks = weeks
         self.month_spans = spans
         self.holiday_dates = sorted(holiday_dates)
-        self.cells = cells
         self.saved_cells = dict(cells)
-        self.dirty_keys = []
         self.grid_revision += 1
         self.employee_meta = emp_meta
         self.project_meta = proj_meta
         self.role_lookup = role_lookup
         self.role_id_lookup = role_id_lookup
         self.absence_days = absence_map
+        visible, hidden = split_edits(
+            pending, self._editable_rows(), {w.key for w in weeks}
+        )
+        self.cells = {**cells, **visible}
+        self.hidden_edits = hidden
+        self.dirty_keys = dirty_keys_for(self.cells, self.saved_cells)
         self.is_loaded = True
 
     async def _load_entities(self) -> None:
@@ -579,9 +594,17 @@ class PlanningStore(UserSession):
         yield
 
     @rx.event
-    async def reload_with_time_range(self, time_range: str) -> None:
+    async def reload_with_time_range(self, time_range: str) -> Any:
+        """Reload for another range, carrying unsaved edits over."""
         n = TIME_RANGE_WEEKS.get(time_range, TIME_RANGE_WEEKS["3 Monate"])
-        await self._populate(n)
+        await self._populate(n, keep_edits=True)
+        if self.hidden_edits:
+            return rx.toast.info(
+                f"{len(self.hidden_edits)} ungespeicherte Änderung(en) außerhalb "
+                "des Zeitraums bleiben erhalten.",
+                position="top-right",
+            )
+        return None
 
     # === Cell editing ===
 
@@ -644,7 +667,8 @@ class PlanningStore(UserSession):
     async def save_grid(self) -> AsyncGenerator[Any, None]:
         if self.is_saving:
             return
-        if not self.dirty_keys:
+        edits = self._unsaved_edits()
+        if not edits:
             yield rx.toast.info("Keine Änderungen.", position="top-right")
             return
         self.is_saving = True
@@ -655,7 +679,7 @@ class PlanningStore(UserSession):
             e["id"]: e["role_ids"][0] for e in self.employee_meta if e.get("role_ids")
         }
         rows: list[dict] = []
-        for key in self.dirty_keys:
+        for key, value in edits.items():
             try:
                 emp_id, proj_code, wk_key = key.split("|")
             except ValueError:
@@ -678,7 +702,7 @@ class PlanningStore(UserSession):
                     "project_id": real_pid,
                     "role_id": role_id,
                     "week_start": wk,
-                    "person_days": float(self.cells.get(key, 0.0)),
+                    "person_days": float(value),
                 }
             )
         if not rows:
@@ -698,6 +722,7 @@ class PlanningStore(UserSession):
             return
         self.saved_cells = dict(self.cells)
         self.dirty_keys = []
+        self.hidden_edits = {}
         self.is_saving = False
         yield rx.toast.success(f"{len(rows)} Zellen gespeichert.", position="top-right")
 
