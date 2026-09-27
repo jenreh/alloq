@@ -1,5 +1,6 @@
 """Tests for client-driven cell editing in PlanningStore."""
 
+import datetime
 import math
 from contextlib import asynccontextmanager
 from typing import Any
@@ -244,3 +245,160 @@ class TestSaveGrid:
 
         assert await _drain(state.save_grid()) == []
         assert state.dirty_keys == ["x"]
+
+
+class TestSettersAndLabels:
+    def test_simple_setters(self) -> None:
+        state = PlanningStore()  # type: ignore[call-arg]
+        state.set_add_project_selected(None)  # type: ignore[arg-type]
+        state.set_quick_project_name("Neu")
+        state.set_quick_project_code("NEU")
+        state.set_view_mode("Heatmap")
+        state.set_project_filter(["1"])
+        state.set_role_filter(["2", "3"])
+        state.set_employee_filter(["4"])
+        state.toggle_project_scope()
+        state.toggle_employee_scope()
+        state.toggle_employee("emp-1")
+        assert state.add_project_selected == ""
+        assert (state.quick_project_name, state.quick_project_code) == ("Neu", "NEU")
+        assert state.view_mode == "Heatmap"
+        assert state.project_scope is True
+        assert state.employee_scope is True
+        assert state.collapsed_employees == ["emp-1"]
+        assert state.project_filter_label == '"Projekte (1)"'
+        assert state.role_filter_label == '"Rollen (2)"'
+        assert state.employee_filter_label == '"MA (1)"'
+        state.toggle_employee("emp-1")
+        assert state.collapsed_employees == []
+
+    def test_empty_filter_labels_and_dimensions(self) -> None:
+        state = _store()
+        assert state.project_filter_label == ""
+        assert state.role_filter_label == ""
+        assert state.employee_filter_label == ""
+        assert state.table_width == "480px"
+        assert state.grid_template_columns == "300px repeat(3, 60px)"
+        assert len(state.current_week_key.split("_")) == 3
+
+    def test_set_time_range_triggers_reload(self) -> None:
+        state = PlanningStore()  # type: ignore[call-arg]
+        assert state.set_time_range("6 Monate") is not None
+        assert state.time_range == "6 Monate"
+
+    def test_filtered_employees_by_filters(self) -> None:
+        state = _store()
+        state.employee_filter = ["2"]
+        assert [e.id for e in state.filtered_employees] == ["emp-2"]
+        state.employee_filter = []
+        state.project_filter = ["1"]
+        assert [e.id for e in state.filtered_employees] == ["emp-1"]
+
+    def test_notify_rejected_ignores_zero(self) -> None:
+        state = PlanningStore()  # type: ignore[call-arg]
+        assert state.notify_rejected(0) is None
+        assert state.notify_rejected(2) is not None
+
+
+class TestLoading:
+    @pytest.mark.asyncio
+    async def test_fetch_helpers_short_circuit(self) -> None:
+        state = PlanningStore()  # type: ignore[call-arg]
+        assert await state._fetch_holidays(0) == set()
+        assert await state._fetch_data([]) == ([], [])
+
+    @pytest.mark.asyncio
+    async def test_fetch_holidays_queries_repo(self) -> None:
+        state = PlanningStore()  # type: ignore[call-arg]
+        holiday = AsyncMock()
+        holiday.date = datetime.date(2026, 10, 3)
+        with (
+            patch(f"{_STATE}.get_asyncdb_session", _mock_session_ctx(AsyncMock())),
+            patch(
+                f"{_STATE}.public_holiday_repo.find_by_date_range",
+                AsyncMock(return_value=[holiday]),
+            ),
+        ):
+            assert await state._fetch_holidays(2) == {holiday.date}
+
+    @pytest.mark.asyncio
+    async def test_load_and_reload(self) -> None:
+        state = PlanningStore()  # type: ignore[call-arg]
+        with (
+            patch.object(PlanningStore, "_load_entities", AsyncMock()),
+            patch.object(PlanningStore, "_populate", AsyncMock()) as populate,
+        ):
+            await _drain(state.load())
+            await state.reload_with_time_range("12 Monate")
+        assert state.is_loading is False
+        assert [c.args[0] for c in populate.await_args_list] == [13, 52]
+
+
+class TestSaveGridPaths:
+    @pytest.mark.asyncio
+    async def test_no_changes(self) -> None:
+        state = _store()
+        assert len(await _drain(state.save_grid())) == 1
+
+    @pytest.mark.asyncio
+    async def test_unresolvable_rows_are_skipped(self) -> None:
+        state = _store()
+        state.dirty_keys = ["bad-key", "emp-9|A|2026_01_05", "emp-1|A|not_a_date"]
+        await _drain(state.save_grid())
+        assert state.is_saving is False
+        assert state.dirty_keys  # nothing saved, nothing cleared
+
+    @pytest.mark.asyncio
+    async def test_db_error_keeps_dirty(self) -> None:
+        state = _store()
+        key = _key(state, "emp-1", "A", 1)
+        state.apply_cell_changes([{"key": key, "value": 2}])
+        with (
+            patch(f"{_STATE}.get_asyncdb_session", _mock_session_ctx(AsyncMock())),
+            patch(
+                f"{_STATE}.capacity_allocation_repo.batch_upsert",
+                AsyncMock(side_effect=RuntimeError("boom")),
+            ),
+        ):
+            await _drain(state.save_grid())
+        assert state.dirty_keys == [key]
+        assert state.is_saving is False
+
+
+class TestRemoveProject:
+    @pytest.mark.asyncio
+    async def test_unknown_employee(self) -> None:
+        state = _store()
+        events = await _drain(state.remove_project_from_employee_grid("emp-9", 1))
+        assert len(events) == 1
+
+    @pytest.mark.asyncio
+    async def test_removes_capacity_and_allocations(self) -> None:
+        state = _store()
+        with (
+            patch(f"{_STATE}.get_asyncdb_session", _mock_session_ctx(AsyncMock())),
+            patch(
+                f"{_STATE}.capacity_repo.delete_by_project_and_employee", AsyncMock()
+            ) as cap_delete,
+            patch(
+                f"{_STATE}.capacity_allocation_repo.delete_by_project_and_employee",
+                AsyncMock(),
+            ) as alloc_delete,
+        ):
+            events = await _drain(state.remove_project_from_employee_grid("emp-1", 1))
+        cap_delete.assert_awaited_once()
+        alloc_delete.assert_awaited_once()
+        assert len(events) == 2
+
+    @pytest.mark.asyncio
+    async def test_db_error_is_reported(self) -> None:
+        state = _store()
+        with (
+            patch(f"{_STATE}.get_asyncdb_session", _mock_session_ctx(AsyncMock())),
+            patch(
+                f"{_STATE}.capacity_repo.delete_by_project_and_employee",
+                AsyncMock(side_effect=RuntimeError("boom")),
+            ),
+        ):
+            events = await _drain(state.remove_project_from_employee_grid("emp-1", 1))
+        assert len(events) == 1
