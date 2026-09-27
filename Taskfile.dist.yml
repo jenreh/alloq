@@ -66,6 +66,10 @@ tasks:
     desc: Run pytests with coverage
     cmd: "{{.RUNNER}} pytest --cov"
 
+  test:js:
+    desc: Run JavaScript unit tests (node --test)
+    cmd: node --test "components/*/tests/js/*.test.mjs"
+
   lint:
     desc: Run linting with ruff
     cmd: "{{.RUNNER}} ruff check ."
