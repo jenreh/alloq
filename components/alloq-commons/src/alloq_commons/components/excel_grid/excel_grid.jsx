@@ -10,8 +10,14 @@
  * Everything interactive happens in the browser; only committed batches are
  * sent to the server through `onCommit([{key, value}])`. Invalid pasted cells
  * are reported through `onReject(count)`.
+ *
+ * While `dirty` is true, leaving the route (links, redirects, Back) is held
+ * by a React Router blocker and the user can stay, discard or save & leave;
+ * closing/reloading the tab triggers the browser's beforeunload prompt.
  */
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Button, Group, Modal, Text } from "@mantine/core";
+import { useBlocker } from "react-router";
 import * as G from "./grid_logic.js";
 
 const FOCUS_RING = "inset 0 0 0 2px var(--mantine-color-blue-6)";
@@ -98,6 +104,12 @@ export function ExcelGrid({
   decimals = 2,
   decimalSeparator = ",",
   invalidMessage = "Ungültige Zahl",
+  saving = false,
+  leaveTitle = "Ungespeicherte Änderungen",
+  leaveMessage = "Es gibt ungespeicherte Änderungen. Möchtest du die Seite wirklich verlassen?",
+  leaveStayLabel = "Bleiben",
+  leaveDiscardLabel = "Verwerfen",
+  leaveSaveLabel = "Speichern & verlassen",
 }) {
   const parseOpts = { min: minValue, max: maxValue ?? Infinity, decimals };
   const formatOpts = { decimals, separator: decimalSeparator };
@@ -176,6 +188,42 @@ export function ExcelGrid({
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty]);
+
+  // --- in-app navigation guard (links, redirects, Back) -------------------
+
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      Boolean(dirty) && currentLocation.pathname !== nextLocation.pathname,
+  );
+  const blocked = blocker.state === "blocked";
+  const [leaveSaving, setLeaveSaving] = useState(false);
+  const sawSavingRef = useRef(false);
+
+  useEffect(() => {
+    if (!blocked) {
+      setLeaveSaving(false);
+      return;
+    }
+    if (!dirty) {
+      // Saved (or nothing left to lose) while the dialog was open.
+      blocker.proceed();
+    } else if (leaveSaving) {
+      if (saving) sawSavingRef.current = true;
+      else if (sawSavingRef.current) {
+        // Save finished but changes remain (error) — let the user decide again.
+        sawSavingRef.current = false;
+        setLeaveSaving(false);
+      }
+    }
+  }, [blocked, dirty, saving, leaveSaving, blocker]);
+
+  const stay = () => blocker.reset?.();
+  const discard = () => blocker.proceed?.();
+  const saveAndLeave = () => {
+    sawSavingRef.current = false;
+    setLeaveSaving(true);
+    onSave?.();
+  };
 
   // --- selection helpers --------------------------------------------------
 
@@ -508,6 +556,29 @@ export function ExcelGrid({
     >
       <style>{css}</style>
       {children}
+      <Modal
+        opened={blocked}
+        onClose={stay}
+        title={leaveTitle}
+        centered
+        zIndex={400}
+        overlayProps={{ backgroundOpacity: 0.5, blur: 4 }}
+      >
+        <Text size="sm">{leaveMessage}</Text>
+        <Group justify="flex-end" mt="lg" gap="sm">
+          <Button variant="default" onClick={stay} data-autofocus>
+            {leaveStayLabel}
+          </Button>
+          <Button variant="light" color="red" onClick={discard} disabled={leaveSaving}>
+            {leaveDiscardLabel}
+          </Button>
+          {onSave && (
+            <Button onClick={saveAndLeave} loading={leaveSaving}>
+              {leaveSaveLabel}
+            </Button>
+          )}
+        </Group>
+      </Modal>
       {editor && (
         <input
           ref={inputRef}

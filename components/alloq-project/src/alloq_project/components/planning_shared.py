@@ -270,6 +270,7 @@ def planning_excel_grid(*children: rx.Component, grid_id: str) -> rx.Component:
         grid_label="Kapazitätsplanung",
         revision=PlanningStore.grid_revision,
         dirty=PlanningStore.has_dirty,
+        saving=PlanningStore.is_saving,
         min_value=0,
         decimals=2,
         invalid_message="Ungültige Zahl (≥ 0)",

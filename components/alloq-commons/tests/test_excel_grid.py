@@ -43,7 +43,9 @@ def test_renders_with_events_and_props() -> None:
         id="grid",
         revision=_GridState.revision,
         dirty=True,
+        saving=False,
         decimals=1,
+        leave_title="Unsaved",
         on_commit=_GridState.commit,
         on_reject=_GridState.reject,
         on_save=_GridState.save,
@@ -51,7 +53,15 @@ def test_renders_with_events_and_props() -> None:
     assert isinstance(component, ExcelGrid)
     rendered = str(component)
     assert rendered.startswith("jsx(ExcelGrid,")
-    for fragment in ("onCommit", "onReject", "onSave", "decimals:1", "data-cell-key"):
+    for fragment in (
+        "onCommit",
+        "onReject",
+        "onSave",
+        "decimals:1",
+        "saving:false",
+        'leaveTitle:"Unsaved"',
+        "data-cell-key",
+    ):
         assert fragment in rendered
     imports = component._get_all_imports()
     assert any(lib.endswith("excel_grid/excel_grid.jsx") for lib in imports)

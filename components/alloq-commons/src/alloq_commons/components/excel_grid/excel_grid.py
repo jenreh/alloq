@@ -32,7 +32,10 @@ class ExcelGrid(rx.Component):
     """Bump to reset undo/redo history (e.g. after a reload)."""
 
     dirty: Var[bool]
-    """Warn before leaving the page while True."""
+    """Guard navigation and tab close while True."""
+
+    saving: Var[bool]
+    """True while on_save is running (drives the "save & leave" button)."""
 
     grid_label: Var[str]
     min_value: Var[float]
@@ -40,6 +43,11 @@ class ExcelGrid(rx.Component):
     decimals: Var[int]
     decimal_separator: Var[str]
     invalid_message: Var[str]
+    leave_title: Var[str]
+    leave_message: Var[str]
+    leave_stay_label: Var[str]
+    leave_discard_label: Var[str]
+    leave_save_label: Var[str]
 
     on_commit: EventHandler[passthrough_event_spec(list[dict[str, Any]])]
     on_reject: EventHandler[passthrough_event_spec(int)]
