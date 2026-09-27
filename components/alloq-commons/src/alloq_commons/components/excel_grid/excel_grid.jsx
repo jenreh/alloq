@@ -234,10 +234,10 @@ export function ExcelGrid({
       );
       to.current.push(batch);
       const lay = layout();
-      const pos = G.findPos(lay, batch[0].key);
-      if (pos) select(lay, pos);
+      const positions = batch.map((ch) => G.findPos(lay, ch.key)).filter(Boolean);
+      if (positions.length) selectRect(lay, G.boundingRect(positions));
     },
-    [applyChanges, layout, select],
+    [applyChanges, layout, selectRect],
   );
 
   // --- editor -------------------------------------------------------------

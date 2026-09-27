@@ -129,6 +129,15 @@ export function normalizeRange(anchor, focus) {
   };
 }
 
+export function boundingRect(positions) {
+  return {
+    r0: Math.min(...positions.map((p) => p.r)),
+    r1: Math.max(...positions.map((p) => p.r)),
+    c0: Math.min(...positions.map((p) => p.c)),
+    c1: Math.max(...positions.map((p) => p.c)),
+  };
+}
+
 export function rangeKeys(layout, rect) {
   const keys = [];
   for (let r = rect.r0; r <= rect.r1; r++) {

@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import {
   blockRect,
+  boundingRect,
   findPos,
   formatNumber,
   move,
@@ -102,6 +103,10 @@ describe("positions and ranges", () => {
       "emp-2|C|w0",
       "emp-2|C|w1",
     ]);
+  });
+
+  it("computes the bounding rect of positions", () => {
+    assert.deepEqual(boundingRect([{ r: 2, c: 0 }, { r: 1, c: 2 }]), { r0: 1, r1: 2, c0: 0, c1: 2 });
   });
 
   it("selects the current resource block", () => {
