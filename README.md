@@ -128,6 +128,8 @@ Weekly capacity grid with per-employee allocation, over/under-utilization highli
 Capacities are edited like in a spreadsheet (reusable `excel_grid` component in
 `alloq_commons.components.excel_grid`). Selection, navigation and editing run in the
 browser; only committed values are sent to the server, and changes are kept until you save.
+Leaving the page with unsaved changes (sidebar, links, Back) asks whether to stay, discard or
+save & leave; closing or reloading the tab shows the browser's warning.
 
 | Keys | Action |
 | --- | --- |
