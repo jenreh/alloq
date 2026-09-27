@@ -410,6 +410,7 @@ class UtilizationService:
     @classmethod
     def compute_team_utilization_series(
         cls,
+        *,
         employees: list[UtilizationEmployeeInput],
         allocations: list[UtilizationAllocationInput],
         week_starts: list[date],

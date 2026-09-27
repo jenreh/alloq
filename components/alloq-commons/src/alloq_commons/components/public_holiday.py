@@ -68,6 +68,7 @@ def holiday_form_fields(holiday: PublicHoliday | None = None) -> rx.Component:
 
 
 def _holiday_modal(
+    *,
     title: str,
     opened: bool | rx.Var,
     on_close: rx.EventHandler,

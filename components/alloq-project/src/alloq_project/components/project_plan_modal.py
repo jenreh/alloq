@@ -290,6 +290,7 @@ def _distribution_chart() -> rx.Component:
 
 
 def _ramp_card(
+    *,
     label: str,
     value: rx.Var,
     on_change: rx.event.EventHandler,
@@ -406,20 +407,20 @@ def _step_verteilung() -> rx.Component:
         ),
         mn.group(
             _ramp_card(
-                "Ramp-up",
-                ProjectPlanState.ramp_up,
-                ProjectPlanState.set_ramp_up,
-                ProjectPlanState.num_weeks,
-                "sofort",
-                "langsam",
+                label="Ramp-up",
+                value=ProjectPlanState.ramp_up,
+                on_change=ProjectPlanState.set_ramp_up,
+                max_var=ProjectPlanState.num_weeks,
+                left_label="sofort",
+                right_label="langsam",
             ),
             _ramp_card(
-                "Ramp-down",
-                ProjectPlanState.ramp_down,
-                ProjectPlanState.set_ramp_down,
-                ProjectPlanState.num_weeks,
-                "abrupt",
-                "langsam",
+                label="Ramp-down",
+                value=ProjectPlanState.ramp_down,
+                on_change=ProjectPlanState.set_ramp_down,
+                max_var=ProjectPlanState.num_weeks,
+                left_label="abrupt",
+                right_label="langsam",
             ),
             _capacity_card(),
             gap="md",

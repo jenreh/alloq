@@ -227,6 +227,7 @@ def _spill_back(
 
 def _apply_rampdown(
     result: list[float],
+    *,
     ramp_up: int,
     ramp_down: int,
     weeks: int,
@@ -270,7 +271,14 @@ def _distribute_with_avail(
     remaining = _fill_rampup(result, float(total_pt), ramp_up, weekly_avail)
     _, last_filled = _fill_plateau(result, remaining, ramp_up, weeks, weekly_avail)
     if ramp_down > 0 and last_filled >= ramp_up:
-        _apply_rampdown(result, ramp_up, ramp_down, weeks, weekly_avail, last_filled)
+        _apply_rampdown(
+            result,
+            ramp_up=ramp_up,
+            ramp_down=ramp_down,
+            weeks=weeks,
+            weekly_avail=weekly_avail,
+            last_filled=last_filled,
+        )
     return [round(v, 2) for v in result]
 
 
