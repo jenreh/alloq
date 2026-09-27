@@ -59,9 +59,14 @@ def _emp_block(
     )
 
 
-def _emp_row(weeks: list, role: str, values: list[float]) -> EmployeeAllocationRow:
+def _emp_row(
+    weeks: list, role: str, values: list[float], name: str = ""
+) -> EmployeeAllocationRow:
     return EmployeeAllocationRow(
-        role_short=role, role_color=f"color-{role}", cells=_cells(weeks, values)
+        role_short=role,
+        role_name=name or role,
+        role_color=f"color-{role}",
+        cells=_cells(weeks, values),
     )
 
 
@@ -134,6 +139,18 @@ class TestProjectSummary:
         weeks, _ = build_weeks(2)
         assert project_summary(ProjectBlock(), weeks[1].key) == (0.0, [])
 
+    def test_roles_sharing_an_abbreviation_stay_separate(self) -> None:
+        weeks, _ = build_weeks(1)
+        block = ProjectBlock(
+            employees=[
+                _emp_row(weeks, "SD", [1.0], name="Senior Developer"),
+                _emp_row(weeks, "SD", [2.0], name="Software Developer"),
+            ]
+        )
+        total, roles = project_summary(block, weeks[0].key)
+        assert total == 3.0
+        assert [(r.code, r.days) for r in roles] == [("SD", 1.0), ("SD", 2.0)]
+
 
 def _employee(emp_id: int) -> MagicMock:
     e = MagicMock()
@@ -204,3 +221,10 @@ class TestStoreBlocksCarrySummary:
         block = self._store().project_blocks[0]
         assert block.planned_days == 2.0
         assert [(r.code, r.days) for r in block.role_totals] == [("DS", 2.0)]
+
+    def test_summary_uses_week_of_last_populate(self) -> None:
+        state = self._store()
+        state.current_week = state.weeks[0].key
+        assert state.current_week_key == state.weeks[0].key
+        assert state.employee_blocks[0].planned_days == 6.0
+        assert state.project_blocks[0].planned_days == 6.0

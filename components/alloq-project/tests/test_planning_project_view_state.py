@@ -306,8 +306,12 @@ class TestPlanningStoreProjectView:
 
     def test_filtered_projects_by_role(self) -> None:
         state = self._two_project_store()
-        state.available_roles = [Role(id=3, name="Developer", abbreviation="DEV")]
-        state.role_lookup = {"emp-1|1": "Developer"}
+        state.available_roles = [
+            Role(id=3, name="Developer", abbreviation="DEV"),
+            Role(id=4, name="Developer", abbreviation="DEV"),
+        ]
+        state.role_lookup = {"emp-1|1": "Developer", "emp-2|2": "Developer"}
+        state.role_id_lookup = {"emp-1|1": 3, "emp-2|2": 4}
         state.role_filter = ["3"]
         assert [p.code for p in state.filtered_projects] == ["A"]
 

@@ -58,7 +58,8 @@ function readLayout(root) {
 }
 
 function attr(value) {
-  return String(value).replace(/["\\]/g, "\\$&");
+  // Also escapes newlines, which would otherwise end the quoted value early.
+  return CSS.escape(String(value));
 }
 
 function rectRule(root, layout, rect, decl) {

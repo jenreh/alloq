@@ -226,12 +226,19 @@ class Project(BaseModel):
     team_members: list[TeamMemberBadge] = []
     risk_count: int = 0
     required_capacities: list[RequiredCapacity] = []
+    total_pt: int = 0
     ev_earned_value: float = 0.0
     ev_actual_cost: float = 0.0
     ev_eac_linear: float = 0.0
     ev_eac_additive: float = 0.0
     created: datetime | None = None
     updated: datetime | None = None
+
+    @model_validator(mode="after")
+    def compute_total_pt(self) -> "Project":
+        """Sum the required person days across all roles."""
+        self.total_pt = sum(rc.person_days for rc in self.required_capacities)
+        return self
 
     @property
     def team_count(self) -> int:

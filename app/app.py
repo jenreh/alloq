@@ -1,5 +1,3 @@
-import logging
-
 import reflex as rx
 from alloq_dashboard.pages import create_dashboard_page
 from alloq_project.pages import create_planning_page, create_projects_overview_page
@@ -59,7 +57,6 @@ ALLOQ_THEME = am.create_theme(
 
 am.set_app_theme(ALLOQ_THEME)
 
-logging.basicConfig(level=logging.DEBUG)
 create_login_page()
 create_profile_page(
     app_navbar_collapsible(),

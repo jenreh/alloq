@@ -98,13 +98,20 @@ def _status_badge(project: Project) -> rx.Component:
 
 
 def _period_cell(project: Project) -> rx.Component:
+    # Each date stays on one line; the only allowed break is after the arrow.
     return mn.text(
-        rx.cond(project.start_date, format_date_de_named(project.start_date), "—")
-        + " → "
-        + rx.cond(project.end_date, format_date_de_named(project.end_date), "—"),
+        rx.el.span(
+            rx.cond(project.start_date, format_date_de_named(project.start_date), "—")
+            + " →",
+            style=NO_WRAP_CELL_STYLE,
+        ),
+        " ",
+        rx.el.span(
+            rx.cond(project.end_date, format_date_de_named(project.end_date), "—"),
+            style=NO_WRAP_CELL_STYLE,
+        ),
         size="sm",
         c="var(--alloq-text)",
-        style=NO_WRAP_CELL_STYLE,
     )
 
 
@@ -194,6 +201,11 @@ def _project_table_row(project: Project) -> rx.Component:
         mn.table.td(_status_badge(project)),
         mn.table.td(_period_cell(project)),
         mn.table.td(
+            de_number(value=project.total_pt, suffix=" PT"),
+            style=NO_WRAP_CELL_STYLE,
+            ta="right",
+        ),
+        mn.table.td(
             de_number(value=project.budget, suffix=" €"),
             style=NO_WRAP_CELL_STYLE,
             ta="right",
@@ -222,6 +234,7 @@ def _table_head() -> rx.Component:
             _header("Kunde", "customer", width="160px"),
             _header("Status", "state", width="140px"),
             _header("Zeitraum", "start_date", width="220px"),
+            _header("PT", "total_pt", width="100px"),
             _header("Budget", "budget", width="130px"),
             _header("Verbraucht", "current_spent", width="120px"),
             _header("Fortschritt", "current_progress", width="170px"),
@@ -248,7 +261,7 @@ def _project_table_section(title: str, projects: rx.Var) -> rx.Component:
                     highlight_on_hover=True,
                     highlight_on_hover_color="var(--alloq-surface-hover)",
                     w="100%",
-                    miw="1570px",
+                    miw="1670px",
                     style=TABLE_STYLE,
                 ),
                 width="100%",

@@ -59,6 +59,7 @@ __pypackages__/
 /vectorstore/
 aila-storage/
 assets/external/
+**/assets/external/
 build/
 celerybeat-schedule
 celerybeat.pid

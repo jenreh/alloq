@@ -3,7 +3,7 @@
 from datetime import date
 
 import pytest
-from alloq_commons.models.project import Project
+from alloq_commons.models.project import Project, RequiredCapacity
 from alloq_project.services.project_sorting import (
     DEFAULT_SORT_COLUMN,
     SORT_COLUMNS,
@@ -25,6 +25,7 @@ def projects() -> list[Project]:
             state="Risiko",
             start_date=date(2026, 3, 1),
             budget=200,
+            required_capacities=[RequiredCapacity(role_id=1, person_days=5)],
             current_spent=50,
             current_progress=10,
             risk_count=2,
@@ -36,6 +37,10 @@ def projects() -> list[Project]:
             state="Abgeschlossen",
             start_date=None,
             budget=300,
+            required_capacities=[
+                RequiredCapacity(role_id=1, person_days=10),
+                RequiredCapacity(role_id=2, person_days=20),
+            ],
             current_spent=90,
             current_progress=100,
             risk_count=0,
@@ -71,6 +76,7 @@ class TestSortProjects:
             ("name", ["A", "B", "C"]),
             ("customer", ["A", "C", "B"]),
             ("state", ["C", "B", "A"]),
+            ("total_pt", ["C", "B", "A"]),
             ("budget", ["C", "B", "A"]),
             ("current_spent", ["C", "B", "A"]),
             ("current_progress", ["B", "C", "A"]),
@@ -139,6 +145,7 @@ class TestSortProjects:
             "customer",
             "state",
             "start_date",
+            "total_pt",
             "budget",
             "current_spent",
             "current_progress",

@@ -162,6 +162,7 @@ class PlanningStore(UserSession):
     project_scope: bool = False
     employee_scope: bool = False
     current_employee_id: int | None = None
+    current_week: str = ""
 
     collapsed_employees: list[str] = []
     collapsed_projects: list[str] = []
@@ -210,12 +211,24 @@ class PlanningStore(UserSession):
         self.employee_filter = value
 
     @rx.event
-    def toggle_project_scope(self) -> None:
+    def toggle_project_scope(self) -> Any:
+        if not self.project_scope and self.current_employee_id is None:
+            return self._notify_no_employee()
         self.project_scope = not self.project_scope
+        return None
 
     @rx.event
-    def toggle_employee_scope(self) -> None:
+    def toggle_employee_scope(self) -> Any:
+        if not self.employee_scope and self.current_employee_id is None:
+            return self._notify_no_employee()
         self.employee_scope = not self.employee_scope
+        return None
+
+    @staticmethod
+    def _notify_no_employee() -> Any:
+        return rx.toast.warning(
+            "Ihrem Benutzer ist kein Mitarbeiter zugeordnet.", position="top-right"
+        )
 
     # === Entity-derived select options ===
 
@@ -258,7 +271,7 @@ class PlanningStore(UserSession):
         wks = self._week_keys()
         proj_idx = {p["id"]: p for p in self.project_meta}
         role_abbrev_by_name = {r.name: r.abbreviation for r in self.available_roles}
-        from_key = current_week_key()
+        from_key = self.current_week_key
         blocks: list[EmployeeBlock] = []
         for emp in self.employee_meta:
             emp_id = emp["id"]
@@ -343,7 +356,7 @@ class PlanningStore(UserSession):
         wks = self._week_keys()
         emp_idx = {e["id"]: e for e in self.employee_meta}
         role_abbrev_by_name = {r.name: r.abbreviation for r in self.available_roles}
-        from_key = current_week_key()
+        from_key = self.current_week_key
         blocks: list[ProjectBlock] = []
         for proj in self.project_meta:
             code = proj["code"]
@@ -433,11 +446,14 @@ class PlanningStore(UserSession):
         if self.project_filter:
             result = [p for p in result if str(p.real_id) in self.project_filter]
         if self.role_filter:
-            names = {
-                r.name for r in self.available_roles if str(r.id) in self.role_filter
-            }
             result = [
-                p for p in result if any(e.role_name in names for e in p.employees)
+                p
+                for p in result
+                if any(
+                    str(self.role_id_lookup.get(f"{e.emp_id}|{p.real_id}"))
+                    in self.role_filter
+                    for e in p.employees
+                )
             ]
         if self.employee_filter:
             result = [
@@ -484,7 +500,8 @@ class PlanningStore(UserSession):
 
     @rx.var(cache=True)
     def current_week_key(self) -> str:
-        return current_week_key()
+        """Current week as of the last populate, so summaries match the columns."""
+        return self.current_week or current_week_key()
 
     @rx.var(cache=True)
     def table_width(self) -> str:
@@ -574,6 +591,7 @@ class PlanningStore(UserSession):
         wire_pairs(emp_meta, proj_idx, pairs)
 
         self.weeks = weeks
+        self.current_week = current_week_key()
         self.month_spans = spans
         self.holiday_dates = sorted(holiday_dates)
         self.saved_cells = dict(cells)

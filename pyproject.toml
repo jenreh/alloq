@@ -121,90 +121,58 @@ extend-exclude = [
 [tool.ruff.lint]
 extend-select = ["I"]
 ignore = [
-    "EM101",
-    "EM102",
-    "ISC001",
-    "N811",
-    "N818",
-    "PLR0913",
-    "PT011",
-    "PT012",
-    "RUF012",
-    "RUF100",
-    "SIM300",
-    "E501",
-    "B008",
-    "ASYNC240",
-    "PYI034",
-    "S101",
-    "PLR0912",
-    "ASYNC109",
-    "ARG001",
-    "PLR2004",
-    "PLW0603",
-    "PLC0415",
-    "SIM105",
-    "PLW2901",
-    "PLR0911",
-    "B017",
-    "RUF001",
-    "RUF002",
-    "RUF003",
+    "EM101", # Exception must not use a string literal
+    "EM102", # Exception must not use a string literal with a format specifier
+    "ISC001", # Implicit string concatenation
+    "N811", # Constant {name} imported as non-constant {asname}
+    "N818", # Exception name {name} should be named with an Error suffix
+    "PLR0913", # Too many arguments in function
+    "PT011", # pytest-raises-too-broad
+    "PT012", # pytest.raises() block should contain a single simple statement
+    "RUF012", # Mutable class attributes should be annotated with typing.ClassVar
+    "RUF100", # unused noqa
+    "SIM300", # Yoda conditions are discouraged, use {suggestion} instead
 ]
 select = [
-    "A",
+    "A", # Flake8-builtins
     "ANN001",
-    "ANN201",
-    "ARG",
-    "ASYNC",
-    "B",
-    "C4",
-    "DTZ",
-    "E",
-    "EM",
-    "EXE",
-    "F",
-    "FIX",
-    "G",
-    "ICN",
-    "LOG",
-    "N",
-    "PERF",
-    "PIE",
-    "PL",
-    "PT",
-    "PTH",
-    "PYI",
-    "Q",
-    "RET",
-    "RUF",
-    "S",
-    "SIM",
-    "SLF",
-    "SLF001",
-    "T20",
-    "TID",
-    "UP",
-    "W",
+    "ANN201", # Missing return type annotation
+    "ARG", # Flake8-arguments
+    "ASYNC", # Flake8-async
+    "B", # Flake8-bugbear
+    "C4", # Flake8-comprehensions
+    "DTZ", # Flake8-datetimez
+    "E", # Pyflakes
+    "EM", # Flake8-errmsg
+    "EXE", # Flake8-executable
+    "F", # Pyflakes
+    "FIX", # Flake8-fixme
+    "FAST", # FastAPI
+    "G", # Flake8-logging-format
+    "ICN", # Flake8-import-conventions
+    "LOG", # Flake8-logging
+    "N", # Naming
+    "PERF", # Perflint
+    "PIE", # Flake8-pie
+    "PL", # PyLint
+    "PT", # Flake8-pytest-style
+    "PTH", # Flake8-use-pathlib
+    "PYI", # Flake8-pyi
+    "Q", # Flake8-quotes
+    "RET", # Flake8-return
+    "RUF", # Ruff
+    "S", # Flake8-bandit
+    "SIM", # Flake8-simplify
+    "SLF", # Flake8-self
+    "SLF001", # Flake8-self
+    "T20", # Flake8-print
+    "TID", # Flake8-tidy-imports
+    "UP", # PyUpgrade - will show hints for deprecated syntax in python 3.11
+    "W", # pycodestyle
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"__init__.py" = [
-    "S101",
-    "PLR2004",
-    "ANN001",
-    "S106",
-    "SLF001",
-    "RET504",
-    "PERF401",
-    "E402",
-    "S501",
-    "S110",
-    "ARG002",
-    "ARG005",
-    "E741",
-    "RUF059",
-] # {name} imported but unused
+"__init__.py" = ["F401", "I001"] # {name} imported but unused
 "server.py" = ["W605", "S104"] # invalid escape sequence
 "test_**.py" = ["S101", "PLR2004", "ANN001", "S106", "SLF001", "RET504", "PERF401"]
 "alembic/versions/*.py" = ["E501"]
@@ -220,7 +188,7 @@ docstring-code-line-length = "dynamic"
 exclude = ["*.pyi"]
 
 [tool.ruff.lint.isort]
-known-local-folder = ["app", "alembic", "alloq-commons", "alloq-dashboard", "alloq-project", "alloq-team"]
+known-local-folder = ["app", "alembic"]
 known-first-party = ["appkit_*"]
 
 [tool.pytest.ini_options]
@@ -239,6 +207,8 @@ exclude = [
     ".cache",
     ".claude",
     ".venv",
+    ".venv.mac",
+    ".web",
     "build",
     "dist",
 ]
@@ -248,20 +218,17 @@ exclude = [
 [tool.ty.rules]
 unresolved-import = "warn"
 
-# runic.ogm Field() descriptors are annotated with their value type (str, list),
-# so class-level query expressions (R.mela_id.in_(...)) look untyped to ty.
-[[tool.ty.overrides]]
-include = ["mela_graph/adapters/graph/**"]
-
-[tool.ty.overrides.rules]
-unresolved-attribute = "ignore"
-invalid-argument-type = "ignore"
-unsupported-operator = "ignore"
-
 [tool.coverage.run]
 branch = true
-source = ["mela_graph"]
 omit = []
+source = [
+    "app",
+    "server",
+    "common",
+    "components/alloq-commons/src/alloq_commons",
+    "components/alloq-project/src/alloq_project",
+    "components/alloq-team/src/alloq_team",
+]
 
 [tool.coverage.report]
 exclude_lines = ["if TYPE_CHECKING:", "if __name__ == .__main__.:", "pragma: no cover", "^\\s*\\.\\.\\.$"]

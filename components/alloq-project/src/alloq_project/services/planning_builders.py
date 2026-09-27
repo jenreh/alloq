@@ -354,16 +354,17 @@ def project_summary(
     block: ProjectBlock, from_key: str
 ) -> tuple[float, list[RoleTotal]]:
     """Planned person-days from ``from_key`` onward, in total and per role."""
-    totals: dict[str, RoleTotal] = {}
+    totals: dict[tuple[str, str], RoleTotal] = {}
     for emp in block.employees:
         days = sum(c.value for c in emp.cells if c.week_key >= from_key)
         entry = totals.setdefault(
-            emp.role_short, RoleTotal(code=emp.role_short, color=emp.role_color)
+            (emp.role_short, emp.role_name),
+            RoleTotal(code=emp.role_short, color=emp.role_color),
         )
         entry.days += days
     roles = [
-        RoleTotal(code=r.code, color=r.color, days=round(r.days, 2))
-        for r in sorted(totals.values(), key=lambda r: r.code)
+        RoleTotal(code=totals[k].code, color=totals[k].color, days=round(r.days, 2))
+        for k, r in sorted(totals.items())
         if round(r.days, 2) > 0
     ]
     return round(sum(r.days for r in totals.values()), 2), roles

@@ -20,6 +20,7 @@ _SORT_KEYS: dict[str, Callable[[Project], Any]] = {
     "customer": lambda p: p.customer.casefold(),
     "state": lambda p: _STATE_ORDER.get(p.state, len(_STATE_ORDER)),
     "start_date": lambda p: p.start_date,
+    "total_pt": lambda p: p.total_pt,
     "budget": lambda p: p.budget,
     "current_spent": lambda p: p.current_spent,
     "current_progress": lambda p: p.current_progress,

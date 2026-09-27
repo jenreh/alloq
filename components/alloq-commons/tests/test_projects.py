@@ -14,7 +14,12 @@ from alloq_commons.entities import (
     RoleEntity,
     SeniorityLevel,
 )
-from alloq_commons.models.project import Project, ProjectCreate, RequiredCapacityCreate
+from alloq_commons.models.project import (
+    Project,
+    ProjectCreate,
+    RequiredCapacity,
+    RequiredCapacityCreate,
+)
 from alloq_commons.repositories import (
     CapacityRepository,
     ProjectRepository,
@@ -111,6 +116,18 @@ class TestProjectModels:
     def test_project_team_count(self) -> None:
         project = Project(team_initials=["AH", "ML"])
         assert project.team_count == 2
+
+    def test_project_total_pt_sums_required_capacities(self) -> None:
+        project = Project(
+            required_capacities=[
+                RequiredCapacity(role_id=1, person_days=20),
+                RequiredCapacity(role_id=2, person_days=15),
+            ]
+        )
+        assert project.total_pt == 35
+
+    def test_project_total_pt_defaults_to_zero(self) -> None:
+        assert Project().total_pt == 0
 
 
 class TestProjectRepository:

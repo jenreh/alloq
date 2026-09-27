@@ -217,6 +217,7 @@ class TestPopulate:
         assert state.dirty_keys == []
         assert state.saved_cells == state.cells
         assert len(state.weeks) == 2
+        assert state.current_week == state.weeks[1].key
 
 
 class TestSaveGrid:
@@ -254,6 +255,7 @@ class TestSaveGrid:
 class TestSettersAndLabels:
     def test_simple_setters(self) -> None:
         state = PlanningStore()  # type: ignore[call-arg]
+        state.current_employee_id = 1
         state.set_add_project_selected(None)  # type: ignore[arg-type]
         state.set_quick_project_name("Neu")
         state.set_quick_project_code("NEU")
@@ -315,11 +317,20 @@ class TestSettersAndLabels:
         state.toggle_employee_scope()
         assert [e.id for e in state.filtered_employees] == ["emp-2"]
 
-    def test_scope_without_current_employee_shows_nothing(self) -> None:
+    def test_scope_without_current_employee_is_refused(self) -> None:
         state = _store()
         state.all_projects = [Project(id=1, owner_ids=[9])]
-        state.toggle_project_scope()
-        assert state.filtered_employees == []
+        assert state.toggle_project_scope() is not None
+        assert state.toggle_employee_scope() is not None
+        assert (state.project_scope, state.employee_scope) == (False, False)
+        assert [e.id for e in state.filtered_employees] == ["emp-1", "emp-2"]
+
+    def test_active_scope_can_always_be_turned_off(self) -> None:
+        state = _store()
+        state.project_scope = state.employee_scope = True
+        assert state.toggle_project_scope() is None
+        assert state.toggle_employee_scope() is None
+        assert (state.project_scope, state.employee_scope) == (False, False)
 
     def test_notify_rejected_ignores_zero(self) -> None:
         state = PlanningStore()  # type: ignore[call-arg]
