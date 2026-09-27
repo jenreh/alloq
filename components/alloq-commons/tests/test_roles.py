@@ -456,6 +456,34 @@ class TestRoleStateAsync:
         assert len(state.roles) == 1
 
     @pytest.mark.asyncio
+    async def test_load_roles_keeps_rows_when_already_loaded(self) -> None:
+        """Revisiting the page must not swap existing rows for the spinner."""
+        state = _authenticated_state()
+        state.roles = [Role(id=1, name="Alpha")]
+        entity = RoleEntity(name="Alpha", description="")
+        entity.id = 1
+        entity.created = None
+        entity.updated = None
+        mock_repo = AsyncMock()
+        mock_repo.find_all_paginated = AsyncMock(return_value=[entity])
+
+        loading_seen = []
+        async with _patch_auth(state):
+            with (
+                patch(
+                    "alloq_commons.state.role_states.get_asyncdb_session",
+                    _mock_session_ctx(AsyncMock()),
+                ),
+                patch("alloq_commons.state.role_states.role_repo", mock_repo),
+            ):
+                async for _ in state.load_roles():
+                    loading_seen.append(state.is_loading)
+
+        assert True not in loading_seen
+        assert state.is_loading is False
+        mock_repo.find_all_paginated.assert_awaited_once()
+
+    @pytest.mark.asyncio
     async def test_create_role_success(self) -> None:
         state = _authenticated_state()
         session = AsyncMock()
@@ -737,6 +765,10 @@ class TestRoleComponents:
     def test_roles_table_returns_component(self) -> None:
         result = roles_table()
         assert isinstance(result, rx.Component)
+
+    def test_roles_table_does_not_load_on_mount(self) -> None:
+        """The page's on_load already loads roles; a second load flickers."""
+        assert "on_mount" not in roles_table().event_triggers
 
     def test_add_role_modal_returns_component(self) -> None:
         result = add_role_modal()

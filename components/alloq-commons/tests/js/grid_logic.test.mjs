@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   blockRect,
   boundingRect,
+  fillHandleRect,
   findPos,
   formatNumber,
   move,
@@ -13,6 +14,7 @@ import {
   parseTSV,
   planClear,
   planFill,
+  planFillHandle,
   planPaste,
   rangeKeys,
   resolvePos,
@@ -226,5 +228,49 @@ describe("fill, clear and undo bookkeeping", () => {
       { key: "emp-1|A|w0", before: 1, after: 0 },
       { key: "emp-1|B|w0", before: 3, after: 0 },
     ]);
+  });
+});
+
+describe("fill handle", () => {
+  const rect = { r0: 1, r1: 1, c0: 1, c1: 1 };
+
+  it("does nothing while the pointer stays inside the source", () => {
+    assert.equal(fillHandleRect(rect, { r: 1, c: 1 }), null);
+  });
+
+  it("extends along the dominant axis only", () => {
+    assert.deepEqual(fillHandleRect(rect, { r: 3, c: 2 }), { r0: 1, r1: 3, c0: 1, c1: 1 });
+    assert.deepEqual(fillHandleRect(rect, { r: 2, c: 0 }), { r0: 1, r1: 2, c0: 1, c1: 1 });
+    assert.deepEqual(fillHandleRect(rect, { r: 1, c: 2 }), { r0: 1, r1: 1, c0: 1, c1: 2 });
+    assert.deepEqual(fillHandleRect(rect, { r: 0, c: 1 }), { r0: 0, r1: 1, c0: 1, c1: 1 });
+    assert.deepEqual(fillHandleRect(rect, { r: 2, c: 2 }), { r0: 1, r1: 2, c0: 1, c1: 1 });
+    assert.deepEqual(fillHandleRect(rect, { r: 1, c: 0 }), { r0: 1, r1: 1, c0: 0, c1: 1 });
+  });
+
+  it("copies a single value into every dragged-over cell", () => {
+    const get = (k) => (k === "emp-1|A|w0" ? 5 : 0);
+    const src = { r0: 0, r1: 0, c0: 0, c1: 0 };
+    assert.deepEqual(planFillHandle(layout, src, { ...src, c1: 2 }, get), [
+      { key: "emp-1|A|w1", value: 5 },
+      { key: "emp-1|A|w2", value: 5 },
+    ]);
+    assert.deepEqual(
+      planFillHandle(layout, src, { ...src, r1: 3 }, get).map((c) => c.key),
+      ["emp-1|B|w0", "emp-2|C|w0", "emp-3|D|w0"],
+    );
+  });
+
+  it("repeats a multi-cell source pattern, also upwards", () => {
+    const values = { "emp-1|B|w0": 1, "emp-2|C|w0": 2 };
+    const get = (k) => values[k] ?? 0;
+    const src = { r0: 1, r1: 2, c0: 0, c1: 0 };
+    assert.deepEqual(
+      planFillHandle(layout, src, { ...src, r1: 3 }, get),
+      [{ key: "emp-3|D|w0", value: 1 }],
+    );
+    assert.deepEqual(
+      planFillHandle(layout, src, { ...src, r0: 0 }, get),
+      [{ key: "emp-1|A|w0", value: 2 }],
+    );
   });
 });

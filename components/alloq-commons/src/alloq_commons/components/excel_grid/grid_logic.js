@@ -268,6 +268,37 @@ export function planFill(layout, rect, direction, getValue) {
   return changes;
 }
 
+/**
+ * Fill-handle drag: extend `rect` towards `pos` along the dominant axis
+ * (vertical wins ties). Returns null while `pos` is inside the rect.
+ */
+export function fillHandleRect(rect, pos) {
+  const vertical = Math.max(pos.r - rect.r1, rect.r0 - pos.r, 0);
+  const horizontal = Math.max(pos.c - rect.c1, rect.c0 - pos.c, 0);
+  if (!vertical && !horizontal) return null;
+  if (vertical >= horizontal) {
+    return { ...rect, r0: Math.min(rect.r0, pos.r), r1: Math.max(rect.r1, pos.r) };
+  }
+  return { ...rect, c0: Math.min(rect.c0, pos.c), c1: Math.max(rect.c1, pos.c) };
+}
+
+const mod = (n, m) => ((n % m) + m) % m;
+
+/** Fill handle: repeat the source rect's values across the rest of `target`. */
+export function planFillHandle(layout, src, target, getValue) {
+  const h = src.r1 - src.r0 + 1;
+  const w = src.c1 - src.c0 + 1;
+  const changes = [];
+  for (let r = target.r0; r <= target.r1; r++) {
+    for (let c = target.c0; c <= target.c1; c++) {
+      if (r >= src.r0 && r <= src.r1 && c >= src.c0 && c <= src.c1) continue;
+      const from = keyAt(layout, { r: src.r0 + mod(r - src.r0, h), c: src.c0 + mod(c - src.c0, w) });
+      changes.push({ key: keyAt(layout, { r, c }), value: getValue(from) });
+    }
+  }
+  return changes;
+}
+
 export function planClear(layout, rect) {
   return rangeKeys(layout, rect).map((key) => ({ key, value: 0 }));
 }

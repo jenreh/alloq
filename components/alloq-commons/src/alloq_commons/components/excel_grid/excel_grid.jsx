@@ -11,6 +11,10 @@
  * sent to the server through `onCommit([{key, value}])`. Invalid pasted cells
  * are reported through `onReject(count)`.
  *
+ * Dragging the fill handle (bottom-right corner of the selection) repeats the
+ * selected values into the dragged-over cells, like Excel. Editable cells need
+ * a positioning context; the handle cell gets `position: relative`.
+ *
  * While `dirty` is true, leaving the route (links, redirects, Back) is held
  * by a React Router blocker and the user can stay, discard or save & leave;
  * closing/reloading the tab triggers the browser's beforeunload prompt.
@@ -22,6 +26,12 @@ import * as G from "./grid_logic.js";
 
 const FOCUS_RING = "inset 0 0 0 2px var(--mantine-color-blue-6)";
 const RANGE_FILL = "inset 0 0 0 999px light-dark(rgba(34, 139, 230, 0.14), rgba(34, 139, 230, 0.24))";
+const FILL_HANDLE =
+  'content:"";position:absolute;right:-4px;bottom:-4px;width:7px;height:7px;z-index:1;' +
+  "box-sizing:border-box;cursor:crosshair;background:var(--mantine-color-blue-6);" +
+  "border:1px solid var(--alloq-surface-solid, #fff);";
+const FILL_PREVIEW = "outline:1px dashed var(--mantine-color-blue-6);outline-offset:-1px;";
+const HANDLE_HIT_PX = 5;
 const ROW_PX = 32;
 
 function readLayout(root) {
@@ -51,15 +61,8 @@ function attr(value) {
   return String(value).replace(/["\\]/g, "\\$&");
 }
 
-function selectionCss(id, layout, sel) {
+function rectRule(root, layout, rect, decl) {
   // Column keys come from data-col on the cells of the first row.
-  if (!sel.focusKey || !layout.rows.length) return "";
-  const root = `#${CSS.escape(id)}`;
-  const focusRule = `${root} [data-cell-key="${attr(sel.focusKey)}"]{box-shadow:${FOCUS_RING};}`;
-  const a = G.findPos(layout, sel.anchorKey);
-  const f = G.findPos(layout, sel.focusKey);
-  if (!a || !f || (a.r === f.r && a.c === f.c)) return focusRule;
-  const rect = G.normalizeRange(a, f);
   const rowSel = [];
   for (let r = rect.r0; r <= rect.r1; r++) {
     rowSel.push(`[data-row-key="${attr(layout.rows[r].key)}"]`);
@@ -68,9 +71,33 @@ function selectionCss(id, layout, sel) {
   for (let c = rect.c0; c <= rect.c1; c++) {
     colSel.push(`[data-col="${attr(layout.cols[c])}"]`);
   }
-  const rangeRule = `${root} :is(${rowSel.join(",")}) :is(${colSel.join(",")}){box-shadow:${RANGE_FILL};}`;
-  const focusInRange = `${root} [data-cell-key="${attr(sel.focusKey)}"]{box-shadow:${FOCUS_RING};}`;
-  return rangeRule + focusInRange;
+  return `${root} :is(${rowSel.join(",")}) :is(${colSel.join(",")}){${decl}}`;
+}
+
+function selectionCss(id, layout, sel, { handle, fill }) {
+  if (!sel.focusKey || !layout.rows.length) return "";
+  const root = `#${CSS.escape(id)}`;
+  const f = G.findPos(layout, sel.focusKey);
+  if (!f) return "";
+  const a = G.findPos(layout, sel.anchorKey) || f;
+  const rect = G.normalizeRange(a, f);
+  let css = "";
+  if (a.r !== f.r || a.c !== f.c) css += rectRule(root, layout, rect, `box-shadow:${RANGE_FILL};`);
+  css += `${root} [data-cell-key="${attr(sel.focusKey)}"]{box-shadow:${FOCUS_RING};}`;
+  if (handle) {
+    const cell = `${root} [data-cell-key="${attr(G.keyAt(layout, { r: rect.r1, c: rect.c1 }))}"]`;
+    css += `${cell}{position:relative;}${cell}::after{${FILL_HANDLE}}`;
+  }
+  if (fill) {
+    css += rectRule(root, layout, fill, FILL_PREVIEW);
+    css += `${root},${root} *{cursor:crosshair !important;}`;
+  }
+  return css;
+}
+
+function sameRect(a, b) {
+  if (!a || !b) return a === b;
+  return a.r0 === b.r0 && a.r1 === b.r1 && a.c0 === b.c0 && a.c1 === b.c1;
 }
 
 function scrollIntoViewIfNeeded(root, el) {
@@ -123,6 +150,7 @@ export function ExcelGrid({
   const closingRef = useRef(false);
   const [sel, setSel] = useState({ anchorKey: null, focusKey: null, block: null });
   const [editor, setEditor] = useState(null); // {key, value, mode, invalid, box}
+  const [fill, setFill] = useState(null); // fill-handle drag: {src, target}
   const [layoutVersion, setLayoutVersion] = useState(0);
 
   // React 19: `ref` arrives as a prop (Reflex passes one when `id` is set).
@@ -390,6 +418,11 @@ export function ExcelGrid({
 
   const onKeyDown = (e) => {
     if (e.target !== rootRef.current || e.nativeEvent.isComposing) return;
+    if (fill && e.key === "Escape") {
+      e.preventDefault();
+      setFill(null);
+      return;
+    }
     const cur = current();
     if (!cur) return;
     const { lay, focus, anchor, rect } = cur;
@@ -488,8 +521,27 @@ export function ExcelGrid({
     return el && rootRef.current?.contains(el) ? el.getAttribute("data-cell-key") : null;
   };
 
+  /** Selection rect when the pointer is on the fill handle, else null. */
+  const handleHit = (e) => {
+    if (editor || !sel.focusKey) return null;
+    const cur = current();
+    const el = cur && cur.lay.els.get(G.keyAt(cur.lay, { r: cur.rect.r1, c: cur.rect.c1 }));
+    if (!el) return null;
+    const cr = el.getBoundingClientRect();
+    const hit =
+      Math.abs(e.clientX - cr.right) <= HANDLE_HIT_PX && Math.abs(e.clientY - cr.bottom) <= HANDLE_HIT_PX;
+    return hit ? cur.rect : null;
+  };
+
   const onMouseDown = (e) => {
     if (e.button !== 0) return;
+    const src = handleHit(e);
+    if (src) {
+      e.preventDefault();
+      focusRoot();
+      setFill({ src, target: null });
+      return;
+    }
     const key = cellFromEvent(e);
     if (!key) return;
     e.preventDefault();
@@ -507,6 +559,14 @@ export function ExcelGrid({
   };
 
   const onMouseOver = (e) => {
+    if (fill) {
+      const key = cellFromEvent(e);
+      const pos = key && G.findPos(layout(), key);
+      if (!pos) return;
+      const target = G.fillHandleRect(fill.src, pos);
+      if (!sameRect(target, fill.target)) setFill({ ...fill, target });
+      return;
+    }
     if (!dragRef.current) return;
     const key = cellFromEvent(e);
     if (!key || key === sel.focusKey) return;
@@ -524,6 +584,19 @@ export function ExcelGrid({
     return () => window.removeEventListener("mouseup", up);
   }, []);
 
+  useEffect(() => {
+    if (!fill) return undefined;
+    const up = () => {
+      setFill(null);
+      if (!fill.target) return;
+      const lay = layout();
+      applyChanges(G.planFillHandle(lay, fill.src, fill.target, getValue));
+      selectRect(lay, fill.target);
+    };
+    window.addEventListener("mouseup", up);
+    return () => window.removeEventListener("mouseup", up);
+  }, [fill, layout, applyChanges, getValue, selectRect]);
+
   const onDoubleClick = (e) => {
     const key = cellFromEvent(e);
     if (key) startEdit("edit");
@@ -538,7 +611,7 @@ export function ExcelGrid({
   // --- render -------------------------------------------------------------
 
   void layoutVersion; // re-render selection CSS after DOM changes
-  const css = id ? selectionCss(id, layout(), sel) : "";
+  const css = id ? selectionCss(id, layout(), sel, { handle: !editor, fill: fill?.target }) : "";
 
   return (
     <div
