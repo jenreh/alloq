@@ -1,5 +1,5 @@
 /**
- * grid_logic.js — pure, DOM-free helpers for the Excel-like planning grid.
+ * grid_logic.js — pure, DOM-free helpers for the reusable ExcelGrid component.
  *
  * Layout model (built from the DOM by GridController):
  *   { rows: [{ key, block, cells: [cellKey, ...] }, ...] }
@@ -155,10 +155,11 @@ export function allRect(layout) {
 // ---------------------------------------------------------------------------
 
 /**
- * Parse user/clipboard text as a non-negative number with up to 2 decimals.
- * Accepts "1,5", "1.5", "1.234,5", "1,234.5". Empty → 0. Invalid → null.
+ * Parse user/clipboard text as a number within [min, max], rounded to
+ * `decimals`. Accepts "1,5", "1.5", "1.234,5", "1,234.5" and a leading "-"
+ * when min < 0. Empty → 0. Invalid or out of range → null.
  */
-export function parseNumber(text) {
+export function parseNumber(text, { min = 0, max = Infinity, decimals = 2 } = {}) {
   let s = String(text ?? "").replace(/[\s ]/g, "");
   if (s === "") return 0;
   const lastComma = s.lastIndexOf(",");
@@ -170,26 +171,29 @@ export function parseNumber(text) {
   } else if (lastComma !== -1) {
     s = s.replace(",", ".");
   }
-  if (!/^\d*\.?\d+$|^\d+\.$/.test(s)) return null;
-  const v = Number(s);
-  if (!Number.isFinite(v) || v < 0) return null;
-  return Math.round(v * 100) / 100;
+  if (!/^-?(\d*\.?\d+|\d+\.)$/.test(s)) return null;
+  const factor = 10 ** decimals;
+  const v = Math.round(Number(s) * factor) / factor;
+  if (!Number.isFinite(v) || v < min || v > max) return null;
+  return v === 0 ? 0 : v;
 }
 
-/** German display/copy format; 0 becomes an empty string. */
-export function formatNumber(value) {
+/** Display/copy format (default: German comma); 0 becomes an empty string. */
+export function formatNumber(value, { decimals = 2, separator = "," } = {}) {
   const v = Number(value) || 0;
   if (v === 0) return "";
-  const rounded = Math.round(v * 100) / 100;
-  return String(rounded).replace(".", ",");
+  const factor = 10 ** decimals;
+  return String(Math.round(v * factor) / factor).replace(".", separator);
 }
 
 // ---------------------------------------------------------------------------
 // Clipboard
 // ---------------------------------------------------------------------------
 
-export function toTSV(matrix) {
-  return matrix.map((row) => row.map(formatNumber).join("\t")).join("\n");
+export function toTSV(matrix, formatOptions) {
+  return matrix
+    .map((row) => row.map((v) => formatNumber(v, formatOptions)).join("\t"))
+    .join("\n");
 }
 
 export function parseTSV(text) {
@@ -205,7 +209,7 @@ export function parseTSV(text) {
  * - Otherwise the source is pasted from the selection's top-left, clipped.
  * Returns { changes: [{key, value}], skipped, rect }.
  */
-export function planPaste(layout, rect, matrix) {
+export function planPaste(layout, rect, matrix, parseOptions) {
   const nr = layout.rows.length;
   const nc = colCount(layout);
   const mh = matrix.length;
@@ -227,7 +231,7 @@ export function planPaste(layout, rect, matrix) {
   for (let r = target.r0; r <= target.r1; r++) {
     for (let c = target.c0; c <= target.c1; c++) {
       const raw = matrix[(r - rect.r0) % mh][(c - rect.c0) % mw] ?? "";
-      const value = parseNumber(raw);
+      const value = parseNumber(raw, parseOptions);
       if (value === null) {
         skipped++;
         continue;

@@ -18,7 +18,7 @@ import {
   tabMove,
   toTSV,
   withBefore,
-} from "../../src/alloq_project/components/grid_logic.js";
+} from "../../src/alloq_commons/components/excel_grid/grid_logic.js";
 
 // Two resources: emp-1 has projects A and B, emp-2 has project C; 3 weeks.
 const WEEKS = ["w0", "w1", "w2"];
@@ -125,6 +125,18 @@ describe("numbers", () => {
     for (const bad of ["abc", "-1", "1,2,3x", "1..2", "1e3", "+"]) {
       assert.equal(parseNumber(bad), null, bad);
     }
+  });
+
+  it("honours min/max/decimals options", () => {
+    assert.equal(parseNumber("-1,5", { min: -10 }), -1.5);
+    assert.equal(parseNumber("8", { max: 7 }), null);
+    assert.equal(parseNumber("1,26", { decimals: 1 }), 1.3);
+    assert.equal(parseNumber("-0,001", { min: -1 }), 0);
+  });
+
+  it("formats with custom separator and decimals", () => {
+    assert.equal(formatNumber(1.26, { decimals: 1, separator: "." }), "1.3");
+    assert.equal(toTSV([[1.5]], { separator: "." }), "1.5");
   });
 
   it("formats in German without trailing zeros; zero is blank", () => {
