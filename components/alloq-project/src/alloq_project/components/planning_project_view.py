@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import reflex as rx
+from alloq_commons.components.excel_grid import grid_row_attrs
 from alloq_project.components.planning_shared import (
     CELL_BASE,
-    GRID_WRAPPER_STYLE,
     LABEL_CELL_BASE,
     STICKY_LEFT_BODY,
     STICKY_LEFT_EMP_HEADER,
@@ -15,7 +15,7 @@ from alloq_project.components.planning_shared import (
     format_gesamt,
     grid_row,
     header_block,
-    key_div,
+    planning_excel_grid,
 )
 from alloq_project.states.planning_grid_state import (
     EmployeeAllocationRow,
@@ -155,6 +155,7 @@ def _employee_row_view(emp: EmployeeAllocationRow) -> rx.Component:
     return grid_row(
         _employee_label_cell(emp),
         rx.foreach(emp.cells, editable_value_cell),
+        attrs=grid_row_attrs(emp.emp_id + "|" + emp.project_code, emp.project_code),
     )
 
 
@@ -229,21 +230,10 @@ def planning_project_view() -> rx.Component:
     """Main project-aggregated planning view component."""
     return rx.cond(
         PlanningStore.is_loaded,
-        key_div(
-            mn.box(
-                header_block(),
-                rx.foreach(
-                    PlanningStore.filtered_projects,
-                    _project_block,
-                ),
-            ),
-            id="project-view-root",
-            tab_index=0,
-            on_key_down=PlanningStore.handle_grid_key,
-            style={
-                **GRID_WRAPPER_STYLE,
-                "outline": "none",
-            },
+        planning_excel_grid(
+            header_block(),
+            rx.foreach(PlanningStore.filtered_projects, _project_block),
+            grid_id="project-view-root",
         ),
         mn.center(
             rx.spinner(size="3"),

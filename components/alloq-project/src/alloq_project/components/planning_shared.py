@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import reflex as rx
+from alloq_commons.components.excel_grid import excel_grid, grid_cell_attrs
 from alloq_commons.components.formatters import de_number
 from alloq_project.states.planning_grid_state import (
     LABEL_COL_PX,
@@ -12,23 +13,8 @@ from alloq_project.states.planning_grid_state import (
     PlanningStore,
     WeekColumn,
 )
-from reflex.event import EventHandler, key_event
-from reflex_components_core.el.elements.typography import Div
 
 import appkit_mantine as mn
-
-# ---------------------------------------------------------------------------
-# KeyDiv — shared key-event capable div
-# ---------------------------------------------------------------------------
-
-
-class KeyDiv(Div):
-    """rx.el.div subclass that supports on_key_down."""
-
-    on_key_down: EventHandler[key_event] = None
-
-
-key_div = KeyDiv.create
 
 # ---------------------------------------------------------------------------
 # Dimension constants
@@ -142,10 +128,15 @@ def current_week_bg(
     )
 
 
-def grid_row(*children: rx.Component, style: dict | None = None) -> rx.Component:
+def grid_row(
+    *children: rx.Component,
+    style: dict | None = None,
+    attrs: dict | None = None,
+) -> rx.Component:
     """A single CSS grid row bound to PlanningStore columns."""
     return mn.box(
         *children,
+        custom_attrs=attrs or {},
         style={
             **ROW_STYLE_BASE,
             "gridTemplateColumns": PlanningStore.grid_template_columns,
@@ -260,97 +251,61 @@ def header_block() -> rx.Component:
             rx.foreach(PlanningStore.weeks, work_days_cell),
         ),
         style=HEADER_BLOCK_STYLE,
+        custom_attrs={"data-grid-header": "true"},
     )
 
 
 # ---------------------------------------------------------------------------
-# Shared editor input
+# Shared value cell (selection/editing handled by ExcelGrid)
 # ---------------------------------------------------------------------------
 
+GRID_ROOT_STYLE = {**GRID_WRAPPER_STYLE, "outline": "none"}
 
-def editor_input() -> rx.Component:
-    """Inline editor input used in both grid views."""
-    return mn.text_input(
-        default_value=PlanningStore.draft_value,
-        on_change=PlanningStore.set_draft,
-        on_blur=PlanningStore.commit_edit,
-        on_key_down=PlanningStore.handle_key,
-        size="xs",
-        auto_focus=True,
-        class_name="grid-editor",
-        custom_attrs={"key": PlanningStore.editing_cell},
-        style={
-            "width": "100%",
-            "& input": {
-                "height": ROW_HEIGHT,
-                "minHeight": ROW_HEIGHT,
-                "padding": "0 4px",
-                "textAlign": "center",
-                "fontSize": "0.8125rem",
-                "border": "2px solid var(--mantine-color-blue-5)",
-                "borderRadius": "0",
-                "backgroundColor": "var(--alloq-surface-solid)",
-                "color": "var(--alloq-text)",
-            },
-        },
+
+def planning_excel_grid(*children: rx.Component, grid_id: str) -> rx.Component:
+    """Excel-like interaction layer bound to PlanningStore."""
+    return excel_grid(
+        *children,
+        id=grid_id,
+        grid_label="Kapazitätsplanung",
+        revision=PlanningStore.grid_revision,
+        dirty=PlanningStore.has_dirty,
+        min_value=0,
+        decimals=2,
+        invalid_message="Ungültige Zahl (≥ 0)",
+        on_commit=PlanningStore.apply_cell_changes,
+        on_reject=PlanningStore.notify_rejected,
+        on_save=PlanningStore.save_grid,
+        style=GRID_ROOT_STYLE,
     )
-
-
-# ---------------------------------------------------------------------------
-# Shared value cell with editing support
-# ---------------------------------------------------------------------------
 
 
 def editable_value_cell(cell: GridCell) -> rx.Component:
-    """Value cell with click-to-edit, dirty indicator, and active highlight."""
-    is_editing = PlanningStore.editing_cell == cell.key
-    is_active = PlanningStore.active_cell == cell.key
+    """Display cell with dirty indicator; ExcelGrid handles interaction."""
     return mn.box(
+        format_de(cell.value),
         rx.cond(
-            is_editing,
-            editor_input(),
+            cell.is_dirty,
             mn.box(
-                format_de(cell.value),
-                rx.cond(
-                    cell.is_dirty,
-                    mn.box(
-                        style={
-                            "position": "absolute",
-                            "top": "3px",
-                            "right": "3px",
-                            "width": "5px",
-                            "height": "5px",
-                            "borderRadius": "50%",
-                            "backgroundColor": "var(--mantine-color-orange-6)",
-                        },
-                    ),
-                    rx.fragment(),
-                ),
-                on_click=PlanningStore.start_edit(cell.key),
                 style={
-                    "width": "100%",
-                    "height": "100%",
-                    "display": "flex",
-                    "alignItems": "center",
-                    "justifyContent": "center",
-                    "cursor": "pointer",
-                    "position": "relative",
-                    "boxShadow": rx.cond(
-                        is_active,
-                        "inset 0 0 0 2px var(--mantine-color-blue-5)",
-                        "none",
-                    ),
-                    "_hover": {
-                        "backgroundColor": "var(--alloq-surface-hover)",
-                    },
+                    "position": "absolute",
+                    "top": "3px",
+                    "right": "3px",
+                    "width": "5px",
+                    "height": "5px",
+                    "borderRadius": "50%",
+                    "backgroundColor": "var(--mantine-color-orange-6)",
                 },
             ),
+            rx.fragment(),
         ),
+        custom_attrs=grid_cell_attrs(cell.key, cell.week_key, cell.value),
         style={
             **CELL_BASE,
-            "padding": "0",
             "position": "relative",
+            "cursor": "cell",
+            "userSelect": "none",
             "backgroundColor": current_week_bg(cell.week_key),
+            "_hover": {"backgroundColor": "var(--alloq-surface-hover)"},
         },
-        custom_attrs={"data-active-cell": rx.cond(is_active, "true", "false")},
     )

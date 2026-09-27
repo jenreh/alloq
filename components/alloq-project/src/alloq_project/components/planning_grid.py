@@ -1,8 +1,9 @@
-"""Planning Grid view (Stage B: CSS Grid + inline editing)."""
+"""Planning Grid view (CSS Grid + Excel-like editing via ExcelGrid)."""
 
 from __future__ import annotations
 
 import reflex as rx
+from alloq_commons.components.excel_grid import grid_row_attrs
 from alloq_commons.components.formatters import de_number
 from alloq_commons.components.forms import quick_project_fields, section
 from alloq_commons.components.modal_layout import (
@@ -14,7 +15,6 @@ from alloq_project.components.planning_shared import (
     CELL_BASE,
     CURRENT_WEEK_BG,
     EMP_HEADER_BG,
-    GRID_WRAPPER_STYLE,
     LABEL_CELL_BASE,
     STICKY_LEFT_BODY,
     STICKY_LEFT_EMP_HEADER,
@@ -25,7 +25,7 @@ from alloq_project.components.planning_shared import (
     format_gesamt,
     grid_row,
     header_block,
-    key_div,
+    planning_excel_grid,
 )
 from alloq_project.states.planning_grid_state import (
     EmployeeBlock,
@@ -250,6 +250,7 @@ def _project_row_view(project: ProjectAllocationRow) -> rx.Component:
     return grid_row(
         _project_label_cell(project),
         rx.foreach(project.cells, editable_value_cell),
+        attrs=grid_row_attrs(project.emp_id + "|" + project.code, project.emp_id),
     )
 
 
@@ -488,21 +489,14 @@ def _add_project_modal() -> rx.Component:
 def planning_grid() -> rx.Component:
     return rx.fragment(
         _add_project_modal(),
-        rx.script(src="/planning_grid_keys.js"),
         rx.cond(
             PlanningStore.is_loaded,
-            key_div(
+            planning_excel_grid(
                 header_block(),
                 mn.box(
                     rx.foreach(PlanningStore.filtered_employees, _employee_block),
                 ),
-                id="planning-grid-root",
-                style={
-                    **GRID_WRAPPER_STYLE,
-                    "outline": "none",
-                },
-                tab_index=0,
-                on_key_down=PlanningStore.handle_grid_key,
+                grid_id="planning-grid-root",
             ),
             mn.center(
                 rx.hstack(

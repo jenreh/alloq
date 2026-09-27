@@ -98,6 +98,7 @@ class EmployeeBlock(BaseModel):
 
 class EmployeeAllocationRow(BaseModel):
     emp_id: str = ""
+    project_code: str = ""
     real_id: int = 0
     name: str = ""
     role_name: str = ""

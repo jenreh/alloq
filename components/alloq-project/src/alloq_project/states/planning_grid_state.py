@@ -346,6 +346,7 @@ class PlanningStore(UserSession):
                 emp_rows.append(
                     EmployeeAllocationRow(
                         emp_id=emp_id,
+                        project_code=code,
                         real_id=emp["real_id"],
                         name=emp["name"],
                         role_name=rname,
@@ -602,10 +603,17 @@ class PlanningStore(UserSession):
             self.dirty_keys = dirty_keys_for(self.cells, self.saved_cells)
         if rejected:
             log.warning("Rejected %d invalid cell change(s)", rejected)
-            return rx.toast.warning(
-                f"{rejected} ungültige Eingabe(n) ignoriert.", position="top-right"
-            )
+            return self.notify_rejected(rejected)
         return None
+
+    @rx.event
+    def notify_rejected(self, count: int) -> Any:
+        """Tell the user that pasted cells were skipped as invalid."""
+        if count <= 0:
+            return None
+        return rx.toast.warning(
+            f"{count} ungültige Eingabe(n) ignoriert.", position="top-right"
+        )
 
     # === Collapse ===
 
