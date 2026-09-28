@@ -70,8 +70,6 @@ class TestProjectEntity:
             color="#F7C948",
         )
         entity.id = 1
-        entity.created = None
-        entity.updated = None
         entity.statuses = [status]
         entity.risks = []
         entity.capacities = []

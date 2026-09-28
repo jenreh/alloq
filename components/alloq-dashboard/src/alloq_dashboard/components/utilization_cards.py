@@ -8,6 +8,7 @@ from alloq_commons.components import big_number
 import appkit_mantine as mn
 from alloq_dashboard.components.drill_down_drawer import DRILL_UTILIZATION
 from alloq_dashboard.components.kpi_card import kpi_card
+from alloq_dashboard.models import UnderUtilizationKpi, UtilizationKpi
 from alloq_dashboard.states import (
     DashboardState,
     UnderUtilizationState,
@@ -16,7 +17,7 @@ from alloq_dashboard.states import (
 
 
 def team_health_card() -> rx.Component:
-    data = UnderUtilizationState.data
+    data = UnderUtilizationState.data.to(UnderUtilizationKpi)
     body = mn.simple_grid(
         mn.stack(
             mn.group(
@@ -77,7 +78,7 @@ def team_health_card() -> rx.Component:
 
 
 def utilization_card() -> rx.Component:
-    data = UtilizationState.data
+    data = UtilizationState.data.to(UtilizationKpi)
     body = mn.stack(
         big_number(data.current_percent, "%"),
         mn.group(

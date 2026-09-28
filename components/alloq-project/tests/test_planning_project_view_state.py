@@ -190,7 +190,7 @@ def _make_allocation(
     a.project_id = proj_id
     a.week_start = week_start
     a.person_days = person_days
-    a._cached_role_name = "Data Scientist"
+    a.role_name = "Data Scientist"
     return a
 
 
@@ -215,7 +215,7 @@ def _populated_store(
     )
     wire_pairs(emp_meta, proj_idx, pairs)
 
-    state = PlanningStore()  # type: ignore[call-arg]
+    state = PlanningStore()
     state.weeks = weeks
     state.month_spans = spans
     state.cells = cells
@@ -266,7 +266,7 @@ class TestProjectBlocks:
         assert names == ["Alice A", "Bob B"]
 
     def test_empty_without_weeks(self) -> None:
-        state = PlanningStore()  # type: ignore[call-arg]
+        state = PlanningStore()
         assert state.project_blocks == []
 
 
@@ -285,7 +285,7 @@ class TestPlanningStoreProjectView:
         return state
 
     def test_initial_state(self) -> None:
-        state = PlanningStore()  # type: ignore[call-arg]
+        state = PlanningStore()
         assert state.projects == []
         assert state.is_loaded is False
         assert state.collapsed_projects == []
@@ -333,7 +333,7 @@ class TestPlanningStoreProjectView:
         assert [p.code for p in state.filtered_projects] == ["A"]
 
     def test_toggle_project(self) -> None:
-        state = PlanningStore()  # type: ignore[call-arg]
+        state = PlanningStore()
         state.toggle_project("proj-1")
         assert "proj-1" in state.collapsed_projects
 
@@ -341,11 +341,11 @@ class TestPlanningStoreProjectView:
         assert "proj-1" not in state.collapsed_projects
 
     def test_has_dirty_empty(self) -> None:
-        state = PlanningStore()  # type: ignore[call-arg]
+        state = PlanningStore()
         assert state.has_dirty is False
 
     def test_has_dirty_with_dirty_key(self) -> None:
-        state = PlanningStore()  # type: ignore[call-arg]
+        state = PlanningStore()
         state.dirty_keys = ["emp-1|A|2026_05_05"]
         assert state.has_dirty is True
 

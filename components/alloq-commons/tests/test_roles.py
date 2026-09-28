@@ -39,8 +39,6 @@ class TestRoleEntity:
     def test_to_dict(self) -> None:
         entity = RoleEntity(name="Designer", description="UI/UX Designer")
         entity.id = 1
-        entity.created = None
-        entity.updated = None
         result = entity.to_dict()
         assert result["id"] == 1
         assert result["name"] == "Designer"
@@ -49,8 +47,6 @@ class TestRoleEntity:
     def test_to_dict_empty_description(self) -> None:
         entity = RoleEntity(name="Lead")
         entity.id = 2
-        entity.created = None
-        entity.updated = None
         entity.description = None
         result = entity.to_dict()
         assert result["description"] == ""
@@ -92,7 +88,7 @@ class TestRoleCreateModel:
 
     def test_name_required(self) -> None:
         with pytest.raises(ValidationError):
-            RoleCreate(description="No name")  # type: ignore[call-arg]
+            RoleCreate(description="No name")  # ty: ignore[missing-argument]
 
     def test_max_length_name(self) -> None:
         long_name = "x" * 256
@@ -208,7 +204,7 @@ class TestRoleState:
     """Tests for the RoleState Reflex state class."""
 
     def test_initial_state(self) -> None:
-        state = RoleState()  # type: ignore[call-arg]
+        state = RoleState()
         assert state.roles == []
         assert state.selected_role is None
         assert state.is_loading is False
@@ -217,19 +213,19 @@ class TestRoleState:
         assert state.search_filter == ""
 
     def test_set_search_filter(self) -> None:
-        state = RoleState()  # type: ignore[call-arg]
+        state = RoleState()
         state.set_search_filter("dev")
         assert state.search_filter == "dev"
 
     def test_open_close_add_modal(self) -> None:
-        state = RoleState()  # type: ignore[call-arg]
+        state = RoleState()
         state.open_add_modal()
         assert state.add_modal_open is True
         state.close_add_modal()
         assert state.add_modal_open is False
 
     def test_open_close_edit_modal(self) -> None:
-        state = RoleState()  # type: ignore[call-arg]
+        state = RoleState()
         state.selected_role = Role(id=1, name="Test")
         state.open_edit_modal()
         assert state.edit_modal_open is True
@@ -238,7 +234,7 @@ class TestRoleState:
         assert state.selected_role is None
 
     def test_filtered_roles_no_filter(self) -> None:
-        state = RoleState()  # type: ignore[call-arg]
+        state = RoleState()
         state.roles = [
             Role(id=1, name="Developer"),
             Role(id=2, name="Designer"),
@@ -248,7 +244,7 @@ class TestRoleState:
         assert len(result) == 2
 
     def test_filtered_roles_by_name(self) -> None:
-        state = RoleState()  # type: ignore[call-arg]
+        state = RoleState()
         state.roles = [
             Role(id=1, name="Developer", description="Builds apps"),
             Role(id=2, name="Designer", description="Creates UX"),
@@ -259,7 +255,7 @@ class TestRoleState:
         assert result[0].name == "Developer"
 
     def test_filtered_roles_by_description(self) -> None:
-        state = RoleState()  # type: ignore[call-arg]
+        state = RoleState()
         state.roles = [
             Role(id=1, name="Developer", description="Builds apps"),
             Role(id=2, name="Designer", description="Creates UX"),
@@ -270,7 +266,7 @@ class TestRoleState:
         assert result[0].name == "Designer"
 
     def test_filtered_roles_case_insensitive(self) -> None:
-        state = RoleState()  # type: ignore[call-arg]
+        state = RoleState()
         state.roles = [
             Role(id=1, name="Developer"),
             Role(id=2, name="DESIGNER"),
@@ -297,16 +293,27 @@ def _mock_session_ctx(session: AsyncMock):
 
 def _authenticated_state() -> RoleState:
     """Create a RoleState with mocked authentication."""
-    state = RoleState()  # type: ignore[call-arg]
+    state = RoleState()
     return state
+
+
+def _login_state(*, is_admin: bool) -> MagicMock:
+    """LoginState mock whose ``authenticated_user`` is awaitable on every access."""
+    user = MagicMock(is_admin=is_admin, user_id=1)
+
+    async def _user() -> MagicMock:
+        return user
+
+    login_state = MagicMock()
+    type(login_state).authenticated_user = property(lambda _self: _user())
+    login_state.redir = AsyncMock(return_value=None)
+    return login_state
 
 
 @asynccontextmanager
 async def _patch_auth(state: RoleState):
     """Patch get_state on the state instance to bypass auth decorator."""
-    login_state = MagicMock()
-    # is_authenticated is awaited in the decorator, so make it a coroutine
-    login_state.is_authenticated = AsyncMock(return_value=True)()
+    login_state = _login_state(is_admin=True)
     original_get_state = type(state).get_state
     object.__setattr__(state, "get_state", AsyncMock(return_value=login_state))
     try:
@@ -320,11 +327,9 @@ class TestRoleStateAsync:
 
     @pytest.mark.asyncio
     async def test_select_role_loads_entity(self) -> None:
-        state = RoleState()  # type: ignore[call-arg]
+        state = RoleState()
         entity = RoleEntity(name="Dev", description="Developer")
         entity.id = 42
-        entity.created = None
-        entity.updated = None
 
         session = AsyncMock()
         mock_repo = AsyncMock()
@@ -348,7 +353,7 @@ class TestRoleStateAsync:
 
     @pytest.mark.asyncio
     async def test_select_role_not_found(self) -> None:
-        state = RoleState()  # type: ignore[call-arg]
+        state = RoleState()
         session = AsyncMock()
         mock_repo = AsyncMock()
         mock_repo.find_by_id = AsyncMock(return_value=None)
@@ -369,11 +374,9 @@ class TestRoleStateAsync:
 
     @pytest.mark.asyncio
     async def test_select_role_and_open_edit(self) -> None:
-        state = RoleState()  # type: ignore[call-arg]
+        state = RoleState()
         entity = RoleEntity(name="QA", description="Tester")
         entity.id = 7
-        entity.created = None
-        entity.updated = None
 
         session = AsyncMock()
         mock_repo = AsyncMock()
@@ -389,22 +392,21 @@ class TestRoleStateAsync:
                 mock_repo,
             ),
         ):
-            await state.select_role_and_open_edit(7)
+            async with _patch_auth(state):
+                await state.select_role_and_open_edit(7)
 
         assert state.selected_role is not None
         assert state.edit_modal_open is True
 
     @pytest.mark.asyncio
     async def test_load_roles_internal(self) -> None:
-        state = RoleState()  # type: ignore[call-arg]
+        state = RoleState()
         entities = [
             RoleEntity(name="Alpha", description="First"),
             RoleEntity(name="Beta", description="Second"),
         ]
         for i, e in enumerate(entities, start=1):
             e.id = i
-            e.created = None
-            e.updated = None
 
         session = AsyncMock()
         mock_repo = AsyncMock()
@@ -430,8 +432,6 @@ class TestRoleStateAsync:
         state = _authenticated_state()
         entities = [RoleEntity(name="Gamma", description="Third")]
         entities[0].id = 3
-        entities[0].created = None
-        entities[0].updated = None
 
         session = AsyncMock()
         mock_repo = AsyncMock()
@@ -462,8 +462,6 @@ class TestRoleStateAsync:
         state.roles = [Role(id=1, name="Alpha")]
         entity = RoleEntity(name="Alpha", description="")
         entity.id = 1
-        entity.created = None
-        entity.updated = None
         mock_repo = AsyncMock()
         mock_repo.find_all_paginated = AsyncMock(return_value=[entity])
 
@@ -545,8 +543,6 @@ class TestRoleStateAsync:
 
         entity = RoleEntity(name="Old", description="OldDesc")
         entity.id = 5
-        entity.created = None
-        entity.updated = None
 
         session = AsyncMock()
         mock_repo = AsyncMock()
@@ -648,8 +644,6 @@ class TestRoleStateAsync:
         state = _authenticated_state()
         entity = RoleEntity(name="ToDelete")
         entity.id = 10
-        entity.created = None
-        entity.updated = None
 
         session = AsyncMock()
         mock_repo = AsyncMock()
@@ -704,8 +698,6 @@ class TestRoleStateAsync:
         state = _authenticated_state()
         entity = RoleEntity(name="Stuck")
         entity.id = 11
-        entity.created = None
-        entity.updated = None
 
         session = AsyncMock()
         mock_repo = AsyncMock()

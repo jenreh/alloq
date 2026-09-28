@@ -17,6 +17,7 @@ from collections.abc import AsyncGenerator
 from typing import Any
 
 import reflex as rx
+from alloq_commons.entities import CapacityEntity, RoleEntity
 from alloq_commons.models.employee import Employee
 from alloq_commons.models.project import Project
 from alloq_commons.models.role import Role
@@ -43,12 +44,14 @@ from alloq_project.services.planning_builders import (
     build_project_meta,
     build_weeks,
     cell_key,
+    cell_role_ids,
     compute_gesamt,
     compute_heat,
     compute_project_gesamt,
     compute_project_heat,
     current_week_key,
     dirty_keys_for,
+    edits_to_rows,
     employee_id_by_email,
     employee_summary,
     ingest_allocations,
@@ -78,8 +81,10 @@ from alloq_project.states.planning_models import (
     RoleBadge,
     WeekColumn,
 )
+from sqlalchemy import select
 
 from appkit_commons.database.session import get_asyncdb_session
+from appkit_user.authentication.decorators import requires_admin
 from appkit_user.authentication.states import UserSession
 
 log = logging.getLogger(__name__)
@@ -107,8 +112,6 @@ HEATMAP_VIEW = "Heatmap"
 
 # === State ===
 
-# === State ===
-
 
 class PlanningStore(UserSession):
     """Unified planning state.
@@ -126,54 +129,58 @@ class PlanningStore(UserSession):
 
     # === Entity caches ===
 
-    available_projects: list[Project] = []
-    all_projects: list[Project] = []
-    available_employees: list[Employee] = []
-    available_roles: list[Role] = []
-    is_loading: bool = False
+    available_projects: rx.Field[list[Project]] = rx.field(default_factory=list)
+    all_projects: rx.Field[list[Project]] = rx.field(default_factory=list)
+    available_employees: rx.Field[list[Employee]] = rx.field(default_factory=list)
+    available_roles: rx.Field[list[Role]] = rx.field(default_factory=list)
+    is_loading: rx.Field[bool] = rx.field(False)
 
     # === Grid + view state ===
 
-    weeks: list[WeekColumn] = []
-    month_spans: list[MonthSpan] = []
-    holiday_dates: list[datetime.date] = []
-    is_loaded: bool = False
+    weeks: rx.Field[list[WeekColumn]] = rx.field(default_factory=list)
+    month_spans: rx.Field[list[MonthSpan]] = rx.field(default_factory=list)
+    holiday_dates: rx.Field[list[datetime.date]] = rx.field(default_factory=list)
+    is_loaded: rx.Field[bool] = rx.field(False)
 
-    cells: dict[str, float] = {}
-    saved_cells: dict[str, float] = {}
-    dirty_keys: list[str] = []
+    cells: rx.Field[dict[str, float]] = rx.field(default_factory=dict)
+    saved_cells: rx.Field[dict[str, float]] = rx.field(default_factory=dict)
+    dirty_keys: rx.Field[list[str]] = rx.field(default_factory=list)
     # Unsaved edits whose row/week is not part of the loaded time range.
-    hidden_edits: dict[str, float] = {}
-    grid_revision: int = 0
+    hidden_edits: rx.Field[dict[str, float]] = rx.field(default_factory=dict)
+    grid_revision: rx.Field[int] = rx.field(0)
 
-    employee_meta: list[dict[str, Any]] = []
-    project_meta: list[dict[str, Any]] = []
-    role_lookup: dict[str, str] = {}
-    role_id_lookup: dict[str, int] = {}
-    absence_days: dict[str, list[float]] = {}
+    employee_meta: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
+    project_meta: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
+    role_lookup: rx.Field[dict[str, str]] = rx.field(default_factory=dict)
+    role_id_lookup: rx.Field[dict[str, int]] = rx.field(default_factory=dict)
+    # cell key -> role id of the stored row the cell shows (backend only)
+    _cell_role_ids: dict[str, int] = {}
+    absence_days: rx.Field[dict[str, list[float]]] = rx.field(default_factory=dict)
 
-    view_mode: str = "Grid"
-    time_range: str = "3 Monate"
-    is_saving: bool = False
+    view_mode: rx.Field[str] = rx.field("Grid")
+    time_range: rx.Field[str] = rx.field("3 Monate")
+    is_saving: rx.Field[bool] = rx.field(False)
 
-    project_filter: list[str] = []
-    role_filter: list[str] = []
-    employee_filter: list[str] = []
-    project_scope: bool = False
-    employee_scope: bool = False
-    current_employee_id: int | None = None
-    current_week: str = ""
+    project_filter: rx.Field[list[str]] = rx.field(default_factory=list)
+    role_filter: rx.Field[list[str]] = rx.field(default_factory=list)
+    employee_filter: rx.Field[list[str]] = rx.field(default_factory=list)
+    project_scope: rx.Field[bool] = rx.field(False)
+    employee_scope: rx.Field[bool] = rx.field(False)
+    current_employee_id: rx.Field[int | None] = rx.field(None)
+    current_week: rx.Field[str] = rx.field("")
 
-    collapsed_employees: list[str] = []
-    collapsed_projects: list[str] = []
+    collapsed_employees: rx.Field[list[str]] = rx.field(default_factory=list)
+    collapsed_projects: rx.Field[list[str]] = rx.field(default_factory=list)
 
-    add_project_emp_id: str = ""
-    add_project_options: list[dict[str, str]] = []
-    add_project_role_options: list[dict[str, str]] = []
-    add_project_selected: str = ""
-    quick_project_name: str = ""
-    quick_project_code: str = ""
-    is_quick_creating: bool = False
+    add_project_emp_id: rx.Field[str] = rx.field("")
+    add_project_options: rx.Field[list[dict[str, str]]] = rx.field(default_factory=list)
+    add_project_role_options: rx.Field[list[dict[str, str]]] = rx.field(
+        default_factory=list
+    )
+    add_project_selected: rx.Field[str] = rx.field("")
+    quick_project_name: rx.Field[str] = rx.field("")
+    quick_project_code: rx.Field[str] = rx.field("")
+    is_quick_creating: rx.Field[bool] = rx.field(False)
 
     # === Setters ===
 
@@ -255,12 +262,12 @@ class PlanningStore(UserSession):
     def _week_keys(self) -> list[str]:
         return [w.key for w in self.weeks]
 
-    def _cell(self, key: str, week_key: str) -> GridCell:
+    def _cell(self, key: str, week_key: str, dirty: set[str]) -> GridCell:
         return GridCell(
             key=key,
             week_key=week_key,
             value=float(self.cells.get(key, 0.0)),
-            is_dirty=key in self.dirty_keys,
+            is_dirty=key in dirty,
         )
 
     @rx.var(cache=True, backend=True)
@@ -272,6 +279,7 @@ class PlanningStore(UserSession):
         proj_idx = {p["id"]: p for p in self.project_meta}
         role_abbrev_by_name = {r.name: r.abbreviation for r in self.available_roles}
         from_key = self.current_week_key
+        dirty = set(self.dirty_keys)
         blocks: list[EmployeeBlock] = []
         for emp in self.employee_meta:
             emp_id = emp["id"]
@@ -290,7 +298,9 @@ class PlanningStore(UserSession):
                 if proj is None:
                     continue
                 code = proj["code"]
-                cells = [self._cell(cell_key(emp_id, code, wk), wk) for wk in wks]
+                cells = [
+                    self._cell(cell_key(emp_id, code, wk), wk, dirty) for wk in wks
+                ]
                 rname = self.role_lookup.get(f"{emp_id}|{proj['real_id']}", "")
                 rshort = role_abbrev_by_name.get(rname) or role_short(rname)
                 rcolor = ROLE_PALETTE.get(rshort, "var(--mantine-color-gray-2)")
@@ -357,6 +367,7 @@ class PlanningStore(UserSession):
         emp_idx = {e["id"]: e for e in self.employee_meta}
         role_abbrev_by_name = {r.name: r.abbreviation for r in self.available_roles}
         from_key = self.current_week_key
+        dirty = set(self.dirty_keys)
         blocks: list[ProjectBlock] = []
         for proj in self.project_meta:
             code = proj["code"]
@@ -365,7 +376,9 @@ class PlanningStore(UserSession):
                 emp = emp_idx.get(emp_id)
                 if emp is None:
                     continue
-                cells = [self._cell(cell_key(emp_id, code, wk), wk) for wk in wks]
+                cells = [
+                    self._cell(cell_key(emp_id, code, wk), wk, dirty) for wk in wks
+                ]
                 rname = self.role_lookup.get(f"{emp_id}|{proj['real_id']}", "")
                 rshort = role_abbrev_by_name.get(rname) or role_short(rname)
                 rcolor = ROLE_PALETTE.get(rshort, "var(--mantine-color-gray-2)")
@@ -399,11 +412,9 @@ class PlanningStore(UserSession):
 
     # === Filtered pivots ===
 
-    @rx.var(cache=True)
-    def filtered_employees(self) -> list[EmployeeBlock]:
-        if self.view_mode != GRID_VIEW:
-            return []
-        result = self.employee_blocks
+    def _filter_employees(self, blocks: list[EmployeeBlock]) -> list[EmployeeBlock]:
+        """Apply the scope toggles and the project/role/employee filters."""
+        result = blocks
         if self.project_scope:
             own = owned_project_ids(self.all_projects, self.current_employee_id)
             result = [e for e in result if any(p.project_id in own for p in e.projects)]
@@ -427,6 +438,12 @@ class PlanningStore(UserSession):
         if self.employee_filter:
             result = [e for e in result if str(e.real_id) in self.employee_filter]
         return result
+
+    @rx.var(cache=True)
+    def filtered_employees(self) -> list[EmployeeBlock]:
+        if self.view_mode != GRID_VIEW:
+            return []
+        return self._filter_employees(self.employee_blocks)
 
     @rx.var(cache=True)
     def filtered_projects(self) -> list[ProjectBlock]:
@@ -468,7 +485,7 @@ class PlanningStore(UserSession):
         _ = self.cells  # explicit dependency for heatmap reactivity
         if self.view_mode != HEATMAP_VIEW:
             return []
-        return self.employee_blocks
+        return self._filter_employees(self.employee_blocks)
 
     @rx.var(cache=True, backend=True)
     def projects(self) -> list[ProjectBlock]:
@@ -480,9 +497,8 @@ class PlanningStore(UserSession):
 
     @rx.var(cache=True)
     def avg_heat(self) -> list[HeatCell]:
-        _ = self.cells  # explicit dependency for heatmap reactivity
-        emps = self.employee_blocks
-        if self.view_mode != HEATMAP_VIEW or not emps or not self.weeks:
+        emps = self.employees  # same filtered population as the heatmap rows
+        if not emps or not self.weeks:
             return []
         out: list[HeatCell] = []
         for idx, week in enumerate(self.weeks):
@@ -545,24 +561,29 @@ class PlanningStore(UserSession):
             return [], []
         first = datetime.date(*(int(p) for p in weeks[0].key.split("_")))
         last = datetime.date(*(int(p) for p in weeks[-1].key.split("_")))
+        project_ids = [int(p.id) for p in self.available_projects]
         async with get_asyncdb_session() as session:
-            allocs = await capacity_allocation_repo.find_in_range(session, first, last)
-            for r in allocs:
-                r._cached_role_name = r.role.name if r.role else ""  # noqa: SLF001
-                session.expunge(r)
-            from alloq_commons.entities.capacity import CapacityEntity  # noqa: PLC0415
-            from sqlalchemy import select  # noqa: PLC0415
-
-            cap_rows = await session.execute(select(CapacityEntity))
-            entities = list(cap_rows.scalars().unique().all())
+            allocs = await capacity_allocation_repo.find_cells_in_range(
+                session, first, last
+            )
+            cap_rows = await session.execute(
+                select(
+                    CapacityEntity.employee_id,
+                    CapacityEntity.project_id,
+                    CapacityEntity.role_id,
+                    RoleEntity.name,
+                )
+                .outerjoin(RoleEntity, RoleEntity.id == CapacityEntity.role_id)
+                .where(CapacityEntity.project_id.in_(project_ids))
+            )
             assignments = [
                 CapAssignment(
-                    employee_id=e.employee_id,
-                    project_id=e.project_id,
-                    role_id=e.role_id,
-                    role_name=e.role.name if e.role else "",
+                    employee_id=employee_id,
+                    project_id=project_id,
+                    role_id=role_id,
+                    role_name=role_name or "",
                 )
-                for e in entities
+                for employee_id, project_id, role_id, role_name in cap_rows.all()
             ]
         return list(allocs), assignments
 
@@ -589,6 +610,7 @@ class PlanningStore(UserSession):
             allocations, assignments, proj_idx, set(wks)
         )
         wire_pairs(emp_meta, proj_idx, pairs)
+        self._cell_role_ids = cell_role_ids(allocations, proj_idx, set(wks))
 
         self.weeks = weeks
         self.current_week = current_week_key()
@@ -618,7 +640,10 @@ class PlanningStore(UserSession):
                 p for p in all_proj if p.state != "Abgeschlossen"
             ]
             employees = await employee_repo.find_all(session)
-            self.available_employees = [Employee(**e.to_dict()) for e in employees]
+            since = anchor_date()
+            self.available_employees = [
+                Employee(**e.to_dict(absences_since=since)) for e in employees
+            ]
             self.available_employees.sort(key=lambda e: (e.last_name, e.first_name))
             roles = await role_repo.find_all(session)
             self.available_roles = [Role(**r.to_dict()) for r in roles]
@@ -631,22 +656,41 @@ class PlanningStore(UserSession):
         email = user.email if user and user.email else ""
         self.current_employee_id = employee_id_by_email(self.available_employees, email)
 
+    def _range_weeks(self, time_range: str | None = None) -> int:
+        return TIME_RANGE_WEEKS.get(
+            time_range or self.time_range, TIME_RANGE_WEEKS["3 Monate"]
+        )
+
     @rx.event
-    async def load(self) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def load(self) -> AsyncGenerator[Any]:
         """Load entity caches and populate the grid for the current time range."""
         self.is_loading = True
         yield
-        await self._load_entities()
-        n = TIME_RANGE_WEEKS.get(self.time_range, TIME_RANGE_WEEKS["3 Monate"])
-        await self._populate(n)
-        self.is_loading = False
+        try:
+            await self._load_entities()
+            await self._populate(self._range_weeks())
+        except Exception as exc:  # noqa: BLE001
+            log.error("Failed to load planning data: %s", exc)
+            yield rx.toast.error(
+                "Planungsdaten konnten nicht geladen werden.", position="top-right"
+            )
+        finally:
+            self.is_loading = False
         yield
 
     @rx.event
+    @requires_admin
+    async def refresh(self) -> None:
+        """Reload entities and allocations, keeping unsaved grid edits."""
+        await self._load_entities()
+        await self._populate(self._range_weeks(), keep_edits=True)
+
+    @rx.event
+    @requires_admin
     async def reload_with_time_range(self, time_range: str) -> Any:
         """Reload for another range, carrying unsaved edits over."""
-        n = TIME_RANGE_WEEKS.get(time_range, TIME_RANGE_WEEKS["3 Monate"])
-        await self._populate(n, keep_edits=True)
+        await self._populate(self._range_weeks(time_range), keep_edits=True)
         if self.hidden_edits:
             return rx.toast.info(
                 f"{len(self.hidden_edits)} ungespeicherte Änderung(en) außerhalb "
@@ -713,7 +757,8 @@ class PlanningStore(UserSession):
     # === Save ===
 
     @rx.event
-    async def save_grid(self) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def save_grid(self) -> AsyncGenerator[Any]:
         if self.is_saving:
             return
         edits = self._unsaved_edits()
@@ -722,58 +767,50 @@ class PlanningStore(UserSession):
             return
         self.is_saving = True
         yield
-        proj_code_to_real = {p["code"]: p["real_id"] for p in self.project_meta}
-        emp_id_to_real = {e["id"]: e["real_id"] for e in self.employee_meta}
-        emp_role_id: dict[str, int] = {
-            e["id"]: e["role_ids"][0] for e in self.employee_meta if e.get("role_ids")
-        }
-        rows: list[dict] = []
-        for key, value in edits.items():
-            try:
-                emp_id, proj_code, wk_key = key.split("|")
-            except ValueError:
-                continue
-            real_eid = emp_id_to_real.get(emp_id)
-            real_pid = proj_code_to_real.get(proj_code)
-            role_id = self.role_id_lookup.get(
-                f"{emp_id}|{real_pid}"
-            ) or emp_role_id.get(emp_id)
-            if not real_eid or not real_pid or not role_id:
-                continue
-            try:
-                y, m, d = (int(p) for p in wk_key.split("_"))
-                wk = datetime.date(y, m, d)
-            except ValueError:
-                continue
-            rows.append(
-                {
-                    "employee_id": real_eid,
-                    "project_id": real_pid,
-                    "role_id": role_id,
-                    "week_start": wk,
-                    "person_days": float(value),
-                }
-            )
+        rows = edits_to_rows(
+            edits,
+            self.project_meta,
+            self.employee_meta,
+            {**self.role_id_lookup, **self._cell_role_ids},
+        )
+        skipped = len(edits) - len(rows)
         if not rows:
             self.is_saving = False
-            yield rx.toast.info("Keine Änderungen.", position="top-right")
+            yield rx.toast.warning(
+                f"{skipped} Änderung(en) konnten nicht zugeordnet werden.",
+                position="top-right",
+            )
             return
         try:
             async with get_asyncdb_session() as session:
-                await capacity_allocation_repo.batch_upsert(session, rows)
+                await capacity_allocation_repo.batch_upsert(
+                    session, list(rows.values())
+                )
                 await session.commit()
-        except Exception as exc:  # noqa: BLE001
-            log.error("Failed to save grid: %s", exc)
+        except Exception:
+            log.exception("Failed to save grid")
             self.is_saving = False
             yield rx.toast.error(
-                f"Speichern fehlgeschlagen: {exc}", position="top-right"
+                "Speichern fehlgeschlagen. Bitte erneut versuchen.",
+                position="top-right",
             )
             return
-        self.saved_cells = dict(self.cells)
-        self.dirty_keys = []
-        self.hidden_edits = {}
+        # Unmappable edits stay dirty/hidden so they are not silently lost.
+        self.saved_cells = {
+            **self.saved_cells,
+            **{key: self.cells[key] for key in rows if key in self.cells},
+        }
+        self.hidden_edits = {
+            k: v for k, v in self.hidden_edits.items() if k not in rows
+        }
+        self.dirty_keys = dirty_keys_for(self.cells, self.saved_cells)
         self.is_saving = False
         yield rx.toast.success(f"{len(rows)} Zellen gespeichert.", position="top-right")
+        if skipped:
+            yield rx.toast.warning(
+                f"{skipped} Änderung(en) konnten nicht zugeordnet werden.",
+                position="top-right",
+            )
 
     # === Add / remove project from employee in grid ===
 
@@ -831,7 +868,8 @@ class PlanningStore(UserSession):
         self._reset_quick_create()
 
     @rx.event
-    async def quick_create_project(self) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def quick_create_project(self) -> AsyncGenerator[Any]:
         """Create a project from the inline fields and select it."""
         self.is_quick_creating = True
         yield
@@ -845,10 +883,12 @@ class PlanningStore(UserSession):
             self.is_quick_creating = False
             yield rx.toast.error(str(exc), position="top-right")
             return
-        except Exception as exc:  # noqa: BLE001
-            log.error("Failed to quick-create project: %s", exc)
+        except Exception:
+            log.exception("Failed to quick-create project")
             self.is_quick_creating = False
-            yield rx.toast.error(f"Fehler: {exc}", position="top-right")
+            yield rx.toast.error(
+                "Projekt konnte nicht angelegt werden.", position="top-right"
+            )
             return
         self.all_projects = sorted_projects([*self.all_projects, project])
         self.available_projects = sorted_projects([*self.available_projects, project])
@@ -862,25 +902,24 @@ class PlanningStore(UserSession):
         )
 
     @rx.event
+    @requires_admin
     async def add_project_to_employee_grid(
         self, form_data: dict
-    ) -> AsyncGenerator[Any, None]:
-        from alloq_commons.entities.capacity import CapacityEntity  # noqa: PLC0415
-
+    ) -> AsyncGenerator[Any]:
         project_id_raw = self.add_project_selected
-        role_id_raw = form_data.get("role_id")
         if project_id_raw == NEW_PROJECT_VALUE:
             yield rx.toast.error(
                 "Bitte das neue Projekt zuerst anlegen.", position="top-right"
             )
             return
-        if not project_id_raw or not role_id_raw:
+        try:
+            project_id = int(project_id_raw)
+            role_id = int(form_data.get("role_id") or "")
+        except TypeError, ValueError:
             yield rx.toast.error(
                 "Bitte Projekt und Rolle auswählen.", position="top-right"
             )
             return
-        project_id = int(project_id_raw)
-        role_id = int(role_id_raw)
         emp = next(
             (e for e in self.employee_meta if e["id"] == self.add_project_emp_id),
             None,
@@ -894,27 +933,48 @@ class PlanningStore(UserSession):
             return
         try:
             async with get_asyncdb_session() as session:
-                entity = CapacityEntity(
-                    project_id=project_id,
-                    employee_id=emp["real_id"],
-                    role_id=role_id,
-                    start_date=project.start_date,
-                    end_date=project.end_date,
-                    hours_per_week=40.0,
+                existing = await capacity_repo.find_by_project_and_employee(
+                    session, project_id, emp["real_id"]
                 )
-                session.add(entity)
-                await session.commit()
+                if not any(c.role_id == role_id for c in existing):
+                    session.add(
+                        CapacityEntity(
+                            project_id=project_id,
+                            employee_id=emp["real_id"],
+                            role_id=role_id,
+                            start_date=project.start_date,
+                            end_date=project.end_date,
+                            hours_per_week=40.0,
+                        )
+                    )
+                    await session.commit()
             self.add_project_emp_id = ""
             self._reset_quick_create()
-            yield PlanningStore.load
-        except Exception as e:  # noqa: BLE001
-            log.error("Failed to add project: %s", e)
-            yield rx.toast.error(f"Fehler: {e}", position="top-right")
+            yield PlanningStore.refresh
+        except Exception:
+            log.exception("Failed to add project")
+            yield rx.toast.error(
+                "Projekt konnte nicht zugewiesen werden.", position="top-right"
+            )
+
+    def _drop_pending_edits(self, emp_id: str, project_id: int) -> None:
+        """Forget unsaved edits of a row that is being removed."""
+        code = next(
+            (p["code"] for p in self.project_meta if p["real_id"] == project_id), None
+        )
+        if code is None:
+            return
+        prefix = f"{emp_id}|{code}|"
+        self.dirty_keys = [k for k in self.dirty_keys if not k.startswith(prefix)]
+        self.hidden_edits = {
+            k: v for k, v in self.hidden_edits.items() if not k.startswith(prefix)
+        }
 
     @rx.event
+    @requires_admin
     async def remove_project_from_employee_grid(
         self, emp_id: str, project_id: int
-    ) -> AsyncGenerator[Any, None]:
+    ) -> AsyncGenerator[Any]:
         emp = next((e for e in self.employee_meta if e["id"] == emp_id), None)
         if not emp:
             yield rx.toast.error("Mitarbeiter nicht gefunden.", position="top-right")
@@ -927,8 +987,11 @@ class PlanningStore(UserSession):
                 await capacity_allocation_repo.delete_by_project_and_employee(
                     session, project_id, emp["real_id"]
                 )
-            yield PlanningStore.load
+            self._drop_pending_edits(emp_id, project_id)
+            yield PlanningStore.refresh
             yield rx.toast.info("Projektzuweisung entfernt.", position="top-right")
-        except Exception as e:  # noqa: BLE001
-            log.error("Failed to remove project: %s", e)
-            yield rx.toast.error(f"Fehler: {e}", position="top-right")
+        except Exception:
+            log.exception("Failed to remove project")
+            yield rx.toast.error(
+                "Projektzuweisung konnte nicht entfernt werden.", position="top-right"
+            )

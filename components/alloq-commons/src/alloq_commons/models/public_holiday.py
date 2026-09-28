@@ -23,7 +23,7 @@ class PublicHoliday(BaseModel):
 class PublicHolidayCreate(BaseModel):
     """Write model for creating/updating public holidays."""
 
-    name: str = Field(..., max_length=255)
+    name: str = Field(..., min_length=1, max_length=255)
     date: date_type
     is_recurring: bool = False
     state_code: str = Field(default="NRW", max_length=10)

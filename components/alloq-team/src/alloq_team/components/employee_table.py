@@ -1,4 +1,7 @@
+from typing import cast
+
 import reflex as rx
+from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.formatters import de_number
 from alloq_commons.components.table_styles import (
     NO_WRAP_CELL_STYLE,
@@ -11,24 +14,27 @@ from alloq_team.components.employee_card import (
     _employee_initials,
 )
 from alloq_team.states.team_state import TeamState
+from reflex.vars import ArrayVar, NumberVar, ObjectVar
 
 import appkit_mantine as mn
-from appkit_ui.components.dialogs import delete_dialog
 
 HIGH_WORKLOAD_PERCENT = 75
 WORKLOAD_LIMIT_PERCENT = 100
 
 
-def _workload_color(workload_percent: int) -> str:
+def _workload_color(workload_percent: NumberVar) -> rx.Var[str]:
     """Return a Mantine color for workload severity."""
-    return rx.cond(
-        workload_percent > WORKLOAD_LIMIT_PERCENT,
-        "red",
-        rx.cond(workload_percent >= HIGH_WORKLOAD_PERCENT, "yellow", "green"),
+    return cast(
+        "rx.Var[str]",
+        rx.cond(
+            workload_percent > WORKLOAD_LIMIT_PERCENT,
+            "red",
+            rx.cond(workload_percent >= HIGH_WORKLOAD_PERCENT, "yellow", "green"),
+        ),
     )
 
 
-def _employee_name_cell(employee: Employee) -> rx.Component:
+def _employee_name_cell(employee: ObjectVar[Employee]) -> rx.Component:
     """Render employee identity with avatar and short identifier."""
     return mn.group(
         _employee_initials(employee),
@@ -40,7 +46,12 @@ def _employee_name_cell(employee: Employee) -> rx.Component:
                 c="var(--alloq-text)",
                 lh="1.15",
             ),
-            mn.text(f"{employee.job_title}", size="xs", c="dimmed", lh="1"),
+            mn.text(
+                rx.cond(employee.job_title, employee.job_title, employee.seniority),
+                size="xs",
+                c="dimmed",
+                lh="1",
+            ),
             gap="2px",
         ),
         gap="md",
@@ -49,7 +60,7 @@ def _employee_name_cell(employee: Employee) -> rx.Component:
     )
 
 
-def _location_cell(employee: Employee) -> rx.Component:
+def _location_cell(employee: ObjectVar[Employee]) -> rx.Component:
     """Render job title as the role column from the reference table."""
     return mn.text(
         rx.cond(employee.location, employee.location, ""),
@@ -58,12 +69,12 @@ def _location_cell(employee: Employee) -> rx.Component:
     )
 
 
-def _workload_cell(employee: Employee) -> rx.Component:
+def _workload_cell(employee: ObjectVar[Employee]) -> rx.Component:
     """Render workload progress and percentage."""
     return mn.group(
         mn.progress(
             value=employee.workload_percent,
-            color=_workload_color(employee.workload_percent),
+            color=_workload_color(employee.workload_percent.to(int)),
             size="sm",
             radius="xl",
             w="8rem",
@@ -76,7 +87,7 @@ def _workload_cell(employee: Employee) -> rx.Component:
             ),
             size="sm",
             c=rx.cond(
-                employee.workload_percent > WORKLOAD_LIMIT_PERCENT,
+                employee.workload_percent.to(int) > WORKLOAD_LIMIT_PERCENT,
                 "var(--mantine-color-red-7)",
                 "var(--alloq-text)",
             ),
@@ -99,7 +110,7 @@ def _role_badge(role_name: str) -> rx.Component:
     )
 
 
-def _employee_table_row(employee: Employee) -> rx.Component:
+def _employee_table_row(employee: ObjectVar[Employee]) -> rx.Component:
     """Render a single employee as a table row."""
     return mn.table.tr(
         mn.table.td(_employee_name_cell(employee), width="300px", min_width="240px"),
@@ -129,16 +140,24 @@ def _employee_table_row(employee: Employee) -> rx.Component:
                 rx.icon_button(
                     rx.icon("square-pen", size=16),
                     variant="ghost",
-                    on_click=TeamState.select_employee(employee.id),
+                    on_click=[
+                        rx.stop_propagation,
+                        TeamState.select_employee(employee.id),  # ty: ignore[invalid-argument-type]
+                    ],
                 ),
-                delete_dialog(
-                    title="Löschen bestätigen",
-                    content=f"{employee.first_name} {employee.last_name}",
-                    on_click=TeamState.delete_employee(employee.id),
-                    icon_button=True,
-                    color="red",
-                    variant="subtle",
-                    size="sm",
+                # Keep trigger and confirm clicks (portal events bubble through
+                # the React tree) from reaching the row's select_employee.
+                mn.box(
+                    delete_dialog(
+                        title="Löschen bestätigen",
+                        content=f"{employee.first_name} {employee.last_name}",
+                        on_click=TeamState.delete_employee(employee.id),  # ty: ignore[invalid-argument-type]
+                        icon_button=True,
+                        color="red",
+                        variant="subtle",
+                        size="sm",
+                    ),
+                    on_click=rx.stop_propagation,
                 ),
                 gap="12px",
                 wrap="nowrap",
@@ -149,11 +168,11 @@ def _employee_table_row(employee: Employee) -> rx.Component:
         ),
         class_name="alloq-team-table-row",
         style={"cursor": "pointer"},
-        on_click=TeamState.select_employee(employee.id),
+        on_click=TeamState.select_employee(employee.id),  # ty: ignore[invalid-argument-type]
     )
 
 
-def _employee_table_section(title: str, employees: rx.Var) -> rx.Component:
+def _employee_table_section(title: str, employees: ArrayVar) -> rx.Component:
     """Helper to render a titled section of the employee table."""
     return rx.cond(
         employees.length() > 0,

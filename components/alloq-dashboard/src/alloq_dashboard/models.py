@@ -142,6 +142,9 @@ class UtilizationKpi(BaseModel):
     past_weeks_start_label: str = ""
     past_weeks_end_label: str = ""
     current_absent_count: int = 0
+    overloaded_count: int = 0
+    well_utilized_count: int = 0
+    under_utilized_count: int = 0
     weeks: list[WeeklyUtilization] = []
     employee_breakdown: list[EmployeeUtilization] = []
 

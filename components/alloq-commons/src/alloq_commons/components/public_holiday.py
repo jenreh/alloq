@@ -1,6 +1,11 @@
+from typing import Any
+
 import reflex as rx
+from reflex.event import EventType
+from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
+from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.formatters import format_date_de
 from alloq_commons.components.forms import section
 from alloq_commons.components.modal_layout import (
@@ -10,12 +15,13 @@ from alloq_commons.components.modal_layout import (
 )
 from alloq_commons.models.public_holiday import PublicHoliday
 from alloq_commons.states.holiday_state import HolidayState
-from appkit_ui.components.dialogs import delete_dialog
 from appkit_ui.components.form_inputs import hidden_field
 from appkit_ui.styles import sticky_header_style
 
 
-def holiday_form_fields(holiday: PublicHoliday | None = None) -> rx.Component:
+def holiday_form_fields(
+    holiday: ObjectVar[PublicHoliday] | None = None,
+) -> rx.Component:
     """Reusable form fields for holiday add/edit dialogs."""
     is_edit_mode = holiday is not None
 
@@ -71,8 +77,8 @@ def _holiday_modal(
     *,
     title: str,
     opened: bool | rx.Var,
-    on_close: rx.EventHandler,
-    on_submit: rx.EventHandler,
+    on_close: EventType[()],
+    on_submit: EventType[Any],
     submit_label: str,
     content: rx.Component,
 ) -> rx.Component:
@@ -122,7 +128,9 @@ def edit_holiday_modal() -> rx.Component:
         on_close=HolidayState.close_edit_modal,
         on_submit=HolidayState.update_holiday,
         submit_label="Feiertag aktualisieren",
-        content=holiday_form_fields(holiday=HolidayState.selected_holiday),
+        content=holiday_form_fields(
+            holiday=HolidayState.selected_holiday.to(PublicHoliday)
+        ),
     )
 
 
@@ -164,29 +172,27 @@ def holiday_year_select() -> rx.Component:
     )
 
 
-def _update_holiday_button(holiday: PublicHoliday) -> rx.Component:
+def _update_holiday_button(holiday: ObjectVar[PublicHoliday]) -> rx.Component:
     return rx.icon_button(
         rx.icon("square-pen", size=16),
-        on_click=lambda: HolidayState.select_holiday_and_open_edit(holiday.id),
+        on_click=HolidayState.select_holiday_and_open_edit(holiday.id),  # ty: ignore[invalid-argument-type]
         variant="ghost",
     )
 
 
-def _delete_holiday_button(holiday: PublicHoliday) -> rx.Component:
+def _delete_holiday_button(holiday: ObjectVar[PublicHoliday]) -> rx.Component:
     return delete_dialog(
         title="Löschen bestätigen",
         content=rx.cond(holiday.name, holiday.name, "Unbekannter Feiertag"),
-        on_click=lambda: HolidayState.delete_holiday(holiday.id),
+        on_click=HolidayState.delete_holiday(holiday.id),  # ty: ignore[invalid-argument-type]
         icon_button=True,
         color="red",
         variant="subtle",
     )
 
 
-def holidays_table_row(holiday: PublicHoliday) -> rx.Component:
+def holidays_table_row(holiday: ObjectVar[PublicHoliday]) -> rx.Component:
     """Render a single holiday as a table row."""
-    _parts = holiday.date.to(str).split("-")
-    _day_month = _parts[2] + "." + _parts[1] + "."
     return mn.table.tr(
         mn.table.td(
             mn.text(

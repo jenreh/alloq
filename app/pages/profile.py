@@ -1,5 +1,3 @@
-from collections.abc import Callable
-
 import reflex as rx
 from alloq_commons.components import page_header
 
@@ -9,15 +7,12 @@ from appkit_user.authentication.templates import (
 )
 from appkit_user.user_management.components.user_profile import user_profile_view
 
-ROLES = []
-
 
 def create_profile_page(
     navbar: rx.Component,
     route: str = "/profile",
     title: str = "Profil",
-    **kwargs,  # noqa: ARG001
-) -> Callable:
+) -> rx.Component:
     """Create the profile page with authentication.
 
     Args:

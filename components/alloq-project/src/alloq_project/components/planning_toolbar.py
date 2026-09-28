@@ -1,18 +1,17 @@
-from collections.abc import Callable
-
 import reflex as rx
 from alloq_project.states.planning_grid_state import PlanningStore
 from alloq_project.states.project_plan_state import ProjectPlanState
+from reflex.event import EventType
 
 import appkit_mantine as mn
 
 
 def _toggle_button(
     icon: str,
-    active: bool,
+    active: rx.Var[bool] | bool,
     tooltip_on: str,
     tooltip_off: str,
-    on_click: Callable,
+    on_click: EventType[()],
 ) -> rx.Component:
     """Reusable toggle button for the planning toolbar.
 
@@ -67,16 +66,20 @@ def planning_toolbar() -> rx.Component:
             on_click=ProjectPlanState.open_modal,
         ),
         mn.tooltip(
-            mn.button(
-                rx.icon("save", size=18),
-                variant=rx.cond(PlanningStore.has_dirty, "filled", "subtle"),
-                auto_contrast=True,
-                on_click=PlanningStore.save_grid,
-                disabled=~PlanningStore.has_dirty | PlanningStore.is_saving,
-                loading=PlanningStore.is_saving,
-                size="sm",
-                p="0 8px",
-                radius="md",
+            # Box wrapper: see _toggle_button (memoized button, disabled hover).
+            mn.box(
+                mn.button(
+                    rx.icon("save", size=18),
+                    variant=rx.cond(PlanningStore.has_dirty, "filled", "subtle"),
+                    auto_contrast=True,
+                    on_click=PlanningStore.save_grid,
+                    disabled=~PlanningStore.has_dirty | PlanningStore.is_saving,
+                    loading=PlanningStore.is_saving,
+                    size="sm",
+                    p="0 8px",
+                    radius="md",
+                ),
+                display="flex",
             ),
             label="Änderungen speichern (STRG+S)",
             with_arrow=True,

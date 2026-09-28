@@ -17,7 +17,7 @@ HEAT_MID: int = 85
 HEAT_HIGH: int = 100
 PROJECT_ALLOC_MID: float = 2.0
 PROJECT_ALLOC_HIGH: float = 4.0
-PLANNING_ANCHOR_DATE: date = date(2026, 4, 27)
+FREE_DAYS_PRECISION: int = 2
 
 
 # ---------------------------------------------------------------------------
@@ -81,6 +81,7 @@ class UtilizationEmployeeInput:
     role_name: str
     internal_hours: int
     absences: tuple[AbsencePeriod, ...] = ()
+    workload_percent: int = 100
 
 
 @dataclass(frozen=True)
@@ -147,6 +148,9 @@ class UtilizationService:
     @staticmethod
     def gesamt_bucket(free_days: float) -> str:
         """Classify free days into a gesamt bucket."""
+        # Free days come from float subtraction (e.g. 5 - 0.5 - 4.3 - 0.2), so
+        # compare on a rounded value to keep "exactly booked" in "neutral".
+        free_days = round(free_days, FREE_DAYS_PRECISION)
         if free_days > 1.0:
             return "available"
         if free_days > 0.0:
@@ -218,20 +222,18 @@ class UtilizationService:
         absences: list[AbsencePeriod] | tuple[AbsencePeriod, ...],
         week_start: date,
     ) -> float:
-        """Count absence working days overlapping a Mon-Fri week."""
-        week_end = week_start + timedelta(days=4)
-        total = 0.0
-        for a in absences:
-            overlap_start = max(a.start_date, week_start)
-            overlap_end = min(a.end_date, week_end)
-            if overlap_start > overlap_end:
-                continue
-            cur = overlap_start
-            while cur <= overlap_end:
-                if cur.weekday() < WORK_DAYS_PER_WEEK:
-                    total += 1.0
-                cur += timedelta(days=1)
-        return total
+        """Count Mon-Fri days of a week covered by at least one absence.
+
+        Overlapping absence periods are merged, so a day is counted once.
+        """
+        workdays = [week_start + timedelta(days=i) for i in range(WORK_DAYS_PER_WEEK)]
+        covered = {
+            day
+            for a in absences
+            for day in workdays
+            if day.weekday() < WORK_DAYS_PER_WEEK and a.start_date <= day <= a.end_date
+        }
+        return float(len(covered))
 
     @staticmethod
     def cap_internal_days(
@@ -307,14 +309,22 @@ class UtilizationService:
         internal_hours: int,
         absences: list[AbsencePeriod] | tuple[AbsencePeriod, ...],
         week_start: date,
+        *,
+        holiday_dates: set[date] | frozenset[date] | None = None,
+        workload_percent: int = 100,
     ) -> HeatResult:
         """Compute heatmap for one employee/week from raw absence list.
 
-        Convenience method that computes absence_days and caps internal.
+        Convenience method that computes absence_days and caps internal. Work
+        days come from ``work_days_for_week`` exactly like the planning grid,
+        so public holidays and part-time workload reduce capacity.
         """
+        work_days = cls.work_days_for_week(week_start, holiday_dates, workload_percent)
         absence_days = cls.absence_days_in_week(absences, week_start)
-        internal_days = cls.cap_internal_days(internal_hours, absence_days)
-        return cls.compute_employee_heat(used_days, absence_days, internal_days)
+        internal_days = cls.cap_internal_days(internal_hours, absence_days, work_days)
+        return cls.compute_employee_heat(
+            used_days, absence_days, internal_days, work_days
+        )
 
     # ------------------------------------------------------------------
     # Project-level computations (per week)
@@ -418,6 +428,7 @@ class UtilizationService:
         free_capacity_start: date,
         free_capacity_weeks: int = 4,
         project_ids: set[int] | None = None,
+        holiday_dates: set[date] | frozenset[date] | None = None,
     ) -> TeamUtilizationSeries:
         """Compute the same weekly team series as the planning heatmap."""
         allocation_days = cls.compute_heatmap_allocation_days(
@@ -445,6 +456,8 @@ class UtilizationService:
                     internal_hours=employee.internal_hours,
                     absences=employee.absences,
                     week_start=week_start,
+                    holiday_dates=holiday_dates,
+                    workload_percent=employee.workload_percent,
                 )
                 employee_weeks.append(
                     WeekUtilizationResult(
@@ -514,10 +527,15 @@ class UtilizationService:
     @staticmethod
     def planning_week_starts(
         num_weeks: int,
-        anchor_date: date = PLANNING_ANCHOR_DATE,
+        anchor_date: date | None = None,
     ) -> list[date]:
-        """Return week starts for the default planning heatmap range."""
-        return [anchor_date + timedelta(weeks=index) for index in range(num_weeks)]
+        """Return week starts for the planning heatmap range.
+
+        Without an explicit anchor the range starts at the current week, so it
+        rolls forward instead of staying frozen at a fixed date.
+        """
+        start = anchor_date or UtilizationService.monday_of(date.today())  # noqa: DTZ011
+        return [start + timedelta(weeks=index) for index in range(num_weeks)]
 
     @staticmethod
     def week_label(week_start: date) -> str:

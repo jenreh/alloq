@@ -1,6 +1,7 @@
 """Unsaved grid edits survive switching the planning time range."""
 
 import datetime
+from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from typing import Any
@@ -11,6 +12,29 @@ from alloq_commons.models.employee import Employee
 from alloq_commons.models.project import Project
 from alloq_project.services.planning_builders import split_edits
 from alloq_project.states.planning_grid_state import PlanningStore
+
+
+class _FakeLogin:
+    """LoginState stand-in for the admin guard on PlanningStore handlers."""
+
+    def __init__(self, *, is_admin: bool) -> None:
+        self.is_admin = is_admin
+
+    @property
+    async def authenticated_user(self) -> Any:
+        return SimpleNamespace(user_id=1, is_admin=self.is_admin)
+
+    async def redir(self) -> None:
+        return None
+
+
+@pytest.fixture(autouse=True)
+def _admin_login() -> Iterator[None]:
+    """Run every handler as an admin unless a test overrides ``get_state``."""
+    login = _FakeLogin(is_admin=True)
+    with patch.object(PlanningStore, "get_state", AsyncMock(return_value=login)):
+        yield
+
 
 _STATE = "alloq_project.states.planning_grid_state"
 
@@ -37,7 +61,7 @@ def _db_allocations(state: PlanningStore, week_idx: int, days: float) -> list[An
             role_id=3,
             week_start=datetime.date(y, m, d),
             person_days=days,
-            _cached_role_name="",
+            role_name="",
         )
     ]
 
@@ -46,7 +70,7 @@ class _Planner:
     """Drives PlanningStore._populate with a fake DB."""
 
     def __init__(self) -> None:
-        self.state = PlanningStore()  # type: ignore[call-arg]
+        self.state = PlanningStore()
         self.state.available_employees = [
             Employee(
                 id=1,
@@ -185,6 +209,8 @@ class TestTimeRangeKeepsEdits:
             ) as upsert,
         ):
             await _drain(state.save_grid())
+
+        assert upsert.await_args is not None
 
         rows = upsert.await_args.args[1]
         saved = {(r["week_start"].isoformat(), r["person_days"]) for r in rows}

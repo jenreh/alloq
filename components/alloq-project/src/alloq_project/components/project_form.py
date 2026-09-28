@@ -1,3 +1,5 @@
+from typing import Any
+
 import reflex as rx
 from alloq_commons.components.forms import section
 from alloq_commons.components.modal_layout import (
@@ -10,6 +12,8 @@ from alloq_project.states.project_state import (
     ProjectState,
     ProjectValidationState,
 )
+from reflex.event import EventType
+from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
 from appkit_ui.components.form_inputs import hidden_field
@@ -54,7 +58,7 @@ def project_form_fields() -> rx.Component:
                 name="owner_ids",
                 label="Projekt-Owner",
                 data=ProjectState.employee_select_options,
-                default_value=ProjectValidationState.owner_ids,
+                default_value=ProjectValidationState.owner_ids.to(list[str]),
                 on_change=ProjectValidationState.set_owner_ids,
                 clearable=True,
                 searchable=True,
@@ -67,11 +71,11 @@ def project_form_fields() -> rx.Component:
                     name="budget",
                     label="Budget",
                     default_value=ProjectValidationState.budget,
-                    on_value_change=ProjectValidationState.set_budget,
+                    on_change=ProjectValidationState.set_budget,
                     error=ProjectValidationState.budget_error,
                     min=0,
                     step=10000,
-                    decimalScale=0,
+                    decimal_scale=0,
                     fixed_decimal_scale=True,
                     required=True,
                     thousand_separator=".",
@@ -150,7 +154,7 @@ def _color_swatch(color: str) -> rx.Component:
         w="42px",
         h="42px",
         bg=color,
-        on_click=lambda: ProjectValidationState.set_color(color),
+        on_click=ProjectValidationState.set_color(color),
         style={
             "borderRadius": "var(--mantine-radius-md)",
             "cursor": "pointer",
@@ -190,7 +194,7 @@ def _required_capacity_fields() -> rx.Component:
     )
 
 
-def _required_capacity_input(role: Role) -> rx.Component:
+def _required_capacity_input(role: ObjectVar[Role]) -> rx.Component:
     """Render a person-day input for a single role."""
     return mn.box(
         mn.stack(
@@ -204,8 +208,9 @@ def _required_capacity_input(role: Role) -> rx.Component:
                 placeholder="Personentage",
                 default_value=ProjectValidationState.role_capacities[
                     role.id.to_string()
-                ],
-                on_value_change=lambda v: ProjectValidationState.set_role_capacity(
+                ].to(float),
+                # ty cannot infer the lambda's parameter from the event spec.
+                on_change=lambda v: ProjectValidationState.set_role_capacity(  # ty: ignore[invalid-argument-type]
                     role.id.to_string(), v
                 ),
                 min=0,
@@ -226,7 +231,7 @@ def _required_capacity_input(role: Role) -> rx.Component:
 
 def form_footer(
     submit_label: str,
-    on_cancel: rx.EventHandler,
+    on_cancel: EventType[()],
     disabled: bool | rx.Var[bool] = False,
 ) -> rx.Component:
     """Footer buttons for project forms."""
@@ -241,7 +246,7 @@ def form_footer(
 def form_layout(
     content: rx.Component,
     footer: rx.Component,
-    on_submit: rx.EventHandler,
+    on_submit: EventType[Any],
 ) -> rx.Component:
     """Standardized project form layout."""
     return modal_form_layout(

@@ -195,6 +195,17 @@ describe("clipboard", () => {
     );
   });
 
+  it("leaves target cells untouched where a ragged source row is short", () => {
+    const rect = { r0: 0, r1: 0, c0: 0, c1: 0 };
+    const { changes } = planPaste(layout, rect, [["1", "2", "3"], ["4"]]);
+    assert.deepEqual(changes, [
+      { key: "emp-1|A|w0", value: 1 },
+      { key: "emp-1|A|w1", value: 2 },
+      { key: "emp-1|A|w2", value: 3 },
+      { key: "emp-1|B|w0", value: 4 },
+    ]);
+  });
+
   it("returns nothing for an empty clipboard", () => {
     assert.deepEqual(planPaste(layout, { r0: 0, r1: 0, c0: 0, c1: 0 }, []).changes, []);
   });

@@ -66,16 +66,21 @@ class EmployeeEntity(Entity, Base):
         lazy="selectin",
     )
 
-    def to_dict(self) -> dict:
-        """Convert entity to dictionary for Pydantic model creation."""
+    def to_dict(self, absences_since: datetime.date | None = None) -> dict:
+        """Convert entity to dictionary for Pydantic model creation.
+
+        Absences ending before *absences_since* are dropped; the default is
+        today. Consumers that show past weeks (e.g. the planning grid) pass the
+        first displayed day so absences earlier in that range are kept.
+        """
 
         absences = []
         if getattr(self, "absences", None):
-            today = datetime.datetime.now(datetime.UTC).date()
+            since = absences_since or datetime.datetime.now(datetime.UTC).date()
             valid_absences = [
                 a
                 for a in self.absences
-                if a.start_date and a.end_date and a.end_date >= today
+                if a.start_date and a.end_date and a.end_date >= since
             ]
             valid_absences.sort(key=lambda a: a.start_date)
             absences = [a.to_dict() for a in valid_absences]

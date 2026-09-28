@@ -27,7 +27,7 @@ class TestConfigure:
             result = configure()
 
         assert result is mock_result
-        mock_registry.configure.assert_called_once_with(AppConfig, env_file="/.env")
+        mock_registry.configure.assert_called_once_with(AppConfig, env_file=".env")
 
     def test_configure_is_cached(self) -> None:
         mock_registry = MagicMock()
@@ -46,4 +46,4 @@ class TestConfigure:
             configure()
 
         _args, kwargs = mock_registry.configure.call_args
-        assert kwargs.get("env_file") == "/.env"
+        assert kwargs.get("env_file") == ".env"

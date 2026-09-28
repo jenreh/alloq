@@ -1,48 +1,62 @@
+# syntax=docker/dockerfile:1
+ARG PYTHON_VERSION=3.14-slim-bookworm
+ARG UV_VERSION=0.12.19
+ARG BUN_VERSION=1.4.0
+
+FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
+FROM oven/bun:${BUN_VERSION} AS bun
+
 # ────────────────────────────  Stage 1 ─ Builder  ────────────────────────────
-ARG VARIANT=3.13-slim-bookworm
-FROM python:${VARIANT} AS builder
+FROM python:${PYTHON_VERSION} AS builder
 
-# Stage 1: Install required libraries
-ENV DEBIAN_FRONTEND=noninteractive
+COPY --from=uv /uv /usr/local/bin/uv
 
-RUN apt-get update \
-    && export DEBIAN_FRONTEND=noninteractive \
-    && apt-get -y upgrade \
-    && apt-get -y install --no-install-recommends postgresql-client libpq-dev unzip curl \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+ENV UV_CACHE_DIR=/root/.cache/uv \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never
 
-# Copy uv and bun from official images (simpler than curl install)
-RUN export UV_INSTALL_DIR=/bin && curl -LsSf https://astral.sh/uv/install.sh | sh
-RUN export BUN_INSTALL=/usr/local && curl -fsSL https://bun.sh/install | bash
+WORKDIR /reflexapp
+
+COPY pyproject.toml uv.lock README.md .python-version ./
+COPY components ./components
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --no-install-project --all-extras
+
+COPY alembic.ini start.sh rxconfig.py ./
+COPY configuration ./configuration
+COPY assets ./assets
+COPY alembic ./alembic
+COPY app ./app
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --all-extras \
+    && chmod +x start.sh
 
 # ───────────────────────────  Stage 2 ─ Runtime  ────────────────────────────
-FROM builder AS final
+FROM python:${PYTHON_VERSION} AS final
 
-ARG PORT=80
-ARG BACKEND_PORT=3030
+# Frontend and backend share one port (reflex run --env prod --single-port).
+ARG PORT=8080
 ARG API_URL
-ENV PORT=$PORT REFLEX_API_URL=${API_URL:-http://localhost:$PORT}
 
-ENV WORK=/reflexapp
-WORKDIR ${WORK}
+RUN groupadd --system --gid 1000 alloq \
+    && useradd --system --uid 1000 --gid alloq --create-home alloq
 
-COPY pyproject.toml uv.lock README.md .python-version ${WORK}/
-COPY components ${WORK}/components
+# Reflex uses a bun >= its pinned minimum from PATH instead of downloading one.
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=builder --chown=alloq:alloq /reflexapp /reflexapp
 
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-install-project --all-extras
+ENV PATH="/reflexapp/.venv/bin:${PATH}" \
+    PORT=${PORT} \
+    REFLEX_FRONTEND_PORT=${PORT} \
+    REFLEX_BACKEND_PORT=${PORT} \
+    REFLEX_API_URL=${API_URL:-http://localhost:$PORT}
 
-COPY alembic.ini start.sh rxconfig.py ${WORK}/
-COPY configuration ${WORK}/configuration
-COPY assets ${WORK}/assets
-COPY alembic ${WORK}/alembic
-COPY app ${WORK}/app
+WORKDIR /reflexapp
+USER alloq
 
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --all-extras && \
-    chmod +x ${WORK}/start.sh
-
-EXPOSE $PORT $BACKEND_PORT
+EXPOSE ${PORT}
 
 CMD ["./start.sh"]

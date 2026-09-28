@@ -106,6 +106,8 @@ class TestBuildChartDataWithCapacity:
 
     def test_fallback_to_linear_when_no_allocations(self) -> None:
         project = _project()
+        assert project.start_date is not None
+        assert project.end_date is not None
         total_days = (project.end_date - project.start_date).days
         mid = project.start_date + timedelta(days=total_days // 2)
         statuses = [_status(mid, 50, 50)]
@@ -204,6 +206,7 @@ class TestBuildChartDataWithCapacity:
     def test_pv_monotonically_non_decreasing_linear_fallback(self) -> None:
         """Linear fallback PV must also be non-decreasing."""
         project = _project()
+        assert project.start_date is not None
         statuses = [
             _status(project.start_date + timedelta(weeks=2), 20, 25),
             _status(project.start_date + timedelta(weeks=4), 40, 45),
@@ -246,6 +249,18 @@ class TestBuildSummary:
         assert summary.earned_value == pytest.approx(100_000)
         assert summary.actual_cost == pytest.approx(110_000)
         assert summary.has_data is True
+
+    def test_same_day_newer_status_wins(self) -> None:
+        project = _project(budget=100_000)
+        older = _status(date(2026, 2, 1), 20, 20).model_copy(update={"id": 1})
+        newer = _status(date(2026, 2, 1), 60, 50).model_copy(update={"id": 2})
+
+        summary = EVForecastService.build_summary(project, [newer, older])
+        chart = EVForecastService.build_chart_data(project, [newer, older])
+
+        assert summary.earned_value == pytest.approx(60_000)
+        last_actual = next(p for p in chart if p["Prognose (linear)"] is not None)
+        assert last_actual["Actual Cost"] == pytest.approx(50_000)
 
     def test_no_statuses_returns_no_data(self) -> None:
         project = _project(budget=100_000)

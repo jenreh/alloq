@@ -1,6 +1,11 @@
+from typing import Any
+
 import reflex as rx
+from reflex.event import EventType
+from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
+from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.forms import section
 from alloq_commons.components.modal_layout import (
     MODAL_CLASS,
@@ -9,12 +14,11 @@ from alloq_commons.components.modal_layout import (
 )
 from alloq_commons.models import Role
 from alloq_commons.state.role_states import RoleState
-from appkit_ui.components.dialogs import delete_dialog
 from appkit_ui.components.form_inputs import hidden_field
 from appkit_ui.styles import sticky_header_style
 
 
-def role_form_fields(role: Role | None = None) -> rx.Component:
+def role_form_fields(role: ObjectVar[Role] | None = None) -> rx.Component:
     """Reusable form fields for role add/edit dialogs."""
     is_edit_mode = role is not None
 
@@ -78,8 +82,8 @@ def _role_modal(
     *,
     title: str,
     opened: bool | rx.Var,
-    on_close: rx.EventHandler,
-    on_submit: rx.EventHandler,
+    on_close: EventType[()],
+    on_submit: EventType[Any],
     submit_label: str,
     content: rx.Component,
 ) -> rx.Component:
@@ -129,7 +133,7 @@ def edit_role_modal() -> rx.Component:
         on_close=RoleState.close_edit_modal,
         on_submit=RoleState.update_role,
         submit_label="Rolle aktualisieren",
-        content=role_form_fields(role=RoleState.selected_role),
+        content=role_form_fields(role=RoleState.selected_role.to(Role)),
     )
 
 
@@ -159,7 +163,7 @@ def role_search_input() -> rx.Component:
 
 
 def update_role_button(
-    role: Role,
+    role: ObjectVar[Role],
     icon: str = "square-pen",
     icon_size: int = 16,
     **kwargs,
@@ -167,24 +171,24 @@ def update_role_button(
     """Icon button to open the edit modal for a role."""
     return rx.icon_button(
         rx.icon(icon, size=icon_size),
-        on_click=lambda: RoleState.select_role_and_open_edit(role.id),
+        on_click=RoleState.select_role_and_open_edit(role.id),  # ty: ignore[invalid-argument-type]
         **kwargs,
     )
 
 
-def delete_role_button(role: Role, **kwargs) -> rx.Component:
+def delete_role_button(role: ObjectVar[Role], **kwargs) -> rx.Component:
     """Delete button with confirmation dialog."""
     return delete_dialog(
         title="Löschen bestätigen",
         content=rx.cond(role.name, role.name, "Unbekannte Rolle"),
-        on_click=lambda: RoleState.delete_role(role.id),
+        on_click=RoleState.delete_role(role.id),  # ty: ignore[invalid-argument-type]
         icon_button=True,
         color="red",
         **kwargs,
     )
 
 
-def roles_table_row(role: Role) -> rx.Component:
+def roles_table_row(role: ObjectVar[Role]) -> rx.Component:
     """Render a single role as a table row."""
     return mn.table.tr(
         mn.table.td(

@@ -4,6 +4,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from alloq_commons.entities import ProjectEntity
+from alloq_commons.repositories.search import LIKE_ESCAPE_CHAR, escape_like
 from appkit_commons.database.base_repository import BaseRepository
 
 logger = logging.getLogger(__name__)
@@ -27,12 +28,16 @@ class ProjectRepository(BaseRepository[ProjectEntity, AsyncSession]):
         statement = select(ProjectEntity)
 
         if search:
-            search_pattern = f"%{search}%"
+            search_pattern = f"%{escape_like(search)}%"
             statement = statement.where(
                 or_(
-                    ProjectEntity.code.ilike(search_pattern),
-                    ProjectEntity.customer.ilike(search_pattern),
-                    ProjectEntity.name_de.ilike(search_pattern),
+                    ProjectEntity.code.ilike(search_pattern, escape=LIKE_ESCAPE_CHAR),
+                    ProjectEntity.customer.ilike(
+                        search_pattern, escape=LIKE_ESCAPE_CHAR
+                    ),
+                    ProjectEntity.name_de.ilike(
+                        search_pattern, escape=LIKE_ESCAPE_CHAR
+                    ),
                 )
             )
 

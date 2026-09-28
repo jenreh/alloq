@@ -1,16 +1,23 @@
 import reflex as rx
-from alloq_commons.components.formatters import de_number, format_date_de_named
+from alloq_commons.components.dialogs import delete_dialog
+from alloq_commons.components.formatters import (
+    de_number,
+    format_date_de_named,
+    match_str,
+)
 from alloq_commons.models.project import Project, TeamMemberBadge
 from alloq_project.states.project_state import ProjectState
+from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
-from appkit_ui.components.dialogs import delete_dialog
 from appkit_ui.global_states import LoadingState
+
+MAX_TEAM_AVATARS = 4
 
 
 def status_color(state: rx.Var[str]) -> rx.Var[str]:
     """Return the project status badge color."""
-    return rx.match(
+    return match_str(
         state,
         ("Geplant", "gray"),
         ("Aktiv", "green"),
@@ -20,7 +27,7 @@ def status_color(state: rx.Var[str]) -> rx.Var[str]:
     )
 
 
-def project_initials(project: Project) -> rx.Component:
+def project_initials(project: ObjectVar[Project]) -> rx.Component:
     """Render project customer avatar."""
     customer_display = rx.cond(project.customer != "", project.customer, project.code)
     return mn.avatar(
@@ -45,7 +52,7 @@ def _metric(label: str, value: str | rx.Var | rx.Component) -> rx.Component:
     )
 
 
-def team_initial(member: TeamMemberBadge) -> rx.Component:
+def team_initial(member: ObjectVar[TeamMemberBadge]) -> rx.Component:
     """Render one team member initial badge with a tooltip showing the full name."""
     return mn.tooltip(
         mn.avatar(
@@ -58,7 +65,23 @@ def team_initial(member: TeamMemberBadge) -> rx.Component:
     )
 
 
-def project_card(project: Project) -> rx.Component:
+def team_avatars(project: ObjectVar[Project]) -> rx.Component:
+    """Team avatars capped at MAX_TEAM_AVATARS plus a '+N' overflow avatar."""
+    overflow = project.team_members.length() - MAX_TEAM_AVATARS
+    return mn.avatar.group(
+        rx.foreach(
+            project.team_members.to(list[TeamMemberBadge])[:MAX_TEAM_AVATARS],
+            team_initial,
+        ),
+        rx.cond(
+            overflow > 0,
+            mn.avatar("+" + overflow.to_string(), size="sm", radius="lg"),
+            rx.fragment(),
+        ),
+    )
+
+
+def project_card(project: ObjectVar[Project]) -> rx.Component:
     """Single project card for the overview grid."""
     return mn.box(
         mn.card(
@@ -92,7 +115,7 @@ def project_card(project: Project) -> rx.Component:
                                     delete_dialog(
                                         title="Projekt löschen",
                                         content=project.name_de,
-                                        on_click=ProjectState.delete_project(
+                                        on_click=ProjectState.delete_project(  # ty: ignore[invalid-argument-type]
                                             project.id
                                         ),
                                         icon_button=True,
@@ -114,7 +137,7 @@ def project_card(project: Project) -> rx.Component:
                             rx.cond(
                                 project.customer != "",
                                 mn.text(
-                                    project.customer + "\u00a0\u00a0\u2022",
+                                    f"{project.customer}\u00a0\u00a0\u2022",
                                     size="xs",
                                     c="dimmed",
                                     truncate=True,
@@ -135,7 +158,6 @@ def project_card(project: Project) -> rx.Component:
                             wrap="nowrap",
                         ),
                         gap="2px",
-                        nowrap=True,
                         style={"minWidth": 0, "flex": 1},
                     ),
                     gap="md",
@@ -164,7 +186,7 @@ def project_card(project: Project) -> rx.Component:
                 ),
                 mn.progress(
                     value=project.current_progress,
-                    color=rx.cond(project.risk_count > 0, "red", project.color),
+                    color=rx.cond(project.risk_count.to(int) > 0, "red", project.color),
                     size="sm",
                     radius="xl",
                     bg="var(--alloq-meter-track)",
@@ -174,9 +196,7 @@ def project_card(project: Project) -> rx.Component:
                     mn.group(
                         rx.cond(
                             project.team_initials.length() > 0,
-                            mn.avatar.group(
-                                rx.foreach(project.team_members, team_initial),
-                            ),
+                            team_avatars(project),
                         ),
                         mn.text(
                             rx.cond(
@@ -196,7 +216,7 @@ def project_card(project: Project) -> rx.Component:
                         style={"display": "flex", "alignItems": "center"},
                     ),
                     rx.cond(
-                        project.risk_count > 0,
+                        project.risk_count.to(int) > 0,
                         mn.group(
                             rx.icon("triangle-alert", size=14),
                             mn.text(
@@ -237,6 +257,6 @@ def project_card(project: Project) -> rx.Component:
         },
         on_click=[
             LoadingState.set_is_loading(True),
-            ProjectState.select_project(project.id),
+            ProjectState.select_project(project.id),  # ty: ignore[invalid-argument-type]
         ],
     )

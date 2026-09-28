@@ -13,6 +13,7 @@ from alloq_project.states.planning_grid_state import (
     PlanningStore,
     WeekColumn,
 )
+from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
 
@@ -233,7 +234,7 @@ def block_header_info_cell(*children: rx.Component, background: str) -> rx.Compo
 # ---------------------------------------------------------------------------
 
 
-def month_cell(month: MonthSpan) -> rx.Component:
+def month_cell(month: ObjectVar[MonthSpan]) -> rx.Component:
     """Header cell spanning one month."""
     return mn.box(
         mn.text(month.label, fz="11px", fw="700", c="var(--alloq-text)"),
@@ -249,7 +250,7 @@ def month_cell(month: MonthSpan) -> rx.Component:
     )
 
 
-def week_label_cell(week: WeekColumn) -> rx.Component:
+def week_label_cell(week: ObjectVar[WeekColumn]) -> rx.Component:
     """Header cell for a week number."""
     return mn.box(
         mn.text(week.label, fz="11px", c="var(--alloq-text-muted)", fw="500"),
@@ -262,7 +263,7 @@ def week_label_cell(week: WeekColumn) -> rx.Component:
     )
 
 
-def work_days_cell(week: WeekColumn) -> rx.Component:
+def work_days_cell(week: ObjectVar[WeekColumn]) -> rx.Component:
     """Header cell showing work days per week."""
     return mn.box(
         format_de(week.work_days),
@@ -338,7 +339,7 @@ def planning_excel_grid(*children: rx.Component, grid_id: str) -> rx.Component:
     )
 
 
-def editable_value_cell(cell: GridCell) -> rx.Component:
+def editable_value_cell(cell: ObjectVar[GridCell]) -> rx.Component:
     """Display cell with dirty indicator; ExcelGrid handles interaction."""
     return mn.box(
         format_de(cell.value),

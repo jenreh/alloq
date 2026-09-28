@@ -2,6 +2,7 @@
 
 import datetime
 import math
+from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from typing import Any
@@ -19,12 +20,35 @@ from alloq_project.services.planning_builders import (
 )
 from alloq_project.states.planning_grid_state import PlanningStore
 
+
+class _FakeLogin:
+    """LoginState stand-in for the admin guard on PlanningStore handlers."""
+
+    def __init__(self, *, is_admin: bool) -> None:
+        self.is_admin = is_admin
+
+    @property
+    async def authenticated_user(self) -> Any:
+        return SimpleNamespace(user_id=1, is_admin=self.is_admin)
+
+    async def redir(self) -> None:
+        return None
+
+
+@pytest.fixture(autouse=True)
+def _admin_login() -> Iterator[None]:
+    """Run every handler as an admin unless a test overrides ``get_state``."""
+    login = _FakeLogin(is_admin=True)
+    with patch.object(PlanningStore, "get_state", AsyncMock(return_value=login)):
+        yield
+
+
 _STATE = "alloq_project.states.planning_grid_state"
 
 
 def _store(view_mode: str = "Grid") -> PlanningStore:
     weeks, spans = build_weeks(3)
-    state = PlanningStore()  # type: ignore[call-arg]
+    state = PlanningStore()
     state.view_mode = view_mode
     state.weeks = weeks
     state.month_spans = spans
@@ -201,7 +225,7 @@ class TestViewGating:
 class TestPopulate:
     @pytest.mark.asyncio
     async def test_populate_snapshots_cells_and_bumps_revision(self) -> None:
-        state = PlanningStore()  # type: ignore[call-arg]
+        state = PlanningStore()
         state.dirty_keys = ["stale"]
         with (
             patch.object(
@@ -236,6 +260,8 @@ class TestSaveGrid:
         ):
             await _drain(state.save_grid())
 
+        assert upsert.await_args is not None
+
         rows = upsert.await_args.args[1]
         assert [r["person_days"] for r in rows] == [2.0]
         assert state.dirty_keys == []
@@ -254,7 +280,7 @@ class TestSaveGrid:
 
 class TestSettersAndLabels:
     def test_simple_setters(self) -> None:
-        state = PlanningStore()  # type: ignore[call-arg]
+        state = PlanningStore()
         state.current_employee_id = 1
         state.set_add_project_selected(None)  # type: ignore[arg-type]
         state.set_quick_project_name("Neu")
@@ -288,7 +314,7 @@ class TestSettersAndLabels:
         assert len(state.current_week_key.split("_")) == 3
 
     def test_set_time_range_triggers_reload(self) -> None:
-        state = PlanningStore()  # type: ignore[call-arg]
+        state = PlanningStore()
         assert state.set_time_range("6 Monate") is not None
         assert state.time_range == "6 Monate"
 
@@ -333,7 +359,7 @@ class TestSettersAndLabels:
         assert (state.project_scope, state.employee_scope) == (False, False)
 
     def test_notify_rejected_ignores_zero(self) -> None:
-        state = PlanningStore()  # type: ignore[call-arg]
+        state = PlanningStore()
         assert state.notify_rejected(0) is None
         assert state.notify_rejected(2) is not None
 
@@ -350,7 +376,7 @@ class TestEmployeeIdByEmail:
 
     @pytest.mark.asyncio
     async def test_resolve_current_employee_from_logged_in_user(self) -> None:
-        state = PlanningStore()  # type: ignore[call-arg]
+        state = PlanningStore()
         state.available_employees = [Employee(id=7, email="me@x.de")]
 
         async def _user() -> Any:
@@ -367,13 +393,13 @@ class TestEmployeeIdByEmail:
 class TestLoading:
     @pytest.mark.asyncio
     async def test_fetch_helpers_short_circuit(self) -> None:
-        state = PlanningStore()  # type: ignore[call-arg]
+        state = PlanningStore()
         assert await state._fetch_holidays(0) == set()
         assert await state._fetch_data([]) == ([], [])
 
     @pytest.mark.asyncio
     async def test_fetch_holidays_queries_repo(self) -> None:
-        state = PlanningStore()  # type: ignore[call-arg]
+        state = PlanningStore()
         holiday = AsyncMock()
         holiday.date = datetime.date(2026, 10, 3)
         with (
@@ -387,7 +413,7 @@ class TestLoading:
 
     @pytest.mark.asyncio
     async def test_load_and_reload(self) -> None:
-        state = PlanningStore()  # type: ignore[call-arg]
+        state = PlanningStore()
         with (
             patch.object(PlanningStore, "_load_entities", AsyncMock()),
             patch.object(PlanningStore, "_populate", AsyncMock()) as populate,

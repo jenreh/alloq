@@ -1,7 +1,7 @@
-profile: container
+profile: docker_test
 
 reflex:
-  deploy_url: https://localhost
+  deploy_url: http://localhost:8080
   frontend_port: 8080
   backend_port: 3030
   workers: 3
@@ -9,8 +9,16 @@ reflex:
   backend_timeout: 300 # seconds
 
 app:
-  environment: container
+  environment: docker
 
   database:
     host: db
-    name: projectkit-db
+    name: alloq-db
+
+  authentication:
+    server_url: http://localhost
+    server_port: 8080
+
+    # Lists replace (not merge) the config.yaml list: the local compose stack
+    # has no OAuth secrets, so no providers are configured.
+    oauth_providers: []

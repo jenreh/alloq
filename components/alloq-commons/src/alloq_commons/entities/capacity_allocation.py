@@ -1,7 +1,14 @@
 import logging
 from datetime import date
 
-from sqlalchemy import Date, Float, ForeignKey, Integer, UniqueConstraint
+from sqlalchemy import (
+    CheckConstraint,
+    Date,
+    Float,
+    ForeignKey,
+    Integer,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from appkit_commons.database.entities import Base, Entity
@@ -21,6 +28,7 @@ class CapacityAllocationEntity(Entity, Base):
             "week_start",
             name="uq_capacity_alloc_proj_emp_role_week",
         ),
+        CheckConstraint("person_days >= 0", name="ck_capacity_allocations_person_days"),
     )
 
     project_id: Mapped[int] = mapped_column(
@@ -44,8 +52,10 @@ class CapacityAllocationEntity(Entity, Base):
     week_start: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     person_days: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
 
+    # Not eager: loading a week range must not pull every allocated project
+    # together with that project's whole allocation history.
     project = relationship(
-        "ProjectEntity", back_populates="capacity_allocations", lazy="selectin"
+        "ProjectEntity", back_populates="capacity_allocations", lazy="raise_on_sql"
     )
     employee = relationship("EmployeeEntity", lazy="selectin")
     role = relationship("RoleEntity", lazy="selectin")

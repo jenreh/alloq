@@ -1,6 +1,5 @@
-from collections.abc import Callable
-
 import reflex as rx
+from alloq_commons.components.auth import authenticated
 from alloq_commons.components.page_header import page_header
 
 import appkit_mantine as mn
@@ -17,14 +16,13 @@ from alloq_project.components.project_toolbar import project_toolbar
 from alloq_project.states.planning_grid_state import PlanningStore
 from alloq_project.states.project_state import ProjectState
 from appkit_user.authentication.components.components import requires_admin
-from appkit_user.authentication.templates import authenticated
 
 
 def create_planning_page(
     navbar: rx.Component,
     route: str = "/plan",
     title: str = "Ressourcenplanung",
-) -> Callable:
+) -> rx.Component:
 
     @authenticated(
         route=route,
@@ -67,7 +65,7 @@ def create_projects_overview_page(
     navbar: rx.Component,
     route: str = "/projects",
     title: str = "Projekte",
-) -> Callable:
+) -> rx.Component:
 
     @authenticated(
         route=route,

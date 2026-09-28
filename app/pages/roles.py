@@ -1,19 +1,17 @@
-from collections.abc import Callable
-
 import reflex as rx
 from alloq_commons.components import page_header, roles_table, roles_toolbar
+from alloq_commons.components.auth import authenticated
 from alloq_commons.state.role_states import RoleState
 
 import appkit_mantine as mn
 from appkit_user.authentication.components.components import requires_admin
-from appkit_user.authentication.templates import authenticated
 
 
 def create_roles_page(
     navbar: rx.Component,
     route: str = "/admin/roles",
     title: str = "Rollen",
-) -> Callable:
+) -> rx.Component:
     """Page factory for role management."""
 
     @authenticated(

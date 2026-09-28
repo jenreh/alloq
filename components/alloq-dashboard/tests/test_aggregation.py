@@ -5,10 +5,11 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from datetime import date
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import patch
 
 import pytest
-from alloq_commons.entities.project import ProjectStateEnum
+from alloq_commons.entities.project import ProjectEntity, ProjectStateEnum
 from alloq_commons.entities.risk import RiskMitigationStatus
 from alloq_dashboard.services import aggregation
 
@@ -45,10 +46,16 @@ def test_project_to_row_counts_only_top_open_risks() -> None:
                 impact=5,
                 mitigation_status=RiskMitigationStatus.MITIGATED.value,
             ),
+            # Out-of-range impact is clamped to 5 like RiskRepository: 3 * 5 < 16.
+            SimpleNamespace(
+                probability=3,
+                impact=6,
+                mitigation_status=RiskMitigationStatus.OPEN.value,
+            ),
         ],
     )
 
-    row = aggregation._project_to_row(entity)
+    row = aggregation._project_to_row(cast("ProjectEntity", entity))
 
     assert row.open_risk_count == 1
 
@@ -122,9 +129,11 @@ async def test_load_project_health_counts_only_top_open_risks() -> None:
             "alloq_dashboard.services.aggregation._load_project_rows",
             return_value=projects,
         ),
+        # _load_risk_rows delegates the open/min-score filter to
+        # risk_repo.find_open_by_min_score, so it only ever yields top risks.
         patch(
             "alloq_dashboard.services.aggregation._load_risk_rows",
-            return_value=risks,
+            return_value=risks[:1],
         ),
         patch(
             "alloq_dashboard.services.aggregation._today",

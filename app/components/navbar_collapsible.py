@@ -24,13 +24,16 @@ Layout:
 
 import logging
 from collections.abc import Generator
-from typing import Any, Final
+from typing import Any, Final, cast
 
 import reflex as rx
+from reflex.utils.imports import ImportDict
+from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
 from appkit_commons.registry import service_registry
 from appkit_ui.global_states import LoadingState
+from appkit_user.authentication.backend.models import User
 from appkit_user.authentication.components.components import (
     requires_admin,
     requires_role,
@@ -51,7 +54,9 @@ VERSION: Final[str] = (
 RAIL_WIDTH: Final[str] = "64px"
 _TOOLTIP_OFFSET: Final[int] = 18  # flush against the rail's right edge
 PANEL_WIDTH: Final[str] = "240px"
-MOBILE_BREAKPOINT: Final[str] = "sm"
+MOBILE_BREAKPOINT: Final = "sm"
+# appkit_user declares ``user`` as a plain field; class access yields a Var.
+_USER = cast("ObjectVar[User]", LoginState.user)
 
 _TEXT_COLOR = "var(--alloq-text)"
 _DIM_COLOR = "var(--alloq-text-muted)"
@@ -69,7 +74,7 @@ class _ReactContextImportWorkaround(rx.Component):
     library = "react"
     tag = "Fragment"
 
-    def add_imports(self) -> dict[str, list[str]]:
+    def add_imports(self) -> ImportDict:
         return {
             "react": ["useContext"],
             "$/utils/context": ["StateContexts"],
@@ -89,7 +94,7 @@ SECTIONS: Final[list[dict[str, Any]]] = [
         "url": "/",
     },
     {
-        "id": "projects",
+        "id": "plan",
         "label": "Ressourcenplanung",
         "icon": "folder",
         "icon_img": "project_icon",
@@ -147,6 +152,9 @@ _DEFAULT_SECTION_ID: Final[str] = (
 _SECTION_FIRST_URL: Final[dict[str, str]] = {
     s["id"]: s["items"][0]["url"] for s in _ALL_SECTIONS if s.get("items")
 }
+_SECTION_ITEM_URLS: Final[dict[str, frozenset[str]]] = {
+    s["id"]: frozenset(item["url"] for item in s["items"]) for s in _SECTIONS_WITH_ITEMS
+}
 
 
 # --------------------------------------------------------------------------- #
@@ -187,10 +195,11 @@ class NavbarCollapseState(rx.State):
             self.collapsed = "1"
 
     @rx.event
-    def select_section(self, section_id: str) -> Generator[Any, Any, None]:
+    def select_section(self, section_id: str) -> Generator[Any, Any]:
         """Select a section. If it's already active, toggle the panel.
 
-        When the panel opens, automatically navigates to the first sub-item.
+        When the panel opens, navigates to the first sub-item unless the
+        current page already belongs to the section.
         """
         if section_id == self.active_section_id:
             self.collapsed = "0" if self.collapsed == "1" else "1"
@@ -198,8 +207,14 @@ class NavbarCollapseState(rx.State):
             self.active_section_id = section_id
             self.collapsed = "0"
         logger.debug("Selected section %s (collapsed=%s)", section_id, self.collapsed)
-        if self.collapsed == "0" and section_id in _SECTION_FIRST_URL:
+        if self.collapsed != "0" or section_id not in _SECTION_FIRST_URL:
+            return
+        # Stay put when already on one of the section's pages.
+        if self._current_path() not in _SECTION_ITEM_URLS[section_id]:
             yield rx.redirect(_SECTION_FIRST_URL[section_id])
+
+    def _current_path(self) -> str:
+        return self.router.url.path.rstrip("/") or "/"
 
 
 # --------------------------------------------------------------------------- #
@@ -401,8 +416,8 @@ def _panel_section_items(section: dict[str, Any]) -> rx.Component:
 def _user_avatar() -> rx.Component:
     avatar_component = mn.center(
         mn.avatar(
-            src=LoginState.user.avatar_url,
-            name=LoginState.user.name,
+            src=_USER.avatar_url,
+            name=_USER.name,
             radius="xl",
             size="md",
             ml="3px",
@@ -425,7 +440,7 @@ def _user_avatar() -> rx.Component:
             ),
             style={"display": "flex"},
         ),
-        label=LoginState.user.name,
+        label=_USER.name,
         position="right",
         offset=7,
     )
@@ -586,14 +601,14 @@ def _panel_user_card() -> rx.Component:
     return mn.group(
         mn.box(
             mn.text(
-                LoginState.user.name,
+                _USER.name,
                 size="sm",
                 fw="bold",
                 c=_TEXT_COLOR,
                 truncate=True,
             ),
             mn.text(
-                LoginState.user.email,
+                _USER.email,
                 size="xs",
                 c=_DIM_COLOR,
                 truncate=True,

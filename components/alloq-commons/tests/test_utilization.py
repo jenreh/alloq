@@ -81,3 +81,23 @@ def test_heat_from_raw_caps_internal_hours_after_absence() -> None:
 
     assert result.available_days == 0.0
     assert result.percent == 0
+
+
+def test_absence_days_in_week_counts_overlapping_absences_once() -> None:
+    """Overlapping absence periods must not double-count shared workdays."""
+    week_start = date(2026, 4, 27)  # Monday
+    absences = (
+        AbsencePeriod(start_date=date(2026, 4, 27), end_date=date(2026, 4, 29)),
+        AbsencePeriod(start_date=date(2026, 4, 28), end_date=date(2026, 4, 30)),
+    )
+
+    assert UtilizationService.absence_days_in_week(absences, week_start) == 4.0
+
+
+def test_absence_days_in_week_duplicate_absence_counts_once() -> None:
+    week_start = date(2026, 4, 27)
+    absence = AbsencePeriod(start_date=date(2026, 4, 20), end_date=date(2026, 5, 8))
+
+    assert (
+        UtilizationService.absence_days_in_week((absence, absence), week_start) == 5.0
+    )

@@ -29,7 +29,7 @@ class RiskMitigationStatus(enum.StrEnum):
 HIGH_RISK_SCORE_THRESHOLD = 16
 
 #: German display labels for UI selects and badges.
-MITIGATION_STATUS_LABELS: dict[str, str] = {
+MITIGATION_STATUS_LABELS: dict[RiskMitigationStatus, str] = {
     RiskMitigationStatus.OPEN: "Offen",
     RiskMitigationStatus.MITIGATED: "In Bearbeitung",
     RiskMitigationStatus.RESOLVED: "Geschlossen",
@@ -56,7 +56,7 @@ class RiskEntity(Entity, Base):
     )
     measures: Mapped[str | None] = mapped_column(String(2000), nullable=True)
 
-    project = relationship("ProjectEntity", back_populates="risks")
+    project = relationship("ProjectEntity", back_populates="risks", lazy="raise_on_sql")
 
     def to_dict(self) -> dict:
         """Convert entity to dictionary for Pydantic model creation."""

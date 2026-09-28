@@ -25,14 +25,16 @@ from alloq_commons.entities.risk import (
 )
 from alloq_commons.entities.role import RoleEntity
 from alloq_commons.entities.status import ProjectStatusEntity
+from alloq_commons.models.employee import STANDARD_WEEKLY_HOURS
 from alloq_commons.repositories import (
     capacity_allocation_repo,
     employee_repo,
     project_repo,
+    public_holiday_repo,
     risk_repo,
 )
+from alloq_commons.repositories.risk_repository import MAX_RISK_IMPACT, MIN_RISK_IMPACT
 from alloq_commons.services.utilization import (
-    PLANNING_ANCHOR_DATE,
     AbsencePeriod,
     TeamUtilizationSeries,
     UtilizationAllocationInput,
@@ -72,9 +74,6 @@ TREND_WEEKS_BACK = 2
 HORIZON_WEEKS = 12
 UNDER_UTIL_THRESHOLD = 70
 OVER_UTIL_THRESHOLD = 100
-BUDGET_DELTA_THRESHOLD = 0.10
-PROGRESS_RISK_THRESHOLD = 80
-DEADLINE_RISK_DAYS = 30
 SORT_END_DATE_FALLBACK = 9999
 
 FORECAST_WEEKS_BACK = 12
@@ -186,6 +185,10 @@ class _EmployeeRow:
     role_names: tuple[str, ...]
     absences: tuple[_AbsenceRow, ...]
 
+    @property
+    def workload_percent(self) -> int:
+        return round(self.hours_per_week / STANDARD_WEEKLY_HOURS * 100)
+
 
 @dataclass(frozen=True)
 class _RoleRow:
@@ -237,19 +240,16 @@ def _build_week_grid(today: date, back: int, forward: int) -> list[date]:
     return [start + timedelta(weeks=i) for i in range(back + forward)]
 
 
-def _build_planning_week_grid(num_weeks: int) -> list[date]:
-    return UtilizationService.planning_week_starts(
-        num_weeks=num_weeks,
-        anchor_date=PLANNING_ANCHOR_DATE,
-    )
-
-
 def _heat_bucket(percent: int) -> str:
     return UtilizationService.heat_bucket(percent)
 
 
+def _spent_amount(row: _ProjectRow) -> int:
+    """Absolute spend; ``row.spent`` is the latest ``budget_spent`` percentage."""
+    return round(row.budget * row.spent / 100)
+
+
 def _project_summary(row: _ProjectRow, today: date) -> ProjectSummary:
-    spent_pct = (row.spent / row.budget * 100) if row.budget else 0.0
     days_to_end = (row.end_date - today).days if row.end_date else 0
     return ProjectSummary(
         id=row.id,
@@ -261,8 +261,8 @@ def _project_summary(row: _ProjectRow, today: date) -> ProjectSummary:
         days_to_end=days_to_end,
         progress=row.progress,
         budget=row.budget,
-        spent=row.spent,
-        spent_percent=round(spent_pct, 1),
+        spent=_spent_amount(row),
+        spent_percent=float(row.spent),
         risk_count=row.open_risk_count,
         color=row.color or "#888",
         ev_earned_value=row.ev_earned_value,
@@ -272,28 +272,9 @@ def _project_summary(row: _ProjectRow, today: date) -> ProjectSummary:
     )
 
 
-def _classify_at_risk(
-    summary: ProjectSummary,
-    high_open_risk_pids: set[int],
-) -> bool:
-    if summary.state == ProjectStateEnum.AT_RISK.value:
-        return True
-    if summary.id in high_open_risk_pids:
-        return True
-    if (
-        summary.budget
-        and (summary.spent / summary.budget) - (summary.progress / 100)
-        > BUDGET_DELTA_THRESHOLD
-    ):
-        return True
-    return bool(
-        summary.days_to_end is not None
-        and 0 <= summary.days_to_end <= DEADLINE_RISK_DAYS
-        and summary.progress < PROGRESS_RISK_THRESHOLD,
-    )
-
-
-def _employee_available_days(emp: _EmployeeRow, week_start: date) -> float:
+def _employee_available_days(
+    emp: _EmployeeRow, week_start: date, holidays: frozenset[date]
+) -> float:
     """Available days using the shared heatmap formula."""
     absences = [
         AbsencePeriod(start_date=a.start_date, end_date=a.end_date)
@@ -304,6 +285,8 @@ def _employee_available_days(emp: _EmployeeRow, week_start: date) -> float:
         internal_hours=emp.internal_hours,
         absences=absences,
         week_start=week_start,
+        holiday_dates=holidays,
+        workload_percent=emp.workload_percent,
     )
     return result.available_days
 
@@ -313,13 +296,18 @@ def _employee_available_days(emp: _EmployeeRow, week_start: date) -> float:
 # --------------------------------------------------------------------------
 
 
+def _risk_score(probability: int, impact: int) -> int:
+    """Score with impact clamped to 1..5, same as ``RiskRepository``."""
+    return probability * max(MIN_RISK_IMPACT, min(MAX_RISK_IMPACT, impact))
+
+
 def _project_to_row(entity: ProjectEntity) -> _ProjectRow:
     latest = entity.statuses[0] if entity.statuses else None
     open_risks = sum(
         1
         for r in entity.risks or []
         if r.mitigation_status == RiskMitigationStatus.OPEN.value
-        and r.probability * r.impact >= HIGH_RISK_SCORE_THRESHOLD
+        and _risk_score(r.probability, r.impact) >= HIGH_RISK_SCORE_THRESHOLD
     )
     created = entity.created.date() if entity.created else None
     return _ProjectRow(
@@ -470,6 +458,13 @@ async def _load_employee_rows(session: AsyncSession) -> list[_EmployeeRow]:
     return [_employee_to_row(e) for e in entities]
 
 
+async def _load_holiday_dates(
+    session: AsyncSession, start: date, end: date
+) -> frozenset[date]:
+    rows = await public_holiday_repo.find_by_date_range(session, start, end)
+    return frozenset(row.date for row in rows if row.date)
+
+
 async def _load_role_rows(session: AsyncSession) -> list[_RoleRow]:
     result = await session.execute(select(RoleEntity).order_by(RoleEntity.name))
     return [_role_to_row(e, i) for i, e in enumerate(result.scalars().all())]
@@ -550,14 +545,17 @@ async def load_project_health() -> ProjectHealthKpi:
             )
         )
 
+    at_risk_rows = sorted(
+        at_risk,
+        key=lambda s: (
+            s.days_to_end if s.end_date is not None else SORT_END_DATE_FALLBACK
+        ),
+    )
     return ProjectHealthKpi(
         at_risk_count=len(at_risk),
         healthy_count=len(healthy),
         total_risk_count=len(risks),
-        rows=sorted(
-            at_risk,
-            key=lambda s: s.days_to_end or SORT_END_DATE_FALLBACK,
-        ),
+        rows=at_risk_rows,
         risk_trend=risk_trend,
     )
 
@@ -749,7 +747,7 @@ async def load_budget_burn() -> BudgetBurnKpi:
         if p.state in (ProjectStateEnum.ACTIVE.value, ProjectStateEnum.AT_RISK.value)
     ]
     total_budget = sum(p.budget or 0 for p in active)
-    total_spent = sum(p.spent for p in active)
+    total_spent = sum(_spent_amount(p) for p in active)
     summaries = [_project_summary(p, today) for p in active]
     spent_percent = (total_spent / total_budget * 100) if total_budget else 0.0
 
@@ -788,13 +786,14 @@ async def load_budget_burn() -> BudgetBurnKpi:
     latest_top_name = latest_top.project_name if latest_top else ""
     latest_top_delta = latest_top.abs_delta if latest_top else 0.0
 
+    sorted_rows = sorted(summaries, key=lambda s: -s.progress)
     return BudgetBurnKpi(
         total_budget=total_budget,
         total_spent=total_spent,
         spent_percent=round(spent_percent, 1),
         trend=trend,
         weekly_forecast=weekly_forecast,
-        rows=sorted(summaries, key=lambda s: -s.progress),
+        rows=sorted_rows,
         latest_forecast=latest_forecast,
         latest_budget=latest_budget,
         latest_delta_abs=latest_delta_abs,
@@ -813,15 +812,15 @@ async def load_budget_burn() -> BudgetBurnKpi:
 async def _load_utilization_inputs(
     weeks_back: int = TREND_WEEKS_BACK,
     weeks_forward: int = HORIZON_WEEKS,
-    weeks: list[date] | None = None,
 ) -> tuple[
     list[_EmployeeRow],
     list[_AllocationRow],
     list[_RoleRow],
     list[date],
+    frozenset[date],
 ]:
     today = _today()
-    week_starts = weeks or _build_week_grid(today, weeks_back, weeks_forward)
+    week_starts = _build_week_grid(today, weeks_back, weeks_forward)
     async with get_asyncdb_session() as session:
         employees = await _load_employee_rows(session)
         roles = await _load_role_rows(session)
@@ -831,6 +830,9 @@ async def _load_utilization_inputs(
             week_starts[-1],
         )
         projects = await _load_project_rows(session)
+        holidays = await _load_holiday_dates(
+            session, week_starts[0], week_starts[-1] + timedelta(days=4)
+        )
 
     # Match heatmap: only count allocations for non-completed projects
     active_project_ids = {
@@ -838,7 +840,7 @@ async def _load_utilization_inputs(
     }
     allocations = [a for a in allocations if a.project_id in active_project_ids]
 
-    return employees, allocations, roles, week_starts
+    return employees, allocations, roles, week_starts, holidays
 
 
 def _utilization_per_employee(
@@ -891,6 +893,7 @@ def _to_utilization_employee(emp: _EmployeeRow) -> UtilizationEmployeeInput:
             AbsencePeriod(start_date=a.start_date, end_date=a.end_date)
             for a in emp.absences
         ),
+        workload_percent=emp.workload_percent,
     )
 
 
@@ -907,6 +910,7 @@ def _utilization_series(
     employees: list[_EmployeeRow],
     allocations: list[_AllocationRow],
     weeks: list[date],
+    holidays: frozenset[date],
 ) -> TeamUtilizationSeries:
     today = _today()
     return UtilizationService.compute_team_utilization_series(
@@ -915,6 +919,7 @@ def _utilization_series(
         week_starts=weeks,
         current_week_start=_monday(today),
         free_capacity_start=_monday(today),
+        holiday_dates=holidays,
     )
 
 
@@ -928,13 +933,11 @@ UTIL_WEEKS_FORWARD = 12
 
 
 async def load_utilization() -> UtilizationKpi:
-    planning_weeks = _build_planning_week_grid(UTIL_WEEKS_BACK + UTIL_WEEKS_FORWARD)
-    employees, allocations, _roles, weeks = await _load_utilization_inputs(
+    employees, allocations, _roles, weeks, holidays = await _load_utilization_inputs(
         weeks_back=UTIL_WEEKS_BACK,
         weeks_forward=UTIL_WEEKS_FORWARD,
-        weeks=planning_weeks,
     )
-    series = _utilization_series(employees, allocations, weeks)
+    series = _utilization_series(employees, allocations, weeks, holidays)
     breakdown = _utilization_per_employee(series)
     weekly_summary = _weekly_utilization_summary(series)
 
@@ -950,6 +953,9 @@ async def load_utilization() -> UtilizationKpi:
         if len(weekly_summary) >= UTIL_WEEKS_BACK
         else past_start
     )
+    present = [emp for emp in breakdown if not emp.current_week_is_absent]
+    overloaded = sum(1 for e in present if e.current_week_percent > OVER_UTIL_THRESHOLD)
+    under = sum(1 for e in present if e.current_week_percent < UNDER_UTIL_THRESHOLD)
     return UtilizationKpi(
         current_percent=current.percent if current else 0,
         current_bucket=current.bucket if current else "low",
@@ -957,7 +963,10 @@ async def load_utilization() -> UtilizationKpi:
         current_week_label=current.week_label if current else "",
         past_weeks_start_label=past_start,
         past_weeks_end_label=past_end,
-        current_absent_count=sum(1 for emp in breakdown if emp.current_week_is_absent),
+        current_absent_count=len(breakdown) - len(present),
+        overloaded_count=overloaded,
+        well_utilized_count=len(present) - overloaded - under,
+        under_utilized_count=under,
         weeks=weekly_summary,
         employee_breakdown=breakdown,
     )
@@ -969,9 +978,9 @@ async def load_utilization() -> UtilizationKpi:
 
 
 async def load_under_utilization() -> UnderUtilizationKpi:
-    employees, allocations, _roles, weeks = await _load_utilization_inputs()
+    employees, allocations, _roles, weeks, holidays = await _load_utilization_inputs()
     breakdown = _utilization_per_employee(
-        _utilization_series(employees, allocations, weeks)
+        _utilization_series(employees, allocations, weeks, holidays)
     )
 
     active = [emp for emp in breakdown if not emp.current_week_is_absent]
@@ -1000,11 +1009,30 @@ async def load_under_utilization() -> UnderUtilizationKpi:
 # --------------------------------------------------------------------------
 
 
-def _monthly_role_capacity(
+def _role_available_days(
     emps: list[_EmployeeRow],
     role_id: int,
-    alloc_by_role_week: dict[int, dict[date, float]],
-    horizon_weeks: list[date],
+    week_start: date,
+    emp_week_alloc: dict[tuple[int, date], dict[int, float]],
+    holidays: frozenset[date],
+) -> float:
+    """Availability for a role, net of each member's bookings in other roles.
+
+    A multi-role employee's time booked under another role is not available
+    for this one, so it is not offered as free capacity twice.
+    """
+    total = 0.0
+    for emp in emps:
+        booked = emp_week_alloc.get((emp.id, week_start), {})
+        other_roles = sum(booked.values()) - booked.get(role_id, 0.0)
+        available = _employee_available_days(emp, week_start, holidays)
+        total += max(0.0, available - other_roles)
+    return total
+
+
+def _monthly_role_capacity(
+    avail_by_week: dict[date, float],
+    alloc_by_week: dict[date, float],
     today: date,
 ) -> list[MonthlyRoleCapacity]:
     """Compute free capacity per month for the next 3 calendar months."""
@@ -1014,13 +1042,10 @@ def _monthly_role_capacity(
         m_year = today.year + (today.month - 1 + delta) // 12
         label = _month_label(date(m_year, m_month, 1))
         month_weeks = [
-            w for w in horizon_weeks if w.month == m_month and w.year == m_year
+            w for w in avail_by_week if w.month == m_month and w.year == m_year
         ]
-        m_avail = 0.0
-        m_alloc = 0.0
-        for week_start in month_weeks:
-            m_avail += sum(_employee_available_days(e, week_start) for e in emps)
-            m_alloc += alloc_by_role_week.get(role_id, {}).get(week_start, 0.0)
+        m_avail = sum(avail_by_week[w] for w in month_weeks)
+        m_alloc = sum(alloc_by_week.get(w, 0.0) for w in month_weeks)
         m_free = max(0.0, m_avail - m_alloc)
         m_pct = round((m_free / m_avail) * 100) if m_avail > 0 else 0
         result.append(
@@ -1035,7 +1060,7 @@ def _monthly_role_capacity(
 
 
 async def load_free_capacity() -> FreeCapacityKpi:
-    employees, allocations, roles, weeks = await _load_utilization_inputs()
+    employees, allocations, roles, weeks, holidays = await _load_utilization_inputs()
     today = _today()
     horizon_weeks = [w for w in weeks if w >= _monday(today)][:HORIZON_WEEKS]
     if not horizon_weeks:
@@ -1045,9 +1070,13 @@ async def load_free_capacity() -> FreeCapacityKpi:
     alloc_by_role_week: dict[int, dict[date, float]] = defaultdict(
         lambda: defaultdict(float),
     )
+    emp_week_alloc: dict[tuple[int, date], dict[int, float]] = defaultdict(
+        lambda: defaultdict(float),
+    )
     for a in allocations:
         if a.week_start in horizon_set:
             alloc_by_role_week[a.role_id][a.week_start] += a.person_days
+            emp_week_alloc[a.employee_id, a.week_start][a.role_id] += a.person_days
 
     role_employees: dict[int, list[_EmployeeRow]] = defaultdict(list)
     for emp in employees:
@@ -1060,9 +1089,14 @@ async def load_free_capacity() -> FreeCapacityKpi:
         weekly_points: list[TrendPoint] = []
         total_avail = 0.0
         total_alloc = 0.0
+        alloc_by_week = alloc_by_role_week.get(role.id, {})
+        avail_by_week = {
+            w: _role_available_days(emps, role.id, w, emp_week_alloc, holidays)
+            for w in horizon_weeks
+        }
         for week_start in horizon_weeks:
-            avail = sum(_employee_available_days(e, week_start) for e in emps)
-            alloc = alloc_by_role_week.get(role.id, {}).get(week_start, 0.0)
+            avail = avail_by_week[week_start]
+            alloc = alloc_by_week.get(week_start, 0.0)
             free = max(0.0, avail - alloc)
             total_avail += avail
             total_alloc += alloc
@@ -1075,9 +1109,7 @@ async def load_free_capacity() -> FreeCapacityKpi:
             )
         free_total = max(0.0, total_avail - total_alloc)
         free_pct = round((free_total / total_avail) * 100) if total_avail > 0 else 0
-        monthly = _monthly_role_capacity(
-            emps, role.id, alloc_by_role_week, horizon_weeks, today
-        )
+        monthly = _monthly_role_capacity(avail_by_week, alloc_by_week, today)
         rows.append(
             RoleCapacity(
                 role_id=role.id,

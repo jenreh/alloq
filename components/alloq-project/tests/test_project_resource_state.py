@@ -3,6 +3,7 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import date
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -47,18 +48,18 @@ def _project_state() -> MagicMock:
 
 @asynccontextmanager
 async def _patch_states(
-    state: ProjectResourceState, project_state: MagicMock
+    state: ProjectResourceState, project_state: MagicMock, *, is_admin: bool = True
 ) -> AsyncIterator[None]:
-    """Bypass auth and route get_state(ProjectState) to a mock."""
+    """Log in as (non-)admin and route get_state(ProjectState) to a mock."""
 
-    async def _true() -> bool:
-        return True
+    async def _user() -> Any:
+        return SimpleNamespace(user_id=1, is_admin=is_admin)
 
     async def _get_state(cls: type) -> Any:
         if cls is ProjectState:
             return project_state
         login_state = MagicMock()
-        login_state.is_authenticated = _true()
+        login_state.authenticated_user = _user()
         return login_state
 
     original_get_state = type(state).get_state
@@ -70,7 +71,7 @@ async def _patch_states(
 
 
 def _loaded_state() -> ProjectResourceState:
-    state = ProjectResourceState()  # type: ignore[call-arg]
+    state = ProjectResourceState()
     state.project_id = 1
     state.project_start = "2026-09-14"
     state.project_end = "2026-12-31"
@@ -105,6 +106,16 @@ class TestInputs:
         state.set_days_per_week(raw)
 
         assert state.days_per_week == expected
+
+    def test_days_input_resyncs_to_normalized_value(self) -> None:
+        state = _loaded_state()
+        version = state.form_version
+
+        state.set_days_per_week("2,3")
+        state.sync_days_input()
+
+        assert state.days_per_week == 2.5
+        assert state.form_version == version + 1
 
     def test_invalid_days_keep_previous_value(self) -> None:
         state = _loaded_state()
@@ -172,7 +183,7 @@ class TestLoad:
 
     @pytest.mark.asyncio
     async def test_load_splits_allocations_and_sets_defaults(self) -> None:
-        state = ProjectResourceState()  # type: ignore[call-arg]
+        state = ProjectResourceState()
         project_entity = MagicMock()
         project_entity.to_dict.return_value = {
             "id": 1,
@@ -229,7 +240,7 @@ class TestLoad:
 
     @pytest.mark.asyncio
     async def test_load_without_selected_project_does_nothing(self) -> None:
-        state = ProjectResourceState()  # type: ignore[call-arg]
+        state = ProjectResourceState()
         project_state = _project_state()
         project_state.selected_project = None
 
@@ -239,9 +250,59 @@ class TestLoad:
         assert events == []
         assert state.project_id == 0
 
+    @pytest.mark.asyncio
+    async def test_load_with_end_before_start_does_not_crash(self) -> None:
+        state = ProjectResourceState()
+        project_entity = MagicMock()
+        project_entity.to_dict.return_value = {
+            "id": 1,
+            "name_de": "Legacy",
+            "start_date": W2,
+            "end_date": W1,
+        }
+
+        with (
+            patch(f"{MODULE}.get_asyncdb_session", _mock_session_ctx(AsyncMock())),
+            patch(f"{MODULE}.project_repo") as project_repo,
+            patch(f"{MODULE}.employee_repo") as employee_repo,
+            patch(f"{MODULE}.role_repo") as role_repo,
+            patch(f"{MODULE}.public_holiday_repo") as holiday_repo,
+            patch(f"{MODULE}.capacity_allocation_repo") as alloc_repo,
+        ):
+            project_repo.find_by_id = AsyncMock(return_value=project_entity)
+            employee_repo.find_all_paginated = AsyncMock(return_value=[])
+            role_repo.find_all_paginated = AsyncMock(return_value=[])
+            holiday_repo.find_by_date_range = AsyncMock(return_value=[])
+            alloc_repo.find_in_range = AsyncMock(return_value=[])
+            alloc_repo.find_by_project = AsyncMock(return_value=[])
+            async with _patch_states(state, _project_state()):
+                events = await _drain(state.load_selected())
+
+        assert state.project_id == 1
+        assert not any("geladen werden" in repr(e) for e in events)
+        state.role_id = "3"
+        assert state.form_error == "Von muss vor Bis liegen."
+
 
 class TestSave:
     """Tests for assign, edit-save and delete handlers."""
+
+    @pytest.mark.asyncio
+    async def test_non_admin_cannot_assign_or_delete(self) -> None:
+        state = _loaded_state()
+        key = state.periods[0].key
+
+        with (
+            patch(f"{MODULE}.apply_resource_plan", AsyncMock()) as apply,
+            patch(f"{MODULE}.delete_resource_period", AsyncMock()) as delete,
+        ):
+            async with _patch_states(state, _project_state(), is_admin=False):
+                events = await _drain(state.assign(1))
+                events += await _drain(state.delete_period(key))
+
+        apply.assert_not_awaited()
+        delete.assert_not_awaited()
+        assert any("Berechtigung" in repr(e) for e in events)
 
     @pytest.mark.asyncio
     async def test_assign_applies_plan_and_syncs_project_state(self) -> None:
@@ -351,6 +412,7 @@ class TestSave:
 
         assert state.is_saving is False
         assert events
+        assert not any("db down" in repr(e) for e in events)
 
     @pytest.mark.asyncio
     async def test_delete_period(self) -> None:

@@ -34,7 +34,7 @@ from alloq_project.services.resource_planning import (
 from alloq_project.states.project_state import ProjectState
 
 from appkit_commons.database.session import get_asyncdb_session
-from appkit_user.authentication.decorators import is_authenticated
+from appkit_user.authentication.decorators import requires_admin
 
 log = logging.getLogger(__name__)
 
@@ -55,25 +55,25 @@ def _parse_iso(value: str) -> date | None:
 class ProjectResourceState(rx.State):
     """Plan employees on the selected project with von/bis/Tage pro Woche/Rolle."""
 
-    project_id: int = 0
-    project_start: str = ""
-    project_end: str = ""
-    employees: list[Employee] = []
-    roles: list[Role] = []
-    holiday_dates: list[date] = []
+    project_id: rx.Field[int] = rx.field(0)
+    project_start: rx.Field[str] = rx.field("")
+    project_end: rx.Field[str] = rx.field("")
+    employees: rx.Field[list[Employee]] = rx.field(default_factory=list)
+    roles: rx.Field[list[Role]] = rx.field(default_factory=list)
+    holiday_dates: rx.Field[list[date]] = rx.field(default_factory=list)
     # {employee_id: {week_start_iso: person_days}} on other projects
-    other_pt: dict[str, dict[str, float]] = {}
-    allocations: list[CapacityAllocation] = []
+    other_pt: rx.Field[dict[str, dict[str, float]]] = rx.field(default_factory=dict)
+    allocations: rx.Field[list[CapacityAllocation]] = rx.field(default_factory=list)
 
-    role_id: str = ""
-    start_iso: str = ""
-    end_iso: str = ""
-    days_per_week: float = DEFAULT_DAYS_PER_WEEK
-    editing_key: str = ""
-    form_version: int = 0
+    role_id: rx.Field[str] = rx.field("")
+    start_iso: rx.Field[str] = rx.field("")
+    end_iso: rx.Field[str] = rx.field("")
+    days_per_week: rx.Field[float] = rx.field(DEFAULT_DAYS_PER_WEEK)
+    editing_key: rx.Field[str] = rx.field("")
+    form_version: rx.Field[int] = rx.field(0)
 
-    is_loading: bool = False
-    is_saving: bool = False
+    is_loading: rx.Field[bool] = rx.field(False)
+    is_saving: rx.Field[bool] = rx.field(False)
 
     # ------------------------------------------------------------------
     # Computed vars
@@ -143,27 +143,37 @@ class ProjectResourceState(rx.State):
             parsed = upper
         return parsed.isoformat()
 
+    @rx.event
     def set_role_id(self, value: str | None) -> None:
         self.role_id = str(value or "")
 
+    @rx.event
     def set_start(self, value: str) -> None:
         clamped = self._clamp_to_project(value)
         if clamped is not None:
             self.start_iso = clamped
 
+    @rx.event
     def set_end(self, value: str) -> None:
         clamped = self._clamp_to_project(value)
         if clamped is not None:
             self.end_iso = clamped
 
+    @rx.event
     def set_days_per_week(self, value: float | str) -> None:
         try:
             parsed = float(str(value).replace(",", "."))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return
         stepped = round(parsed * 2) / 2
         self.days_per_week = max(MIN_DAYS_PER_WEEK, min(MAX_DAYS_PER_WEEK, stepped))
 
+    @rx.event
+    def sync_days_input(self, _value: str = "") -> None:
+        """Remount the days input so it shows the normalized state value."""
+        self.form_version += 1
+
+    @rx.event
     def edit_period(self, key: str) -> None:
         period = self._period(key)
         if period is None:
@@ -175,6 +185,7 @@ class ProjectResourceState(rx.State):
         self.days_per_week = period.days_per_week
         self.form_version += 1
 
+    @rx.event
     def cancel_edit(self) -> None:
         self.editing_key = ""
         self.form_version += 1
@@ -186,8 +197,9 @@ class ProjectResourceState(rx.State):
     # Loading
     # ------------------------------------------------------------------
 
-    @is_authenticated
-    async def load_selected(self) -> AsyncGenerator[Any, None]:
+    @rx.event
+    @requires_admin
+    async def load_selected(self) -> AsyncGenerator[Any]:
         """Load resource data for the project selected in the drawer."""
         project_state = await self.get_state(ProjectState)
         project = project_state.selected_project
@@ -221,8 +233,9 @@ class ProjectResourceState(rx.State):
             holiday_rows = await public_holiday_repo.find_by_date_range(
                 session, start, end
             )
+            weeks = week_starts(start, end)
             in_range = await capacity_allocation_repo.find_in_range(
-                session, week_starts(start, end)[0], end
+                session, weeks[0] if weeks else start, end
             )
             own = await capacity_allocation_repo.find_by_project(session, project_id)
 
@@ -273,8 +286,9 @@ class ProjectResourceState(rx.State):
     # Saving
     # ------------------------------------------------------------------
 
-    @is_authenticated
-    async def assign(self, employee_id: int) -> AsyncGenerator[Any, None]:
+    @rx.event
+    @requires_admin
+    async def assign(self, employee_id: int) -> AsyncGenerator[Any]:
         """Plan the employee with the current form values (replaces in range)."""
         if self.form_error:
             yield rx.toast.error(self.form_error, position=TOAST_POSITION)
@@ -323,13 +337,14 @@ class ProjectResourceState(rx.State):
         except Exception as exc:
             log.error("Failed to save resource plan: %s", exc)
             yield rx.toast.error(
-                f"Fehler beim Speichern: {exc}", position=TOAST_POSITION
+                "Fehler beim Speichern der Planung.", position=TOAST_POSITION
             )
         finally:
             self.is_saving = False
 
-    @is_authenticated
-    async def delete_period(self, key: str) -> AsyncGenerator[Any, None]:
+    @rx.event
+    @requires_admin
+    async def delete_period(self, key: str) -> AsyncGenerator[Any]:
         """Delete one planned period."""
         period = self._period(key)
         if period is None:
@@ -349,7 +364,9 @@ class ProjectResourceState(rx.State):
             yield rx.toast.info("Zeitraum gelöscht.", position=TOAST_POSITION)
         except Exception as exc:
             log.error("Failed to delete resource period: %s", exc)
-            yield rx.toast.error(f"Fehler beim Löschen: {exc}", position=TOAST_POSITION)
+            yield rx.toast.error(
+                "Fehler beim Löschen des Zeitraums.", position=TOAST_POSITION
+            )
 
     def _target(self, employee_id: int, role_id: int) -> PlanTarget:
         return PlanTarget(self.project_id, employee_id, role_id)

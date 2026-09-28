@@ -9,8 +9,9 @@ fetch in parallel and never block one another.
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Protocol, Self
 
 import reflex as rx
 from alloq_project.states.project_state import ProjectState
@@ -25,11 +26,13 @@ from alloq_dashboard.models import (
     UtilizationKpi,
 )
 from alloq_dashboard.services import aggregation
-from appkit_user.authentication.states import UserSession
+from appkit_user.authentication.decorators import requires_admin
+from appkit_user.authentication.states import LoginState, UserSession
 
 logger = logging.getLogger(__name__)
 
 CACHE_TTL_SECONDS = 30  # 30 seconds
+LOAD_ERROR_MESSAGE = "Daten konnten nicht geladen werden."
 
 
 def _ts_now() -> str:
@@ -46,6 +49,81 @@ def _is_fresh(last_loaded: str) -> bool:
     return datetime.now(tz=UTC) - ts < timedelta(seconds=CACHE_TTL_SECONDS)
 
 
+async def _is_admin(state: Any, action: str) -> bool:
+    """Server-side admin check for background handlers.
+
+    Must be called inside ``async with state`` — a background StateProxy only
+    allows ``get_state`` while it holds the lock.
+    """
+    login_state = await state.get_state(LoginState)
+    user = await login_state.authenticated_user
+    if user is not None and user.is_admin:
+        return True
+    logger.warning(
+        "Denied dashboard load '%s' for user_id=%s",
+        action,
+        user.user_id if user else None,
+    )
+    return False
+
+
+class _CardLoadHost(Protocol):
+    """Vars and locking a card substate provides to ``_CardLoadMixin``."""
+
+    data: Any
+    is_loading: bool
+    last_loaded: str
+    error_message: str
+    _load_seq: int
+
+    async def __aenter__(self) -> Self: ...
+
+    async def __aexit__(self, *exc_info: object) -> None: ...
+
+
+class _CardLoadMixin:
+    """Shared TTL-cached, admin-guarded load lifecycle for card substates.
+
+    Plain Python mixin (not a Reflex state), so it adds no substate; each card
+    declares its own ``data``/``is_loading``/``last_loaded``/``error_message``
+    vars and the ``_load_seq`` backend var.
+    """
+
+    async def _run_card_load(
+        self: _CardLoadHost,
+        loader: Callable[[], Awaitable[Any]],
+        action: str,
+        *,
+        force: bool,
+    ) -> None:
+        """Run ``loader``; a sequence number discards superseded results."""
+        async with self:
+            if not await _is_admin(self, action):
+                return
+            if not force and _is_fresh(self.last_loaded):
+                return
+            self.is_loading = True
+            self.error_message = ""
+            self._load_seq += 1
+            seq = self._load_seq
+        try:
+            payload = await loader()
+        except Exception:
+            logger.exception("%s load failed", action)
+            async with self:
+                if seq == self._load_seq:
+                    self.is_loading = False
+                    self.error_message = LOAD_ERROR_MESSAGE
+            return
+        async with self:
+            if seq != self._load_seq:
+                logger.debug("Discarding superseded %s load", action)
+                return
+            self.data = payload
+            self.is_loading = False
+            self.last_loaded = _ts_now()
+
+
 # --------------------------------------------------------------------------
 # Parent state — drill-down drawer + parallel-load orchestration
 # --------------------------------------------------------------------------
@@ -54,8 +132,8 @@ def _is_fresh(last_loaded: str) -> bool:
 class DashboardState(UserSession):
     """Parent state owning the drill-down drawer."""
 
-    drill_down: str = ""
-    error_message: str = ""
+    drill_down: rx.Field[str] = rx.field("")
+    error_message: rx.Field[str] = rx.field("")
 
     @rx.event
     def open_drill_down(self, key: str) -> None:
@@ -66,7 +144,8 @@ class DashboardState(UserSession):
         self.drill_down = ""
 
     @rx.event
-    def load_all(self) -> list[Any]:
+    @requires_admin
+    async def load_all(self) -> list[Any]:
         """Trigger parallel background loads on every card substate."""
         return [
             ProjectState.load_projects,
@@ -85,204 +164,111 @@ class DashboardState(UserSession):
 # --------------------------------------------------------------------------
 
 
-class ProjectsOverviewState(UserSession):
+class ProjectsOverviewState(_CardLoadMixin, UserSession):
     """Card 1 — active projects overview."""
 
-    data: ProjectsOverviewKpi = ProjectsOverviewKpi()
-    is_loading: bool = False
-    last_loaded: str = ""
-    error_message: str = ""
+    data: rx.Field[ProjectsOverviewKpi] = rx.field(default_factory=ProjectsOverviewKpi)
+    is_loading: rx.Field[bool] = rx.field(False)
+    last_loaded: rx.Field[str] = rx.field("")
+    error_message: rx.Field[str] = rx.field("")
+    _load_seq: int = 0
 
     @rx.event(background=True)
     async def load(self, *, force: bool = False) -> None:
-        async with self:
-            if not force and _is_fresh(self.last_loaded):
-                return
-            self.is_loading = True
-            self.error_message = ""
-        try:
-            payload = await aggregation.load_projects_overview()
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("projects overview load failed")
-            async with self:
-                self.is_loading = False
-                self.error_message = str(exc)
-            return
-        async with self:
-            self.data = payload
-            self.is_loading = False
-            self.last_loaded = _ts_now()
+        await self._run_card_load(
+            aggregation.load_projects_overview, "projects overview", force=force
+        )
 
 
-class ProjectHealthState(UserSession):
+class ProjectHealthState(_CardLoadMixin, UserSession):
     """Card 2 — project health (at-risk projects)."""
 
-    data: ProjectHealthKpi = ProjectHealthKpi()
-    is_loading: bool = False
-    last_loaded: str = ""
-    error_message: str = ""
+    data: rx.Field[ProjectHealthKpi] = rx.field(default_factory=ProjectHealthKpi)
+    is_loading: rx.Field[bool] = rx.field(False)
+    last_loaded: rx.Field[str] = rx.field("")
+    error_message: rx.Field[str] = rx.field("")
+    _load_seq: int = 0
 
     @rx.event(background=True)
     async def load(self, *, force: bool = False) -> None:
-        async with self:
-            if not force and _is_fresh(self.last_loaded):
-                return
-            self.is_loading = True
-            self.error_message = ""
-        try:
-            payload = await aggregation.load_project_health()
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("project health load failed")
-            async with self:
-                self.is_loading = False
-                self.error_message = str(exc)
-            return
-        async with self:
-            self.data = payload
-            self.is_loading = False
-            self.last_loaded = _ts_now()
+        await self._run_card_load(
+            aggregation.load_project_health, "project health", force=force
+        )
 
 
-class BudgetBurnState(UserSession):
+class BudgetBurnState(_CardLoadMixin, UserSession):
     """Card 4 — budget burn."""
 
-    data: BudgetBurnKpi = BudgetBurnKpi()
-    is_loading: bool = False
-    last_loaded: str = ""
-    error_message: str = ""
+    data: rx.Field[BudgetBurnKpi] = rx.field(default_factory=BudgetBurnKpi)
+    is_loading: rx.Field[bool] = rx.field(False)
+    last_loaded: rx.Field[str] = rx.field("")
+    error_message: rx.Field[str] = rx.field("")
+    _load_seq: int = 0
 
     @rx.event(background=True)
     async def load(self, *, force: bool = False) -> None:
-        async with self:
-            if not force and _is_fresh(self.last_loaded):
-                return
-            self.is_loading = True
-            self.error_message = ""
-        try:
-            payload = await aggregation.load_budget_burn()
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("budget burn load failed")
-            async with self:
-                self.is_loading = False
-                self.error_message = str(exc)
-            return
-        async with self:
-            self.data = payload
-            self.is_loading = False
-            self.last_loaded = _ts_now()
+        await self._run_card_load(
+            aggregation.load_budget_burn, "budget burn", force=force
+        )
 
 
-class UtilizationState(UserSession):
+class UtilizationState(_CardLoadMixin, UserSession):
     """Card 5 — team utilization."""
 
-    data: UtilizationKpi = UtilizationKpi()
-    is_loading: bool = False
-    last_loaded: str = ""
-    error_message: str = ""
+    data: rx.Field[UtilizationKpi] = rx.field(default_factory=UtilizationKpi)
+    is_loading: rx.Field[bool] = rx.field(False)
+    last_loaded: rx.Field[str] = rx.field("")
+    error_message: rx.Field[str] = rx.field("")
+    _load_seq: int = 0
 
     @rx.event(background=True)
     async def load(self, *, force: bool = False) -> None:
-        async with self:
-            if not force and _is_fresh(self.last_loaded):
-                return
-            self.is_loading = True
-            self.error_message = ""
-        try:
-            payload = await aggregation.load_utilization()
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("utilization load failed")
-            async with self:
-                self.is_loading = False
-                self.error_message = str(exc)
-            return
-        async with self:
-            self.data = payload
-            self.is_loading = False
-            self.last_loaded = _ts_now()
+        await self._run_card_load(
+            aggregation.load_utilization, "utilization", force=force
+        )
 
 
-class UnderUtilizationState(UserSession):
+class UnderUtilizationState(_CardLoadMixin, UserSession):
     """Card 6 — under-utilization (free hours next 4 weeks)."""
 
-    data: UnderUtilizationKpi = UnderUtilizationKpi()
-    is_loading: bool = False
-    last_loaded: str = ""
-    error_message: str = ""
+    data: rx.Field[UnderUtilizationKpi] = rx.field(default_factory=UnderUtilizationKpi)
+    is_loading: rx.Field[bool] = rx.field(False)
+    last_loaded: rx.Field[str] = rx.field("")
+    error_message: rx.Field[str] = rx.field("")
+    _load_seq: int = 0
 
     @rx.event(background=True)
     async def load(self, *, force: bool = False) -> None:
-        async with self:
-            if not force and _is_fresh(self.last_loaded):
-                return
-            self.is_loading = True
-            self.error_message = ""
-        try:
-            payload = await aggregation.load_under_utilization()
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("under-utilization load failed")
-            async with self:
-                self.is_loading = False
-                self.error_message = str(exc)
-            return
-        async with self:
-            self.data = payload
-            self.is_loading = False
-            self.last_loaded = _ts_now()
+        await self._run_card_load(
+            aggregation.load_under_utilization, "under-utilization", force=force
+        )
 
 
-class RoleCapacityState(UserSession):
+class RoleCapacityState(_CardLoadMixin, UserSession):
     """Card 7 — free capacity per role over 13 weeks."""
 
-    data: FreeCapacityKpi = FreeCapacityKpi()
-    is_loading: bool = False
-    last_loaded: str = ""
-    error_message: str = ""
+    data: rx.Field[FreeCapacityKpi] = rx.field(default_factory=FreeCapacityKpi)
+    is_loading: rx.Field[bool] = rx.field(False)
+    last_loaded: rx.Field[str] = rx.field("")
+    error_message: rx.Field[str] = rx.field("")
+    _load_seq: int = 0
 
     @rx.event(background=True)
     async def load(self, *, force: bool = False) -> None:
-        async with self:
-            if not force and _is_fresh(self.last_loaded):
-                return
-            self.is_loading = True
-            self.error_message = ""
-        try:
-            payload = await aggregation.load_free_capacity()
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("free-capacity load failed")
-            async with self:
-                self.is_loading = False
-                self.error_message = str(exc)
-            return
-        async with self:
-            self.data = payload
-            self.is_loading = False
-            self.last_loaded = _ts_now()
+        await self._run_card_load(
+            aggregation.load_free_capacity, "free-capacity", force=force
+        )
 
 
-class RiskState(UserSession):
+class RiskState(_CardLoadMixin, UserSession):
     """Card 8 — risk surface."""
 
-    data: RiskKpi = RiskKpi()
-    is_loading: bool = False
-    last_loaded: str = ""
-    error_message: str = ""
+    data: rx.Field[RiskKpi] = rx.field(default_factory=RiskKpi)
+    is_loading: rx.Field[bool] = rx.field(False)
+    last_loaded: rx.Field[str] = rx.field("")
+    error_message: rx.Field[str] = rx.field("")
+    _load_seq: int = 0
 
     @rx.event(background=True)
     async def load(self, *, force: bool = False) -> None:
-        async with self:
-            if not force and _is_fresh(self.last_loaded):
-                return
-            self.is_loading = True
-            self.error_message = ""
-        try:
-            payload = await aggregation.load_risks()
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("risks load failed")
-            async with self:
-                self.is_loading = False
-                self.error_message = str(exc)
-            return
-        async with self:
-            self.data = payload
-            self.is_loading = False
-            self.last_loaded = _ts_now()
+        await self._run_card_load(aggregation.load_risks, "risks", force=force)

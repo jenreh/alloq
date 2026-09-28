@@ -1,6 +1,7 @@
 from typing import Any
 
 import reflex as rx
+from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.formatters import de_number, format_date_de_named
 from alloq_commons.components.table_styles import (
     NO_WRAP_CELL_STYLE,
@@ -12,15 +13,13 @@ from alloq_commons.models.project import Project
 from alloq_project.components.project_card import (
     project_initials,
     status_color,
-    team_initial,
+    team_avatars,
 )
 from alloq_project.states.project_state import ProjectState
+from reflex.vars import ArrayVar, ObjectVar
 
 import appkit_mantine as mn
-from appkit_ui.components.dialogs import delete_dialog
 from appkit_ui.global_states import LoadingState
-
-MAX_TEAM_AVATARS = 4
 
 SORTABLE_HEADER_STYLE = {
     **TABLE_HEADER_STYLE,
@@ -62,7 +61,7 @@ def _header(label: str, column: str = "", **props: Any) -> rx.Component:
     )
 
 
-def _project_name_cell(project: Project) -> rx.Component:
+def _project_name_cell(project: ObjectVar[Project]) -> rx.Component:
     """Project avatar with name and code."""
     return mn.group(
         project_initials(project),
@@ -85,7 +84,7 @@ def _project_name_cell(project: Project) -> rx.Component:
     )
 
 
-def _status_badge(project: Project) -> rx.Component:
+def _status_badge(project: ObjectVar[Project]) -> rx.Component:
     return mn.badge(
         project.state,
         color=status_color(project.state),
@@ -97,12 +96,15 @@ def _status_badge(project: Project) -> rx.Component:
     )
 
 
-def _period_cell(project: Project) -> rx.Component:
+def _period_cell(project: ObjectVar[Project]) -> rx.Component:
     # Each date stays on one line; the only allowed break is after the arrow.
     return mn.text(
         rx.el.span(
-            rx.cond(project.start_date, format_date_de_named(project.start_date), "—")
-            + " →",
+            f"{
+                rx.cond(
+                    project.start_date, format_date_de_named(project.start_date), '—'
+                )
+            } →",
             style=NO_WRAP_CELL_STYLE,
         ),
         " ",
@@ -115,11 +117,11 @@ def _period_cell(project: Project) -> rx.Component:
     )
 
 
-def _progress_cell(project: Project) -> rx.Component:
+def _progress_cell(project: ObjectVar[Project]) -> rx.Component:
     return mn.group(
         mn.progress(
             value=project.current_progress,
-            color=rx.cond(project.risk_count > 0, "red", project.color),
+            color=rx.cond(project.risk_count.to(int) > 0, "red", project.color),
             size="sm",
             radius="xl",
             w="6rem",
@@ -132,25 +134,17 @@ def _progress_cell(project: Project) -> rx.Component:
     )
 
 
-def _team_cell(project: Project) -> rx.Component:
-    overflow = project.team_members.length() - MAX_TEAM_AVATARS
+def _team_cell(project: ObjectVar[Project]) -> rx.Component:
     return rx.cond(
         project.team_members.length() > 0,
-        mn.avatar.group(
-            rx.foreach(project.team_members[:MAX_TEAM_AVATARS], team_initial),
-            rx.cond(
-                overflow > 0,
-                mn.avatar("+" + overflow.to_string(), size="sm", radius="lg"),
-                rx.fragment(),
-            ),
-        ),
+        team_avatars(project),
         mn.text("—", size="sm", c="dimmed"),
     )
 
 
-def _risk_cell(project: Project) -> rx.Component:
+def _risk_cell(project: ObjectVar[Project]) -> rx.Component:
     return rx.cond(
-        project.risk_count > 0,
+        project.risk_count.to(int) > 0,
         mn.group(
             rx.icon("triangle-alert", size=14, color="var(--mantine-color-red-6)"),
             de_number(value=project.risk_count),
@@ -162,7 +156,7 @@ def _risk_cell(project: Project) -> rx.Component:
     )
 
 
-def _actions_cell(project: Project) -> rx.Component:
+def _actions_cell(project: ObjectVar[Project]) -> rx.Component:
     return mn.group(
         mn.box(
             rx.icon_button(
@@ -170,7 +164,7 @@ def _actions_cell(project: Project) -> rx.Component:
                 variant="ghost",
                 on_click=[
                     LoadingState.set_is_loading(True),
-                    ProjectState.select_project_with_tab(project.id, "daten"),
+                    ProjectState.select_project_with_tab(project.id, "daten"),  # ty: ignore[invalid-argument-type]
                 ],
             ),
             on_click=rx.stop_propagation,
@@ -179,7 +173,7 @@ def _actions_cell(project: Project) -> rx.Component:
             delete_dialog(
                 title="Projekt löschen",
                 content=project.name_de,
-                on_click=ProjectState.delete_project(project.id),
+                on_click=ProjectState.delete_project(project.id),  # ty: ignore[invalid-argument-type]
                 icon_button=True,
                 color="red",
                 variant="subtle",
@@ -193,7 +187,7 @@ def _actions_cell(project: Project) -> rx.Component:
     )
 
 
-def _project_table_row(project: Project) -> rx.Component:
+def _project_table_row(project: ObjectVar[Project]) -> rx.Component:
     """Render a single project as a table row."""
     return mn.table.tr(
         mn.table.td(_project_name_cell(project)),
@@ -222,7 +216,7 @@ def _project_table_row(project: Project) -> rx.Component:
         style={"cursor": rx.cond(LoadingState.is_loading, "wait", "pointer")},
         on_click=[
             LoadingState.set_is_loading(True),
-            ProjectState.select_project(project.id),
+            ProjectState.select_project(project.id),  # ty: ignore[invalid-argument-type]
         ],
     )
 
@@ -245,7 +239,7 @@ def _table_head() -> rx.Component:
     )
 
 
-def _project_table_section(title: str, projects: rx.Var) -> rx.Component:
+def _project_table_section(title: str, projects: ArrayVar) -> rx.Component:
     """Titled table section; hidden when there are no projects."""
     return rx.cond(
         projects.length() > 0,

@@ -6,9 +6,10 @@ import reflex as rx
 from alloq_commons.entities import RoleEntity
 from alloq_commons.models import Role, RoleCreate
 from alloq_commons.repositories import role_repo
+from sqlalchemy.exc import IntegrityError
 
 from appkit_commons.database.session import get_asyncdb_session
-from appkit_user.authentication.decorators import is_authenticated
+from appkit_user.authentication.decorators import requires_admin
 
 logger = logging.getLogger(__name__)
 
@@ -16,14 +17,15 @@ logger = logging.getLogger(__name__)
 class RoleState(rx.State):
     """State for organizational role management."""
 
-    roles: list[Role] = []
-    selected_role: Role | None = None
-    is_loading: bool = False
+    roles: rx.Field[list[Role]] = rx.field(default_factory=list)
+    selected_role: rx.Field[Role | None] = rx.field(None)
+    is_loading: rx.Field[bool] = rx.field(False)
 
-    add_modal_open: bool = False
-    edit_modal_open: bool = False
-    search_filter: str = ""
+    add_modal_open: rx.Field[bool] = rx.field(False)
+    edit_modal_open: rx.Field[bool] = rx.field(False)
+    search_filter: rx.Field[str] = rx.field("")
 
+    @rx.event
     def set_search_filter(self, value: str) -> None:
         """Update the search filter."""
         self.search_filter = value
@@ -40,23 +42,29 @@ class RoleState(rx.State):
             if search in r.name.lower() or search in r.description.lower()
         ]
 
+    @rx.event
     def open_add_modal(self) -> None:
         """Open the add role modal."""
         self.add_modal_open = True
 
+    @rx.event
     def close_add_modal(self) -> None:
         """Close the add role modal."""
         self.add_modal_open = False
 
+    @rx.event
     def open_edit_modal(self) -> None:
         """Open the edit role modal."""
         self.edit_modal_open = True
 
+    @rx.event
     def close_edit_modal(self) -> None:
         """Close the edit role modal and reset selection."""
         self.edit_modal_open = False
         self.selected_role = None
 
+    @rx.event
+    @requires_admin
     async def select_role_and_open_edit(self, role_id: int) -> None:
         """Select a role by ID and open the edit modal."""
         await self._select_role(role_id)
@@ -77,10 +85,11 @@ class RoleState(rx.State):
             )
             self.roles = [Role(**e.to_dict()) for e in entities]
 
-    @is_authenticated
+    @rx.event
+    @requires_admin
     async def load_roles(
         self, limit: int = 200, offset: int = 0
-    ) -> AsyncGenerator[Any, None]:
+    ) -> AsyncGenerator[Any]:
         """Load all roles from the database.
 
         The loading row only replaces the table on the first load; revisits
@@ -94,8 +103,9 @@ class RoleState(rx.State):
         finally:
             self.is_loading = False
 
-    @is_authenticated
-    async def create_role(self, form_data: dict) -> AsyncGenerator[Any, None]:
+    @rx.event
+    @requires_admin
+    async def create_role(self, form_data: dict) -> AsyncGenerator[Any]:
         """Create a new role from form submission."""
         self.is_loading = True
         yield
@@ -125,16 +135,17 @@ class RoleState(rx.State):
                 f"Rolle '{role_data.name}' wurde erstellt.",
                 position="top-right",
             )
-        except Exception as e:
-            logger.error("Failed to create role: %s", e)
+        except Exception:
+            logger.exception("Failed to create role")
             self.is_loading = False
             yield rx.toast.error(
-                f"Fehler beim Erstellen: {e}",
+                "Fehler beim Erstellen der Rolle.",
                 position="top-right",
             )
 
-    @is_authenticated
-    async def update_role(self, form_data: dict) -> AsyncGenerator[Any, None]:
+    @rx.event
+    @requires_admin
+    async def update_role(self, form_data: dict) -> AsyncGenerator[Any]:
         """Update an existing role from form submission."""
         self.is_loading = True
         yield
@@ -152,18 +163,21 @@ class RoleState(rx.State):
                 ramp_down=form_data.get("ramp_down") == "on",
             )
 
+            # Toasts are yielded only after the session is closed so the DB
+            # connection is not held across a websocket round trip.
             async with get_asyncdb_session() as session:
                 entity = await role_repo.find_by_id(session, self.selected_role.id)
-                if not entity:
-                    self.is_loading = False
-                    yield rx.toast.error("Rolle nicht gefunden.", position="top-right")
-                    return
-                entity.name = role_data.name
-                entity.abbreviation = role_data.abbreviation
-                entity.description = role_data.description or None
-                entity.ramp_up = role_data.ramp_up
-                entity.ramp_down = role_data.ramp_down
-                await role_repo.update(session, entity)
+                if entity:
+                    entity.name = role_data.name
+                    entity.abbreviation = role_data.abbreviation
+                    entity.description = role_data.description or None
+                    entity.ramp_up = role_data.ramp_up
+                    entity.ramp_down = role_data.ramp_down
+                    await role_repo.update(session, entity)
+            if not entity:
+                self.is_loading = False
+                yield rx.toast.error("Rolle nicht gefunden.", position="top-right")
+                return
 
             await self._load_roles()
             self.close_edit_modal()
@@ -172,43 +186,47 @@ class RoleState(rx.State):
                 f"Rolle '{role_data.name}' wurde aktualisiert.",
                 position="top-right",
             )
-        except Exception as e:
-            logger.error("Failed to update role: %s", e)
+        except Exception:
+            logger.exception("Failed to update role")
             self.is_loading = False
             yield rx.toast.error(
-                f"Fehler beim Aktualisieren: {e}",
+                "Fehler beim Aktualisieren der Rolle.",
                 position="top-right",
             )
 
-    @is_authenticated
-    async def delete_role(self, role_id: int) -> AsyncGenerator[Any, None]:
+    @rx.event
+    @requires_admin
+    async def delete_role(self, role_id: int) -> AsyncGenerator[Any]:
         """Delete a role by ID (hard-delete)."""
         self.is_loading = True
         yield
         try:
+            error = ""
             async with get_asyncdb_session() as session:
                 entity = await role_repo.find_by_id(session, role_id)
                 if not entity:
-                    self.is_loading = False
-                    yield rx.toast.error("Rolle nicht gefunden.", position="top-right")
-                    return
-
-                deleted = await role_repo.delete_by_id(session, role_id)
-                if not deleted:
-                    self.is_loading = False
-                    yield rx.toast.error(
-                        "Rolle konnte nicht gelöscht werden.",
-                        position="top-right",
-                    )
-                    return
+                    error = "Rolle nicht gefunden."
+                elif not await role_repo.delete_by_id(session, role_id):
+                    error = "Rolle konnte nicht gelöscht werden."
+            if error:
+                self.is_loading = False
+                yield rx.toast.error(error, position="top-right")
+                return
 
             await self._load_roles()
             self.is_loading = False
             yield rx.toast.info("Rolle wurde gelöscht.", position="top-right")
-        except Exception as e:
-            logger.error("Failed to delete role: %s", e)
+        except IntegrityError:
+            logger.warning("Role %d is still referenced; delete rejected", role_id)
             self.is_loading = False
             yield rx.toast.error(
-                f"Fehler beim Löschen: {e}",
+                "Rolle wird noch verwendet und kann nicht gelöscht werden.",
+                position="top-right",
+            )
+        except Exception:
+            logger.exception("Failed to delete role")
+            self.is_loading = False
+            yield rx.toast.error(
+                "Fehler beim Löschen der Rolle.",
                 position="top-right",
             )

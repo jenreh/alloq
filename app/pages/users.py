@@ -1,11 +1,9 @@
-from collections.abc import Callable
-
 import reflex as rx
 from alloq_commons.components import page_header
+from alloq_commons.components.auth import authenticated
 
 import appkit_mantine as mn
 from appkit_user.authentication.components.components import requires_admin
-from appkit_user.authentication.templates import authenticated
 from appkit_user.user_management.components.user import (
     add_user_button,
     add_user_modal,
@@ -41,7 +39,7 @@ def create_users_page(
     route: str = "/admin/users",
     title: str = "Benutzer",
     additional_components: list[rx.Component] | None = None,
-) -> Callable:
+) -> rx.Component:
 
     @authenticated(
         route=route,

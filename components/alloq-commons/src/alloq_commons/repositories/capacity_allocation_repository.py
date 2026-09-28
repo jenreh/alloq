@@ -1,15 +1,17 @@
 import logging
 from datetime import date
+from typing import Any, cast
 
-from sqlalchemy import and_, delete, select
+from sqlalchemy import CursorResult, Row, and_, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from alloq_commons.entities import CapacityAllocationEntity
+from alloq_commons.entities import CapacityAllocationEntity, RoleEntity
 from appkit_commons.database.base_repository import BaseRepository
 
 logger = logging.getLogger(__name__)
 
-logger = logging.getLogger(__name__)
+_UPSERT_CHUNK = 1000  # rows per statement; 5 binds/row stays below asyncpg's cap
+_CONFLICT_KEY = ("project_id", "employee_id", "role_id", "week_start")
 
 
 class CapacityAllocationRepository(
@@ -83,6 +85,41 @@ class CapacityAllocationRepository(
         result = await session.execute(statement)
         return list(result.scalars().unique().all())
 
+    async def find_cells_in_range(
+        self,
+        session: AsyncSession,
+        start: date,
+        end: date,
+    ) -> list[Row]:
+        """Allocation columns plus role name for week_start in [start, end].
+
+        Column-only query: no entities and no eager-loaded relationships, so
+        the cost grows with the window, not with the whole history.
+        """
+        statement = (
+            select(
+                CapacityAllocationEntity.employee_id,
+                CapacityAllocationEntity.project_id,
+                CapacityAllocationEntity.role_id,
+                CapacityAllocationEntity.week_start,
+                CapacityAllocationEntity.person_days,
+                RoleEntity.name.label("role_name"),
+            )
+            .outerjoin(RoleEntity, RoleEntity.id == CapacityAllocationEntity.role_id)
+            .where(
+                CapacityAllocationEntity.week_start >= start,
+                CapacityAllocationEntity.week_start <= end,
+            )
+            .order_by(
+                CapacityAllocationEntity.employee_id,
+                CapacityAllocationEntity.project_id,
+                CapacityAllocationEntity.week_start,
+                CapacityAllocationEntity.id,
+            )
+        )
+        result = await session.execute(statement)
+        return list(result.all())
+
     async def find_by_employee_in_range(
         self,
         session: AsyncSession,
@@ -131,24 +168,6 @@ class CapacityAllocationRepository(
         await session.flush()
         return rows
 
-    async def replace_for_project(
-        self,
-        session: AsyncSession,
-        project_id: int,
-        rows: list[CapacityAllocationEntity],
-    ) -> list[CapacityAllocationEntity]:
-        """Replace all rows for one project atomically."""
-        await session.execute(
-            delete(CapacityAllocationEntity).where(
-                CapacityAllocationEntity.project_id == project_id
-            )
-        )
-        await session.flush()
-        for row in rows:
-            session.add(row)
-        await session.flush()
-        return rows
-
     async def delete_by_project_and_employee(
         self,
         session: AsyncSession,
@@ -165,7 +184,7 @@ class CapacityAllocationRepository(
             )
         )
         await session.flush()
-        return result.rowcount > 0
+        return cast("CursorResult[Any]", result).rowcount > 0
 
     async def delete_for_project_employee_in_range(
         self,
@@ -190,7 +209,7 @@ class CapacityAllocationRepository(
             delete(CapacityAllocationEntity).where(and_(*conditions))
         )
         await session.flush()
-        return result.rowcount
+        return cast("CursorResult[Any]", result).rowcount
 
     async def upsert_cell(
         self,
@@ -234,31 +253,31 @@ class CapacityAllocationRepository(
         session: AsyncSession,
         rows: list[dict],
     ) -> int:
-        """Batch upsert multiple allocation cells in a single statement.
+        """Batch upsert allocation cells.
 
         Each dict must have keys: project_id, employee_id, role_id,
-        week_start, person_days.
-        Returns the number of rows upserted.
+        week_start, person_days. Rows with the same conflict key are
+        collapsed (last one wins) and written in chunks. Returns the number
+        of rows upserted.
         """
-        if not rows:
+        unique = list({tuple(r[k] for k in _CONFLICT_KEY): r for r in rows}.values())
+        if not unique:
             return 0
         dialect_name = session.bind.dialect.name
         if dialect_name == "postgresql":
             from sqlalchemy.dialects.postgresql import insert  # noqa: PLC0415
         else:
             from sqlalchemy.dialects.sqlite import insert  # noqa: PLC0415
-        stmt = insert(CapacityAllocationEntity).values(rows)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=[
-                "project_id",
-                "employee_id",
-                "role_id",
-                "week_start",
-            ],
-            set_={"person_days": stmt.excluded.person_days},
-        )
-        await session.execute(stmt)
-        return len(rows)
+        for i in range(0, len(unique), _UPSERT_CHUNK):
+            stmt = insert(CapacityAllocationEntity).values(
+                unique[i : i + _UPSERT_CHUNK]
+            )
+            stmt = stmt.on_conflict_do_update(
+                index_elements=list(_CONFLICT_KEY),
+                set_={"person_days": stmt.excluded.person_days, "updated": func.now()},
+            )
+            await session.execute(stmt)
+        return len(unique)
 
 
 capacity_allocation_repo = CapacityAllocationRepository()

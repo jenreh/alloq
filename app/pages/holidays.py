@@ -1,20 +1,18 @@
-from collections.abc import Callable
-
 import reflex as rx
 from alloq_commons.components import page_header
+from alloq_commons.components.auth import authenticated
 from alloq_commons.components.public_holiday import holidays_table, holidays_toolbar
 from alloq_commons.states.holiday_state import HolidayState
 
 import appkit_mantine as mn
 from appkit_user.authentication.components.components import requires_admin
-from appkit_user.authentication.templates import authenticated
 
 
 def create_holidays_page(
     navbar: rx.Component,
     route: str = "/admin/holidays",
     title: str = "Feiertage",
-) -> Callable:
+) -> rx.Component:
     """Page factory for public holiday management."""
 
     @authenticated(

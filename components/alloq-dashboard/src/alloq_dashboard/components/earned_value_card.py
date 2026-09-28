@@ -10,6 +10,7 @@ from alloq_commons.components.formatters import de_number
 import appkit_mantine as mn
 from alloq_dashboard.components.drill_down_drawer import DRILL_EARNED_VALUE
 from alloq_dashboard.components.kpi_card import kpi_card
+from alloq_dashboard.models import BudgetBurnKpi
 from alloq_dashboard.states import BudgetBurnState, DashboardState
 from appkit_mantine.charts import CompositeChart
 
@@ -61,7 +62,7 @@ def _eur(value: rx.Var | float, decimals: int = 0) -> rx.Component:
 
 
 def _summary_row() -> rx.Component:
-    data = BudgetBurnState.data
+    data = BudgetBurnState.data.to(BudgetBurnKpi)
     return mn.group(
         _kpi_cell("Budget", _eur(data.latest_budget)),
         _kpi_cell("Forecast", _eur(data.latest_forecast)),
@@ -102,7 +103,7 @@ _DE_TICK_FORMATTER = (
 
 
 def _forecast_chart() -> rx.Component:
-    data = BudgetBurnState.data.weekly_forecast
+    data = BudgetBurnState.data.to(BudgetBurnKpi).weekly_forecast
     return _composite_chart_fmt(
         data=data.map(
             lambda p: {
@@ -168,7 +169,7 @@ def _forecast_chart() -> rx.Component:
 
 
 def earned_value_card() -> rx.Component:
-    data = BudgetBurnState.data
+    data = BudgetBurnState.data.to(BudgetBurnKpi)
     body = mn.stack(
         _summary_row(),
         rx.cond(

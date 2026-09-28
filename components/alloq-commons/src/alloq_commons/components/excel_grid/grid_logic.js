@@ -239,7 +239,10 @@ export function planPaste(layout, rect, matrix, parseOptions) {
   let skipped = 0;
   for (let r = target.r0; r <= target.r1; r++) {
     for (let c = target.c0; c <= target.c1; c++) {
-      const raw = matrix[(r - rect.r0) % mh][(c - rect.c0) % mw] ?? "";
+      const raw = matrix[(r - rect.r0) % mh][(c - rect.c0) % mw];
+      // A short (ragged) source row has no cell here: leave the target as is.
+      // Only an explicit empty string clears a cell.
+      if (raw === undefined) continue;
       const value = parseNumber(raw, parseOptions);
       if (value === null) {
         skipped++;

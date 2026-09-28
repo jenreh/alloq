@@ -4,7 +4,10 @@ Provides consistent structure, sticky footer, and CSS-class-driven theming
 so that all modals and drawers share the same visual language.
 """
 
+from typing import Any
+
 import reflex as rx
+from reflex.event import EventType
 
 import appkit_mantine as mn
 
@@ -15,7 +18,7 @@ DRAWER_CLASS = "alloq-drawer"
 
 def modal_footer(
     submit_label: str,
-    on_cancel: rx.EventHandler,
+    on_cancel: EventType[()],
     *,
     disabled: bool | rx.Var[bool] = False,
     loading: bool | rx.Var[bool] = False,
@@ -42,7 +45,7 @@ def modal_footer(
 def modal_form_layout(
     content: rx.Component,
     footer: rx.Component,
-    on_submit: rx.EventHandler,
+    on_submit: EventType[Any],
     *,
     reset_on_submit: bool = False,
 ) -> rx.Component:

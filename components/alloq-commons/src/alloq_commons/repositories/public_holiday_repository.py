@@ -1,7 +1,7 @@
 import logging
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from alloq_commons.entities.public_holiday import PublicHolidayEntity
@@ -58,17 +58,55 @@ class PublicHolidayRepository(BaseRepository[PublicHolidayEntity, AsyncSession])
         start: date,
         end: date,
     ) -> list[PublicHolidayEntity]:
-        """Find holidays within a date range (inclusive)."""
+        """Find holidays within a date range (inclusive).
+
+        Recurring holidays stored for another year are projected onto every
+        year of the range (same month and day). Projected rows are transient
+        copies that are never added to the session.
+        """
+        in_range = and_(
+            PublicHolidayEntity.date >= start,
+            PublicHolidayEntity.date <= end,
+        )
         statement = (
             select(PublicHolidayEntity)
-            .where(
-                PublicHolidayEntity.date >= start,
-                PublicHolidayEntity.date <= end,
-            )
+            .where(or_(in_range, PublicHolidayEntity.is_recurring.is_(True)))
             .order_by(PublicHolidayEntity.date.asc())
         )
         result = await session.execute(statement)
-        return list(result.scalars().all())
+        rows = list(result.scalars().all())
+        holidays = [row for row in rows if start <= row.date <= end]
+        taken = {(row.date, row.state_code) for row in holidays}
+        for row in rows:
+            if not row.is_recurring:
+                continue
+            for projected in _project_recurring(row.date, start, end):
+                if (projected, row.state_code) in taken:
+                    continue
+                taken.add((projected, row.state_code))
+                holidays.append(
+                    PublicHolidayEntity(
+                        name=row.name,
+                        date=projected,
+                        is_recurring=True,
+                        state_code=row.state_code,
+                    )
+                )
+        holidays.sort(key=lambda holiday: holiday.date)
+        return holidays
+
+
+def _project_recurring(stored: date, start: date, end: date) -> list[date]:
+    """Dates in [start, end] sharing *stored*'s month and day."""
+    projected = []
+    for year in range(start.year, end.year + 1):
+        try:
+            candidate = stored.replace(year=year)
+        except ValueError:  # 29 February in a non-leap year
+            continue
+        if start <= candidate <= end:
+            projected.append(candidate)
+    return projected
 
 
 public_holiday_repo = PublicHolidayRepository()

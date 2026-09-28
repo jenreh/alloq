@@ -48,8 +48,6 @@ class TestEmployeeEntity:
             hours_per_week=32.0,
         )
         entity.id = 5
-        entity.created = None
-        entity.updated = None
         entity.roles = []
         result = entity.to_dict()
         assert result["id"] == 5
@@ -85,8 +83,6 @@ class TestAbsenceEntity:
             end_date=date(2025, 7, 5),
         )
         entity.id = 10
-        entity.created = None
-        entity.updated = None
         result = entity.to_dict()
         assert result["id"] == 10
         assert result["employee_id"] == 3
@@ -146,7 +142,7 @@ class TestTeamState:
     """Tests for employee Reflex state helpers."""
 
     def test_upsert_employee_replaces_and_sorts(self) -> None:
-        state = TeamState()  # type: ignore[call-arg]
+        state = TeamState()
         state.employees = [
             Employee(id=1, first_name="Zoe", last_name="Zimmer"),
             Employee(id=2, first_name="Anna", last_name="Alpha"),
@@ -160,11 +156,11 @@ class TestTeamState:
         ]
 
     def test_view_mode_defaults_to_grid(self) -> None:
-        state = TeamState()  # type: ignore[call-arg]
+        state = TeamState()
         assert state.view_mode == "grid"
 
     def test_set_view_mode_switches_and_ignores_unknown(self) -> None:
-        state = TeamState()  # type: ignore[call-arg]
+        state = TeamState()
         state.set_view_mode("table")
         assert state.view_mode == "table"
         state.set_view_mode("kanban")
@@ -187,11 +183,11 @@ class TestEmployeeCreateModel:
 
     def test_first_name_required(self) -> None:
         with pytest.raises(ValidationError):
-            EmployeeCreate(
+            EmployeeCreate(  # ty: ignore[missing-argument]
                 last_name="Mustermann",
                 seniority=SeniorityLevel.SENIOR,
                 role_ids=[1],
-            )  # type: ignore[call-arg]
+            )
 
     def test_hours_per_week_must_be_non_negative(self) -> None:
         with pytest.raises(ValidationError):
@@ -258,7 +254,7 @@ class TestAbsenceModel:
 
     def test_absence_create_requires_dates(self) -> None:
         with pytest.raises(ValidationError):
-            AbsenceCreate(employee_id=1)  # type: ignore[call-arg]
+            AbsenceCreate(employee_id=1)  # ty: ignore[missing-argument]
 
 
 # ============================================================================
