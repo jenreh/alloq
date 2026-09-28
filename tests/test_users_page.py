@@ -1,6 +1,6 @@
 """Tests for the /admin/users page registration."""
 
-from typing import Any
+from typing import Any, cast
 
 import reflex as rx
 from reflex_base.registry import RegistrationContext
@@ -24,4 +24,4 @@ class TestUsersPage:
 
         handlers = _on_load_handlers("/test/users")
 
-        assert UserState.load_users.fn in handlers
+        assert cast("Any", UserState.load_users).fn in handlers

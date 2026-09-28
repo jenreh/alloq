@@ -199,7 +199,7 @@ class TestStoreBlocksCarrySummary:
             allocs, [], proj_idx, set(wks)
         )
         wire_pairs(emp_meta, proj_idx, pairs)
-        state = PlanningStore()  # type: ignore[call-arg]
+        state = PlanningStore()
         state.weeks = weeks
         state.month_spans = spans
         state.cells = cells

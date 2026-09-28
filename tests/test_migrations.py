@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
+from sqlalchemy.exc import IntegrityError
 
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
@@ -276,7 +277,7 @@ def test_upgrade_swaps_reversed_absences_and_enforces_range(
         sa.text("SELECT start_date, end_date FROM absences")
     ).all()
     assert [(str(s), str(e)) for s, e in rows] == [("2026-05-04", "2026-05-10")]
-    with pytest.raises(sa.exc.IntegrityError):
+    with pytest.raises(IntegrityError):
         _insert_absence(planning_tables, "2026-06-10", "2026-06-01")
 
 
@@ -294,7 +295,7 @@ def test_upgrade_merges_duplicate_capacities_and_enforces_uniqueness(
     assert [(i, str(s), str(e), h) for i, s, e, h in rows] == [
         (1, "2026-01-01", "2026-04-30", 40.0)
     ]
-    with pytest.raises(sa.exc.IntegrityError):
+    with pytest.raises(IntegrityError):
         _insert_capacity(planning_tables, "2026-01-01", "2026-01-31", 40.0)
 
 

@@ -88,7 +88,7 @@ async def _saved_role_ids(
     allocations: list[SimpleNamespace], assignments: list[SimpleNamespace]
 ) -> set[int]:
     """Load the grid, edit the first cell and return the saved role ids."""
-    state = PlanningStore()  # type: ignore[call-arg]
+    state = PlanningStore()
     state.available_employees = [_employee()]
     state.available_projects = [Project(id=1, code="P1", name_de="Projekt")]
     with (

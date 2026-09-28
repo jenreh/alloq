@@ -93,8 +93,6 @@ def _employee_entity(emp_id: int = 7) -> EmployeeEntity:
         internal_hours=4,
     )
     entity.id = emp_id
-    entity.created = None
-    entity.updated = None
     entity.roles = []
     entity.absences = []
     return entity
@@ -103,8 +101,6 @@ def _employee_entity(emp_id: int = 7) -> EmployeeEntity:
 def _absence_entity(start: date, end: date, absence_id: int = 1) -> AbsenceEntity:
     entity = AbsenceEntity(employee_id=7, start_date=start, end_date=end)
     entity.id = absence_id
-    entity.created = None
-    entity.updated = None
     return entity
 
 
@@ -140,7 +136,9 @@ def repos() -> Iterator[dict[str, AsyncMock]]:
             "role_repo",
         )
     }
-    patches = [patch(f"{MODULE}.{name}", mock) for name, mock in mocks.items()]
+    patches: list[Any] = [
+        patch(f"{MODULE}.{name}", mock) for name, mock in mocks.items()
+    ]
     patches.append(patch(f"{MODULE}.get_asyncdb_session", _session_ctx(session)))
     for p in patches:
         p.start()
@@ -204,7 +202,7 @@ class TestTeamStateHidesDatabaseErrors:
     async def test_toast_does_not_leak_exception_text(
         self, name: str, args: tuple[Any, ...]
     ) -> None:
-        state = TeamState()  # type: ignore[call-arg]
+        state = TeamState()
         state.selected_employee = Employee(id=7, first_name="A", last_name="B")
         state.add_project_selected = "3"
         state.all_projects = [
@@ -233,7 +231,7 @@ class TestTeamStateAuthorization:
     async def test_non_admin_is_rejected(
         self, repos: dict[str, AsyncMock], name: str, args: tuple[Any, ...]
     ) -> None:
-        state = TeamState()  # type: ignore[call-arg]
+        state = TeamState()
         state.selected_employee = Employee(id=7, first_name="A", last_name="B")
         state.add_project_selected = "3"
         state.absence_date_range = ["2099-01-05", "2099-01-06"]
@@ -250,7 +248,7 @@ class TestTeamStateAuthorization:
         quick.assert_not_awaited()
 
     async def test_admin_can_delete_employee(self, repos: dict[str, AsyncMock]) -> None:
-        state = TeamState()  # type: ignore[call-arg]
+        state = TeamState()
         repos["employee_repo"].delete_by_id = AsyncMock(return_value=True)
         repos["employee_repo"].find_all_paginated = AsyncMock(return_value=[])
         with _as_user(state):
@@ -263,9 +261,9 @@ class TestTeamStateAuthorization:
     async def test_email_uniqueness_check_requires_admin(
         self, repos: dict[str, AsyncMock]
     ) -> None:
-        state = EmployeeValidationState()  # type: ignore[call-arg]
+        state = EmployeeValidationState()
         state.email = "alice@corp.test"
-        with _as_user(state, is_admin=False, TeamState=TeamState()):  # type: ignore[call-arg]
+        with _as_user(state, is_admin=False, TeamState=TeamState()):
             await _run(state.validate_email_unique)
 
         repos["employee_repo"].find_by_email.assert_not_awaited()
@@ -280,7 +278,7 @@ class TestTeamStateAuthorization:
 class TestAssignProjectToEmployee:
     @staticmethod
     def _state() -> TeamState:
-        state = TeamState()  # type: ignore[call-arg]
+        state = TeamState()
         state.selected_employee = Employee(id=7, first_name="A", last_name="B")
         state.add_project_selected = "3"
         state.all_projects = [
@@ -324,7 +322,7 @@ class TestRemoveProjectFromEmployee:
     async def test_also_deletes_weekly_allocations(
         self, repos: dict[str, AsyncMock]
     ) -> None:
-        state = TeamState()  # type: ignore[call-arg]
+        state = TeamState()
         state.selected_employee = Employee(id=7, first_name="A", last_name="B")
         repos["capacity_repo"].delete_by_project_and_employee = AsyncMock(
             return_value=True
@@ -342,7 +340,7 @@ class TestRemoveProjectFromEmployee:
     async def test_orphaned_allocations_are_removed_without_capacity_row(
         self, repos: dict[str, AsyncMock]
     ) -> None:
-        state = TeamState()  # type: ignore[call-arg]
+        state = TeamState()
         state.selected_employee = Employee(id=7, first_name="A", last_name="B")
         repos["capacity_repo"].delete_by_project_and_employee = AsyncMock(
             return_value=False
@@ -359,7 +357,7 @@ class TestRemoveProjectFromEmployee:
 
 class TestOpenAddProjectModal:
     async def test_loads_projects_lazily(self, repos: dict[str, AsyncMock]) -> None:
-        state = TeamState()  # type: ignore[call-arg]
+        state = TeamState()
         repos["project_repo"].find_all_paginated = AsyncMock(return_value=[])
         with _as_user(state):
             await _run(state.open_add_project_modal)
@@ -377,7 +375,7 @@ class TestSelectEmployee:
     async def test_missing_employee_resets_loading_and_toasts(
         self, repos: dict[str, AsyncMock]
     ) -> None:
-        state = TeamState()  # type: ignore[call-arg]
+        state = TeamState()
         repos["employee_repo"].find_by_id = AsyncMock(return_value=None)
         with _as_user(state):
             items = await _run(state.select_employee, 99)
@@ -388,7 +386,7 @@ class TestSelectEmployee:
         assert state.detail_drawer_open is False
 
     async def test_db_error_resets_loading(self, repos: dict[str, AsyncMock]) -> None:
-        state = TeamState()  # type: ignore[call-arg]
+        state = TeamState()
         repos["employee_repo"].find_by_id = AsyncMock(side_effect=RuntimeError("x"))
         with _as_user(state):
             items = await _run(state.select_employee, 99)
@@ -398,7 +396,7 @@ class TestSelectEmployee:
     async def test_opens_drawer_without_loading_all_projects(
         self, repos: dict[str, AsyncMock]
     ) -> None:
-        state = TeamState()  # type: ignore[call-arg]
+        state = TeamState()
         repos["employee_repo"].find_by_id = AsyncMock(return_value=_employee_entity())
         repos["absence_repo"].find_by_employee_id = AsyncMock(return_value=[])
         repos["capacity_repo"].find_by_employee_id = AsyncMock(return_value=[])
@@ -421,7 +419,7 @@ class TestCreateEmployee:
     async def test_empty_internal_hours_does_not_crash(
         self, repos: dict[str, AsyncMock]
     ) -> None:
-        state = TeamState()  # type: ignore[call-arg]
+        state = TeamState()
         repos["employee_repo"].find_all_paginated = AsyncMock(return_value=[])
         with _as_user(state):
             items = await _run(state.create_employee, _form(internal_hours=""))
@@ -433,17 +431,19 @@ class TestCreateEmployee:
     async def test_loads_employees_with_explicit_limit(
         self, repos: dict[str, AsyncMock]
     ) -> None:
-        state = TeamState()  # type: ignore[call-arg]
+        state = TeamState()
         repos["employee_repo"].find_all_paginated = AsyncMock(return_value=[])
         await state._load_employees()
 
-        kwargs = repos["employee_repo"].find_all_paginated.await_args.kwargs
+        await_args = repos["employee_repo"].find_all_paginated.await_args
+        assert await_args is not None
+        kwargs = await_args.kwargs
         assert kwargs["limit"] > 200
 
 
 class TestUpdateEmployee:
     async def test_rejects_self_as_manager(self, repos: dict[str, AsyncMock]) -> None:
-        state = TeamState()  # type: ignore[call-arg]
+        state = TeamState()
         state.selected_employee = Employee(id=7, first_name="A", last_name="B")
         with _as_user(state):
             items = await _run(state.update_employee, _form(manager_id="7"))
@@ -454,7 +454,7 @@ class TestUpdateEmployee:
     async def test_empty_internal_hours_does_not_crash(
         self, repos: dict[str, AsyncMock]
     ) -> None:
-        state = TeamState()  # type: ignore[call-arg]
+        state = TeamState()
         state.selected_employee = Employee(id=7, first_name="A", last_name="B")
         entity = _employee_entity()
         repos["employee_repo"].find_by_id = AsyncMock(return_value=entity)
@@ -467,7 +467,7 @@ class TestUpdateEmployee:
 
 class TestEmployeeSelectOptions:
     def test_excludes_selected_employee(self) -> None:
-        state = TeamState()  # type: ignore[call-arg]
+        state = TeamState()
         state.employees = [
             Employee(id=1, first_name="A", last_name="One"),
             Employee(id=2, first_name="B", last_name="Two"),
@@ -476,7 +476,7 @@ class TestEmployeeSelectOptions:
         assert [o["value"] for o in state.employee_select_options] == ["2"]
 
     def test_open_add_modal_clears_stale_selection(self) -> None:
-        state = TeamState()  # type: ignore[call-arg]
+        state = TeamState()
         state.selected_employee = Employee(id=1, first_name="A", last_name="One")
         state.open_add_modal()
         assert state.selected_employee is None
@@ -490,7 +490,7 @@ class TestEmployeeSelectOptions:
 
 class TestCreateAbsence:
     def _state(self, date_range: list[str]) -> TeamState:
-        state = TeamState()  # type: ignore[call-arg]
+        state = TeamState()
         state.selected_employee = Employee(id=7, first_name="A", last_name="B")
         state.absence_date_range = date_range
         return state

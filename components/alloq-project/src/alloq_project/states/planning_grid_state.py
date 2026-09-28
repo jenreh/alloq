@@ -129,56 +129,58 @@ class PlanningStore(UserSession):
 
     # === Entity caches ===
 
-    available_projects: list[Project] = []
-    all_projects: list[Project] = []
-    available_employees: list[Employee] = []
-    available_roles: list[Role] = []
-    is_loading: bool = False
+    available_projects: rx.Field[list[Project]] = rx.field(default_factory=list)
+    all_projects: rx.Field[list[Project]] = rx.field(default_factory=list)
+    available_employees: rx.Field[list[Employee]] = rx.field(default_factory=list)
+    available_roles: rx.Field[list[Role]] = rx.field(default_factory=list)
+    is_loading: rx.Field[bool] = rx.field(False)
 
     # === Grid + view state ===
 
-    weeks: list[WeekColumn] = []
-    month_spans: list[MonthSpan] = []
-    holiday_dates: list[datetime.date] = []
-    is_loaded: bool = False
+    weeks: rx.Field[list[WeekColumn]] = rx.field(default_factory=list)
+    month_spans: rx.Field[list[MonthSpan]] = rx.field(default_factory=list)
+    holiday_dates: rx.Field[list[datetime.date]] = rx.field(default_factory=list)
+    is_loaded: rx.Field[bool] = rx.field(False)
 
-    cells: dict[str, float] = {}
-    saved_cells: dict[str, float] = {}
-    dirty_keys: list[str] = []
+    cells: rx.Field[dict[str, float]] = rx.field(default_factory=dict)
+    saved_cells: rx.Field[dict[str, float]] = rx.field(default_factory=dict)
+    dirty_keys: rx.Field[list[str]] = rx.field(default_factory=list)
     # Unsaved edits whose row/week is not part of the loaded time range.
-    hidden_edits: dict[str, float] = {}
-    grid_revision: int = 0
+    hidden_edits: rx.Field[dict[str, float]] = rx.field(default_factory=dict)
+    grid_revision: rx.Field[int] = rx.field(0)
 
-    employee_meta: list[dict[str, Any]] = []
-    project_meta: list[dict[str, Any]] = []
-    role_lookup: dict[str, str] = {}
-    role_id_lookup: dict[str, int] = {}
+    employee_meta: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
+    project_meta: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
+    role_lookup: rx.Field[dict[str, str]] = rx.field(default_factory=dict)
+    role_id_lookup: rx.Field[dict[str, int]] = rx.field(default_factory=dict)
     # cell key -> role id of the stored row the cell shows (backend only)
     _cell_role_ids: dict[str, int] = {}
-    absence_days: dict[str, list[float]] = {}
+    absence_days: rx.Field[dict[str, list[float]]] = rx.field(default_factory=dict)
 
-    view_mode: str = "Grid"
-    time_range: str = "3 Monate"
-    is_saving: bool = False
+    view_mode: rx.Field[str] = rx.field("Grid")
+    time_range: rx.Field[str] = rx.field("3 Monate")
+    is_saving: rx.Field[bool] = rx.field(False)
 
-    project_filter: list[str] = []
-    role_filter: list[str] = []
-    employee_filter: list[str] = []
-    project_scope: bool = False
-    employee_scope: bool = False
-    current_employee_id: int | None = None
-    current_week: str = ""
+    project_filter: rx.Field[list[str]] = rx.field(default_factory=list)
+    role_filter: rx.Field[list[str]] = rx.field(default_factory=list)
+    employee_filter: rx.Field[list[str]] = rx.field(default_factory=list)
+    project_scope: rx.Field[bool] = rx.field(False)
+    employee_scope: rx.Field[bool] = rx.field(False)
+    current_employee_id: rx.Field[int | None] = rx.field(None)
+    current_week: rx.Field[str] = rx.field("")
 
-    collapsed_employees: list[str] = []
-    collapsed_projects: list[str] = []
+    collapsed_employees: rx.Field[list[str]] = rx.field(default_factory=list)
+    collapsed_projects: rx.Field[list[str]] = rx.field(default_factory=list)
 
-    add_project_emp_id: str = ""
-    add_project_options: list[dict[str, str]] = []
-    add_project_role_options: list[dict[str, str]] = []
-    add_project_selected: str = ""
-    quick_project_name: str = ""
-    quick_project_code: str = ""
-    is_quick_creating: bool = False
+    add_project_emp_id: rx.Field[str] = rx.field("")
+    add_project_options: rx.Field[list[dict[str, str]]] = rx.field(default_factory=list)
+    add_project_role_options: rx.Field[list[dict[str, str]]] = rx.field(
+        default_factory=list
+    )
+    add_project_selected: rx.Field[str] = rx.field("")
+    quick_project_name: rx.Field[str] = rx.field("")
+    quick_project_code: rx.Field[str] = rx.field("")
+    is_quick_creating: rx.Field[bool] = rx.field(False)
 
     # === Setters ===
 

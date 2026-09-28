@@ -1,7 +1,8 @@
 import logging
 from datetime import date
+from typing import Any, cast
 
-from sqlalchemy import Row, and_, delete, func, select
+from sqlalchemy import CursorResult, Row, and_, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from alloq_commons.entities import CapacityAllocationEntity, RoleEntity
@@ -183,7 +184,7 @@ class CapacityAllocationRepository(
             )
         )
         await session.flush()
-        return result.rowcount > 0
+        return cast("CursorResult[Any]", result).rowcount > 0
 
     async def delete_for_project_employee_in_range(
         self,
@@ -208,7 +209,7 @@ class CapacityAllocationRepository(
             delete(CapacityAllocationEntity).where(and_(*conditions))
         )
         await session.flush()
-        return result.rowcount
+        return cast("CursorResult[Any]", result).rowcount
 
     async def upsert_cell(
         self,

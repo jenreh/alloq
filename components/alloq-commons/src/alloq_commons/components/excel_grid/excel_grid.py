@@ -49,9 +49,9 @@ class ExcelGrid(rx.Component):
     leave_discard_label: Var[str]
     leave_save_label: Var[str]
 
-    on_commit: EventHandler[passthrough_event_spec(list[dict[str, Any]])]
-    on_reject: EventHandler[passthrough_event_spec(int)]
-    on_save: EventHandler[no_args_event_spec]
+    on_commit: EventHandler[passthrough_event_spec(list[dict[str, Any]])]  # ty: ignore[invalid-type-form]
+    on_reject: EventHandler[passthrough_event_spec(int)]  # ty: ignore[invalid-type-form]
+    on_save: EventHandler[no_args_event_spec]  # ty: ignore[invalid-type-form]
 
 
 excel_grid = ExcelGrid.create

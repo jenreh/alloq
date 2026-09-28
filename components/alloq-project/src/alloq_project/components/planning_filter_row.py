@@ -58,7 +58,7 @@ def planning_filter_row() -> rx.Component:
         # Project filter
         mn.multi_select(
             data=PlanningStore.project_select_options,
-            value=PlanningStore.project_filter,
+            value=PlanningStore.project_filter.to(list[str]),
             on_change=PlanningStore.set_project_filter,
             placeholder="Projekte",
             searchable=True,
@@ -70,7 +70,7 @@ def planning_filter_row() -> rx.Component:
         # Role filter
         mn.multi_select(
             data=PlanningStore.role_select_options,
-            value=PlanningStore.role_filter,
+            value=PlanningStore.role_filter.to(list[str]),
             on_change=PlanningStore.set_role_filter,
             placeholder="Rollen",
             searchable=True,
@@ -82,7 +82,7 @@ def planning_filter_row() -> rx.Component:
         # Employee filter
         mn.multi_select(
             data=PlanningStore.employee_select_options,
-            value=PlanningStore.employee_filter,
+            value=PlanningStore.employee_filter.to(list[str]),
             on_change=PlanningStore.set_employee_filter,
             placeholder="Mitarbeiter",
             searchable=True,

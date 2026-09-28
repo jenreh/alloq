@@ -9,15 +9,17 @@ from alloq_commons.components import (
 from alloq_commons.components.formatters import format_date_de
 from alloq_commons.entities.risk import RiskMitigationStatus
 from alloq_project.states.project_state import ProjectState
+from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
 from alloq_dashboard.components.kpi_card import kpi_card
+from alloq_dashboard.models import RiskKpi
 from alloq_dashboard.states import RiskState
 
 CRITICAL_RISK_SCORE = 25
 
 
-def _risk_row(risk: rx.Var) -> rx.Component:
+def _risk_row(risk: ObjectVar) -> rx.Component:
     return mn.group(
         mn.avatar(
             risk.score.to_string(),
@@ -85,7 +87,7 @@ def _risk_row(risk: rx.Var) -> rx.Component:
 
 
 def top_risks_card() -> rx.Component:
-    data = RiskState.data
+    data = RiskState.data.to(RiskKpi)
     body = mn.box(
         rx.cond(
             data.top_open.length() > 0,

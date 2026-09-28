@@ -82,32 +82,33 @@ def _parse_date_range(values: list[str]) -> tuple[date, date] | None:
 class TeamState(UserSession):
     """State for team member management."""
 
-    employees: list[Employee] = []
-    selected_employee: Employee | None = None
-    absences: list[Absence] = []
-    available_roles: list[Role] = []
-    is_loading: bool = False
+    employees: rx.Field[list[Employee]] = rx.field(default_factory=list)
+    selected_employee: rx.Field[Employee | None] = rx.field(None)
+    absences: rx.Field[list[Absence]] = rx.field(default_factory=list)
+    available_roles: rx.Field[list[Role]] = rx.field(default_factory=list)
+    is_loading: rx.Field[bool] = rx.field(False)
 
-    current_user_email: str = ""
-    current_employee_id: int | None = None
+    current_user_email: rx.Field[str] = rx.field("")
+    current_employee_id: rx.Field[int | None] = rx.field(None)
 
-    add_modal_open: bool = False
-    detail_drawer_open: bool = False
-    absence_modal_open: bool = False
-    absence_date_range: list[str] = []
+    add_modal_open: rx.Field[bool] = rx.field(False)
+    detail_drawer_open: rx.Field[bool] = rx.field(False)
+    absence_modal_open: rx.Field[bool] = rx.field(False)
+    absence_date_range: rx.Field[list[str]] = rx.field(default_factory=list)
 
-    search_filter: str = ""
+    search_filter: rx.Field[str] = rx.field("")
     view_mode: str = rx.LocalStorage(VIEW_MODE_GRID, name="alloq_team_view_mode")
-    expanded_sections: list[str] = []
+    expanded_sections: rx.Field[list[str]] = rx.field(default_factory=list)
 
-    all_projects: list[Project] = []
-    employee_capacities: list[Capacity] = []
-    add_project_modal_open: bool = False
-    add_project_selected: str = ""
-    quick_project_name: str = ""
-    quick_project_code: str = ""
-    is_quick_creating: bool = False
+    all_projects: rx.Field[list[Project]] = rx.field(default_factory=list)
+    employee_capacities: rx.Field[list[Capacity]] = rx.field(default_factory=list)
+    add_project_modal_open: rx.Field[bool] = rx.field(False)
+    add_project_selected: rx.Field[str] = rx.field("")
+    quick_project_name: rx.Field[str] = rx.field("")
+    quick_project_code: rx.Field[str] = rx.field("")
+    is_quick_creating: rx.Field[bool] = rx.field(False)
 
+    @rx.event
     def toggle_section_expanded(self, section_key: str) -> None:
         """Toggle the expanded state of all cards in an employee section."""
         if section_key in self.expanded_sections:
@@ -122,14 +123,17 @@ class TeamState(UserSession):
         """Get the current date as an ISO string for form boundaries."""
         return datetime.now(tz=UTC).date().isoformat()
 
+    @rx.event
     def set_absence_date_range(self, value: list[str]) -> None:
         """Set the absence date range."""
         self.absence_date_range = value
 
+    @rx.event
     def set_search_filter(self, value: str) -> None:
         """Update the search filter."""
         self.search_filter = value
 
+    @rx.event
     def set_view_mode(self, mode: str) -> None:
         """Switch between grid and table view; unknown modes are ignored."""
         if mode in VIEW_MODES:
@@ -223,14 +227,17 @@ class TeamState(UserSession):
         """True while the inline quick-create fields should be shown."""
         return self.add_project_selected == NEW_PROJECT_VALUE
 
+    @rx.event
     def set_add_project_selected(self, value: str) -> None:
         """Store the selected project option."""
         self.add_project_selected = value or ""
 
+    @rx.event
     def set_quick_project_name(self, value: str) -> None:
         """Store the typed name for the project to be quick-created."""
         self.quick_project_name = value
 
+    @rx.event
     def set_quick_project_code(self, value: str) -> None:
         """Store the typed code for the project to be quick-created."""
         self.quick_project_code = value
@@ -242,6 +249,7 @@ class TeamState(UserSession):
         self.quick_project_code = ""
         self.is_quick_creating = False
 
+    @rx.event
     @requires_admin
     async def open_add_project_modal(self) -> AsyncGenerator[Any]:
         """Open the add-project-to-employee modal and load the project options."""
@@ -250,33 +258,39 @@ class TeamState(UserSession):
         yield
         await self._load_all_projects()
 
+    @rx.event
     def close_add_project_modal(self) -> None:
         """Close the add-project-to-employee modal."""
         self.add_project_modal_open = False
         self._reset_quick_create()
 
-    def open_add_modal(self) -> list[rx.event.EventSpec]:
+    @rx.event
+    def open_add_modal(self) -> list[Any]:
         """Open the add employee modal."""
         # A stale selection would be excluded from the e-mail uniqueness check.
         self.selected_employee = None
         self.add_modal_open = True
         return [EmployeeValidationState.initialize()]
 
+    @rx.event
     def close_add_modal(self) -> None:
         """Close the add employee modal."""
         self.add_modal_open = False
 
+    @rx.event
     def close_detail_drawer(self) -> None:
         """Close the detail drawer."""
         self.detail_drawer_open = False
         self.selected_employee = None
         self.absences = []
 
+    @rx.event
     def open_absence_modal(self) -> None:
         """Open the absence add modal."""
         self.absence_date_range = []
         self.absence_modal_open = True
 
+    @rx.event
     def close_absence_modal(self) -> None:
         """Close the absence modal."""
         self.absence_modal_open = False
@@ -309,6 +323,7 @@ class TeamState(UserSession):
             entities = await role_repo.find_all_paginated(session)
             self.available_roles = [Role(**e.to_dict()) for e in entities]
 
+    @rx.event
     @requires_admin
     async def load_employees(self) -> AsyncGenerator[Any]:
         """Load all employees from the database."""
@@ -326,6 +341,7 @@ class TeamState(UserSession):
         finally:
             self.is_loading = False
 
+    @rx.event
     @requires_admin
     async def select_employee(self, employee_id: int) -> AsyncGenerator[Any]:
         """Select an employee and open detail drawer."""
@@ -333,7 +349,8 @@ class TeamState(UserSession):
         try:
             employee = await self._open_employee_details(employee_id)
             if employee:
-                yield EmployeeValidationState.initialize(
+                # Reflex types handler calls as positional-only; kwargs are valid.
+                yield EmployeeValidationState.initialize(  # ty: ignore[no-matching-overload]
                     employee=employee,
                     default_role_ids=[str(r) for r in employee.role_ids],
                 )
@@ -364,6 +381,7 @@ class TeamState(UserSession):
         await self._load_employee_capacities(employee_id)
         return employee
 
+    @rx.event
     @requires_admin
     async def select_employee_and_add_absence(
         self, employee_id: int
@@ -376,6 +394,7 @@ class TeamState(UserSession):
                 self.open_absence_modal()
                 yield
 
+    @rx.event
     @requires_admin
     async def create_employee(self, form_data: dict) -> AsyncGenerator[Any]:
         """Create a new employee from form submission."""
@@ -414,6 +433,7 @@ class TeamState(UserSession):
                 "Mitarbeiter konnte nicht erstellt werden.", position="top-right"
             )
 
+    @rx.event
     @requires_admin
     async def update_employee(self, form_data: dict) -> AsyncGenerator[Any]:
         """Update an existing employee from form submission."""
@@ -466,6 +486,7 @@ class TeamState(UserSession):
                 "Mitarbeiter konnte nicht aktualisiert werden.", position="top-right"
             )
 
+    @rx.event
     @requires_admin
     async def delete_employee(self, employee_id: int) -> AsyncGenerator[Any]:
         """Delete an employee by ID."""
@@ -492,6 +513,7 @@ class TeamState(UserSession):
                 "Mitarbeiter konnte nicht gelöscht werden.", position="top-right"
             )
 
+    @rx.event
     @requires_admin
     async def create_absence(self, form_data: dict) -> AsyncGenerator[Any]:
         """Create a new absence for the selected employee."""
@@ -562,6 +584,7 @@ class TeamState(UserSession):
                 "Abwesenheit konnte nicht eingetragen werden.", position="top-right"
             )
 
+    @rx.event
     @requires_admin
     async def delete_absence(self, absence_id: int) -> AsyncGenerator[Any]:
         """Delete an absence by ID."""
@@ -596,6 +619,7 @@ class TeamState(UserSession):
             entities = await capacity_repo.find_by_employee_id(session, employee_id)
             self.employee_capacities = [Capacity(**e.to_dict()) for e in entities]
 
+    @rx.event
     @requires_admin
     async def assign_project_to_employee(self, form_data: dict) -> AsyncGenerator[Any]:
         """Assign a project to the selected employee."""
@@ -660,6 +684,7 @@ class TeamState(UserSession):
                 "Projekt konnte nicht zugewiesen werden.", position="top-right"
             )
 
+    @rx.event
     @requires_admin
     async def quick_create_project(self) -> AsyncGenerator[Any]:
         """Create a project from the inline fields and select it."""
@@ -690,6 +715,7 @@ class TeamState(UserSession):
         self.is_quick_creating = False
         yield rx.toast.info(f"Projekt '{project.code}' angelegt.", position="top-right")
 
+    @rx.event
     @requires_admin
     async def remove_project_from_employee(
         self, project_id: int
@@ -728,25 +754,25 @@ class TeamState(UserSession):
 class EmployeeValidationState(rx.State):
     """Validation state for employee add/edit forms."""
 
-    form_version: int = 0
+    form_version: rx.Field[int] = rx.field(0)
 
-    first_name: str = ""
-    last_name: str = ""
-    email: str = ""
-    job_title: str = ""
-    location: str = ""
-    manager_id: str = ""
-    seniority: str = ""
-    role_ids: list[str] = []
-    hours_per_week: str = "40.0"
-    internal_hours: str = "4"
+    first_name: rx.Field[str] = rx.field("")
+    last_name: rx.Field[str] = rx.field("")
+    email: rx.Field[str] = rx.field("")
+    job_title: rx.Field[str] = rx.field("")
+    location: rx.Field[str] = rx.field("")
+    manager_id: rx.Field[str] = rx.field("")
+    seniority: rx.Field[str] = rx.field("")
+    role_ids: rx.Field[list[str]] = rx.field(default_factory=list)
+    hours_per_week: rx.Field[str] = rx.field("40.0")
+    internal_hours: rx.Field[str] = rx.field("4")
 
-    first_name_error: str = ""
-    last_name_error: str = ""
-    email_error: str = ""
-    role_ids_error: str = ""
-    hours_per_week_error: str = ""
-    internal_hours_error: str = ""
+    first_name_error: rx.Field[str] = rx.field("")
+    last_name_error: rx.Field[str] = rx.field("")
+    email_error: rx.Field[str] = rx.field("")
+    role_ids_error: rx.Field[str] = rx.field("")
+    hours_per_week_error: rx.Field[str] = rx.field("")
+    internal_hours_error: rx.Field[str] = rx.field("")
 
     @rx.event
     def initialize(
@@ -791,38 +817,48 @@ class EmployeeValidationState(rx.State):
 
         self.form_version += 1
 
+    @rx.event
     def set_first_name(self, value: str) -> None:
         self.first_name = value
         self.validate_first_name()
 
+    @rx.event
     def set_last_name(self, value: str) -> None:
         self.last_name = value
         self.validate_last_name()
 
+    @rx.event
     def set_email(self, value: str) -> None:
         self.email = value
         self.validate_email()
 
+    @rx.event
     def set_job_title(self, value: str) -> None:
         self.job_title = value
 
+    @rx.event
     def set_location(self, value: str) -> None:
         self.location = value
 
+    @rx.event
     def set_manager_id(self, value: str | None) -> None:
         self.manager_id = value or ""
 
+    @rx.event
     def set_seniority(self, value: str) -> None:
         self.seniority = value
 
+    @rx.event
     def set_role_ids(self, value: list[str]) -> None:
         self.role_ids = value
         self.validate_role_ids()
 
+    @rx.event
     def set_hours_per_week(self, value: str | float) -> None:
         self.hours_per_week = str(value)
         self.validate_hours_per_week()
 
+    @rx.event
     def set_internal_hours(self, value: str | int) -> None:
         self.internal_hours = str(value)
         self.validate_internal_hours()

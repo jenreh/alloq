@@ -70,7 +70,7 @@ class _Planner:
     """Drives PlanningStore._populate with a fake DB."""
 
     def __init__(self) -> None:
-        self.state = PlanningStore()  # type: ignore[call-arg]
+        self.state = PlanningStore()
         self.state.available_employees = [
             Employee(
                 id=1,
@@ -209,6 +209,8 @@ class TestTimeRangeKeepsEdits:
             ) as upsert,
         ):
             await _drain(state.save_grid())
+
+        assert upsert.await_args is not None
 
         rows = upsert.await_args.args[1]
         saved = {(r["week_start"].isoformat(), r["person_days"]) for r in rows}

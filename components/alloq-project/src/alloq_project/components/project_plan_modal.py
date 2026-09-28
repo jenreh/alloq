@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 import reflex as rx
 from alloq_commons.components.formatters import de_number, format_date_de
 from alloq_commons.components.modal_layout import MODAL_CLASS
 from alloq_commons.models.project import Project
 from alloq_project.states.project_plan_state import ProjectPlanState
+from reflex.event import EventType
+from reflex.vars import NumberVar, ObjectVar
 
 import appkit_mantine as mn
 
@@ -22,7 +26,7 @@ def _status_badge(state_var: rx.Var[str]) -> rx.Component:
         size="sm",
         radius="xl",
         variant="light",
-        color=rx.match(state_var, *colors, "gray"),
+        color=cast("rx.Var[str]", rx.match(state_var, *colors, "gray")),
         left_section=mn.box(
             style={
                 "width": "6px",
@@ -38,7 +42,7 @@ def _status_badge(state_var: rx.Var[str]) -> rx.Component:
     )
 
 
-def _project_card(project: Project) -> rx.Component:
+def _project_card(project: ObjectVar[Project]) -> rx.Component:
     return mn.box(
         mn.group(
             mn.stack(
@@ -68,7 +72,7 @@ def _project_card(project: Project) -> rx.Component:
             wrap="nowrap",
             w="100%",
         ),
-        on_click=ProjectPlanState.select_project(project.id),
+        on_click=ProjectPlanState.select_project(project.id),  # ty: ignore[invalid-argument-type]
         style={
             "padding": "12px 16px",
             "cursor": "pointer",
@@ -133,14 +137,14 @@ def _info_card(label: str, value: rx.Var[str] | str) -> rx.Component:
 def _editable_card(
     label: str,
     value: rx.Var,
-    on_change: rx.event.EventHandler,
+    on_change: EventType[Any],
     min_: int = 0,
     step: int = 1,
     *,
     commit_on_blur: bool = False,
 ) -> rx.Component:
     # Committing on blur avoids a server round trip (and snap-back) per keystroke.
-    value_props = (
+    value_props: dict[str, Any] = (
         {"default_value": value, "key": value.to_string(), "on_blur": on_change}
         if commit_on_blur
         else {"value": value, "on_change": on_change}
@@ -170,7 +174,7 @@ def _editable_card(
     )
 
 
-def _bar(value: rx.Var[float]) -> rx.Component:
+def _bar(value: NumberVar) -> rx.Component:
     return mn.box(
         style={
             "flex": "1",
@@ -288,7 +292,7 @@ def _ramp_card(
     *,
     label: str,
     value: rx.Var,
-    on_change: rx.event.EventHandler,
+    on_change: EventType[Any],
     max_var: rx.Var,
     left_label: str,
     right_label: str,
@@ -350,7 +354,7 @@ def _capacity_card() -> rx.Component:
                 align="center",
             ),
             mn.slider(
-                value=ProjectPlanState.gtk_count,
+                value=ProjectPlanState.gtk_count.to(float),
                 on_change=ProjectPlanState.set_gtk_count,
                 min=0.5,
                 max=30,
@@ -867,13 +871,16 @@ def _stepper() -> rx.Component:
 
 
 def _content() -> rx.Component:
-    return rx.match(
-        ProjectPlanState.step,
-        (0, _step_project_select()),
-        (1, _step_verteilung()),
-        (2, _step_mitarbeiter()),
-        (3, _step_preview()),
-        rx.fragment(),
+    return cast(
+        "rx.Component",
+        rx.match(
+            ProjectPlanState.step,
+            (0, _step_project_select()),
+            (1, _step_verteilung()),
+            (2, _step_mitarbeiter()),
+            (3, _step_preview()),
+            rx.fragment(),
+        ),
     )
 
 

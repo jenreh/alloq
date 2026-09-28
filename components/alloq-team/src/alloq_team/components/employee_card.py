@@ -1,15 +1,16 @@
 import reflex as rx
+from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.formatters import format_date_de
 from alloq_commons.models.employee import Employee
 from alloq_team.states.team_state import TeamState
+from reflex.vars import ArrayVar, ObjectVar
 
 import appkit_mantine as mn
-from appkit_ui.components.dialogs import delete_dialog
 from appkit_ui.global_states import LoadingState
 
 
 def _card_header(
-    employee: Employee, section_key: str, is_expanded: rx.Var[bool]
+    employee: ObjectVar[Employee], section_key: str, is_expanded: rx.Var[bool]
 ) -> rx.Component:
     """Header: avatar on left, two rows (name+actions, job title) on right."""
     return mn.group(
@@ -28,7 +29,7 @@ def _card_header(
                         delete_dialog(
                             title="Mitarbeiter löschen",
                             content=f"{employee.first_name} {employee.last_name}",
-                            on_click=TeamState.delete_employee(employee.id),
+                            on_click=TeamState.delete_employee(employee.id),  # ty: ignore[invalid-argument-type]
                             icon_button=True,
                             color="red",
                             variant="subtle",
@@ -75,7 +76,7 @@ def _card_header(
     )
 
 
-def _employee_initials(employee: Employee) -> rx.Component:
+def _employee_initials(employee: ObjectVar[Employee]) -> rx.Component:
     """Avatar with initials."""
     return mn.avatar(
         name=f"{employee.first_name} {employee.last_name}",
@@ -85,7 +86,7 @@ def _employee_initials(employee: Employee) -> rx.Component:
     )
 
 
-def _role_tags(employee: Employee) -> rx.Component:
+def _role_tags(employee: ObjectVar[Employee]) -> rx.Component:
     """Show roles as skills tags."""
     return mn.stack(
         mn.text("Rollen", size="sm", c="dimmed", fw="500"),
@@ -112,7 +113,7 @@ def _role_tags(employee: Employee) -> rx.Component:
     )
 
 
-def _absence_list(employee: Employee) -> rx.Component:
+def _absence_list(employee: ObjectVar[Employee]) -> rx.Component:
     """Abwesenheiten als Liste mit farbigen Indikatoren."""
     return mn.stack(
         mn.group(
@@ -124,7 +125,7 @@ def _absence_list(employee: Employee) -> rx.Component:
                 color="gray",
                 on_click=[
                     rx.stop_propagation,
-                    TeamState.select_employee_and_add_absence(employee.id),
+                    TeamState.select_employee_and_add_absence(employee.id),  # ty: ignore[invalid-argument-type]
                 ],
             ),
             align="center",
@@ -195,7 +196,7 @@ def _absence_list(employee: Employee) -> rx.Component:
     )
 
 
-def employee_card(employee: Employee, section_key: str) -> rx.Component:
+def employee_card(employee: ObjectVar[Employee], section_key: str) -> rx.Component:
     """Single employee card for grid view."""
     is_expanded = TeamState.expanded_sections.contains(section_key)
     return mn.box(
@@ -237,12 +238,14 @@ def employee_card(employee: Employee, section_key: str) -> rx.Component:
         },
         on_click=[
             LoadingState.set_is_loading(True),
-            TeamState.select_employee(employee.id),
+            TeamState.select_employee(employee.id),  # ty: ignore[invalid-argument-type]
         ],
     )
 
 
-def _employee_section(title: str, employees: rx.Var, section_key: str) -> rx.Component:
+def _employee_section(
+    title: str, employees: ArrayVar, section_key: str
+) -> rx.Component:
     """Helper to render a titled section of employee cards."""
     return rx.cond(
         employees.length() > 0,

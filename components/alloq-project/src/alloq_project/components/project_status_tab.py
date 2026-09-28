@@ -1,11 +1,13 @@
 import reflex as rx
 from alloq_commons.components import de_number
+from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.formatters import format_date_de
 from alloq_commons.components.forms import section
+from alloq_project.services.forecast import EVSummary
 from alloq_project.states.project_state import ProjectState
+from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
-from appkit_ui.components.dialogs import delete_dialog
 
 
 def _summary_cell(
@@ -34,7 +36,7 @@ def _summary_cell(
 
 def _ev_summary() -> rx.Component:
     """Row of final EV figures (BAC/EV/AC) and EAC forecasts."""
-    summary = ProjectState.ev_summary
+    summary = ProjectState.ev_summary.to(EVSummary)
     return rx.cond(
         summary.has_data,
         mn.simple_grid(
@@ -201,7 +203,7 @@ def _status_edit_form() -> rx.Component:
     )
 
 
-def _history_row(status: rx.Var) -> rx.Component:
+def _history_row(status: ObjectVar) -> rx.Component:
     """Render one row of the status history table with inline edit support."""
     is_expanded = ProjectState.expanded_status_id == status.id
     return mn.box(
@@ -368,7 +370,7 @@ def _status_form() -> rx.Component:
             ),
             mn.button(
                 "Status erfassen",
-                on_click=ProjectState.add_project_status(
+                on_click=ProjectState.add_project_status(  # ty: ignore[invalid-argument-type]
                     ProjectState.status_form_version
                 ),
                 size="sm",

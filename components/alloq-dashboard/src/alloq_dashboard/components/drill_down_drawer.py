@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import cast
 
 import reflex as rx
 from alloq_commons.components import ROW_STYLE
 from alloq_commons.components.formatters import de_number, format_date_de
 from alloq_commons.components.forms import section
 from alloq_commons.components.modal_layout import DRAWER_CLASS
+from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
+from alloq_dashboard.models import BudgetBurnKpi, UtilizationKpi
 from alloq_dashboard.states import (
     BudgetBurnState,
     DashboardState,
@@ -45,7 +48,7 @@ def _absence_badge() -> rx.Component:
     )
 
 
-def _current_utilization_badge(emp: rx.Var) -> rx.Component:
+def _current_utilization_badge(emp: ObjectVar) -> rx.Component:
     return rx.cond(
         emp.current_week_is_absent,
         _absence_badge(),
@@ -77,12 +80,12 @@ def _free_hours_line(hours: rx.Var) -> rx.Component:
 
 
 def _employee_bucket_sections(
-    row_fn: Callable[[rx.Var], rx.Component],
+    row_fn: Callable[[ObjectVar], rx.Component],
     noun: str,
 ) -> list[rx.Component]:
     """Render Überlastet / Gut ausgelastet / Defizit / Abwesend sections."""
     # Counts and rows come from the same payload so they can never disagree.
-    data = UtilizationState.data
+    data = UtilizationState.data.to(UtilizationKpi)
     return [
         section(
             mn.text("Überlastet (> 100%)", size="sm", fw="600"),
@@ -151,7 +154,7 @@ def _employee_bucket_sections(
     ]
 
 
-def _employee_util_row(emp: rx.Var) -> rx.Component:
+def _employee_util_row(emp: ObjectVar) -> rx.Component:
     return mn.group(
         mn.stack(
             mn.text(emp.name, size="sm", fw="600"),
@@ -173,7 +176,7 @@ def _employee_util_row(emp: rx.Var) -> rx.Component:
 
 
 def _utilization_body() -> rx.Component:
-    data = UtilizationState.data
+    data = UtilizationState.data.to(UtilizationKpi)
     return mn.stack(
         section(
             mn.text(
@@ -260,7 +263,7 @@ def _ev_stat_cell(
     )
 
 
-def _ev_project_row(p: rx.Var) -> rx.Component:
+def _ev_project_row(p: ObjectVar) -> rx.Component:
     return mn.stack(
         mn.group(
             mn.text(
@@ -310,7 +313,7 @@ def _ev_project_row(p: rx.Var) -> rx.Component:
 
 
 def _earned_value_body() -> rx.Component:
-    rows = BudgetBurnState.data.rows
+    rows = BudgetBurnState.data.to(BudgetBurnKpi).rows
     return mn.stack(
         # mn.text("Aktive Projekte", size="sm", fw="600", p="6px 18px"),
         rx.cond(
@@ -337,11 +340,14 @@ def _earned_value_body() -> rx.Component:
 
 
 def _drill_title(key: rx.Var[str]) -> rx.Var[str]:
-    return rx.match(
-        key,
-        (DRILL_UTILIZATION, "Auslastung"),
-        (DRILL_EARNED_VALUE, "Budget Prognosen (aktive Projekte)"),
-        "Details",
+    return cast(
+        "rx.Var[str]",
+        rx.match(
+            key,
+            (DRILL_UTILIZATION, "Auslastung"),
+            (DRILL_EARNED_VALUE, "Budget Prognosen (aktive Projekte)"),
+            "Details",
+        ),
     )
 
 

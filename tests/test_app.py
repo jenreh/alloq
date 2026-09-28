@@ -1,6 +1,9 @@
 """Tests for app.app module."""
 
+from collections.abc import Sequence
 from unittest.mock import MagicMock, patch
+
+from starlette.types import Receive, Scope, Send
 
 from appkit_commons.middleware import ForceHTTPSMiddleware
 from appkit_user.authentication import add_session_guard
@@ -43,7 +46,7 @@ class TestAddHttpsMiddleware:
     async def test_ignores_forwarded_proto_from_untrusted_peer(self) -> None:
         seen: dict[str, str] = {}
 
-        async def _inner(scope: dict, _receive: object, _send: object) -> None:
+        async def _inner(scope: Scope, _receive: Receive, _send: Send) -> None:
             seen["scheme"] = scope["scheme"]
 
         with patch(
@@ -69,10 +72,14 @@ class TestAppConfigTrustedProxies:
 
 class TestAppWiring:
     def test_session_guard_installed(self) -> None:
-        assert add_session_guard in app_module.app.api_transformer
+        transformers = app_module.app.api_transformer
+        assert isinstance(transformers, Sequence)
+        assert add_session_guard in transformers
 
     def test_https_middleware_installed(self) -> None:
-        assert add_https_middleware in app_module.app.api_transformer
+        transformers = app_module.app.api_transformer
+        assert isinstance(transformers, Sequence)
+        assert add_https_middleware in transformers
 
     def test_session_filter_installed(self) -> None:
         middlewares = app_module.app._middlewares

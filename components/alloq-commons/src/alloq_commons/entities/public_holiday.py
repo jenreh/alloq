@@ -1,5 +1,5 @@
+import datetime
 import logging
-from datetime import date
 
 from sqlalchemy import Boolean, Date, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -15,7 +15,7 @@ class PublicHolidayEntity(Entity, Base):
     __tablename__ = "public_holidays"
 
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    date: Mapped[datetime.date] = mapped_column(Date, nullable=False, index=True)
     is_recurring: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     state_code: Mapped[str] = mapped_column(
         String(10), nullable=False, default="NRW", index=True

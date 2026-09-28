@@ -1,5 +1,6 @@
 import reflex as rx
 from alloq_commons.components.modal_layout import DRAWER_CLASS, MODAL_CLASS
+from alloq_commons.models.project import Project
 from alloq_commons.models.view_mode import VIEW_MODE_GRID
 from alloq_project.components.project_card import project_card
 from alloq_project.components.project_form import (
@@ -12,6 +13,7 @@ from alloq_project.components.project_risk_tab import risiken_tab
 from alloq_project.components.project_status_tab import status_tab
 from alloq_project.components.project_table import project_table
 from alloq_project.states.project_state import ProjectState, ProjectValidationState
+from reflex.vars import ArrayVar
 
 import appkit_mantine as mn
 
@@ -105,7 +107,7 @@ def project_detail_drawer() -> rx.Component:
         ),
         title=rx.cond(
             ProjectState.selected_project,
-            ProjectState.selected_project.name_de,
+            ProjectState.selected_project.to(Project).name_de,
             "Projekt Details",
         ),
         opened=ProjectState.detail_drawer_open,
@@ -121,7 +123,7 @@ def project_detail_drawer() -> rx.Component:
     )
 
 
-def _project_section(title: str, projects: rx.Var) -> rx.Component:
+def _project_section(title: str, projects: ArrayVar) -> rx.Component:
     """Helper to render a titled section of project cards."""
     return rx.cond(
         projects.length() > 0,

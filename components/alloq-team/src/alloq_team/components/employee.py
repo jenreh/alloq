@@ -1,4 +1,5 @@
 import reflex as rx
+from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.formatters import format_date_de
 from alloq_commons.components.forms import quick_project_fields, section
 from alloq_commons.components.modal_layout import (
@@ -8,7 +9,7 @@ from alloq_commons.components.modal_layout import (
     modal_form_layout,
 )
 from alloq_commons.entities.employee import SeniorityLevel
-from alloq_commons.models.employee import Absence
+from alloq_commons.models.employee import Absence, Employee
 from alloq_commons.models.project import Capacity
 from alloq_team.components.employee_card import (
     employee_grid,
@@ -17,9 +18,10 @@ from alloq_team.components.employee_table import (
     employee_table,
 )
 from alloq_team.states.team_state import EmployeeValidationState, TeamState
+from reflex.event import EventType
+from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
-from appkit_ui.components.dialogs import delete_dialog
 from appkit_ui.components.form_inputs import hidden_field
 
 HIGH_WORKLOAD_PERCENT = 75
@@ -36,7 +38,7 @@ def employee_form_fields(is_edit: bool = False) -> rx.Component:
             name="employee_id",
             default_value=rx.cond(
                 TeamState.selected_employee,
-                TeamState.selected_employee.id.to_string(),
+                TeamState.selected_employee.to(Employee).id.to_string(),
                 "",
             ),
         )
@@ -119,7 +121,7 @@ def employee_form_fields(is_edit: bool = False) -> rx.Component:
                 name="role_ids",
                 label="Rollen",
                 data=TeamState.role_select_options,
-                default_value=EmployeeValidationState.role_ids,
+                default_value=EmployeeValidationState.role_ids.to(list[str]),
                 on_change=EmployeeValidationState.set_role_ids,
                 error=EmployeeValidationState.role_ids_error,
                 required=True,
@@ -130,7 +132,8 @@ def employee_form_fields(is_edit: bool = False) -> rx.Component:
                 name="hours_per_week",
                 label="Arbeitszeit (h/Woche)",
                 default_value=EmployeeValidationState.hours_per_week,
-                on_blur=EmployeeValidationState.set_hours_per_week,
+                # appkit_mantine types these as str events; they emit str | float.
+                on_blur=EmployeeValidationState.set_hours_per_week,  # ty: ignore[invalid-argument-type]
                 on_change=EmployeeValidationState.set_hours_per_week,
                 error=EmployeeValidationState.hours_per_week_error,
                 min=0,
@@ -143,7 +146,8 @@ def employee_form_fields(is_edit: bool = False) -> rx.Component:
                 name="internal_hours",
                 label="Interne Projekte (h/Woche)",
                 default_value=EmployeeValidationState.internal_hours,
-                on_blur=EmployeeValidationState.set_internal_hours,
+                # appkit_mantine types these as str events; they emit str | int.
+                on_blur=EmployeeValidationState.set_internal_hours,  # ty: ignore[invalid-argument-type]
                 on_change=EmployeeValidationState.set_internal_hours,
                 error=EmployeeValidationState.internal_hours_error,
                 min=0,
@@ -160,7 +164,7 @@ def employee_form_fields(is_edit: bool = False) -> rx.Component:
 
 def _employee_footer(
     submit_label: str,
-    on_cancel: rx.EventHandler,
+    on_cancel: EventType[()],
     disabled: bool | rx.Var[bool] = False,
 ) -> rx.Component:
     """Employee-specific footer (delegates to shared layout)."""
@@ -215,7 +219,7 @@ def absence_modal() -> rx.Component:
                         type="range",
                         placeholder="Zeitraum wählen",
                         min_date=TeamState.current_date,
-                        value=TeamState.absence_date_range,
+                        value=TeamState.absence_date_range.to(list[str]),
                         on_change=TeamState.set_absence_date_range,
                         required=True,
                         clearable=True,
@@ -247,7 +251,7 @@ def absence_modal() -> rx.Component:
 # --- Detail Drawer ---
 
 
-def _absence_row(absence: Absence) -> rx.Component:
+def _absence_row(absence: ObjectVar[Absence]) -> rx.Component:
     """Single absence row in the detail drawer matching the card design."""
     return mn.group(
         mn.text(
@@ -264,7 +268,7 @@ def _absence_row(absence: Absence) -> rx.Component:
         delete_dialog(
             title="Abwesenheit löschen",
             content=f"{absence.start_date} bis {absence.end_date}",
-            on_click=lambda: TeamState.delete_absence(absence.id),
+            on_click=TeamState.delete_absence(absence.id),  # ty: ignore[invalid-argument-type]
             icon_button=True,
             color="red",
             size="xs",
@@ -281,7 +285,7 @@ def _absence_row(absence: Absence) -> rx.Component:
     )
 
 
-def _project_row(capacity: Capacity) -> rx.Component:
+def _project_row(capacity: ObjectVar[Capacity]) -> rx.Component:
     """Single project assignment row in the detail drawer."""
     return mn.group(
         mn.stack(
@@ -305,9 +309,7 @@ def _project_row(capacity: Capacity) -> rx.Component:
         delete_dialog(
             title="Projektzuweisung entfernen",
             content=f"{capacity.project_code} - {capacity.project_name}",
-            on_click=lambda: TeamState.remove_project_from_employee(
-                capacity.project_id
-            ),
+            on_click=TeamState.remove_project_from_employee(capacity.project_id),  # ty: ignore[invalid-argument-type]
             icon_button=True,
             color="red",
             size="xs",
@@ -485,8 +487,8 @@ def employee_detail_drawer() -> rx.Component:
         ),
         title=rx.cond(
             TeamState.selected_employee,
-            f"{TeamState.selected_employee.first_name} "
-            f"{TeamState.selected_employee.last_name}",
+            f"{TeamState.selected_employee.to(Employee).first_name} "
+            f"{TeamState.selected_employee.to(Employee).last_name}",
             "Mitarbeiter Details",
         ),
         opened=TeamState.detail_drawer_open,

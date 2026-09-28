@@ -124,7 +124,7 @@ class TestRoleStateRequiresAdmin:
         ],
     )
     async def test_non_admin_is_rejected(self, handler: str, args: tuple) -> None:
-        state = _with_login(RoleState(), is_admin=False)  # type: ignore[call-arg]
+        state = _with_login(RoleState(), is_admin=False)
         repo = AsyncMock()
         session_factory = MagicMock()
 
@@ -143,7 +143,7 @@ class TestRoleStateRequiresAdmin:
 
     @pytest.mark.asyncio
     async def test_non_admin_cannot_read_role(self) -> None:
-        state = _with_login(RoleState(), is_admin=False)  # type: ignore[call-arg]
+        state = _with_login(RoleState(), is_admin=False)
         repo = AsyncMock()
 
         with patch("alloq_commons.state.role_states.role_repo", repo):
@@ -154,7 +154,7 @@ class TestRoleStateRequiresAdmin:
 
     @pytest.mark.asyncio
     async def test_admin_passes(self) -> None:
-        state = _with_login(RoleState(), is_admin=True)  # type: ignore[call-arg]
+        state = _with_login(RoleState(), is_admin=True)
         repo = AsyncMock()
         repo.find_all_paginated = AsyncMock(return_value=[])
 
@@ -183,7 +183,7 @@ class TestHolidayStateRequiresAdmin:
         ],
     )
     async def test_non_admin_is_rejected(self, handler: str, args: tuple) -> None:
-        state = _with_login(HolidayState(), is_admin=False)  # type: ignore[call-arg]
+        state = _with_login(HolidayState(), is_admin=False)
         repo = AsyncMock()
         session_factory = MagicMock()
 
@@ -202,7 +202,7 @@ class TestHolidayStateRequiresAdmin:
 
     @pytest.mark.asyncio
     async def test_non_admin_cannot_read_holiday(self) -> None:
-        state = _with_login(HolidayState(), is_admin=False)  # type: ignore[call-arg]
+        state = _with_login(HolidayState(), is_admin=False)
         repo = AsyncMock()
 
         with patch("alloq_commons.states.holiday_state.public_holiday_repo", repo):
@@ -220,13 +220,13 @@ class TestHolidayStateRequiresAdmin:
 class TestHolidayYear:
     def test_previous_year_is_selectable(self) -> None:
         current = datetime.datetime.now(tz=datetime.UTC).year
-        years = HolidayState().available_years  # type: ignore[call-arg]
+        years = HolidayState().available_years
         assert years[0] == str(current - 1)
         assert str(current) in years
 
     @pytest.mark.asyncio
     async def test_first_load_resets_stale_default_year(self) -> None:
-        state = _with_login(HolidayState(), is_admin=True)  # type: ignore[call-arg]
+        state = _with_login(HolidayState(), is_admin=True)
         state.selected_year = 1999  # stale import-time default
         repo = AsyncMock()
         repo.find_by_year = AsyncMock(return_value=[])
@@ -266,7 +266,7 @@ class TestToastsAfterSession:
 
     @pytest.mark.asyncio
     async def test_delete_role_not_found(self) -> None:
-        state = _with_login(RoleState(), is_admin=True)  # type: ignore[call-arg]
+        state = _with_login(RoleState(), is_admin=True)
         ctx, open_flag = self._tracking_ctx()
         repo = AsyncMock()
         repo.find_by_id = AsyncMock(return_value=None)
@@ -284,7 +284,7 @@ class TestToastsAfterSession:
 
     @pytest.mark.asyncio
     async def test_delete_holiday_not_found(self) -> None:
-        state = _with_login(HolidayState(), is_admin=True)  # type: ignore[call-arg]
+        state = _with_login(HolidayState(), is_admin=True)
         ctx, open_flag = self._tracking_ctx()
         repo = AsyncMock()
         repo.find_by_id = AsyncMock(return_value=None)

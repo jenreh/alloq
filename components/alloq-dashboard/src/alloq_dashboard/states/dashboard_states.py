@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Protocol, Self
 
 import reflex as rx
 from alloq_project.states.project_state import ProjectState
@@ -67,6 +67,20 @@ async def _is_admin(state: Any, action: str) -> bool:
     return False
 
 
+class _CardLoadHost(Protocol):
+    """Vars and locking a card substate provides to ``_CardLoadMixin``."""
+
+    data: Any
+    is_loading: bool
+    last_loaded: str
+    error_message: str
+    _load_seq: int
+
+    async def __aenter__(self) -> Self: ...
+
+    async def __aexit__(self, *exc_info: object) -> None: ...
+
+
 class _CardLoadMixin:
     """Shared TTL-cached, admin-guarded load lifecycle for card substates.
 
@@ -76,7 +90,7 @@ class _CardLoadMixin:
     """
 
     async def _run_card_load(
-        self,
+        self: _CardLoadHost,
         loader: Callable[[], Awaitable[Any]],
         action: str,
         *,
@@ -118,8 +132,8 @@ class _CardLoadMixin:
 class DashboardState(UserSession):
     """Parent state owning the drill-down drawer."""
 
-    drill_down: str = ""
-    error_message: str = ""
+    drill_down: rx.Field[str] = rx.field("")
+    error_message: rx.Field[str] = rx.field("")
 
     @rx.event
     def open_drill_down(self, key: str) -> None:
@@ -153,10 +167,10 @@ class DashboardState(UserSession):
 class ProjectsOverviewState(_CardLoadMixin, UserSession):
     """Card 1 — active projects overview."""
 
-    data: ProjectsOverviewKpi = ProjectsOverviewKpi()
-    is_loading: bool = False
-    last_loaded: str = ""
-    error_message: str = ""
+    data: rx.Field[ProjectsOverviewKpi] = rx.field(default_factory=ProjectsOverviewKpi)
+    is_loading: rx.Field[bool] = rx.field(False)
+    last_loaded: rx.Field[str] = rx.field("")
+    error_message: rx.Field[str] = rx.field("")
     _load_seq: int = 0
 
     @rx.event(background=True)
@@ -169,10 +183,10 @@ class ProjectsOverviewState(_CardLoadMixin, UserSession):
 class ProjectHealthState(_CardLoadMixin, UserSession):
     """Card 2 — project health (at-risk projects)."""
 
-    data: ProjectHealthKpi = ProjectHealthKpi()
-    is_loading: bool = False
-    last_loaded: str = ""
-    error_message: str = ""
+    data: rx.Field[ProjectHealthKpi] = rx.field(default_factory=ProjectHealthKpi)
+    is_loading: rx.Field[bool] = rx.field(False)
+    last_loaded: rx.Field[str] = rx.field("")
+    error_message: rx.Field[str] = rx.field("")
     _load_seq: int = 0
 
     @rx.event(background=True)
@@ -185,10 +199,10 @@ class ProjectHealthState(_CardLoadMixin, UserSession):
 class BudgetBurnState(_CardLoadMixin, UserSession):
     """Card 4 — budget burn."""
 
-    data: BudgetBurnKpi = BudgetBurnKpi()
-    is_loading: bool = False
-    last_loaded: str = ""
-    error_message: str = ""
+    data: rx.Field[BudgetBurnKpi] = rx.field(default_factory=BudgetBurnKpi)
+    is_loading: rx.Field[bool] = rx.field(False)
+    last_loaded: rx.Field[str] = rx.field("")
+    error_message: rx.Field[str] = rx.field("")
     _load_seq: int = 0
 
     @rx.event(background=True)
@@ -201,10 +215,10 @@ class BudgetBurnState(_CardLoadMixin, UserSession):
 class UtilizationState(_CardLoadMixin, UserSession):
     """Card 5 — team utilization."""
 
-    data: UtilizationKpi = UtilizationKpi()
-    is_loading: bool = False
-    last_loaded: str = ""
-    error_message: str = ""
+    data: rx.Field[UtilizationKpi] = rx.field(default_factory=UtilizationKpi)
+    is_loading: rx.Field[bool] = rx.field(False)
+    last_loaded: rx.Field[str] = rx.field("")
+    error_message: rx.Field[str] = rx.field("")
     _load_seq: int = 0
 
     @rx.event(background=True)
@@ -217,10 +231,10 @@ class UtilizationState(_CardLoadMixin, UserSession):
 class UnderUtilizationState(_CardLoadMixin, UserSession):
     """Card 6 — under-utilization (free hours next 4 weeks)."""
 
-    data: UnderUtilizationKpi = UnderUtilizationKpi()
-    is_loading: bool = False
-    last_loaded: str = ""
-    error_message: str = ""
+    data: rx.Field[UnderUtilizationKpi] = rx.field(default_factory=UnderUtilizationKpi)
+    is_loading: rx.Field[bool] = rx.field(False)
+    last_loaded: rx.Field[str] = rx.field("")
+    error_message: rx.Field[str] = rx.field("")
     _load_seq: int = 0
 
     @rx.event(background=True)
@@ -233,10 +247,10 @@ class UnderUtilizationState(_CardLoadMixin, UserSession):
 class RoleCapacityState(_CardLoadMixin, UserSession):
     """Card 7 — free capacity per role over 13 weeks."""
 
-    data: FreeCapacityKpi = FreeCapacityKpi()
-    is_loading: bool = False
-    last_loaded: str = ""
-    error_message: str = ""
+    data: rx.Field[FreeCapacityKpi] = rx.field(default_factory=FreeCapacityKpi)
+    is_loading: rx.Field[bool] = rx.field(False)
+    last_loaded: rx.Field[str] = rx.field("")
+    error_message: rx.Field[str] = rx.field("")
     _load_seq: int = 0
 
     @rx.event(background=True)
@@ -249,10 +263,10 @@ class RoleCapacityState(_CardLoadMixin, UserSession):
 class RiskState(_CardLoadMixin, UserSession):
     """Card 8 — risk surface."""
 
-    data: RiskKpi = RiskKpi()
-    is_loading: bool = False
-    last_loaded: str = ""
-    error_message: str = ""
+    data: rx.Field[RiskKpi] = rx.field(default_factory=RiskKpi)
+    is_loading: rx.Field[bool] = rx.field(False)
+    last_loaded: rx.Field[str] = rx.field("")
+    error_message: rx.Field[str] = rx.field("")
     _load_seq: int = 0
 
     @rx.event(background=True)

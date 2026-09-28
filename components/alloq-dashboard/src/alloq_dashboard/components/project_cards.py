@@ -9,6 +9,7 @@ from alloq_project.states.project_state import ProjectState
 
 import appkit_mantine as mn
 from alloq_dashboard.components.kpi_card import kpi_card
+from alloq_dashboard.models import ProjectHealthKpi, ProjectsOverviewKpi
 from alloq_dashboard.states import ProjectHealthState, ProjectsOverviewState
 
 
@@ -42,7 +43,7 @@ def active_projects_grid() -> rx.Component:
 
 
 def project_health_card() -> rx.Component:
-    data = ProjectHealthState.data
+    data = ProjectHealthState.data.to(ProjectHealthKpi)
     body = mn.stack(
         big_number(data.at_risk_count),
         mn.text(
@@ -64,7 +65,7 @@ def project_health_card() -> rx.Component:
 
 
 def projects_card() -> rx.Component:
-    data = ProjectsOverviewState.data
+    data = ProjectsOverviewState.data.to(ProjectsOverviewKpi)
     body = mn.stack(
         big_number(data.total),
         mn.text(

@@ -23,14 +23,14 @@ class TestProjectState:
     """Tests for ProjectState computed behavior."""
 
     def test_initial_state(self) -> None:
-        state = ProjectState()  # type: ignore[call-arg]
+        state = ProjectState()
         assert state.projects == []
         assert state.selected_project is None
         assert state.add_modal_open is False
         assert state.status_filter == "all"
 
     def test_filtered_projects_by_search(self) -> None:
-        state = ProjectState()  # type: ignore[call-arg]
+        state = ProjectState()
         state.projects = [
             Project(code="CRM", customer="Acme GmbH", name_de="CRM"),
             Project(code="VISION", customer="Muster AG", name_de="Computer Vision"),
@@ -43,7 +43,7 @@ class TestProjectState:
         assert result[0].code == "VISION"
 
     def test_filtered_projects_by_customer_search(self) -> None:
-        state = ProjectState()  # type: ignore[call-arg]
+        state = ProjectState()
         state.projects = [
             Project(code="CRM", customer="Acme GmbH", name_de="CRM"),
             Project(code="VISION", customer="Muster AG", name_de="Computer Vision"),
@@ -56,7 +56,7 @@ class TestProjectState:
         assert result[0].code == "CRM"
 
     def test_filtered_projects_by_state(self) -> None:
-        state = ProjectState()  # type: ignore[call-arg]
+        state = ProjectState()
         state.projects = [
             Project(code="SAFE", customer="Muster AG", state="Geplant"),
             Project(code="RISK", customer="Acme GmbH", state="Risiko"),
@@ -69,29 +69,29 @@ class TestProjectState:
         assert result[0].code == "RISK"
 
     def test_view_mode_defaults_to_grid(self) -> None:
-        state = ProjectState()  # type: ignore[call-arg]
+        state = ProjectState()
         assert state.view_mode == "grid"
 
     def test_set_view_mode_accepts_known_modes(self) -> None:
-        state = ProjectState()  # type: ignore[call-arg]
+        state = ProjectState()
         state.set_view_mode("table")
         assert state.view_mode == "table"
         state.set_view_mode("grid")
         assert state.view_mode == "grid"
 
     def test_set_view_mode_ignores_unknown_mode(self) -> None:
-        state = ProjectState()  # type: ignore[call-arg]
+        state = ProjectState()
         state.set_view_mode("table")
         state.set_view_mode("kanban")
         assert state.view_mode == "table"
 
     def test_sort_defaults(self) -> None:
-        state = ProjectState()  # type: ignore[call-arg]
+        state = ProjectState()
         assert state.sort_column == "name"
         assert state.sort_desc is False
 
     def test_toggle_sort_same_column_flips_direction(self) -> None:
-        state = ProjectState()  # type: ignore[call-arg]
+        state = ProjectState()
         state.toggle_sort("name")
         assert state.sort_column == "name"
         assert state.sort_desc is True
@@ -99,20 +99,20 @@ class TestProjectState:
         assert state.sort_desc is False
 
     def test_toggle_sort_new_column_resets_ascending(self) -> None:
-        state = ProjectState()  # type: ignore[call-arg]
+        state = ProjectState()
         state.toggle_sort("name")
         state.toggle_sort("budget")
         assert state.sort_column == "budget"
         assert state.sort_desc is False
 
     def test_toggle_sort_ignores_unknown_column(self) -> None:
-        state = ProjectState()  # type: ignore[call-arg]
+        state = ProjectState()
         state.toggle_sort("bogus")
         assert state.sort_column == "name"
         assert state.sort_desc is False
 
     def test_my_and_other_projects_follow_sort_order(self) -> None:
-        state = ProjectState()  # type: ignore[call-arg]
+        state = ProjectState()
         state.current_employee_id = 7
         state.projects = [
             Project(code="M1", name_de="Mine A", budget=100, owner_ids=[7]),
@@ -131,7 +131,7 @@ class TestProjectValidationState:
     """Tests for project validation state."""
 
     def test_initialize_defaults(self) -> None:
-        state = ProjectValidationState()  # type: ignore[call-arg]
+        state = ProjectValidationState()
 
         assert state.code == ""
         assert state.color == "#F7C948"
@@ -139,7 +139,7 @@ class TestProjectValidationState:
         assert state.has_errors() is False
 
     def test_valid_form(self) -> None:
-        state = ProjectValidationState()  # type: ignore[call-arg]
+        state = ProjectValidationState()
         state.code = "ML-OPS"
         state.customer = "Muster AG"
         state.name_de = "ML-Ops Plattform"
@@ -150,7 +150,7 @@ class TestProjectValidationState:
         assert state.is_form_valid is True
 
     def test_invalid_date_range(self) -> None:
-        state = ProjectValidationState()  # type: ignore[call-arg]
+        state = ProjectValidationState()
         state.start_date = date(2026, 12, 31).isoformat()
         state.end_date = date(2026, 6, 1).isoformat()
         state.validate_dates()
@@ -210,9 +210,10 @@ def _has_text(events: list[Any], text: str) -> bool:
 
 
 def _drawer_state() -> ProjectState:
-    state = ProjectState()  # type: ignore[call-arg]
-    state.selected_project = Project(id=1, code="P1", name_de="P1", budget=1000)
-    state.projects = [state.selected_project]
+    state = ProjectState()
+    project = Project(id=1, code="P1", name_de="P1", budget=1000)
+    state.selected_project = project
+    state.projects = [project]
     state.statuses = [
         ProjectStatus(id=10, project_id=1, status_date="2026-01-05", progress=20)
     ]
@@ -267,7 +268,7 @@ class TestProjectStateAuthorization:
 
     @pytest.mark.asyncio
     async def test_non_admin_cannot_load_projects(self) -> None:
-        state = ProjectState()  # type: ignore[call-arg]
+        state = ProjectState()
         _login_as(state, is_admin=False)
 
         with patch(f"{MODULE}.project_repo") as repo:
@@ -365,7 +366,7 @@ class TestProjectStateHandlers:
 
     @pytest.mark.asyncio
     async def test_select_project_db_error_resets_global_loading(self) -> None:
-        state = ProjectState()  # type: ignore[call-arg]
+        state = ProjectState()
         _login_as(state)
 
         with (
@@ -381,7 +382,7 @@ class TestProjectStateHandlers:
 
     @pytest.mark.asyncio
     async def test_duplicate_code_shows_friendly_error_without_sql(self) -> None:
-        state = ProjectState()  # type: ignore[call-arg]
+        state = ProjectState()
         _login_as(state)
         session = AsyncMock()
         session.commit = AsyncMock(
@@ -412,7 +413,7 @@ class TestProjectStateHandlers:
 
     @pytest.mark.asyncio
     async def test_load_projects_ignores_search_filter(self) -> None:
-        state = ProjectState()  # type: ignore[call-arg]
+        state = ProjectState()
         state.search_filter = "abc"
 
         with (
@@ -427,7 +428,7 @@ class TestProjectStateHandlers:
 
     @pytest.mark.asyncio
     async def test_current_employee_matched_case_insensitively(self) -> None:
-        state = ProjectState()  # type: ignore[call-arg]
+        state = ProjectState()
         state.current_user_email = "Jens@Example.de"
         employee = MagicMock(id=7, first_name="Jens", last_name="R")
         employee.hours_per_week = 40.0
@@ -504,7 +505,7 @@ class TestProjectStateHandlers:
 
     @pytest.mark.asyncio
     async def test_load_projects_pages_past_repository_limit(self) -> None:
-        state = ProjectState()  # type: ignore[call-arg]
+        state = ProjectState()
 
         def _entity(i: int) -> MagicMock:
             entity = MagicMock()
@@ -523,7 +524,7 @@ class TestProjectStateHandlers:
         assert len(state.projects) == 201
 
     def test_invalid_form_color_falls_back_to_default(self) -> None:
-        state = ProjectState()  # type: ignore[call-arg]
+        state = ProjectState()
         form = {
             "code": "P1",
             "customer": "C",

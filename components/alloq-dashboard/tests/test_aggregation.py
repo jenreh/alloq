@@ -5,10 +5,11 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from datetime import date
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import patch
 
 import pytest
-from alloq_commons.entities.project import ProjectStateEnum
+from alloq_commons.entities.project import ProjectEntity, ProjectStateEnum
 from alloq_commons.entities.risk import RiskMitigationStatus
 from alloq_dashboard.services import aggregation
 
@@ -54,7 +55,7 @@ def test_project_to_row_counts_only_top_open_risks() -> None:
         ],
     )
 
-    row = aggregation._project_to_row(entity)
+    row = aggregation._project_to_row(cast("ProjectEntity", entity))
 
     assert row.open_risk_count == 1
 

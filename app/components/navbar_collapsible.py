@@ -24,13 +24,16 @@ Layout:
 
 import logging
 from collections.abc import Generator
-from typing import Any, Final
+from typing import Any, Final, cast
 
 import reflex as rx
+from reflex.utils.imports import ImportDict
+from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
 from appkit_commons.registry import service_registry
 from appkit_ui.global_states import LoadingState
+from appkit_user.authentication.backend.models import User
 from appkit_user.authentication.components.components import (
     requires_admin,
     requires_role,
@@ -51,7 +54,9 @@ VERSION: Final[str] = (
 RAIL_WIDTH: Final[str] = "64px"
 _TOOLTIP_OFFSET: Final[int] = 18  # flush against the rail's right edge
 PANEL_WIDTH: Final[str] = "240px"
-MOBILE_BREAKPOINT: Final[str] = "sm"
+MOBILE_BREAKPOINT: Final = "sm"
+# appkit_user declares ``user`` as a plain field; class access yields a Var.
+_USER = cast("ObjectVar[User]", LoginState.user)
 
 _TEXT_COLOR = "var(--alloq-text)"
 _DIM_COLOR = "var(--alloq-text-muted)"
@@ -69,7 +74,7 @@ class _ReactContextImportWorkaround(rx.Component):
     library = "react"
     tag = "Fragment"
 
-    def add_imports(self) -> dict[str, list[str]]:
+    def add_imports(self) -> ImportDict:
         return {
             "react": ["useContext"],
             "$/utils/context": ["StateContexts"],
@@ -411,8 +416,8 @@ def _panel_section_items(section: dict[str, Any]) -> rx.Component:
 def _user_avatar() -> rx.Component:
     avatar_component = mn.center(
         mn.avatar(
-            src=LoginState.user.avatar_url,
-            name=LoginState.user.name,
+            src=_USER.avatar_url,
+            name=_USER.name,
             radius="xl",
             size="md",
             ml="3px",
@@ -435,7 +440,7 @@ def _user_avatar() -> rx.Component:
             ),
             style={"display": "flex"},
         ),
-        label=LoginState.user.name,
+        label=_USER.name,
         position="right",
         offset=7,
     )
@@ -596,14 +601,14 @@ def _panel_user_card() -> rx.Component:
     return mn.group(
         mn.box(
             mn.text(
-                LoginState.user.name,
+                _USER.name,
                 size="sm",
                 fw="bold",
                 c=_TEXT_COLOR,
                 truncate=True,
             ),
             mn.text(
-                LoginState.user.email,
+                _USER.email,
                 size="xs",
                 c=_DIM_COLOR,
                 truncate=True,

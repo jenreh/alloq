@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import reflex as rx
 from alloq_commons.components.formatters import de_number
+from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
 from alloq_dashboard.components.kpi_card import _skeleton_body
+from alloq_dashboard.models import FreeCapacityKpi
 from alloq_dashboard.states import RoleCapacityState
 
 
@@ -23,7 +25,7 @@ def stat_pill(
     )
 
 
-def _role_capacity_card(role: rx.Var) -> rx.Component:
+def _role_capacity_card(role: ObjectVar) -> rx.Component:
     """Role capacity card matching project card design."""
     return mn.box(
         mn.card(
@@ -128,7 +130,7 @@ def _role_capacity_card(role: rx.Var) -> rx.Component:
 
 
 def role_capacity_cards() -> rx.Component:
-    data = RoleCapacityState.data
+    data = RoleCapacityState.data.to(FreeCapacityKpi)
     return mn.stack(
         mn.text("Freie Kapazität", size="lg", fw="700", c="var(--alloq-text)"),
         rx.cond(

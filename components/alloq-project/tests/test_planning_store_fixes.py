@@ -64,7 +64,7 @@ async def _drain(handler: Any) -> list[Any]:
 
 def _store(view_mode: str = "Grid") -> PlanningStore:
     weeks, spans = build_weeks(3)
-    state = PlanningStore()  # type: ignore[call-arg]
+    state = PlanningStore()
     state.view_mode = view_mode
     state.weeks = weeks
     state.month_spans = spans
@@ -117,7 +117,7 @@ class TestAdminGuard:
 
     @pytest.mark.asyncio
     async def test_non_admin_cannot_load(self) -> None:
-        state = PlanningStore()  # type: ignore[call-arg]
+        state = PlanningStore()
         with (
             patch.object(
                 PlanningStore,
@@ -148,7 +148,7 @@ class TestHeatmapRespectsFilters:
 class TestLoadErrors:
     @pytest.mark.asyncio
     async def test_db_error_resets_loading_and_toasts(self) -> None:
-        state = PlanningStore()  # type: ignore[call-arg]
+        state = PlanningStore()
         with patch.object(
             PlanningStore,
             "_load_entities",
@@ -162,7 +162,7 @@ class TestLoadErrors:
 class TestRefreshKeepsEdits:
     @pytest.mark.asyncio
     async def test_refresh_keeps_unsaved_edits(self) -> None:
-        state = PlanningStore()  # type: ignore[call-arg]
+        state = PlanningStore()
         state.available_projects = [Project(id=1, code="A", name_de="Alpha")]
         with (
             patch.object(PlanningStore, "_load_entities", AsyncMock()),
@@ -283,7 +283,7 @@ class TestAddProjectGuards:
 class TestSaveGridRoles:
     @pytest.mark.asyncio
     async def test_edit_updates_the_row_the_cell_shows(self) -> None:
-        state = PlanningStore()  # type: ignore[call-arg]
+        state = PlanningStore()
         state.available_projects = [Project(id=1, code="A", name_de="Alpha")]
         with (
             patch.object(
@@ -336,6 +336,7 @@ class TestSaveGridRoles:
             patch(f"{_STATE}.capacity_allocation_repo.batch_upsert", upsert),
         ):
             await _drain(state.save_grid())
+        assert upsert.await_args is not None
         rows = upsert.await_args.args[1]
         assert [(r["role_id"], r["person_days"]) for r in rows] == [(5, 2.0)]
 
@@ -468,7 +469,7 @@ async def test_load_entities_keeps_absences_in_displayed_past_weeks() -> None:
             end_date=first_day - datetime.timedelta(days=10),
         ),
     ]
-    state = PlanningStore()  # type: ignore[call-arg]
+    state = PlanningStore()
     with (
         patch(f"{_STATE}.get_asyncdb_session", _mock_session_ctx(AsyncMock())),
         patch(f"{_STATE}.project_repo.find_all", AsyncMock(return_value=[])),

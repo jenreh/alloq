@@ -1,18 +1,17 @@
-from collections.abc import Callable
-
 import reflex as rx
 from alloq_project.states.planning_grid_state import PlanningStore
 from alloq_project.states.project_plan_state import ProjectPlanState
+from reflex.event import EventType
 
 import appkit_mantine as mn
 
 
 def _toggle_button(
     icon: str,
-    active: bool,
+    active: rx.Var[bool] | bool,
     tooltip_on: str,
     tooltip_off: str,
-    on_click: Callable,
+    on_click: EventType[()],
 ) -> rx.Component:
     """Reusable toggle button for the planning toolbar.
 

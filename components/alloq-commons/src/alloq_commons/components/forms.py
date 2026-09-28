@@ -1,4 +1,5 @@
 import reflex as rx
+from reflex.event import EventType
 
 import appkit_mantine as mn
 from alloq_commons.services.quick_project import MAX_CODE_LENGTH
@@ -7,10 +8,10 @@ from alloq_commons.services.quick_project import MAX_CODE_LENGTH
 def quick_project_fields(
     *,
     name_value: str | rx.Var[str],
-    on_name_change: rx.EventHandler,
+    on_name_change: EventType[str],
     code_value: str | rx.Var[str],
-    on_code_change: rx.EventHandler,
-    on_create: rx.EventHandler,
+    on_code_change: EventType[str],
+    on_create: EventType[()],
     loading: bool | rx.Var[bool],
 ) -> rx.Component:
     """Inline name/code inputs for creating a project without leaving a modal."""

@@ -29,7 +29,7 @@ class RiskMitigationStatus(enum.StrEnum):
 HIGH_RISK_SCORE_THRESHOLD = 16
 
 #: German display labels for UI selects and badges.
-MITIGATION_STATUS_LABELS: dict[str, str] = {
+MITIGATION_STATUS_LABELS: dict[RiskMitigationStatus, str] = {
     RiskMitigationStatus.OPEN: "Offen",
     RiskMitigationStatus.MITIGATED: "In Bearbeitung",
     RiskMitigationStatus.RESOLVED: "Geschlossen",

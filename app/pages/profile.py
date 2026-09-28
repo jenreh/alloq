@@ -1,5 +1,3 @@
-from collections.abc import Callable
-
 import reflex as rx
 from alloq_commons.components import page_header
 
@@ -14,7 +12,7 @@ def create_profile_page(
     navbar: rx.Component,
     route: str = "/profile",
     title: str = "Profil",
-) -> Callable:
+) -> rx.Component:
     """Create the profile page with authentication.
 
     Args:

@@ -1,6 +1,5 @@
-from collections.abc import Callable
-
 import reflex as rx
+from reflex.event import EventCallback
 
 import appkit_mantine as mn
 from alloq_commons.models.view_mode import VIEW_MODE_GRID, VIEW_MODE_TABLE
@@ -9,8 +8,8 @@ from alloq_commons.models.view_mode import VIEW_MODE_GRID, VIEW_MODE_TABLE
 def _view_mode_button(
     icon: str,
     label: str,
-    active: rx.Var[bool],
-    on_click: rx.EventSpec,
+    active: rx.Var[bool] | bool,
+    on_click: EventCallback[()],
 ) -> rx.Component:
     """Icon button with a tooltip.
 
@@ -37,8 +36,8 @@ def _view_mode_button(
 
 
 def view_mode_toggle(
-    view_mode: rx.Var[str],
-    on_change: Callable[[str], rx.EventSpec],
+    view_mode: rx.Var[str] | str,
+    on_change: EventCallback[str],
 ) -> rx.Component:
     """Toggle between grid (cards) and table view."""
     return mn.group(

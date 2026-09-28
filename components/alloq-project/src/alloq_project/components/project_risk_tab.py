@@ -1,4 +1,5 @@
 import reflex as rx
+from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.forms import section
 from alloq_commons.entities.risk import (
     MITIGATION_STATUS_LABELS,
@@ -6,9 +7,9 @@ from alloq_commons.entities.risk import (
 )
 from alloq_commons.models.project import Risk, RiskMatrixCell
 from alloq_project.states.project_state import ProjectState
+from reflex.vars import NumberVar, ObjectVar
 
 import appkit_mantine as mn
-from appkit_ui.components.dialogs import delete_dialog
 
 _RISK_STATUS_OPTIONS = [
     {"label": label, "value": status.value}
@@ -30,7 +31,7 @@ def _status_badge_color(status: rx.Var) -> rx.Var:
     )
 
 
-def _score_badge_color(score: rx.Var) -> rx.Var:
+def _score_badge_color(score: NumberVar) -> rx.Var:
     """Return a Mantine color name based on risk score."""
     return rx.cond(
         score <= _SCORE_LOW,
@@ -43,7 +44,7 @@ def _score_badge_color(score: rx.Var) -> rx.Var:
     )
 
 
-def _matrix_cell(cell: RiskMatrixCell) -> rx.Component:
+def _matrix_cell(cell: ObjectVar[RiskMatrixCell]) -> rx.Component:
     """Render one cell of the 5x5 risk matrix."""
     return mn.box(
         mn.group(
@@ -64,7 +65,7 @@ def _matrix_cell(cell: RiskMatrixCell) -> rx.Component:
                             "cursor": "default",
                         },
                     ),
-                    label=cell.risk_names[i],
+                    label=cell.risk_names.to(list[str])[i],
                     position="top",
                     with_arrow=True,
                 ),
@@ -260,7 +261,7 @@ def _risk_edit_form() -> rx.Component:
     )
 
 
-def _risk_row(risk: Risk) -> rx.Component:
+def _risk_row(risk: ObjectVar[Risk]) -> rx.Component:
     """Compact risk row with expand/collapse inline edit form."""
     is_expanded = ProjectState.expanded_risk_id == risk.id
     return mn.box(
@@ -309,7 +310,7 @@ def _risk_row(risk: Risk) -> rx.Component:
                 variant="filled",
                 radius="sm",
                 size="xs",
-                color=_score_badge_color(risk.risiko_score),
+                color=_score_badge_color(risk.risiko_score.to(int)),
                 style={"flexShrink": "0", "minWidth": "1.4rem", "textAlign": "center"},
             ),
             rx.box(
@@ -321,7 +322,7 @@ def _risk_row(risk: Risk) -> rx.Component:
                     ),
                     variant="subtle",
                     size="sm",
-                    on_click=ProjectState.expand_risk(risk.id),
+                    on_click=ProjectState.expand_risk(risk.id),  # ty: ignore[invalid-argument-type]
                 ),
                 on_click=rx.stop_propagation,
             ),
@@ -329,7 +330,7 @@ def _risk_row(risk: Risk) -> rx.Component:
                 delete_dialog(
                     title="Risiko löschen",
                     content=risk.name,
-                    on_click=ProjectState.delete_project_risk(risk.id),
+                    on_click=ProjectState.delete_project_risk(risk.id),  # ty: ignore[invalid-argument-type]
                     icon_button=True,
                     variant="subtle",
                     color="red",
@@ -352,7 +353,7 @@ def _risk_row(risk: Risk) -> rx.Component:
             "padding": "10px 12px",
             "cursor": "pointer",
         },
-        on_click=ProjectState.expand_risk(risk.id),
+        on_click=ProjectState.expand_risk(risk.id),  # ty: ignore[invalid-argument-type]
     )
 
 

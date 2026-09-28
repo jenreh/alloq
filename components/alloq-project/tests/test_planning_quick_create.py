@@ -57,7 +57,7 @@ def _new_project() -> Project:
 
 
 def _state_with_open_modal() -> PlanningStore:
-    state = PlanningStore()  # type: ignore[call-arg]
+    state = PlanningStore()
     state.add_project_emp_id = "emp-1"
     state.employee_meta = [
         {"id": "emp-1", "real_id": 1, "project_ids": ["proj-1"], "role_ids": [3]}
@@ -90,7 +90,7 @@ class TestQuickCreateOptions:
         assert values == [NEW_PROJECT_VALUE]
 
     def test_quick_create_active_tracks_selection(self) -> None:
-        state = PlanningStore()  # type: ignore[call-arg]
+        state = PlanningStore()
         assert state.quick_create_active is False
 
         state.set_add_project_selected(NEW_PROJECT_VALUE)

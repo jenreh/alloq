@@ -55,25 +55,25 @@ def _parse_iso(value: str) -> date | None:
 class ProjectResourceState(rx.State):
     """Plan employees on the selected project with von/bis/Tage pro Woche/Rolle."""
 
-    project_id: int = 0
-    project_start: str = ""
-    project_end: str = ""
-    employees: list[Employee] = []
-    roles: list[Role] = []
-    holiday_dates: list[date] = []
+    project_id: rx.Field[int] = rx.field(0)
+    project_start: rx.Field[str] = rx.field("")
+    project_end: rx.Field[str] = rx.field("")
+    employees: rx.Field[list[Employee]] = rx.field(default_factory=list)
+    roles: rx.Field[list[Role]] = rx.field(default_factory=list)
+    holiday_dates: rx.Field[list[date]] = rx.field(default_factory=list)
     # {employee_id: {week_start_iso: person_days}} on other projects
-    other_pt: dict[str, dict[str, float]] = {}
-    allocations: list[CapacityAllocation] = []
+    other_pt: rx.Field[dict[str, dict[str, float]]] = rx.field(default_factory=dict)
+    allocations: rx.Field[list[CapacityAllocation]] = rx.field(default_factory=list)
 
-    role_id: str = ""
-    start_iso: str = ""
-    end_iso: str = ""
-    days_per_week: float = DEFAULT_DAYS_PER_WEEK
-    editing_key: str = ""
-    form_version: int = 0
+    role_id: rx.Field[str] = rx.field("")
+    start_iso: rx.Field[str] = rx.field("")
+    end_iso: rx.Field[str] = rx.field("")
+    days_per_week: rx.Field[float] = rx.field(DEFAULT_DAYS_PER_WEEK)
+    editing_key: rx.Field[str] = rx.field("")
+    form_version: rx.Field[int] = rx.field(0)
 
-    is_loading: bool = False
-    is_saving: bool = False
+    is_loading: rx.Field[bool] = rx.field(False)
+    is_saving: rx.Field[bool] = rx.field(False)
 
     # ------------------------------------------------------------------
     # Computed vars
@@ -143,19 +143,23 @@ class ProjectResourceState(rx.State):
             parsed = upper
         return parsed.isoformat()
 
+    @rx.event
     def set_role_id(self, value: str | None) -> None:
         self.role_id = str(value or "")
 
+    @rx.event
     def set_start(self, value: str) -> None:
         clamped = self._clamp_to_project(value)
         if clamped is not None:
             self.start_iso = clamped
 
+    @rx.event
     def set_end(self, value: str) -> None:
         clamped = self._clamp_to_project(value)
         if clamped is not None:
             self.end_iso = clamped
 
+    @rx.event
     def set_days_per_week(self, value: float | str) -> None:
         try:
             parsed = float(str(value).replace(",", "."))
@@ -164,10 +168,12 @@ class ProjectResourceState(rx.State):
         stepped = round(parsed * 2) / 2
         self.days_per_week = max(MIN_DAYS_PER_WEEK, min(MAX_DAYS_PER_WEEK, stepped))
 
+    @rx.event
     def sync_days_input(self, _value: str = "") -> None:
         """Remount the days input so it shows the normalized state value."""
         self.form_version += 1
 
+    @rx.event
     def edit_period(self, key: str) -> None:
         period = self._period(key)
         if period is None:
@@ -179,6 +185,7 @@ class ProjectResourceState(rx.State):
         self.days_per_week = period.days_per_week
         self.form_version += 1
 
+    @rx.event
     def cancel_edit(self) -> None:
         self.editing_key = ""
         self.form_version += 1
@@ -190,6 +197,7 @@ class ProjectResourceState(rx.State):
     # Loading
     # ------------------------------------------------------------------
 
+    @rx.event
     @requires_admin
     async def load_selected(self) -> AsyncGenerator[Any]:
         """Load resource data for the project selected in the drawer."""
@@ -278,6 +286,7 @@ class ProjectResourceState(rx.State):
     # Saving
     # ------------------------------------------------------------------
 
+    @rx.event
     @requires_admin
     async def assign(self, employee_id: int) -> AsyncGenerator[Any]:
         """Plan the employee with the current form values (replaces in range)."""
@@ -333,6 +342,7 @@ class ProjectResourceState(rx.State):
         finally:
             self.is_saving = False
 
+    @rx.event
     @requires_admin
     async def delete_period(self, key: str) -> AsyncGenerator[Any]:
         """Delete one planned period."""

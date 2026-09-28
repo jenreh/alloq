@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from typing import Any
 
 import reflex as rx
 
@@ -7,13 +8,13 @@ import appkit_mantine as mn
 _TITLE_OPTICAL_OFFSET = "-0.09em"
 
 
-def _nav_segments(nav_path: str | Sequence[str]) -> list[str]:
+def _nav_segments(nav_path: str | Sequence[str | rx.Var]) -> list[str | rx.Var]:
     if isinstance(nav_path, str):
         return [nav_path]
     return list(nav_path)
 
 
-def _nav_path(nav_path: str | Sequence[str]) -> rx.Component:
+def _nav_path(nav_path: str | Sequence[str | rx.Var]) -> rx.Component:
     nav_items: list[rx.Component] = []
     for index, segment in enumerate(_nav_segments(nav_path)):
         if index > 0:
@@ -44,7 +45,7 @@ def _nav_path(nav_path: str | Sequence[str]) -> rx.Component:
 def page_header(
     title: str,
     description: str | None = None,
-    nav_path: str | Sequence[str] = "",
+    nav_path: str | Sequence[str | rx.Var] = "",
     **kwargs,
 ) -> rx.Component:
     """Warm page header with breadcrumb, title, and optional description."""
@@ -84,7 +85,7 @@ def page_header(
                 },
             )
         )
-    outer_kwargs: dict[str, str] = {
+    outer_kwargs: dict[str, Any] = {
         "align": "stretch",
         "gap": "0",
         "w": "100%",

@@ -1,26 +1,30 @@
-from collections.abc import Callable
+from typing import cast
 
 import reflex as rx
+from alloq_commons.components.auth import authenticated
 from alloq_commons.components.page_header import page_header
 from alloq_commons.roles import ALL_ROLES
 from alloq_project.components.project_overview import (
     add_project_modal,
     project_detail_drawer,
 )
+from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
 from alloq_dashboard.components.dashboard_grid import dashboard_grid
 from alloq_dashboard.components.drill_down_drawer import drill_down_drawer
 from alloq_dashboard.states import DashboardState
+from appkit_user.authentication.backend.models import User
 from appkit_user.authentication.components.components import requires_admin
 from appkit_user.authentication.states import UserSession
-from appkit_user.authentication.templates import authenticated
 from appkit_user.user_management.states.user_states import UserState
 
 
 def _greeting() -> rx.Var:
     """Personal greeting for the signed-in user; generic when no name is set."""
-    name = UserSession.user.name
+    # appkit_user declares ``user`` as a plain field; class access yields a Var.
+    user = cast("ObjectVar[User]", UserSession.user)
+    name = user.name
     return rx.cond(
         name,
         "Willkommen zurück, " + name.to(str) + "!",
@@ -32,7 +36,7 @@ def create_dashboard_page(
     navbar: rx.Component,
     route: str = "/",
     title: str = "Dashboard",
-) -> Callable:
+) -> rx.Component:
 
     @authenticated(
         route=route,

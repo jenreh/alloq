@@ -32,15 +32,15 @@ def _year_range() -> range:
 class HolidayState(rx.State):
     """State for public holiday management."""
 
-    holidays: list[PublicHoliday] = []
-    selected_holiday: PublicHoliday | None = None
-    is_loading: bool = False
-    selected_year: int = datetime.now(tz=UTC).year
+    holidays: rx.Field[list[PublicHoliday]] = rx.field(default_factory=list)
+    selected_holiday: rx.Field[PublicHoliday | None] = rx.field(None)
+    is_loading: rx.Field[bool] = rx.field(False)
+    selected_year: rx.Field[int] = rx.field(datetime.now(tz=UTC).year)
     _year_initialized: bool = False
 
-    add_modal_open: bool = False
-    edit_modal_open: bool = False
-    search_filter: str = ""
+    add_modal_open: rx.Field[bool] = rx.field(False)
+    edit_modal_open: rx.Field[bool] = rx.field(False)
+    search_filter: rx.Field[str] = rx.field("")
 
     @rx.var
     def selected_holiday_date_iso(self) -> str:
@@ -49,10 +49,12 @@ class HolidayState(rx.State):
             return ""
         return self.selected_holiday.date.isoformat()
 
+    @rx.event
     def set_search_filter(self, value: str) -> None:
         """Update the search filter."""
         self.search_filter = value
 
+    @rx.event
     def set_selected_year(self, value: str) -> None:
         """Update the selected year filter."""
         with contextlib.suppress(ValueError, TypeError):
@@ -76,23 +78,28 @@ class HolidayState(rx.State):
         """Return the previous year plus a rolling 3 years from the current one."""
         return [str(y) for y in _year_range()]
 
+    @rx.event
     def open_add_modal(self) -> None:
         """Open the add holiday modal."""
         self.add_modal_open = True
 
+    @rx.event
     def close_add_modal(self) -> None:
         """Close the add holiday modal."""
         self.add_modal_open = False
 
+    @rx.event
     def open_edit_modal(self) -> None:
         """Open the edit holiday modal."""
         self.edit_modal_open = True
 
+    @rx.event
     def close_edit_modal(self) -> None:
         """Close the edit modal and reset selection."""
         self.edit_modal_open = False
         self.selected_holiday = None
 
+    @rx.event
     @requires_admin
     async def select_holiday_and_open_edit(self, holiday_id: int) -> None:
         """Select a holiday by ID and open the edit modal."""
@@ -114,6 +121,7 @@ class HolidayState(rx.State):
             )
             self.holidays = [PublicHoliday(**e.to_dict()) for e in entities]
 
+    @rx.event
     @requires_admin
     async def load_holidays(self) -> AsyncGenerator[Any]:
         """Load holidays for the current year.
@@ -134,6 +142,7 @@ class HolidayState(rx.State):
         finally:
             self.is_loading = False
 
+    @rx.event
     @requires_admin
     async def change_year(self, value: str) -> AsyncGenerator[Any]:
         """Change the year filter and reload."""
@@ -145,6 +154,7 @@ class HolidayState(rx.State):
         finally:
             self.is_loading = False
 
+    @rx.event
     @requires_admin
     async def create_holiday(self, form_data: dict) -> AsyncGenerator[Any]:
         """Create a new holiday from form submission."""
@@ -184,6 +194,7 @@ class HolidayState(rx.State):
                 position="top-right",
             )
 
+    @rx.event
     @requires_admin
     async def update_holiday(self, form_data: dict) -> AsyncGenerator[Any]:
         """Update an existing holiday from form submission."""
@@ -236,6 +247,7 @@ class HolidayState(rx.State):
                 position="top-right",
             )
 
+    @rx.event
     @requires_admin
     async def delete_holiday(self, holiday_id: int) -> AsyncGenerator[Any]:
         """Delete a holiday by ID."""

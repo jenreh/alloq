@@ -78,7 +78,7 @@ def _emp(emp_id: int, role_id: int) -> dict[str, Any]:
 def _plan_state(
     project_id: int, employees: list[dict[str, Any]], start: str, end: str
 ) -> ProjectPlanState:
-    state = ProjectPlanState()  # type: ignore[call-arg]
+    state = ProjectPlanState()
     state.selected_project_id = str(project_id)
     state.start_iso = start
     state.end_iso = end
@@ -236,7 +236,7 @@ class TestCapacity:
 
 class TestNextStep:
     def test_needs_a_project_to_leave_step_zero(self) -> None:
-        state = ProjectPlanState()  # type: ignore[call-arg]
+        state = ProjectPlanState()
         state.next_step()
         assert state.step == 0
 
@@ -263,7 +263,7 @@ class TestNextStep:
         async def _get_state(cls: type) -> Any:
             return login if cls is LoginState else planning
 
-        state = ProjectPlanState()  # type: ignore[call-arg]
+        state = ProjectPlanState()
         with (
             patch.object(
                 ProjectPlanState, "get_state", AsyncMock(side_effect=_get_state)

@@ -225,7 +225,7 @@ def _import_all() -> None:
         importlib.import_module(name)
 
 
-def _subclasses(cls: type) -> Iterator[type]:
+def _subclasses[T](cls: type[T]) -> Iterator[type[T]]:
     for sub in cls.__subclasses__():
         yield sub
         yield from _subclasses(sub)
@@ -265,7 +265,9 @@ def _is_requires_admin(fn: Callable[..., Any]) -> bool:
     )
 
 
-def _db_markers(state: type, fn: Callable[..., Any], seen: set[str]) -> list[str]:
+def _db_markers(
+    state: type[rx.State], fn: Callable[..., Any], seen: set[str]
+) -> list[str]:
     """DB markers in ``fn`` and in the non-handler ``self.`` helpers it calls."""
     try:
         source = inspect.getsource(inspect.unwrap(fn))
@@ -337,7 +339,7 @@ def test_background_handlers_check_admin_inside_state_lock(
     handler = _handlers(state)[name]
     assert handler.is_background
     assert "self._run_card_load(" in inspect.getsource(inspect.unwrap(handler.fn))
-    runner = inspect.getsource(state._run_card_load)  # noqa: SLF001
+    runner = inspect.getsource(inspect.getattr_static(state, "_run_card_load"))
     lock = runner.index("async with self:")
     check = runner.index("await _is_admin(self")
     load = runner.index("await loader()")

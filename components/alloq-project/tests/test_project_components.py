@@ -3,6 +3,7 @@
 import json
 import re
 
+from alloq_commons.models.project import Project
 from alloq_project.components.project_card import project_card
 from alloq_project.components.project_form import project_form_fields
 from alloq_project.components.project_risk_tab import risiken_tab
@@ -37,12 +38,12 @@ class TestProjectForm:
 
 class TestProjectCard:
     def test_nowrap_is_not_emitted_as_css(self) -> None:
-        rendered = str(project_card(ProjectState.projects[0]))  # type: ignore[arg-type]
+        rendered = str(project_card(ProjectState.projects[0].to(Project)))
 
         assert '["nowrap"]' not in rendered
 
     def test_card_caps_team_avatars(self) -> None:
-        rendered = str(project_card(ProjectState.projects[0]))  # type: ignore[arg-type]
+        rendered = str(project_card(ProjectState.projects[0].to(Project)))
 
         assert re.search(r'\["team_members"\][^,]*slice', rendered)
 

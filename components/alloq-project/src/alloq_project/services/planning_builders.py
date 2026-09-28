@@ -209,6 +209,7 @@ def parse_cell_changes(
         parts = split_cell_key(key) if isinstance(key, str) else None
         if (
             parts is None
+            or not isinstance(key, str)
             or (parts[0], parts[1]) not in editable_rows
             or parts[2] not in week_keys
             or isinstance(value, bool)

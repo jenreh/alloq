@@ -106,6 +106,8 @@ class TestBuildChartDataWithCapacity:
 
     def test_fallback_to_linear_when_no_allocations(self) -> None:
         project = _project()
+        assert project.start_date is not None
+        assert project.end_date is not None
         total_days = (project.end_date - project.start_date).days
         mid = project.start_date + timedelta(days=total_days // 2)
         statuses = [_status(mid, 50, 50)]
@@ -204,6 +206,7 @@ class TestBuildChartDataWithCapacity:
     def test_pv_monotonically_non_decreasing_linear_fallback(self) -> None:
         """Linear fallback PV must also be non-decreasing."""
         project = _project()
+        assert project.start_date is not None
         statuses = [
             _status(project.start_date + timedelta(weeks=2), 20, 25),
             _status(project.start_date + timedelta(weeks=4), 40, 45),

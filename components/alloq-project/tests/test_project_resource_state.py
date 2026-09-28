@@ -71,7 +71,7 @@ async def _patch_states(
 
 
 def _loaded_state() -> ProjectResourceState:
-    state = ProjectResourceState()  # type: ignore[call-arg]
+    state = ProjectResourceState()
     state.project_id = 1
     state.project_start = "2026-09-14"
     state.project_end = "2026-12-31"
@@ -183,7 +183,7 @@ class TestLoad:
 
     @pytest.mark.asyncio
     async def test_load_splits_allocations_and_sets_defaults(self) -> None:
-        state = ProjectResourceState()  # type: ignore[call-arg]
+        state = ProjectResourceState()
         project_entity = MagicMock()
         project_entity.to_dict.return_value = {
             "id": 1,
@@ -240,7 +240,7 @@ class TestLoad:
 
     @pytest.mark.asyncio
     async def test_load_without_selected_project_does_nothing(self) -> None:
-        state = ProjectResourceState()  # type: ignore[call-arg]
+        state = ProjectResourceState()
         project_state = _project_state()
         project_state.selected_project = None
 
@@ -252,7 +252,7 @@ class TestLoad:
 
     @pytest.mark.asyncio
     async def test_load_with_end_before_start_does_not_crash(self) -> None:
-        state = ProjectResourceState()  # type: ignore[call-arg]
+        state = ProjectResourceState()
         project_entity = MagicMock()
         project_entity.to_dict.return_value = {
             "id": 1,

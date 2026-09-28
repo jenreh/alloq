@@ -300,51 +300,65 @@ _PRIOR_NOT_LOADED = (
 class ProjectPlanState(rx.State):
     """Multi-step planning modal state."""
 
-    is_open: bool = False
-    is_saving: bool = False
-    step: int = 0  # 0=project select, 1=Verteilung, 2=Mitarbeiter, 3=Vorschau
+    is_open: rx.Field[bool] = rx.field(False)
+    is_saving: rx.Field[bool] = rx.field(False)
+    step: rx.Field[int] = rx.field(
+        0
+    )  # 0=project select, 1=Verteilung, 2=Mitarbeiter, 3=Vorschau
 
     # Step 0: project selection
-    search: str = ""
-    project_pool: list[Project] = []
-    selected_project_id: str = ""
-    selected_project_code: str = ""
-    selected_project_name: str = ""
-    selected_project_color: str = "var(--mantine-color-yellow-5)"
-    start_iso: str = ""  # YYYY-MM-DD
-    end_iso: str = ""
+    search: rx.Field[str] = rx.field("")
+    project_pool: rx.Field[list[Project]] = rx.field(default_factory=list)
+    selected_project_id: rx.Field[str] = rx.field("")
+    selected_project_code: rx.Field[str] = rx.field("")
+    selected_project_name: rx.Field[str] = rx.field("")
+    selected_project_color: rx.Field[str] = rx.field("var(--mantine-color-yellow-5)")
+    start_iso: rx.Field[str] = rx.field("")  # YYYY-MM-DD
+    end_iso: rx.Field[str] = rx.field("")
 
     # Step 1: distribution
-    total_pt: int = 100
-    ramp_up: int = 0
-    ramp_down: int = 0
-    gtk_count: float = 5.0
+    total_pt: rx.Field[int] = rx.field(100)
+    ramp_up: rx.Field[int] = rx.field(0)
+    ramp_down: rx.Field[int] = rx.field(0)
+    gtk_count: rx.Field[float] = rx.field(5.0)
 
     # Step 2: employees
-    required_role_ids: list[int] = []
-    selected_employee_ids: list[int] = []
-    employee_role_filter: str = "all"  # "all" | role_id as str
-    employee_pool: list[dict[str, Any]] = []  # snapshot from PlanningStore
-    role_options_data: list[dict[str, str]] = []  # snapshot from PlanningStore
-    holiday_dates: list[datetime.date] = []  # snapshot from PlanningStore
+    required_role_ids: rx.Field[list[int]] = rx.field(default_factory=list)
+    selected_employee_ids: rx.Field[list[int]] = rx.field(default_factory=list)
+    employee_role_filter: rx.Field[str] = rx.field("all")  # "all" | role_id as str
+    employee_pool: rx.Field[list[dict[str, Any]]] = rx.field(
+        default_factory=list
+    )  # snapshot from PlanningStore
+    role_options_data: rx.Field[list[dict[str, str]]] = rx.field(
+        default_factory=list
+    )  # snapshot from PlanningStore
+    holiday_dates: rx.Field[list[datetime.date]] = rx.field(
+        default_factory=list
+    )  # snapshot from PlanningStore
     # role_id, role_name, person_days
-    required_capacity_snapshot: list[dict[str, Any]] = []
+    required_capacity_snapshot: rx.Field[list[dict[str, Any]]] = rx.field(
+        default_factory=list
+    )
     # employee_id (str) -> already-planned PT in project timeframe (excl. this project)
-    planned_pt_by_employee: dict[str, float] = {}
+    planned_pt_by_employee: rx.Field[dict[str, float]] = rx.field(default_factory=dict)
     # employee_id (str) -> {week_iso: pt} prior allocations (excl. this project)
-    planned_pt_by_employee_week: dict[str, dict[str, float]] = {}
+    planned_pt_by_employee_week: rx.Field[dict[str, dict[str, float]]] = rx.field(
+        default_factory=dict
+    )
     # _prior_key() of the window the prior-allocation snapshot was loaded for
-    prior_loaded_for: str = ""
+    prior_loaded_for: rx.Field[str] = rx.field("")
     # employee_id (str) -> PT user wants to plan for this project
-    planned_by_employee: dict[str, float] = {}
+    planned_by_employee: rx.Field[dict[str, float]] = rx.field(default_factory=dict)
     # employee_id (str) -> chosen role_id for this project
-    role_by_employee: dict[str, int] = {}
+    role_by_employee: rx.Field[dict[str, int]] = rx.field(default_factory=dict)
     # role_id (str) -> role name lookup
-    role_name_by_id: dict[str, str] = {}
+    role_name_by_id: rx.Field[dict[str, str]] = rx.field(default_factory=dict)
     # role_id (str) -> {"ramp_up": bool, "ramp_down": bool}
     # ramp_up=True  -> role IS needed during ramp-up phase (durchgehend ab Start)
     # ramp_up=False -> role ramps up gradually with the project
-    role_ramps_by_id: dict[str, dict[str, bool]] = {}
+    role_ramps_by_id: rx.Field[dict[str, dict[str, bool]]] = rx.field(
+        default_factory=dict
+    )
 
     @rx.var(cache=True)
     def num_weeks(self) -> int:
@@ -624,6 +638,7 @@ class ProjectPlanState(rx.State):
                 bucket[wk] = bucket.get(wk, 0.0) + float(r.person_days or 0.0)
         return out
 
+    @rx.event
     def num_weeks_from(self, start: str, end: str) -> int:
         try:
             s = datetime.date.fromisoformat(start)

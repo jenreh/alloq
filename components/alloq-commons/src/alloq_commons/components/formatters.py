@@ -1,6 +1,9 @@
 """Common formatters for the application."""
 
+from typing import Any, cast
+
 import reflex as rx
+from reflex.vars import StringVar
 
 import appkit_mantine as mn
 
@@ -9,6 +12,11 @@ ROW_STYLE: dict[str, str] = {
     "borderRadius": "6px",
     "backgroundColor": "var(--alloq-surface-muted)",
 }
+
+
+def match_str(condition: Any, *cases: Any) -> rx.Var[str]:
+    """``rx.match`` whose cases all yield strings, typed as a string Var."""
+    return cast("rx.Var[str]", rx.match(condition, *cases))
 
 
 def big_number(value: rx.Var, suffix: str = "") -> rx.Component:
@@ -31,15 +39,15 @@ def big_number(value: rx.Var, suffix: str = "") -> rx.Component:
     )
 
 
-def format_date_de(date_var: rx.Var) -> rx.Var[str]:
+def format_date_de(date_var: rx.Var | str) -> StringVar:
     """Format ISO date string (YYYY-MM-DD) to German format (DD.MM.YYYY)."""
-    parts = date_var.to(str).split("-")
+    parts = rx.Var.create(date_var).to(str).split("-")
     return parts[2] + "." + parts[1] + "." + parts[0]
 
 
-def format_date_de_named(date_var: rx.Var) -> rx.Var[str]:
+def format_date_de_named(date_var: rx.Var | str) -> StringVar:
     """Format ISO date string (YYYY-MM-DD) to German named format (DD. Mon YYYY)."""
-    parts = date_var.to(str).split("-")
+    parts = rx.Var.create(date_var).to(str).split("-")
     month_name = rx.match(
         parts[1],
         ("01", "Jan"),
@@ -56,7 +64,7 @@ def format_date_de_named(date_var: rx.Var) -> rx.Var[str]:
         ("12", "Dez"),
         "",
     )
-    return f"{parts[2]}. {month_name} {parts[0]}"
+    return rx.Var.create(f"{parts[2]}. {month_name} {parts[0]}").to(str)
 
 
 def de_number(

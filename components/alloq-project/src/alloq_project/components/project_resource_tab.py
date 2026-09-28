@@ -1,4 +1,5 @@
 import reflex as rx
+from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.formatters import de_number, format_date_de
 from alloq_commons.components.forms import section
 from alloq_project.states.project_resource_state import (
@@ -6,9 +7,9 @@ from alloq_project.states.project_resource_state import (
     MIN_DAYS_PER_WEEK,
     ProjectResourceState,
 )
+from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
-from appkit_ui.components.dialogs import delete_dialog
 
 _ROW_STYLE = {
     "padding": "6px 12px",
@@ -35,7 +36,7 @@ def _empty(text: str) -> rx.Component:
     return mn.text(text, size="sm", c="dimmed", ta="center", py="sm")
 
 
-def _period_row(period: rx.Var) -> rx.Component:
+def _period_row(period: ObjectVar) -> rx.Component:
     """One planned period with edit and delete actions."""
     is_editing = ProjectResourceState.editing_key == period.key
     return mn.group(
@@ -149,7 +150,7 @@ def _plan_fields() -> rx.Component:
         ),
         mn.number_input(
             label="Tage pro Woche",
-            default_value=ProjectResourceState.days_per_week,
+            default_value=ProjectResourceState.days_per_week.to(float),
             on_change=ProjectResourceState.set_days_per_week,
             on_blur=ProjectResourceState.sync_days_input,
             min=MIN_DAYS_PER_WEEK,
@@ -166,7 +167,7 @@ def _plan_fields() -> rx.Component:
     )
 
 
-def _candidate_row(candidate: rx.Var) -> rx.Component:
+def _candidate_row(candidate: ObjectVar) -> rx.Component:
     """One employee who can be planned with the current form values."""
     return mn.group(
         mn.stack(

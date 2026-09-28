@@ -27,6 +27,9 @@ depends_on: str | Sequence[str] | None = None
 
 def get_encryption_key() -> str:
     config = configuration.app.database
+    if config is None:
+        msg = "No app.database configuration found; check the active PROFILES."
+        raise RuntimeError(msg)
     return str(config.encryption_key.get_secret_value())
 
 

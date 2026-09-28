@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import reflex as rx
+from alloq_commons.components.formatters import match_str
 from alloq_project.components.planning_shared import (
     GRID_WRAPPER_STYLE,
     LABEL_COL_WIDTH,
@@ -15,6 +16,7 @@ from alloq_project.states.planning_grid_state import (
     PlanningStore,
     WeekColumn,
 )
+from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
 
@@ -32,7 +34,7 @@ ABSENT_STRIPE_BG = (
 
 
 def _heat_bg(bucket: rx.Var[str]) -> rx.Var[str]:
-    return rx.match(
+    return match_str(
         bucket,
         ("low", "light-dark(var(--mantine-color-red-1), rgba(250,82,82,0.20))"),
         ("mid", "light-dark(var(--mantine-color-yellow-2), rgba(250,176,5,0.30))"),
@@ -51,7 +53,7 @@ def _heat_bg(bucket: rx.Var[str]) -> rx.Var[str]:
 
 
 def _heat_fg(bucket: rx.Var[str]) -> rx.Var[str]:
-    return rx.match(
+    return match_str(
         bucket,
         (
             "low",
@@ -105,7 +107,7 @@ def _heatmap_label_th(text: str) -> rx.Component:
     )
 
 
-def _month_cell(month: MonthSpan) -> rx.Component:
+def _month_cell(month: ObjectVar[MonthSpan]) -> rx.Component:
     return mn.box(
         mn.text(month.label, size="sm", fw="600", c="var(--alloq-text)"),
         style={
@@ -119,7 +121,7 @@ def _month_cell(month: MonthSpan) -> rx.Component:
     )
 
 
-def _week_no_cell(week: WeekColumn) -> rx.Component:
+def _week_no_cell(week: ObjectVar[WeekColumn]) -> rx.Component:
     return mn.box(
         mn.text(
             week.week_no.to_string(),
@@ -171,7 +173,7 @@ def _heatmap_header() -> rx.Component:
 # ---------------------------- Body -----------------------------------------
 
 
-def _heat_pill(cell: HeatCell) -> rx.Component:
+def _heat_pill(cell: ObjectVar[HeatCell]) -> rx.Component:
     inner = rx.cond(
         cell.is_absent,
         rx.icon("plane", size=16, color="var(--alloq-text-muted)"),
@@ -205,7 +207,7 @@ def _heat_pill(cell: HeatCell) -> rx.Component:
     )
 
 
-def _employee_label_cell(emp: EmployeeBlock) -> rx.Component:
+def _employee_label_cell(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
     return mn.box(
         mn.group(
             mn.avatar(
@@ -254,7 +256,7 @@ def _employee_label_cell(emp: EmployeeBlock) -> rx.Component:
     )
 
 
-def _heat_row(emp: EmployeeBlock) -> rx.Component:
+def _heat_row(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
     return grid_row(
         _employee_label_cell(emp),
         rx.foreach(emp.heat, _heat_pill),
@@ -268,7 +270,7 @@ def _heat_row(emp: EmployeeBlock) -> rx.Component:
 # ---------------------------- Footer ---------------------------------------
 
 
-def _avg_footer_cell(cell: HeatCell) -> rx.Component:
+def _avg_footer_cell(cell: ObjectVar[HeatCell]) -> rx.Component:
     return mn.box(
         mn.box(
             mn.text(

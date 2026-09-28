@@ -27,6 +27,7 @@ from alloq_project.states.planning_grid_state import (
     ProjectGesamtCell,
 )
 from alloq_project.states.planning_models import RoleTotal
+from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
 
@@ -38,7 +39,7 @@ PROJ_HEADER_BG = "var(--alloq-surface-hover)"
 # ---------------------------------------------------------------------------
 
 
-def _role_total_badge(role: RoleTotal) -> rx.Component:
+def _role_total_badge(role: ObjectVar[RoleTotal]) -> rx.Component:
     """Role abbreviation with its planned person-days."""
     return mn.badge(
         mn.group(
@@ -60,7 +61,7 @@ def _role_total_badge(role: RoleTotal) -> rx.Component:
     )
 
 
-def _project_header_row(proj: ProjectBlock) -> rx.Component:
+def _project_header_row(proj: ObjectVar[ProjectBlock]) -> rx.Component:
     """Collapsible project header with color indicator and name."""
     is_collapsed = PlanningStore.collapsed_projects.contains(proj.id)
     return grid_row(
@@ -75,7 +76,7 @@ def _project_header_row(proj: ProjectBlock) -> rx.Component:
                     variant="subtle",
                     color="gray",
                     size="sm",
-                    on_click=PlanningStore.toggle_project(proj.id),
+                    on_click=PlanningStore.toggle_project(proj.id),  # ty: ignore[invalid-argument-type]
                 ),
                 mn.box(
                     style={
@@ -127,7 +128,7 @@ def _project_header_row(proj: ProjectBlock) -> rx.Component:
 # ---------------------------------------------------------------------------
 
 
-def _employee_label_cell(emp: EmployeeAllocationRow) -> rx.Component:
+def _employee_label_cell(emp: ObjectVar[EmployeeAllocationRow]) -> rx.Component:
     """Label cell for an employee row under a project."""
     return mn.box(
         mn.group(
@@ -170,12 +171,12 @@ def _employee_label_cell(emp: EmployeeAllocationRow) -> rx.Component:
     )
 
 
-def _employee_row_view(emp: EmployeeAllocationRow) -> rx.Component:
+def _employee_row_view(emp: ObjectVar[EmployeeAllocationRow]) -> rx.Component:
     """One employee row within a project block."""
     return grid_row(
         _employee_label_cell(emp),
         rx.foreach(emp.cells, editable_value_cell),
-        attrs=grid_row_attrs(emp.emp_id + "|" + emp.project_code, emp.project_code),
+        attrs=grid_row_attrs(f"{emp.emp_id}|{emp.project_code}", emp.project_code),
     )
 
 
@@ -184,7 +185,7 @@ def _employee_row_view(emp: EmployeeAllocationRow) -> rx.Component:
 # ---------------------------------------------------------------------------
 
 
-def _project_gesamt_cell(cell: ProjectGesamtCell) -> rx.Component:
+def _project_gesamt_cell(cell: ObjectVar[ProjectGesamtCell]) -> rx.Component:
     """Aggregate capacity cell at project level."""
     return mn.box(
         format_gesamt(cell.allocated),
@@ -200,7 +201,7 @@ def _project_gesamt_cell(cell: ProjectGesamtCell) -> rx.Component:
     )
 
 
-def _project_gesamt_row(proj: ProjectBlock) -> rx.Component:
+def _project_gesamt_row(proj: ObjectVar[ProjectBlock]) -> rx.Component:
     """Gesamt row showing total allocated per week for a project."""
     return grid_row(
         mn.box(
@@ -225,7 +226,7 @@ def _project_gesamt_row(proj: ProjectBlock) -> rx.Component:
 # ---------------------------------------------------------------------------
 
 
-def _project_block(proj: ProjectBlock) -> rx.Component:
+def _project_block(proj: ObjectVar[ProjectBlock]) -> rx.Component:
     """One project block with collapsible employee rows."""
     is_collapsed = PlanningStore.collapsed_projects.contains(proj.id)
     return mn.box(

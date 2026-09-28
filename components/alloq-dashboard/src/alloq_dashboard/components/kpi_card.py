@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import reflex as rx
+from reflex.event import EventType
 
 import appkit_mantine as mn
 
@@ -36,7 +39,7 @@ def kpi_card(
     body: rx.Component,
     *,
     is_loading: rx.Var[bool],
-    on_open: rx.EventHandler | None = None,
+    on_open: EventType[()] | None = None,
     icon: str | None = None,
     accent_color: str | None = None,
     error_message: rx.Var[str] | None = None,
@@ -79,7 +82,7 @@ def kpi_card(
         style={"flex": "1", "minHeight": "0"},
     )
 
-    style = dict(CARD_STYLE)
+    style: dict[str, Any] = dict(CARD_STYLE)
     if compact:
         style["minHeight"] = "auto"
         style["padding"] = "1rem"

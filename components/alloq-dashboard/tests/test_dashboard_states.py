@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterator
+from collections.abc import Callable, Coroutine, Iterator
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -25,6 +25,11 @@ from appkit_user.authentication.backend.models import User
 _LOADER = "alloq_dashboard.states.dashboard_states.aggregation.load_projects_overview"
 _ADMIN = User(user_id=1, name="Admin", is_admin=True)
 _MEMBER = User(user_id=2, name="Member", is_admin=False)
+
+
+def _load_fn(state_cls: type) -> Callable[..., Coroutine[Any, Any, None]]:
+    """The background ``load`` coroutine, driven directly in tests."""
+    return cast("Any", state_cls).load.fn
 
 
 class _FakeLoginState:
@@ -87,7 +92,7 @@ async def test_projects_overview_load_populates_data() -> None:
         new=AsyncMock(return_value=payload),
     ):
         # Background events: drive the underlying coroutine directly.
-        await ProjectsOverviewState.load.fn(state, force=True)
+        await _load_fn(ProjectsOverviewState)(state, force=True)
     assert state.data.total == 3
     assert state.data.active == 2
     assert state.is_loading is False
@@ -105,7 +110,7 @@ async def test_projects_overview_load_skips_when_fresh() -> None:
         _LOADER,
         new=mock,
     ):
-        await ProjectsOverviewState.load.fn(state)
+        await _load_fn(ProjectsOverviewState)(state)
     mock.assert_not_called()
     assert state.data.total == 99
 
@@ -119,7 +124,7 @@ async def test_projects_overview_load_records_error() -> None:
         _LOADER,
         new=boom,
     ):
-        await ProjectsOverviewState.load.fn(state, force=True)
+        await _load_fn(ProjectsOverviewState)(state, force=True)
     assert state.is_loading is False
     assert state.error_message == LOAD_ERROR_MESSAGE
     assert "db down" not in state.error_message
@@ -131,7 +136,7 @@ async def test_card_load_rejects_non_admin(user: User | None) -> None:
     state = ProjectsOverviewState()
     loader = AsyncMock(return_value=ProjectsOverviewKpi(total=7))
     with _login_as(ProjectsOverviewState, user), patch(_LOADER, new=loader):
-        await ProjectsOverviewState.load.fn(state, force=True)
+        await _load_fn(ProjectsOverviewState)(state, force=True)
     loader.assert_not_called()
     assert state.data.total == 0
     assert state.last_loaded == ""
@@ -148,7 +153,7 @@ async def test_risk_load_rejects_non_admin() -> None:
             new=loader,
         ),
     ):
-        await RiskState.load.fn(state, force=True)
+        await _load_fn(RiskState)(state, force=True)
     loader.assert_not_called()
     assert state.data.open_total == 0
 
@@ -184,8 +189,8 @@ async def test_superseded_load_does_not_overwrite_newer_result() -> None:
         return ProjectsOverviewKpi(total=2)
 
     with patch(_LOADER, new=slow_then_fast):
-        slow = asyncio.create_task(ProjectsOverviewState.load.fn(state, force=True))
+        slow = asyncio.create_task(_load_fn(ProjectsOverviewState)(state, force=True))
         await release_slow.wait()
-        await ProjectsOverviewState.load.fn(state, force=True)
+        await _load_fn(ProjectsOverviewState)(state, force=True)
         await slow
     assert state.data.total == 2

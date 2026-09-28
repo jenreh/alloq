@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import reflex as rx
+from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.excel_grid import grid_row_attrs
-from alloq_commons.components.formatters import de_number
+from alloq_commons.components.formatters import de_number, match_str
 from alloq_commons.components.forms import quick_project_fields, section
 from alloq_commons.components.modal_layout import (
     MODAL_CLASS,
@@ -36,9 +37,9 @@ from alloq_project.states.planning_grid_state import (
     PlanningStore,
     ProjectAllocationRow,
 )
+from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
-from appkit_ui.components.dialogs import delete_dialog
 
 # ---------------------------------------------------------------------------
 # Gesamt bucket styling (employee-specific)
@@ -46,7 +47,7 @@ from appkit_ui.components.dialogs import delete_dialog
 
 
 def _gesamt_bg(bucket: rx.Var[str]) -> rx.Var[str]:
-    return rx.match(
+    return match_str(
         bucket,
         (
             "available",
@@ -73,7 +74,7 @@ def _gesamt_bg(bucket: rx.Var[str]) -> rx.Var[str]:
 
 
 def _gesamt_color(bucket: rx.Var[str]) -> rx.Var[str]:
-    return rx.match(
+    return match_str(
         bucket,
         (
             "over",
@@ -104,7 +105,7 @@ def _gesamt_color(bucket: rx.Var[str]) -> rx.Var[str]:
 # ---------------------------------------------------------------------------
 
 
-def _employee_header_row(emp: EmployeeBlock) -> rx.Component:
+def _employee_header_row(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
     is_collapsed = PlanningStore.collapsed_employees.contains(emp.id)
     return grid_row(
         mn.box(
@@ -119,7 +120,7 @@ def _employee_header_row(emp: EmployeeBlock) -> rx.Component:
                         variant="subtle",
                         color="gray",
                         size="sm",
-                        on_click=PlanningStore.toggle_employee(emp.id),
+                        on_click=PlanningStore.toggle_employee(emp.id),  # ty: ignore[invalid-argument-type]
                     ),
                     mn.text(emp.name, size="sm", fw="700", c="var(--alloq-text)"),
                     de_number(
@@ -152,7 +153,7 @@ def _employee_header_row(emp: EmployeeBlock) -> rx.Component:
                         variant="subtle",
                         color="gray",
                         size="xs",
-                        on_click=PlanningStore.open_add_project_for_employee(emp.id),
+                        on_click=PlanningStore.open_add_project_for_employee(emp.id),  # ty: ignore[invalid-argument-type]
                     ),
                     label="Projekt zuweisen",
                 ),
@@ -176,7 +177,7 @@ def _employee_header_row(emp: EmployeeBlock) -> rx.Component:
     )
 
 
-def _project_label_cell(project: ProjectAllocationRow) -> rx.Component:
+def _project_label_cell(project: ObjectVar[ProjectAllocationRow]) -> rx.Component:
     return mn.box(
         mn.group(
             mn.box(
@@ -217,8 +218,8 @@ def _project_label_cell(project: ProjectAllocationRow) -> rx.Component:
             mn.tooltip(
                 delete_dialog(
                     title="Projektzuweisung entfernen",
-                    content=project.code + " — " + project.name,
-                    on_click=PlanningStore.remove_project_from_employee_grid(
+                    content=f"{project.code} — {project.name}",
+                    on_click=PlanningStore.remove_project_from_employee_grid(  # ty: ignore[invalid-argument-type]
                         project.emp_id, project.real_project_id
                     ),
                     icon_button=True,
@@ -242,18 +243,18 @@ def _project_label_cell(project: ProjectAllocationRow) -> rx.Component:
     )
 
 
-def _project_row_view(project: ProjectAllocationRow) -> rx.Component:
+def _project_row_view(project: ObjectVar[ProjectAllocationRow]) -> rx.Component:
     return grid_row(
         _project_label_cell(project),
         rx.foreach(project.cells, editable_value_cell),
-        attrs=grid_row_attrs(project.emp_id + "|" + project.code, project.emp_id),
+        attrs=grid_row_attrs(f"{project.emp_id}|{project.code}", project.emp_id),
     )
 
 
-def _absence_value_cell(cell: GridCell) -> rx.Component:
+def _absence_value_cell(cell: ObjectVar[GridCell]) -> rx.Component:
     return mn.box(
         rx.cond(
-            cell.value > 0,
+            cell.value.to(float) > 0,
             mn.box(
                 format_de(cell.value),
                 style={
@@ -278,7 +279,7 @@ def _absence_value_cell(cell: GridCell) -> rx.Component:
     )
 
 
-def _absence_row(emp: EmployeeBlock) -> rx.Component:
+def _absence_row(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
     return grid_row(
         mn.box(
             mn.group(
@@ -306,10 +307,10 @@ def _absence_row(emp: EmployeeBlock) -> rx.Component:
     )
 
 
-def _internal_value_cell(cell: GridCell) -> rx.Component:
+def _internal_value_cell(cell: ObjectVar[GridCell]) -> rx.Component:
     return mn.box(
         rx.cond(
-            cell.value > 0,
+            cell.value.to(float) > 0,
             mn.box(
                 format_de(cell.value),
                 style={
@@ -334,7 +335,7 @@ def _internal_value_cell(cell: GridCell) -> rx.Component:
     )
 
 
-def _internal_row(emp: EmployeeBlock) -> rx.Component:
+def _internal_row(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
     return grid_row(
         mn.box(
             mn.group(
@@ -362,7 +363,7 @@ def _internal_row(emp: EmployeeBlock) -> rx.Component:
     )
 
 
-def _gesamt_value_cell(cell: GesamtCell) -> rx.Component:
+def _gesamt_value_cell(cell: ObjectVar[GesamtCell]) -> rx.Component:
     is_current = cell.week_key == PlanningStore.current_week_key
     return mn.box(
         format_gesamt(cell.value),
@@ -380,7 +381,7 @@ def _gesamt_value_cell(cell: GesamtCell) -> rx.Component:
     )
 
 
-def _gesamt_row(emp: EmployeeBlock) -> rx.Component:
+def _gesamt_row(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
     return grid_row(
         mn.box(
             mn.text("Gesamt (frei)", size="sm", fw="700", c="var(--alloq-text)"),
@@ -393,7 +394,7 @@ def _gesamt_row(emp: EmployeeBlock) -> rx.Component:
     )
 
 
-def _employee_block(emp: EmployeeBlock) -> rx.Component:
+def _employee_block(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
     is_collapsed = PlanningStore.collapsed_employees.contains(emp.id)
     return mn.box(
         _employee_header_row(emp),
@@ -424,7 +425,7 @@ def _add_project_modal() -> rx.Component:
                     mn.select(
                         name="project_id",
                         label="Projekt",
-                        data=PlanningStore.add_project_options,
+                        data=PlanningStore.add_project_options.to(list[dict[str, str]]),
                         value=PlanningStore.add_project_selected,
                         on_change=PlanningStore.set_add_project_selected,
                         required=True,
@@ -447,7 +448,9 @@ def _add_project_modal() -> rx.Component:
                     mn.select(
                         name="role_id",
                         label="Rolle",
-                        data=PlanningStore.add_project_role_options,
+                        data=PlanningStore.add_project_role_options.to(
+                            list[dict[str, str]]
+                        ),
                         required=True,
                         searchable=True,
                         clearable=True,

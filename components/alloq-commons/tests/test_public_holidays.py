@@ -49,8 +49,6 @@ class TestPublicHolidayEntity:
             state_code="NRW",
         )
         entity.id = 1
-        entity.created = None
-        entity.updated = None
         result = entity.to_dict()
         assert result["id"] == 1
         assert result["name"] == "Fronleichnam"
@@ -102,11 +100,11 @@ class TestPublicHolidayCreateModel:
 
     def test_name_required(self) -> None:
         with pytest.raises(ValidationError):
-            PublicHolidayCreate(date=date(2026, 1, 1))  # type: ignore[call-arg]
+            PublicHolidayCreate(date=date(2026, 1, 1))  # ty: ignore[missing-argument]
 
     def test_date_required(self) -> None:
         with pytest.raises(ValidationError):
-            PublicHolidayCreate(name="Neujahr")  # type: ignore[call-arg]
+            PublicHolidayCreate(name="Neujahr")  # ty: ignore[missing-argument]
 
     def test_max_length_name(self) -> None:
         with pytest.raises(ValidationError):
@@ -271,7 +269,7 @@ class TestHolidayStateLoading:
 
     @pytest.mark.asyncio
     async def test_first_load_shows_loading_row(self) -> None:
-        state = HolidayState()  # type: ignore[call-arg]
+        state = HolidayState()
 
         flags = await self._collect_loading_flags(state)
 
@@ -281,7 +279,7 @@ class TestHolidayStateLoading:
     @pytest.mark.asyncio
     async def test_reload_keeps_rows_when_already_loaded(self) -> None:
         """Revisiting the page must not swap existing rows for the spinner."""
-        state = HolidayState()  # type: ignore[call-arg]
+        state = HolidayState()
         state.holidays = [PublicHoliday(id=1, name="Neujahr")]
 
         flags = await self._collect_loading_flags(state)

@@ -34,11 +34,15 @@ target_metadata = [Base.metadata]  # , SQLModel.metadata]
 def get_database_url() -> str:
     """Get database URL, trying multiple sources."""
 
-    return configuration.app.database.url
+    database = configuration.app.database
+    if database is None:
+        msg = "No app.database configuration found; check the active PROFILES."
+        raise RuntimeError(msg)
+    return database.url
 
 
 def include_object(
-    obj: Any, name: str, type_: str, reflected: bool, compare_to: Any | None
+    obj: Any, name: str | None, type_: str, reflected: bool, compare_to: Any | None
 ) -> bool:
     # Exclude specific tables
     if type_ == "table" and name in [

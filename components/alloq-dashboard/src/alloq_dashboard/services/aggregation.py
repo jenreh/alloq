@@ -545,16 +545,17 @@ async def load_project_health() -> ProjectHealthKpi:
             )
         )
 
+    at_risk_rows = sorted(
+        at_risk,
+        key=lambda s: (
+            s.days_to_end if s.end_date is not None else SORT_END_DATE_FALLBACK
+        ),
+    )
     return ProjectHealthKpi(
         at_risk_count=len(at_risk),
         healthy_count=len(healthy),
         total_risk_count=len(risks),
-        rows=sorted(
-            at_risk,
-            key=lambda s: (
-                s.days_to_end if s.end_date is not None else SORT_END_DATE_FALLBACK
-            ),
-        ),
+        rows=at_risk_rows,
         risk_trend=risk_trend,
     )
 
@@ -785,13 +786,14 @@ async def load_budget_burn() -> BudgetBurnKpi:
     latest_top_name = latest_top.project_name if latest_top else ""
     latest_top_delta = latest_top.abs_delta if latest_top else 0.0
 
+    sorted_rows = sorted(summaries, key=lambda s: -s.progress)
     return BudgetBurnKpi(
         total_budget=total_budget,
         total_spent=total_spent,
         spent_percent=round(spent_percent, 1),
         trend=trend,
         weekly_forecast=weekly_forecast,
-        rows=sorted(summaries, key=lambda s: -s.progress),
+        rows=sorted_rows,
         latest_forecast=latest_forecast,
         latest_budget=latest_budget,
         latest_delta_abs=latest_delta_abs,

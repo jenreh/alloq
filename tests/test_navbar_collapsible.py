@@ -22,55 +22,55 @@ class TestNavbarCollapseState:
     """Tests for the NavbarCollapseState Reflex state class."""
 
     def test_initial_collapsed_value(self) -> None:
-        state = NavbarCollapseState()  # type: ignore[call-arg]
+        state = NavbarCollapseState()
         assert state.collapsed == "1"
 
     def test_is_collapsed_false_when_zero(self) -> None:
-        state = NavbarCollapseState()  # type: ignore[call-arg]
+        state = NavbarCollapseState()
         state.collapsed = "0"
         assert state.is_collapsed is False
 
     def test_is_collapsed_true_when_one(self) -> None:
-        state = NavbarCollapseState()  # type: ignore[call-arg]
+        state = NavbarCollapseState()
         state.collapsed = "1"
         assert state.is_collapsed is True
 
     def test_active_title_returns_matching_section_label(self) -> None:
-        state = NavbarCollapseState()  # type: ignore[call-arg]
+        state = NavbarCollapseState()
         state.active_section_id = _SECTIONS_WITH_ITEMS[0]["id"]
         assert state.active_title == _SECTIONS_WITH_ITEMS[0]["label"]
 
     def test_active_title_returns_default_when_not_found(self) -> None:
-        state = NavbarCollapseState()  # type: ignore[call-arg]
+        state = NavbarCollapseState()
         state.active_section_id = "nonexistent_section"
         assert state.active_title == _SECTIONS_WITH_ITEMS[0]["label"]
 
     def test_toggle_from_expanded_to_collapsed(self) -> None:
-        state = NavbarCollapseState()  # type: ignore[call-arg]
+        state = NavbarCollapseState()
         state.collapsed = "0"
         state.toggle()
         assert state.collapsed == "1"
 
     def test_toggle_from_collapsed_to_expanded(self) -> None:
-        state = NavbarCollapseState()  # type: ignore[call-arg]
+        state = NavbarCollapseState()
         state.collapsed = "1"
         state.toggle()
         assert state.collapsed == "0"
 
     def test_collapse_sets_collapsed(self) -> None:
-        state = NavbarCollapseState()  # type: ignore[call-arg]
+        state = NavbarCollapseState()
         state.collapsed = "0"
         state.collapse()
         assert state.collapsed == "1"
 
     def test_collapse_no_op_when_already_collapsed(self) -> None:
-        state = NavbarCollapseState()  # type: ignore[call-arg]
+        state = NavbarCollapseState()
         state.collapsed = "1"
         state.collapse()
         assert state.collapsed == "1"
 
     def test_select_section_same_section_toggles_panel(self) -> None:
-        state = NavbarCollapseState()  # type: ignore[call-arg]
+        state = NavbarCollapseState()
         section_id = _SECTIONS_WITH_ITEMS[0]["id"]
         state.active_section_id = section_id
         state.collapsed = "0"
@@ -83,7 +83,7 @@ class TestNavbarCollapseState:
         assert len(results) == 0
 
     def test_select_section_same_section_opens_when_collapsed(self) -> None:
-        state = NavbarCollapseState()  # type: ignore[call-arg]
+        state = NavbarCollapseState()
         section_id = _SECTIONS_WITH_ITEMS[0]["id"]
         state.active_section_id = section_id
         state.collapsed = "1"
@@ -95,7 +95,7 @@ class TestNavbarCollapseState:
         assert len(results) == 1
 
     def test_select_section_different_section_opens_panel(self) -> None:
-        state = NavbarCollapseState()  # type: ignore[call-arg]
+        state = NavbarCollapseState()
         state.active_section_id = "some_other_id"
         state.collapsed = "1"
         section_id = _SECTIONS_WITH_ITEMS[0]["id"]
@@ -107,7 +107,7 @@ class TestNavbarCollapseState:
         assert len(results) == 1
 
     def test_reopen_same_section_stays_on_current_item(self) -> None:
-        state = NavbarCollapseState()  # type: ignore[call-arg]
+        state = NavbarCollapseState()
         section = _SECTIONS_WITH_ITEMS[0]
         state.active_section_id = section["id"]
         state.collapsed = "1"
