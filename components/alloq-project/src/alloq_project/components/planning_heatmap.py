@@ -6,7 +6,6 @@ import reflex as rx
 from alloq_project.components.planning_shared import (
     GRID_WRAPPER_STYLE,
     LABEL_COL_WIDTH,
-    WEEK_COL_WIDTH,
     grid_row,
 )
 from alloq_project.states.planning_grid_state import (
@@ -41,9 +40,10 @@ def _heat_bg(bucket: rx.Var[str]) -> rx.Var[str]:
             "high",
             "light-dark(var(--mantine-color-green-2), var(--mantine-color-green-6))",
         ),
+        # Overbooked is a warning, not the best state (matches the grid's red).
         (
             "over",
-            "light-dark(var(--mantine-color-green-4), var(--mantine-color-green-8))",
+            "light-dark(var(--mantine-color-red-4), var(--mantine-color-red-8))",
         ),
         ("absent", ABSENT_STRIPE_BG),
         "transparent",
@@ -67,7 +67,7 @@ def _heat_fg(bucket: rx.Var[str]) -> rx.Var[str]:
         ),
         (
             "over",
-            "light-dark(var(--mantine-color-green-9), var(--mantine-color-green-3))",
+            "light-dark(var(--mantine-color-red-9), var(--mantine-color-red-0))",
         ),
         (
             "absent",
@@ -355,6 +355,3 @@ def planning_heatmap() -> rx.Component:
             py="xl",
         ),
     )
-
-
-_ = WEEK_COL_WIDTH  # re-export reference for column sizing (consumed by _row)

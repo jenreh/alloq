@@ -9,14 +9,11 @@ from appkit_user.authentication.templates import (
 )
 from appkit_user.user_management.components.user_profile import user_profile_view
 
-ROLES = []
-
 
 def create_profile_page(
     navbar: rx.Component,
     route: str = "/profile",
     title: str = "Profil",
-    **kwargs,  # noqa: ARG001
 ) -> Callable:
     """Create the profile page with authentication.
 

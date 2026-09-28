@@ -1,7 +1,7 @@
 import logging
 from datetime import date
 
-from sqlalchemy import Date, ForeignKey, Integer
+from sqlalchemy import CheckConstraint, Date, ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 
 from appkit_commons.database.entities import Base, Entity
@@ -13,6 +13,9 @@ class AbsenceEntity(Entity, Base):
     """Absence period for a team member."""
 
     __tablename__ = "absences"
+    __table_args__ = (
+        CheckConstraint("end_date >= start_date", name="ck_absences_date_range"),
+    )
 
     employee_id: Mapped[int] = mapped_column(
         Integer,

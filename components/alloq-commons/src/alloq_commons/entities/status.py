@@ -1,7 +1,7 @@
 import logging
 from datetime import date
 
-from sqlalchemy import Date, Float, ForeignKey, Integer, String
+from sqlalchemy import CheckConstraint, Date, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from appkit_commons.database.entities import Base, Entity
@@ -13,6 +13,16 @@ class ProjectStatusEntity(Entity, Base):
     """Status snapshot for project progress history."""
 
     __tablename__ = "project_statuses"
+    __table_args__ = (
+        CheckConstraint(
+            "progress >= 0 AND progress <= 100",
+            name="ck_project_statuses_progress_range",
+        ),
+        CheckConstraint(
+            "budget_spent >= 0 AND budget_spent <= 100",
+            name="ck_project_statuses_budget_spent_range",
+        ),
+    )
 
     project_id: Mapped[int] = mapped_column(
         Integer,
@@ -36,7 +46,9 @@ class ProjectStatusEntity(Entity, Base):
         Float, nullable=True, default=None
     )
 
-    project = relationship("ProjectEntity", back_populates="statuses")
+    project = relationship(
+        "ProjectEntity", back_populates="statuses", lazy="raise_on_sql"
+    )
 
     def to_dict(self) -> dict:
         """Convert entity to dictionary for Pydantic model creation."""

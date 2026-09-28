@@ -54,11 +54,6 @@ def planning_filter_row() -> rx.Component:
             color="alloqTeal.5",
             radius="md",
             bg="var(--alloq-surface-solid)",
-            # style={
-            #     "& .mantine-SegmentedControl-label[data-active]": {
-            #         "color": "black !important"
-            #     }
-            # },
         ),
         # Project filter
         mn.multi_select(

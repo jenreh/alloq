@@ -6,6 +6,7 @@ import reflex as rx
 from alloq_commons.components.formatters import de_number
 
 import appkit_mantine as mn
+from alloq_dashboard.components.kpi_card import _skeleton_body
 from alloq_dashboard.states import RoleCapacityState
 
 
@@ -131,14 +132,26 @@ def role_capacity_cards() -> rx.Component:
     return mn.stack(
         mn.text("Freie Kapazität", size="lg", fw="700", c="var(--alloq-text)"),
         rx.cond(
-            data.rows.length() > 0,
-            mn.simple_grid(
-                rx.foreach(data.rows, _role_capacity_card),
-                cols={"base": 1, "sm": 2},
-                spacing="lg",
-                w="100%",
+            RoleCapacityState.error_message != "",
+            mn.text(RoleCapacityState.error_message, size="sm", c="red"),
+            rx.cond(
+                data.rows.length() > 0,
+                mn.simple_grid(
+                    rx.foreach(data.rows, _role_capacity_card),
+                    cols={"base": 1, "sm": 2},
+                    spacing="lg",
+                    w="100%",
+                ),
+                rx.cond(
+                    RoleCapacityState.is_loading,
+                    _skeleton_body(),
+                    mn.text(
+                        "Keine Rollen verfügbar.",
+                        size="sm",
+                        c="var(--alloq-text-muted)",
+                    ),
+                ),
             ),
-            mn.text("Keine Rollen verfügbar.", size="sm", c="var(--alloq-text-muted)"),
         ),
         gap="md",
         w="100%",

@@ -11,6 +11,7 @@
 .states
 .tox
 .venv
+.venv.*
 .vscode
 .web
 *.cover

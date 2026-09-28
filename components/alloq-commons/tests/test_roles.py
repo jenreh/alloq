@@ -301,12 +301,23 @@ def _authenticated_state() -> RoleState:
     return state
 
 
+def _login_state(*, is_admin: bool) -> MagicMock:
+    """LoginState mock whose ``authenticated_user`` is awaitable on every access."""
+    user = MagicMock(is_admin=is_admin, user_id=1)
+
+    async def _user() -> MagicMock:
+        return user
+
+    login_state = MagicMock()
+    type(login_state).authenticated_user = property(lambda _self: _user())
+    login_state.redir = AsyncMock(return_value=None)
+    return login_state
+
+
 @asynccontextmanager
 async def _patch_auth(state: RoleState):
     """Patch get_state on the state instance to bypass auth decorator."""
-    login_state = MagicMock()
-    # is_authenticated is awaited in the decorator, so make it a coroutine
-    login_state.is_authenticated = AsyncMock(return_value=True)()
+    login_state = _login_state(is_admin=True)
     original_get_state = type(state).get_state
     object.__setattr__(state, "get_state", AsyncMock(return_value=login_state))
     try:
@@ -389,7 +400,8 @@ class TestRoleStateAsync:
                 mock_repo,
             ),
         ):
-            await state.select_role_and_open_edit(7)
+            async with _patch_auth(state):
+                await state.select_role_and_open_edit(7)
 
         assert state.selected_role is not None
         assert state.edit_modal_open is True

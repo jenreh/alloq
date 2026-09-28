@@ -8,6 +8,7 @@ from alloq_commons.models.project import Risk, RiskMatrixCell
 from alloq_project.states.project_state import ProjectState
 
 import appkit_mantine as mn
+from appkit_ui.components.dialogs import delete_dialog
 
 _RISK_STATUS_OPTIONS = [
     {"label": label, "value": status.value}
@@ -255,6 +256,7 @@ def _risk_edit_form() -> rx.Component:
             "marginTop": "8px",
             "paddingTop": "12px",
         },
+        key=ProjectState.risk_draft_form_version.to_string(),
     )
 
 
@@ -324,12 +326,14 @@ def _risk_row(risk: Risk) -> rx.Component:
                 on_click=rx.stop_propagation,
             ),
             rx.box(
-                mn.action_icon(
-                    rx.icon("trash_2", size=14),
+                delete_dialog(
+                    title="Risiko löschen",
+                    content=risk.name,
+                    on_click=ProjectState.delete_project_risk(risk.id),
+                    icon_button=True,
                     variant="subtle",
                     color="red",
                     size="sm",
-                    on_click=ProjectState.delete_project_risk(risk.id),
                 ),
                 on_click=rx.stop_propagation,
             ),

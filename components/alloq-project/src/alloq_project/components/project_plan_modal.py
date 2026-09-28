@@ -10,29 +10,19 @@ from alloq_project.states.project_plan_state import ProjectPlanState
 
 import appkit_mantine as mn
 
-CHART_HEIGHT = "180px"
+CHART_PX = 120  # plot height: bar container, bar scale and cap line
 
 
 def _status_badge(state_var: rx.Var[str]) -> rx.Component:
+    # Same colors as project_card.status_color (not imported: that module
+    # pulls in ProjectState).
+    colors = (("Aktiv", "green"), ("Risiko", "red"), ("Abgeschlossen", "blue"))
     return mn.badge(
-        rx.match(
-            state_var,
-            ("Aktiv", "Aktiv"),
-            ("Risiko", "Risiko"),
-            ("Geplant", "Geplant"),
-            ("Abgeschlossen", "Abgeschlossen"),
-            state_var,
-        ),
+        state_var,
         size="sm",
         radius="xl",
         variant="light",
-        color=rx.match(
-            state_var,
-            ("Aktiv", "green"),
-            ("Risiko", "red"),
-            ("Abgeschlossen", "gray"),
-            "gray",
-        ),
+        color=rx.match(state_var, *colors, "gray"),
         left_section=mn.box(
             style={
                 "width": "6px",
@@ -40,9 +30,7 @@ def _status_badge(state_var: rx.Var[str]) -> rx.Component:
                 "borderRadius": "50%",
                 "backgroundColor": rx.match(
                     state_var,
-                    ("Aktiv", "var(--mantine-color-green-6)"),
-                    ("Risiko", "var(--mantine-color-red-6)"),
-                    ("Abgeschlossen", "var(--mantine-color-gray-6)"),
+                    *((s, f"var(--mantine-color-{c}-6)") for s, c in colors),
                     "var(--mantine-color-gray-6)",
                 ),
             },
@@ -148,7 +136,15 @@ def _editable_card(
     on_change: rx.event.EventHandler,
     min_: int = 0,
     step: int = 1,
+    *,
+    commit_on_blur: bool = False,
 ) -> rx.Component:
+    # Committing on blur avoids a server round trip (and snap-back) per keystroke.
+    value_props = (
+        {"default_value": value, "key": value.to_string(), "on_blur": on_change}
+        if commit_on_blur
+        else {"value": value, "on_change": on_change}
+    )
     return mn.box(
         mn.text(
             label,
@@ -159,12 +155,11 @@ def _editable_card(
             style={"letterSpacing": "0.06em", "textTransform": "uppercase"},
         ),
         mn.number_input(
-            value=value,
-            on_change=on_change,
             min=min_,
             step=step,
             hide_controls=False,
             size="sm",
+            **value_props,
         ),
         style={
             "padding": "12px 16px",
@@ -180,7 +175,7 @@ def _bar(value: rx.Var[float]) -> rx.Component:
         style={
             "flex": "1",
             "minWidth": "10px",
-            "height": value / ProjectPlanState.chart_max * 140,
+            "height": value / ProjectPlanState.chart_max * CHART_PX,
             "backgroundColor": "var(--mantine-color-yellow-5)",
             "borderRadius": "4px 4px 0 0",
         },
@@ -234,7 +229,7 @@ def _cap_line() -> rx.Component:
             "left": "12px",
             "right": "12px",
             "bottom": rx.Var.create("calc(4px + ")
-            + (ProjectPlanState.cap_height_pct / 100 * 140).to_string()
+            + (ProjectPlanState.cap_height_pct / 100 * CHART_PX).to_string()
             + "px)",
             "borderTop": "2px dashed var(--mantine-color-red-6)",
             "pointerEvents": "none",
@@ -264,7 +259,7 @@ def _distribution_chart() -> rx.Component:
                 gap="3px",
                 align="flex-end",
                 w="100%",
-                style={"height": "120px", "position": "relative"},
+                style={"height": f"{CHART_PX}px", "position": "relative"},
             ),
             _cap_line(),
             style={
@@ -290,6 +285,7 @@ def _distribution_chart() -> rx.Component:
 
 
 def _ramp_card(
+    *,
     label: str,
     value: rx.Var,
     on_change: rx.event.EventHandler,
@@ -392,6 +388,7 @@ def _step_verteilung() -> rx.Component:
                 ProjectPlanState.set_num_weeks,
                 min_=1,
                 step=1,
+                commit_on_blur=True,
             ),
             _editable_card(
                 "PT-Bedarf gesamt",
@@ -406,20 +403,20 @@ def _step_verteilung() -> rx.Component:
         ),
         mn.group(
             _ramp_card(
-                "Ramp-up",
-                ProjectPlanState.ramp_up,
-                ProjectPlanState.set_ramp_up,
-                ProjectPlanState.num_weeks,
-                "sofort",
-                "langsam",
+                label="Ramp-up",
+                value=ProjectPlanState.ramp_up,
+                on_change=ProjectPlanState.set_ramp_up,
+                max_var=ProjectPlanState.num_weeks,
+                left_label="sofort",
+                right_label="langsam",
             ),
             _ramp_card(
-                "Ramp-down",
-                ProjectPlanState.ramp_down,
-                ProjectPlanState.set_ramp_down,
-                ProjectPlanState.num_weeks,
-                "abrupt",
-                "langsam",
+                label="Ramp-down",
+                value=ProjectPlanState.ramp_down,
+                on_change=ProjectPlanState.set_ramp_down,
+                max_var=ProjectPlanState.num_weeks,
+                left_label="abrupt",
+                right_label="langsam",
             ),
             _capacity_card(),
             gap="md",
@@ -904,6 +901,8 @@ def _footer() -> rx.Component:
                     variant="filled",
                     color="dark",
                     px="xl",
+                    disabled=(ProjectPlanState.step == 0)
+                    & (ProjectPlanState.selected_project_id == ""),
                     on_click=ProjectPlanState.next_step,
                 ),
                 mn.button(
@@ -911,6 +910,9 @@ def _footer() -> rx.Component:
                     variant="filled",
                     color="dark",
                     px="xl",
+                    disabled=(ProjectPlanState.preview_rows.length() == 0)
+                    | ProjectPlanState.is_saving,
+                    loading=ProjectPlanState.is_saving,
                     on_click=ProjectPlanState.save_plan,
                 ),
             ),
@@ -954,6 +956,3 @@ def project_plan_modal() -> rx.Component:
         class_name=[MODAL_CLASS, "alloq-plan-modal"],
         overlay_props={"backgroundOpacity": 0.5, "blur": 4},
     )
-
-
-_ = CHART_HEIGHT

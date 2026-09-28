@@ -34,7 +34,7 @@ from alloq_project.services.resource_planning import (
 from alloq_project.states.project_state import ProjectState
 
 from appkit_commons.database.session import get_asyncdb_session
-from appkit_user.authentication.decorators import is_authenticated
+from appkit_user.authentication.decorators import requires_admin
 
 log = logging.getLogger(__name__)
 
@@ -159,10 +159,14 @@ class ProjectResourceState(rx.State):
     def set_days_per_week(self, value: float | str) -> None:
         try:
             parsed = float(str(value).replace(",", "."))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return
         stepped = round(parsed * 2) / 2
         self.days_per_week = max(MIN_DAYS_PER_WEEK, min(MAX_DAYS_PER_WEEK, stepped))
+
+    def sync_days_input(self, _value: str = "") -> None:
+        """Remount the days input so it shows the normalized state value."""
+        self.form_version += 1
 
     def edit_period(self, key: str) -> None:
         period = self._period(key)
@@ -186,8 +190,8 @@ class ProjectResourceState(rx.State):
     # Loading
     # ------------------------------------------------------------------
 
-    @is_authenticated
-    async def load_selected(self) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def load_selected(self) -> AsyncGenerator[Any]:
         """Load resource data for the project selected in the drawer."""
         project_state = await self.get_state(ProjectState)
         project = project_state.selected_project
@@ -221,8 +225,9 @@ class ProjectResourceState(rx.State):
             holiday_rows = await public_holiday_repo.find_by_date_range(
                 session, start, end
             )
+            weeks = week_starts(start, end)
             in_range = await capacity_allocation_repo.find_in_range(
-                session, week_starts(start, end)[0], end
+                session, weeks[0] if weeks else start, end
             )
             own = await capacity_allocation_repo.find_by_project(session, project_id)
 
@@ -273,8 +278,8 @@ class ProjectResourceState(rx.State):
     # Saving
     # ------------------------------------------------------------------
 
-    @is_authenticated
-    async def assign(self, employee_id: int) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def assign(self, employee_id: int) -> AsyncGenerator[Any]:
         """Plan the employee with the current form values (replaces in range)."""
         if self.form_error:
             yield rx.toast.error(self.form_error, position=TOAST_POSITION)
@@ -323,13 +328,13 @@ class ProjectResourceState(rx.State):
         except Exception as exc:
             log.error("Failed to save resource plan: %s", exc)
             yield rx.toast.error(
-                f"Fehler beim Speichern: {exc}", position=TOAST_POSITION
+                "Fehler beim Speichern der Planung.", position=TOAST_POSITION
             )
         finally:
             self.is_saving = False
 
-    @is_authenticated
-    async def delete_period(self, key: str) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def delete_period(self, key: str) -> AsyncGenerator[Any]:
         """Delete one planned period."""
         period = self._period(key)
         if period is None:
@@ -349,7 +354,9 @@ class ProjectResourceState(rx.State):
             yield rx.toast.info("Zeitraum gelöscht.", position=TOAST_POSITION)
         except Exception as exc:
             log.error("Failed to delete resource period: %s", exc)
-            yield rx.toast.error(f"Fehler beim Löschen: {exc}", position=TOAST_POSITION)
+            yield rx.toast.error(
+                "Fehler beim Löschen des Zeitraums.", position=TOAST_POSITION
+            )
 
     def _target(self, employee_id: int, role_id: int) -> PlanTarget:
         return PlanTarget(self.project_id, employee_id, role_id)

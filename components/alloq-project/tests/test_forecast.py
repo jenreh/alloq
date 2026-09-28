@@ -247,6 +247,18 @@ class TestBuildSummary:
         assert summary.actual_cost == pytest.approx(110_000)
         assert summary.has_data is True
 
+    def test_same_day_newer_status_wins(self) -> None:
+        project = _project(budget=100_000)
+        older = _status(date(2026, 2, 1), 20, 20).model_copy(update={"id": 1})
+        newer = _status(date(2026, 2, 1), 60, 50).model_copy(update={"id": 2})
+
+        summary = EVForecastService.build_summary(project, [newer, older])
+        chart = EVForecastService.build_chart_data(project, [newer, older])
+
+        assert summary.earned_value == pytest.approx(60_000)
+        last_actual = next(p for p in chart if p["Prognose (linear)"] is not None)
+        assert last_actual["Actual Cost"] == pytest.approx(50_000)
+
     def test_no_statuses_returns_no_data(self) -> None:
         project = _project(budget=100_000)
         summary = EVForecastService.build_summary(project, [])

@@ -1,7 +1,14 @@
 import logging
 from datetime import date
 
-from sqlalchemy import Date, Float, ForeignKey, Integer
+from sqlalchemy import (
+    CheckConstraint,
+    Date,
+    Float,
+    ForeignKey,
+    Integer,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from appkit_commons.database.entities import Base, Entity
@@ -13,6 +20,12 @@ class CapacityEntity(Entity, Base):
     """Actual employee capacity assignment for a project and role."""
 
     __tablename__ = "capacities"
+    __table_args__ = (
+        CheckConstraint("end_date >= start_date", name="ck_capacities_date_range"),
+        UniqueConstraint(
+            "project_id", "employee_id", "role_id", name="uq_capacities_proj_emp_role"
+        ),
+    )
 
     project_id: Mapped[int] = mapped_column(
         Integer,

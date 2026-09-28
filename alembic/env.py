@@ -1,9 +1,9 @@
 from logging.config import fileConfig
 from typing import Any
 
+import alloq_commons.entities  # noqa: F401  (registers tables on Base.metadata)
 from sqlalchemy import engine_from_config, pool
 
-# from sqlmodel import SQLModel
 from appkit_commons.database.entities import Base
 
 from alembic import context

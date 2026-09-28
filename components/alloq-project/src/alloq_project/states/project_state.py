@@ -1,4 +1,5 @@
 import logging
+import re
 from collections.abc import AsyncGenerator
 from datetime import UTC, date, datetime
 from importlib import import_module
@@ -9,6 +10,7 @@ from alloq_commons.entities import ProjectEntity, ProjectStatusEntity
 from alloq_commons.entities.project import ProjectStateEnum
 from alloq_commons.entities.required_capacity import RequiredCapacityEntity
 from alloq_commons.entities.risk import RiskEntity, RiskMitigationStatus
+from alloq_commons.models.employee import Employee
 from alloq_commons.models.project import (
     Capacity,
     CapacityAllocation,
@@ -34,20 +36,25 @@ from alloq_commons.repositories import (
     status_repo,
 )
 from alloq_project.services.forecast import EVForecastService, EVSummary
+from alloq_project.services.planning_builders import employee_id_by_email
 from alloq_project.services.project_sorting import (
     DEFAULT_SORT_COLUMN,
     SORT_COLUMNS,
     sort_projects,
 )
+from sqlalchemy.exc import IntegrityError
 
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_ui.global_states import LoadingState
-from appkit_user.authentication.decorators import is_authenticated
+from appkit_user.authentication.decorators import requires_admin
 from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_PROJECT_COLOR = "#F7C948"
+_HEX_COLOR = re.compile(r"#[0-9A-Fa-f]{6}")
+_PROJECT_PAGE_SIZE = 200
+_EMPLOYEE_PAGE_SIZE = 200
 PROJECT_COLORS = [
     "#F7C948",
     "#7A9A80",
@@ -64,9 +71,25 @@ PROJECT_COLORS = [
 
 def _parse_localized_int(value: float | str | None) -> int:
     """Parse numeric input values that may contain German separators."""
+    if isinstance(value, int | float):
+        return int(value)
     raw = str(value or 0).strip()
     raw = raw.replace(".", "").replace(",", ".")
     return int(float(raw)) if raw else 0
+
+
+def _project_error_message(exc: Exception, fallback: str) -> str:
+    """User-facing message for a failed project save (never raw DB text)."""
+    if isinstance(exc, IntegrityError):
+        return "Projekt-Code bereits vergeben."
+    if isinstance(exc, ValueError):
+        return "Ungültige Projektdaten."
+    return fallback
+
+
+def _newest_first(statuses: list[ProjectStatus]) -> list[ProjectStatus]:
+    """Order status history by date, newest (then latest created) first."""
+    return sorted(statuses, key=lambda s: (s.status_date, s.id), reverse=True)
 
 
 _SCORE_LOW = 4
@@ -272,12 +295,15 @@ class ProjectState(UserSession):
 
     async def _load_projects(self) -> None:
         """Load projects from the database."""
+        projects: list[Project] = []
         async with get_asyncdb_session() as session:
-            entities = await project_repo.find_all_with_stats(
-                session,
-                search=self.search_filter or None,
-            )
-            projects = [Project(**entity.to_dict()) for entity in entities]
+            while True:
+                page = await project_repo.find_all_with_stats(
+                    session, limit=_PROJECT_PAGE_SIZE, offset=len(projects)
+                )
+                projects.extend(Project(**entity.to_dict()) for entity in page)
+                if len(page) < _PROJECT_PAGE_SIZE:
+                    break
             self.projects = sorted(projects, key=lambda p: p.name_de.lower())
 
     async def _fetch_project(self, project_id: int) -> Project | None:
@@ -319,7 +345,7 @@ class ProjectState(UserSession):
             dashboard_states = import_module("alloq_dashboard.states")
             project_health_state = dashboard_states.ProjectHealthState
             risk_state = dashboard_states.RiskState
-        except (ModuleNotFoundError, AttributeError):
+        except ModuleNotFoundError, AttributeError:
             return []
 
         return [
@@ -336,7 +362,20 @@ class ProjectState(UserSession):
                 key=lambda r: r.name,
             )
 
-            employee_entities = await employee_repo.find_all_paginated(session)
+            employee_entities: list[Any] = []
+            while True:
+                page = await employee_repo.find_all_paginated(
+                    session,
+                    limit=_EMPLOYEE_PAGE_SIZE,
+                    offset=len(employee_entities),
+                )
+                employee_entities.extend(page)
+                if len(page) < _EMPLOYEE_PAGE_SIZE:
+                    break
+            self.current_employee_id = employee_id_by_email(
+                [Employee(**entity.to_dict()) for entity in employee_entities],
+                self.current_user_email,
+            )
             self.available_employees = [
                 {
                     "value": str(entity.id),
@@ -352,89 +391,96 @@ class ProjectState(UserSession):
                 for entity in employee_entities
             }
 
-    @is_authenticated
-    async def load_projects(self) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def load_projects(self) -> AsyncGenerator[Any]:
         """Load all projects and form reference data."""
         self.is_loading = True
         yield
         try:
             user = await self.authenticated_user
-            if user and user.email:
-                self.current_user_email = user.email
-                async with get_asyncdb_session() as session:
-                    employee = await employee_repo.find_by_email(session, user.email)
-                    self.current_employee_id = employee.id if employee else None
+            self.current_user_email = user.email if user and user.email else ""
             await self._load_projects()
             await self._load_reference_data()
         finally:
             self.is_loading = False
 
-    @is_authenticated
-    async def select_project(self, project_id: int) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def select_project(self, project_id: int) -> AsyncGenerator[Any]:
         """Select a project and load drawer details."""
-        async with get_asyncdb_session() as session:
-            entity = await project_repo.find_by_id(session, project_id)
-            if not entity:
-                yield rx.toast.error("Projekt nicht gefunden.", position="top-right")
-                yield LoadingState.set_is_loading(False)
-                return
+        try:
+            async with get_asyncdb_session() as session:
+                entity = await project_repo.find_by_id(session, project_id)
+                if not entity:
+                    yield rx.toast.error(
+                        "Projekt nicht gefunden.", position="top-right"
+                    )
+                    yield LoadingState.set_is_loading(False)
+                    return
 
-            self.selected_project = Project(**entity.to_dict())
-            status_entities = await status_repo.find_by_project_id(session, project_id)
-            risk_entities = await risk_repo.find_by_project_id(session, project_id)
-            capacity_entities = await capacity_repo.find_by_project_id(
-                session,
-                project_id,
-            )
-            required_entities = await required_capacity_repo.find_by_project_id(
-                session,
-                project_id,
-            )
-            alloc_entities = await capacity_allocation_repo.find_by_project(
-                session,
-                project_id,
-            )
-            self.statuses = [
-                ProjectStatus(**status.to_dict()) for status in status_entities
-            ]
-            self.allocation_plan = [
-                CapacityAllocation(**alloc.to_dict()) for alloc in alloc_entities
-            ]
-            if self.selected_project.start_date and self.selected_project.end_date:
-                holiday_rows = await public_holiday_repo.find_by_date_range(
-                    session,
-                    self.selected_project.start_date,
-                    self.selected_project.end_date,
+                self.selected_project = Project(**entity.to_dict())
+                status_entities = await status_repo.find_by_project_id(
+                    session, project_id
                 )
-                self.holiday_dates = [row.date for row in holiday_rows if row.date]
-            else:
-                self.holiday_dates = []
-            self.risks = [
-                Risk(**{**risk.to_dict(), "number": i + 1})
-                for i, risk in enumerate(risk_entities)
-            ]
-            self.capacities = [
-                Capacity(**capacity.to_dict()) for capacity in capacity_entities
-            ]
-            self.required_capacities = [
-                RequiredCapacity(**capacity.to_dict()) for capacity in required_entities
-            ]
-            self.detail_drawer_open = True
-            self.status_date = datetime.now(tz=UTC).date().isoformat()
-            yield ProjectValidationState.initialize(self.selected_project)
-            yield LoadingState.set_is_loading(False)
+                risk_entities = await risk_repo.find_by_project_id(session, project_id)
+                capacity_entities = await capacity_repo.find_by_project_id(
+                    session,
+                    project_id,
+                )
+                required_entities = await required_capacity_repo.find_by_project_id(
+                    session,
+                    project_id,
+                )
+                alloc_entities = await capacity_allocation_repo.find_by_project(
+                    session,
+                    project_id,
+                )
+                self.statuses = _newest_first(
+                    [ProjectStatus(**status.to_dict()) for status in status_entities]
+                )
+                self.allocation_plan = [
+                    CapacityAllocation(**alloc.to_dict()) for alloc in alloc_entities
+                ]
+                if self.selected_project.start_date and self.selected_project.end_date:
+                    holiday_rows = await public_holiday_repo.find_by_date_range(
+                        session,
+                        self.selected_project.start_date,
+                        self.selected_project.end_date,
+                    )
+                    self.holiday_dates = [row.date for row in holiday_rows if row.date]
+                else:
+                    self.holiday_dates = []
+                self.risks = [
+                    Risk(**{**risk.to_dict(), "number": i + 1})
+                    for i, risk in enumerate(risk_entities)
+                ]
+                self.capacities = [
+                    Capacity(**capacity.to_dict()) for capacity in capacity_entities
+                ]
+                self.required_capacities = [
+                    RequiredCapacity(**capacity.to_dict())
+                    for capacity in required_entities
+                ]
+                self.detail_drawer_open = True
+                self.status_date = datetime.now(tz=UTC).date().isoformat()
+                yield ProjectValidationState.initialize(self.selected_project)
+        except Exception as exc:
+            logger.error("Failed to load project %s: %s", project_id, exc)
+            yield rx.toast.error(
+                "Projekt konnte nicht geladen werden.", position="top-right"
+            )
+        yield LoadingState.set_is_loading(False)
 
-    @is_authenticated
+    @requires_admin
     async def select_project_with_tab(
         self, project_id: int, tab: str
-    ) -> AsyncGenerator[Any, None]:
+    ) -> AsyncGenerator[Any]:
         """Select a project and open drawer at a specific tab."""
         self.active_tab = tab
         async for event in self.select_project(project_id):
             yield event
 
-    @is_authenticated
-    async def create_project(self, form_data: dict) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def create_project(self, form_data: dict) -> AsyncGenerator[Any]:
         """Create a project with required capacity rows."""
         try:
             project_data = self._project_create_from_form(form_data)
@@ -489,12 +535,12 @@ class ProjectState(UserSession):
         except Exception as exc:
             logger.error("Failed to create project: %s", exc)
             yield rx.toast.error(
-                f"Fehler beim Erstellen: {exc}",
+                _project_error_message(exc, "Fehler beim Erstellen des Projekts."),
                 position="top-right",
             )
 
-    @is_authenticated
-    async def update_project(self, form_data: dict) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def update_project(self, form_data: dict) -> AsyncGenerator[Any]:
         """Update the selected project with form data."""
         if not self.selected_project:
             return
@@ -547,12 +593,12 @@ class ProjectState(UserSession):
         except Exception as exc:
             logger.error("Failed to update project: %s", exc)
             yield rx.toast.error(
-                f"Fehler beim Aktualisieren: {exc}",
+                _project_error_message(exc, "Fehler beim Aktualisieren des Projekts."),
                 position="top-right",
             )
 
-    @is_authenticated
-    async def delete_project(self, project_id: int) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def delete_project(self, project_id: int) -> AsyncGenerator[Any]:
         """Delete a project by ID."""
         try:
             async with get_asyncdb_session() as session:
@@ -570,7 +616,7 @@ class ProjectState(UserSession):
         except Exception as exc:
             logger.error("Failed to delete project: %s", exc)
             yield rx.toast.error(
-                f"Fehler beim Löschen: {exc}",
+                "Fehler beim Löschen des Projekts.",
                 position="top-right",
             )
 
@@ -593,6 +639,9 @@ class ProjectState(UserSession):
         # formatted string like "30.000" instead of "30000". We manually parse
         # these locally to be safe.
         budget = _parse_localized_int(form_data.get("budget", 0))
+        color = str(form_data.get("color", DEFAULT_PROJECT_COLOR))
+        if not _HEX_COLOR.fullmatch(color):
+            color = DEFAULT_PROJECT_COLOR
 
         return ProjectCreate(
             code=str(form_data.get("code", "")).strip(),
@@ -602,7 +651,7 @@ class ProjectState(UserSession):
             end_date=date.fromisoformat(str(form_data.get("end_date", ""))[:10]),
             state=str(form_data.get("state", ProjectStateEnum.PLANNED.value)),
             budget=budget,
-            color=str(form_data.get("color", DEFAULT_PROJECT_COLOR)),
+            color=color,
             owner_ids=owner_ids,
             required_capacities=required_capacities,
         )
@@ -621,7 +670,7 @@ class ProjectState(UserSession):
                 continue
             try:
                 person_days = _parse_localized_int(raw_value)
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 continue
 
             if person_days <= 0:
@@ -643,14 +692,14 @@ class ProjectState(UserSession):
         """Update the status progress field."""
         try:
             self.status_progress = max(0, min(100, int(float(value or 0))))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             self.status_progress = 0
 
     def set_status_budget_usage(self, value: float | str) -> None:
         """Update the status budget usage field."""
         try:
             self.status_budget_usage = max(0, min(100, int(float(value or 0))))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             self.status_budget_usage = 0
 
     def set_status_notes(self, value: str) -> None:
@@ -676,20 +725,28 @@ class ProjectState(UserSession):
                     entity.ev_eac_linear = summary.eac_linear
                     entity.ev_eac_additive = summary.eac_additive
                     await session.commit()
+            refreshed = await self._fetch_project(project_id)
+            if refreshed:
+                self.selected_project = refreshed
+                self._upsert_project(refreshed)
         except Exception as exc:
             logger.error(
                 "Failed to persist EV summary for project %s: %s", project_id, exc
             )
 
-    @is_authenticated
-    async def add_project_status(self) -> AsyncGenerator[Any, None]:
-        """Save current status form as a new history entry."""
-        if not self.selected_project:
+    @requires_admin
+    async def add_project_status(self, form_version: int) -> AsyncGenerator[Any]:
+        """Save current status form as a new history entry.
+
+        ``form_version`` is the status form version the click was rendered with;
+        a queued second click carries the stale version and is ignored.
+        """
+        if not self.selected_project or form_version != self.status_form_version:
             return
         project_id = self.selected_project.id
         try:
             status_date = date.fromisoformat(self.status_date[:10])
-        except (ValueError, IndexError):
+        except ValueError, IndexError:
             yield rx.toast.error("Ungültiges Datum.", position="top-right")
             return
         try:
@@ -727,7 +784,7 @@ class ProjectState(UserSession):
                     eac_linear=ev.eac_linear,
                     eac_additive=ev.eac_additive,
                 )
-            self.statuses = [new_status, *self.statuses]
+            self.statuses = _newest_first([new_status, *self.statuses])
             await self._persist_ev_summary()
             self.status_date = datetime.now(tz=UTC).date().isoformat()
             self.status_progress = 0
@@ -764,14 +821,14 @@ class ProjectState(UserSession):
         """Update status draft progress field."""
         try:
             self.status_draft_progress = max(0, min(100, int(float(value or 0))))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             self.status_draft_progress = 0
 
     def set_status_draft_budget_usage(self, value: float | str) -> None:
         """Update status draft budget usage field."""
         try:
             self.status_draft_budget_usage = max(0, min(100, int(float(value or 0))))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             self.status_draft_budget_usage = 0
 
     def set_status_draft_notes(self, value: str) -> None:
@@ -782,15 +839,15 @@ class ProjectState(UserSession):
         """Update status draft date field."""
         self.status_draft_date = value or ""
 
-    @is_authenticated
-    async def save_status_draft(self) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def save_status_draft(self) -> AsyncGenerator[Any]:
         """Persist edits to an existing status entry."""
         status_id = self.expanded_status_id
         if status_id <= 0:
             return
         try:
             new_date = date.fromisoformat(self.status_draft_date[:10])
-        except (ValueError, IndexError):
+        except ValueError, IndexError:
             yield rx.toast.error("Ungültiges Datum.", position="top-right")
             return
         try:
@@ -814,25 +871,27 @@ class ProjectState(UserSession):
                 entity.eac_linear = ev.eac_linear
                 entity.eac_additive = ev.eac_additive
                 await session.commit()
-            self.statuses = [
-                ProjectStatus(
-                    **{
-                        **s.model_dump(),
-                        "status_date": new_date.isoformat(),
-                        "progress": self.status_draft_progress,
-                        "budget_spent": self.status_draft_budget_usage,
-                        "notes": self.status_draft_notes,
-                        "budget": ev.budget,
-                        "earned_value": ev.earned_value,
-                        "actual_cost": ev.actual_cost,
-                        "eac_linear": ev.eac_linear,
-                        "eac_additive": ev.eac_additive,
-                    }
-                )
-                if s.id == status_id
-                else s
-                for s in self.statuses
-            ]
+            self.statuses = _newest_first(
+                [
+                    ProjectStatus(
+                        **{
+                            **s.model_dump(),
+                            "status_date": new_date.isoformat(),
+                            "progress": self.status_draft_progress,
+                            "budget_spent": self.status_draft_budget_usage,
+                            "notes": self.status_draft_notes,
+                            "budget": ev.budget,
+                            "earned_value": ev.earned_value,
+                            "actual_cost": ev.actual_cost,
+                            "eac_linear": ev.eac_linear,
+                            "eac_additive": ev.eac_additive,
+                        }
+                    )
+                    if s.id == status_id
+                    else s
+                    for s in self.statuses
+                ]
+            )
             self.expanded_status_id = 0
             await self._persist_ev_summary()
             yield rx.toast.info("Status aktualisiert.", position="top-right")
@@ -843,9 +902,11 @@ class ProjectState(UserSession):
                 position="top-right",
             )
 
-    @is_authenticated
-    async def delete_project_status(self, status_id: int) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def delete_project_status(self, status_id: int) -> AsyncGenerator[Any]:
         """Delete a status history entry by ID."""
+        if not any(s.id == status_id for s in self.statuses):
+            return
         try:
             async with get_asyncdb_session() as session:
                 deleted = await status_repo.delete_by_id(session, status_id)
@@ -912,22 +973,22 @@ class ProjectState(UserSession):
         """Update risk draft impact score (1-5)."""
         try:
             self.risk_draft_impact = max(1, min(5, int(value or 3)))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             self.risk_draft_impact = 3
 
     def set_risk_draft_probability(self, value: str) -> None:
         """Update risk draft probability (1-5)."""
         try:
             self.risk_draft_probability = max(1, min(5, int(value or 3)))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             self.risk_draft_probability = 3
 
     def set_risk_draft_mitigation_status(self, value: str) -> None:
         """Update risk draft mitigation status."""
         self.risk_draft_mitigation_status = value or RiskMitigationStatus.OPEN.value
 
-    @is_authenticated
-    async def save_risk_draft(self) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def save_risk_draft(self) -> AsyncGenerator[Any]:
         """Persist the current risk draft (create new or update existing)."""
         if not self.selected_project:
             return
@@ -999,12 +1060,16 @@ class ProjectState(UserSession):
                 position="top-right",
             )
 
-    @is_authenticated
+    @requires_admin
     async def update_project_risk(
         self, risk_id: int, field: str, value: str
-    ) -> AsyncGenerator[Any, None]:
+    ) -> AsyncGenerator[Any]:
         """Update a single field on a risk."""
+        if not any(r.id == risk_id for r in self.risks):
+            return
         try:
+            if field in ("impact", "probability"):
+                value = str(max(1, min(5, int(float(value or 0)))))
             async with get_asyncdb_session() as session:
                 entity = await risk_repo.find_by_id(session, risk_id)
                 if not entity:
@@ -1047,9 +1112,11 @@ class ProjectState(UserSession):
                 position="top-right",
             )
 
-    @is_authenticated
-    async def delete_project_risk(self, risk_id: int) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def delete_project_risk(self, risk_id: int) -> AsyncGenerator[Any]:
         """Delete a risk by ID and renumber remaining risks."""
+        if not any(r.id == risk_id for r in self.risks):
+            return
         try:
             async with get_asyncdb_session() as session:
                 deleted = await risk_repo.delete_by_id(session, risk_id)
@@ -1230,7 +1297,7 @@ class ProjectValidationState(rx.State):
     def set_budget(self, value: float | str) -> None:
         try:
             self.budget = _parse_localized_int(value)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             self.budget = 0
         self.validate_budget()
 
@@ -1273,7 +1340,7 @@ class ProjectValidationState(rx.State):
     def validate_budget(self) -> None:
         try:
             budget = _parse_localized_int(self.budget)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             self.budget_error = "Budget muss eine gültige Zahl sein."
             return
 
@@ -1289,7 +1356,7 @@ class ProjectValidationState(rx.State):
     def set_role_capacity(self, role_id: str, value: float | str) -> None:
         try:
             self.role_capacities[role_id] = _parse_localized_int(value)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             self.role_capacities[role_id] = 0
 
     def has_errors(self) -> bool:
@@ -1311,7 +1378,7 @@ class ProjectValidationState(rx.State):
                 dates_valid = date.fromisoformat(
                     self.end_date[:10]
                 ) >= date.fromisoformat(self.start_date[:10])
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             budget_valid = False
             dates_valid = False
 

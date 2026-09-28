@@ -68,6 +68,7 @@ def holiday_form_fields(holiday: PublicHoliday | None = None) -> rx.Component:
 
 
 def _holiday_modal(
+    *,
     title: str,
     opened: bool | rx.Var,
     on_close: rx.EventHandler,
@@ -184,8 +185,6 @@ def _delete_holiday_button(holiday: PublicHoliday) -> rx.Component:
 
 def holidays_table_row(holiday: PublicHoliday) -> rx.Component:
     """Render a single holiday as a table row."""
-    _parts = holiday.date.to(str).split("-")
-    _day_month = _parts[2] + "." + _parts[1] + "."
     return mn.table.tr(
         mn.table.td(
             mn.text(

@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from alloq_commons.entities.employee import SeniorityLevel
 
@@ -25,6 +25,14 @@ class AbsenceCreate(BaseModel):
     employee_id: int
     start_date: date
     end_date: date
+
+    @model_validator(mode="after")
+    def validate_date_range(self) -> AbsenceCreate:
+        """Reject absences that end before they start."""
+        if self.end_date < self.start_date:
+            msg = "end_date must be on or after start_date"
+            raise ValueError(msg)
+        return self
 
 
 class Employee(BaseModel):

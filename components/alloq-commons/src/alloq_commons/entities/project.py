@@ -1,11 +1,24 @@
 import enum
 import logging
 from datetime import date
+from typing import TYPE_CHECKING
 
-from sqlalchemy import Column, Date, Float, ForeignKey, Integer, String, Table
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    Date,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Table,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from appkit_commons.database.entities import Base, Entity
+
+if TYPE_CHECKING:
+    from alloq_commons.entities.employee import EmployeeEntity
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +54,9 @@ class ProjectEntity(Entity, Base):
     """Project entity for resource planning and tracking."""
 
     __tablename__ = "projects"
+    __table_args__ = (
+        CheckConstraint("end_date >= start_date", name="ck_projects_date_range"),
+    )
 
     code: Mapped[str] = mapped_column(
         String(50), nullable=False, unique=True, index=True
@@ -136,31 +152,35 @@ class ProjectEntity(Entity, Base):
             "updated": self.updated,
         }
 
-    def _team_initials(self) -> list[str]:
-        """Return unique initials of employees with capacity allocations."""
-        initials = []
+    def _staffed_employees(self) -> list[EmployeeEntity]:
+        """Return unique employees with at least one non-zero allocation."""
+        employees = []
         seen_employee_ids = set()
         for allocation in self.capacity_allocations or []:
             employee = allocation.employee
-            if not employee or employee.id in seen_employee_ids:
+            if (
+                not employee
+                or employee.id in seen_employee_ids
+                or (allocation.person_days or 0.0) <= 0
+            ):
                 continue
             seen_employee_ids.add(employee.id)
-            initials.append(f"{employee.first_name[:1]}{employee.last_name[:1]}")
-        return initials
+            employees.append(employee)
+        return employees
+
+    def _team_initials(self) -> list[str]:
+        """Return unique initials of employees with non-zero allocations."""
+        return [
+            f"{employee.first_name[:1]}{employee.last_name[:1]}"
+            for employee in self._staffed_employees()
+        ]
 
     def _team_members(self) -> list[dict]:
-        """Return unique team members with capacity allocations."""
-        members = []
-        seen_employee_ids = set()
-        for allocation in self.capacity_allocations or []:
-            employee = allocation.employee
-            if not employee or employee.id in seen_employee_ids:
-                continue
-            seen_employee_ids.add(employee.id)
-            members.append(
-                {
-                    "initials": f"{employee.first_name[:1]}{employee.last_name[:1]}",
-                    "name": f"{employee.first_name} {employee.last_name}",
-                }
-            )
-        return members
+        """Return unique team members with non-zero allocations."""
+        return [
+            {
+                "initials": f"{employee.first_name[:1]}{employee.last_name[:1]}",
+                "name": f"{employee.first_name} {employee.last_name}",
+            }
+            for employee in self._staffed_employees()
+        ]

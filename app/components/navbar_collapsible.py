@@ -89,7 +89,7 @@ SECTIONS: Final[list[dict[str, Any]]] = [
         "url": "/",
     },
     {
-        "id": "projects",
+        "id": "plan",
         "label": "Ressourcenplanung",
         "icon": "folder",
         "icon_img": "project_icon",
@@ -147,6 +147,9 @@ _DEFAULT_SECTION_ID: Final[str] = (
 _SECTION_FIRST_URL: Final[dict[str, str]] = {
     s["id"]: s["items"][0]["url"] for s in _ALL_SECTIONS if s.get("items")
 }
+_SECTION_ITEM_URLS: Final[dict[str, frozenset[str]]] = {
+    s["id"]: frozenset(item["url"] for item in s["items"]) for s in _SECTIONS_WITH_ITEMS
+}
 
 
 # --------------------------------------------------------------------------- #
@@ -187,10 +190,11 @@ class NavbarCollapseState(rx.State):
             self.collapsed = "1"
 
     @rx.event
-    def select_section(self, section_id: str) -> Generator[Any, Any, None]:
+    def select_section(self, section_id: str) -> Generator[Any, Any]:
         """Select a section. If it's already active, toggle the panel.
 
-        When the panel opens, automatically navigates to the first sub-item.
+        When the panel opens, navigates to the first sub-item unless the
+        current page already belongs to the section.
         """
         if section_id == self.active_section_id:
             self.collapsed = "0" if self.collapsed == "1" else "1"
@@ -198,8 +202,14 @@ class NavbarCollapseState(rx.State):
             self.active_section_id = section_id
             self.collapsed = "0"
         logger.debug("Selected section %s (collapsed=%s)", section_id, self.collapsed)
-        if self.collapsed == "0" and section_id in _SECTION_FIRST_URL:
+        if self.collapsed != "0" or section_id not in _SECTION_FIRST_URL:
+            return
+        # Stay put when already on one of the section's pages.
+        if self._current_path() not in _SECTION_ITEM_URLS[section_id]:
             yield rx.redirect(_SECTION_FIRST_URL[section_id])
+
+    def _current_path(self) -> str:
+        return self.router.url.path.rstrip("/") or "/"
 
 
 # --------------------------------------------------------------------------- #

@@ -18,6 +18,7 @@ from appkit_user.user_management.pages import (
 )
 
 from app.components.navbar_collapsible import app_navbar_collapsible
+from app.configuration import configure
 from app.pages.holidays import create_holidays_page
 from app.pages.profile import create_profile_page
 from app.pages.roles import create_roles_page
@@ -58,11 +59,7 @@ ALLOQ_THEME = am.create_theme(
 am.set_app_theme(ALLOQ_THEME)
 
 create_login_page()
-create_profile_page(
-    app_navbar_collapsible(),
-    class_name="w-full gap-6 max-w-[800px]",
-    padding="2rem",
-)
+create_profile_page(app_navbar_collapsible())
 create_password_reset_request_page()
 create_password_reset_confirm_page()
 create_users_page(app_navbar_collapsible())
@@ -74,10 +71,9 @@ create_planning_page(app_navbar_collapsible())
 create_dashboard_page(app_navbar_collapsible())
 
 
-# Middleware transformer for HTTPS redirect
 def add_https_middleware(asgi_app: ASGIApp) -> ASGIApp:
-    """Wrap the ASGI app with HTTPS redirect middleware."""
-    return ForceHTTPSMiddleware(asgi_app)
+    """Honor X-Forwarded-Proto from trusted proxies (sets the scheme, no redirect)."""
+    return ForceHTTPSMiddleware(asgi_app, trusted_hosts=configure().app.trusted_proxies)
 
 
 app = rx.App(

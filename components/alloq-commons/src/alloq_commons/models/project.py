@@ -91,7 +91,7 @@ class Risk(BaseModel):
     updated: datetime | None = None
 
     @model_validator(mode="after")
-    def compute_scores(self) -> "Risk":
+    def compute_scores(self) -> Risk:
         """Compute matrix scores from impact (1-5) and probability (1-5)."""
         self.auswirkung_score = max(1, min(5, self.impact))
         self.risiko_score = self.auswirkung_score * self.probability
@@ -105,7 +105,7 @@ class RiskCreate(BaseModel):
     name: str = Field(..., max_length=255)
     description: str = Field(default="", max_length=2000)
     probability: int = Field(default=3, ge=1, le=5)
-    impact: int = Field(default=0, ge=0)
+    impact: int = Field(default=3, ge=1, le=5)
     mitigation_status: str = RiskMitigationStatus.OPEN.value
     measures: str = Field(default="", max_length=2000)
 
@@ -235,7 +235,7 @@ class Project(BaseModel):
     updated: datetime | None = None
 
     @model_validator(mode="after")
-    def compute_total_pt(self) -> "Project":
+    def compute_total_pt(self) -> Project:
         """Sum the required person days across all roles."""
         self.total_pt = sum(rc.person_days for rc in self.required_capacities)
         return self
@@ -261,7 +261,7 @@ class ProjectCreate(BaseModel):
     required_capacities: list[RequiredCapacityCreate] = []
 
     @model_validator(mode="after")
-    def validate_date_range(self) -> "ProjectCreate":
+    def validate_date_range(self) -> ProjectCreate:
         """Validate start and end dates."""
         if self.end_date < self.start_date:
             raise ValueError("End date must not be before start date")

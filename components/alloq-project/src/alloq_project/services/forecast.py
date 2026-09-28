@@ -107,6 +107,11 @@ class EVChartPoint:
         }
 
 
+def _status_order(status: ProjectStatus) -> tuple[str, int]:
+    """Chronological order; on the same date the later-created entry wins."""
+    return (status.status_date[:10], status.id)
+
+
 def _round2(value: float | None) -> float | None:
     return None if value is None else round(value, 2)
 
@@ -220,7 +225,7 @@ class EVForecastService:
 
         sorted_statuses = sorted(
             (s for s in statuses if s.status_date),
-            key=lambda s: s.status_date,
+            key=_status_order,
         )
 
         points: list[EVChartPoint] = [
@@ -304,7 +309,7 @@ class EVForecastService:
         budget = float(project.budget or 0)
         sorted_statuses = sorted(
             (s for s in statuses if s.status_date),
-            key=lambda s: s.status_date,
+            key=_status_order,
         )
         if not sorted_statuses or budget == 0:
             return EVSummary(budget=budget)

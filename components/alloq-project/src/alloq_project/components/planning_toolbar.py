@@ -67,16 +67,20 @@ def planning_toolbar() -> rx.Component:
             on_click=ProjectPlanState.open_modal,
         ),
         mn.tooltip(
-            mn.button(
-                rx.icon("save", size=18),
-                variant=rx.cond(PlanningStore.has_dirty, "filled", "subtle"),
-                auto_contrast=True,
-                on_click=PlanningStore.save_grid,
-                disabled=~PlanningStore.has_dirty | PlanningStore.is_saving,
-                loading=PlanningStore.is_saving,
-                size="sm",
-                p="0 8px",
-                radius="md",
+            # Box wrapper: see _toggle_button (memoized button, disabled hover).
+            mn.box(
+                mn.button(
+                    rx.icon("save", size=18),
+                    variant=rx.cond(PlanningStore.has_dirty, "filled", "subtle"),
+                    auto_contrast=True,
+                    on_click=PlanningStore.save_grid,
+                    disabled=~PlanningStore.has_dirty | PlanningStore.is_saving,
+                    loading=PlanningStore.is_saving,
+                    size="sm",
+                    p="0 8px",
+                    radius="md",
+                ),
+                display="flex",
             ),
             label="Änderungen speichern (STRG+S)",
             with_arrow=True,

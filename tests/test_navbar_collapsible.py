@@ -1,8 +1,11 @@
 """Tests for app.components.navbar_collapsible module."""
 
+from unittest.mock import patch
+
 import reflex as rx
 
 from app.components.navbar_collapsible import (
+    _ALL_SECTIONS,
     _SECTIONS_WITH_ITEMS,
     NavbarCollapseState,
     _gated,
@@ -102,6 +105,28 @@ class TestNavbarCollapseState:
         assert state.collapsed == "0"
         # Should yield a redirect
         assert len(results) == 1
+
+    def test_reopen_same_section_stays_on_current_item(self) -> None:
+        state = NavbarCollapseState()  # type: ignore[call-arg]
+        section = _SECTIONS_WITH_ITEMS[0]
+        state.active_section_id = section["id"]
+        state.collapsed = "1"
+
+        with patch.object(
+            NavbarCollapseState,
+            "_current_path",
+            return_value=section["items"][-1]["url"],
+        ):
+            results = list(state.select_section(section["id"]))
+
+        assert state.collapsed == "0"
+        assert results == []
+
+
+def test_section_ids_are_unique() -> None:
+    ids = [section["id"] for section in _ALL_SECTIONS]
+
+    assert len(ids) == len(set(ids))
 
 
 # ============================================================================

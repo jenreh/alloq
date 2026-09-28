@@ -168,26 +168,26 @@ def role_short(name: str) -> str:
 
 
 def absence_days_for_week(absences: list, week_start: datetime.date) -> float:
-    week_end = week_start + datetime.timedelta(days=4)
-    total = 0.0
-    for a in absences:
-        if not (a.start_date and a.end_date):
-            continue
-        overlap_start = max(a.start_date, week_start)
-        overlap_end = min(a.end_date, week_end)
-        if overlap_start > overlap_end:
-            continue
-        day = overlap_start
-        while day <= overlap_end:
-            if day.weekday() < WORK_DAYS_PER_WEEK:
-                total += 1.0
-            day += datetime.timedelta(days=1)
-    return total
+    dated = [a for a in absences if a.start_date and a.end_date]
+    return UtilizationService.absence_days_in_week(dated, week_start)
 
 
 def cell_key(emp_id: str, proj_code: str, wk_key: str) -> str:
     """Canonical cell key."""
     return f"{emp_id}|{proj_code}|{wk_key}"
+
+
+def split_cell_key(key: str) -> tuple[str, str, str] | None:
+    """Split a cell key into (emp_id, project_code, week_key).
+
+    Employee ids and week keys never contain ``|``, project codes may, so the
+    code is everything between the first and the last separator.
+    """
+    first, sep, rest = key.partition("|")
+    code, sep2, week = rest.rpartition("|")
+    if not (sep and sep2 and first and code and week):
+        return None
+    return first, code, week
 
 
 def parse_cell_changes(
@@ -206,9 +206,9 @@ def parse_cell_changes(
     for change in changes:
         key = change.get("key") if isinstance(change, dict) else None
         value = change.get("value") if isinstance(change, dict) else None
-        parts = key.split("|") if isinstance(key, str) else []
+        parts = split_cell_key(key) if isinstance(key, str) else None
         if (
-            len(parts) != 3  # noqa: PLR2004
+            parts is None
             or (parts[0], parts[1]) not in editable_rows
             or parts[2] not in week_keys
             or isinstance(value, bool)
@@ -231,14 +231,62 @@ def split_edits(
     visible: dict[str, float] = {}
     hidden: dict[str, float] = {}
     for key, value in edits.items():
-        parts = key.split("|")
+        parts = split_cell_key(key)
         shown = (
-            len(parts) == 3  # noqa: PLR2004
+            parts is not None
             and (parts[0], parts[1]) in editable_rows
             and parts[2] in week_keys
         )
         (visible if shown else hidden)[key] = value
     return visible, hidden
+
+
+def edits_to_rows(
+    edits: dict[str, float],
+    project_meta: list[dict[str, Any]],
+    employee_meta: list[dict[str, Any]],
+    role_ids: dict[str, int],
+) -> dict[str, dict[str, Any]]:
+    """Map unsaved edits to allocation rows by cell key.
+
+    ``role_ids`` holds the role per cell key (the stored row the cell shows)
+    and per ``"{emp_id}|{project_id}"`` pair; the cell role wins, so editing a
+    cell updates that row instead of adding a second role's row for the week.
+    The employee's first role is the last fallback. Edits that cannot be
+    mapped (unknown row, no role, malformed key) are left out.
+    """
+    proj_code_to_real = {p["code"]: p["real_id"] for p in project_meta}
+    emp_id_to_real = {e["id"]: e["real_id"] for e in employee_meta}
+    emp_role_id = {
+        e["id"]: e["role_ids"][0] for e in employee_meta if e.get("role_ids")
+    }
+    rows: dict[str, dict[str, Any]] = {}
+    for key, value in edits.items():
+        parts = split_cell_key(key)
+        if parts is None:
+            continue
+        emp_id, proj_code, wk_key = parts
+        real_eid = emp_id_to_real.get(emp_id)
+        real_pid = proj_code_to_real.get(proj_code)
+        role_id = (
+            role_ids.get(key)
+            or role_ids.get(f"{emp_id}|{real_pid}")
+            or emp_role_id.get(emp_id)
+        )
+        if not real_eid or not real_pid or not role_id:
+            continue
+        try:
+            week = datetime.date(*(int(p) for p in wk_key.split("_")))
+        except TypeError, ValueError:
+            continue
+        rows[key] = {
+            "employee_id": real_eid,
+            "project_id": real_pid,
+            "role_id": role_id,
+            "week_start": week,
+            "person_days": float(value),
+        }
+    return rows
 
 
 def dirty_keys_for(cells: dict[str, float], saved: dict[str, float]) -> list[str]:
@@ -488,7 +536,7 @@ def ingest_allocations(
         eid = f"emp-{allocation.employee_id}"
         pairs.add((eid, allocation.project_id))
         pair_key = f"{eid}|{allocation.project_id}"
-        rn = getattr(allocation, "_cached_role_name", "")
+        rn = getattr(allocation, "role_name", "")
         if rn:
             role_lookup.setdefault(pair_key, rn)
         if allocation.role_id:
@@ -504,6 +552,30 @@ def ingest_allocations(
         if cap.role_id:
             role_id_lookup.setdefault(pair_key, cap.role_id)
     return cells, role_lookup, role_id_lookup, pairs
+
+
+def cell_role_ids(
+    allocations: list[Any],
+    proj_idx: dict[int, dict[str, Any]],
+    wk_set: set[str],
+) -> dict[str, int]:
+    """Role id of the allocation row each visible cell shows.
+
+    Mirrors the heatmap normalization (the last row of an employee, project and
+    week wins), so saving a cell updates that row instead of adding another
+    role's row for the same week.
+    """
+    roles: dict[str, int] = {}
+    for allocation in allocations:
+        wk = week_key_for_date(allocation.week_start)
+        if wk not in wk_set or allocation.project_id not in proj_idx:
+            continue
+        if allocation.role_id:
+            code = proj_idx[allocation.project_id]["code"]
+            roles[cell_key(f"emp-{allocation.employee_id}", code, wk)] = int(
+                allocation.role_id
+            )
+    return roles
 
 
 def wire_pairs(

@@ -67,11 +67,11 @@ def project_form_fields() -> rx.Component:
                     name="budget",
                     label="Budget",
                     default_value=ProjectValidationState.budget,
-                    on_value_change=ProjectValidationState.set_budget,
+                    on_change=ProjectValidationState.set_budget,
                     error=ProjectValidationState.budget_error,
                     min=0,
                     step=10000,
-                    decimalScale=0,
+                    decimal_scale=0,
                     fixed_decimal_scale=True,
                     required=True,
                     thousand_separator=".",
@@ -205,7 +205,7 @@ def _required_capacity_input(role: Role) -> rx.Component:
                 default_value=ProjectValidationState.role_capacities[
                     role.id.to_string()
                 ],
-                on_value_change=lambda v: ProjectValidationState.set_role_capacity(
+                on_change=lambda v: ProjectValidationState.set_role_capacity(
                     role.id.to_string(), v
                 ),
                 min=0,

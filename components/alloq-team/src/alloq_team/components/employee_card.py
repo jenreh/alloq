@@ -8,18 +8,6 @@ from appkit_ui.components.dialogs import delete_dialog
 from appkit_ui.global_states import LoadingState
 
 
-def _seniority_color(seniority: str) -> str:
-    """Map seniority to badge color."""
-    return rx.match(
-        seniority,
-        ("Advanced", "blue"),
-        ("Senior", "grape"),
-        ("Professional", "cyan"),
-        ("Expert", "orange"),
-        "gray",
-    )
-
-
 def _card_header(
     employee: Employee, section_key: str, is_expanded: rx.Var[bool]
 ) -> rx.Component:
@@ -204,25 +192,6 @@ def _absence_list(employee: Employee) -> rx.Component:
         ),
         gap="xs",
         w="100%",
-    )
-
-
-def _productivity_indicator() -> rx.Component:
-    """Productivity progress bar."""
-    return mn.stack(
-        mn.group(
-            mn.text("verplant: ", size="xs", c="dimmed"),
-            mn.text("65%", size="xs", fw="600"),
-            mn.text(" (4w)", size="xs", c="dimmed"),
-            gap="4px",
-            justify="start",
-        ),
-        mn.progress(
-            value=65, size="sm", radius="xl", color="var(--alloq-accent-strong)"
-        ),
-        gap="xs",
-        mt="xs",
-        style={"width": "100%"},
     )
 
 

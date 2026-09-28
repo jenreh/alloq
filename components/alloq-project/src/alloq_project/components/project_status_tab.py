@@ -5,6 +5,7 @@ from alloq_commons.components.forms import section
 from alloq_project.states.project_state import ProjectState
 
 import appkit_mantine as mn
+from appkit_ui.components.dialogs import delete_dialog
 
 
 def _summary_cell(
@@ -210,7 +211,7 @@ def _history_row(status: rx.Var) -> rx.Component:
                 size="sm",
                 fw="600",
                 w="6rem",
-                style={"flexShrinkg": "1"},
+                style={"flexShrink": "0"},
             ),
             mn.text(
                 status.notes,
@@ -249,12 +250,14 @@ def _history_row(status: rx.Var) -> rx.Component:
                 on_click=rx.stop_propagation,
             ),
             rx.box(
-                mn.action_icon(
-                    rx.icon("trash_2", size=14),
+                delete_dialog(
+                    title="Status löschen",
+                    content="Status vom " + format_date_de(status.status_date),
+                    on_click=ProjectState.delete_project_status(status.id),
+                    icon_button=True,
                     variant="subtle",
                     color="red",
                     size="sm",
-                    on_click=ProjectState.delete_project_status(status.id),
                 ),
                 on_click=rx.stop_propagation,
             ),
@@ -365,7 +368,9 @@ def _status_form() -> rx.Component:
             ),
             mn.button(
                 "Status erfassen",
-                on_click=ProjectState.add_project_status,
+                on_click=ProjectState.add_project_status(
+                    ProjectState.status_form_version
+                ),
                 size="sm",
                 variant="light",
             ),

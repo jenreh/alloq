@@ -2,6 +2,7 @@ from collections.abc import Callable
 
 import reflex as rx
 from alloq_commons.components.page_header import page_header
+from alloq_commons.roles import ALL_ROLES
 from alloq_project.components.project_overview import (
     add_project_modal,
     project_detail_drawer,
@@ -12,10 +13,19 @@ from alloq_dashboard.components.dashboard_grid import dashboard_grid
 from alloq_dashboard.components.drill_down_drawer import drill_down_drawer
 from alloq_dashboard.states import DashboardState
 from appkit_user.authentication.components.components import requires_admin
+from appkit_user.authentication.states import UserSession
 from appkit_user.authentication.templates import authenticated
 from appkit_user.user_management.states.user_states import UserState
 
-from app.roles import ALL_ROLES
+
+def _greeting() -> rx.Var:
+    """Personal greeting for the signed-in user; generic when no name is set."""
+    name = UserSession.user.name
+    return rx.cond(
+        name,
+        "Willkommen zurück, " + name.to(str) + "!",
+        "Willkommen zurück!",
+    )
 
 
 def create_dashboard_page(
@@ -39,7 +49,7 @@ def create_dashboard_page(
         return requires_admin(
             mn.stack(
                 page_header(
-                    nav_path="Willkommen zurück, Jens!",
+                    nav_path=[_greeting()],
                     title="Aktuelle Auslastung",
                     description=(
                         "Überwachen Sie wichtige Kennzahlen "

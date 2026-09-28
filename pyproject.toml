@@ -31,14 +31,6 @@ dev = [
     "ruff==0.16.9",
 ]
 
-[tool.setuptools.packages.find]
-where = [
-    "components/alloq-dashboard/src",
-    "components/alloq-project/src",
-    "components/alloq-team/src",
-    "components/alloq-commons/src",
-]
-
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
 
@@ -102,7 +94,7 @@ replace = 'version = "{new_version}"'
 cache-dir = ".cache/ruff"
 indent-width = 4
 line-length = 88
-target-version = "py312"
+target-version = "py314"
 extend-exclude = [
     ".cache",
     ".devcontainer",
@@ -193,7 +185,13 @@ known-first-party = ["appkit_*"]
 
 [tool.pytest.ini_options]
 cache_dir = ".cache/pytest"
-testpaths = ["tests", "components/alloq-commons/tests", "components/alloq-project/tests"]
+testpaths = [
+    "tests",
+    "components/alloq-commons/tests",
+    "components/alloq-dashboard/tests",
+    "components/alloq-project/tests",
+    "components/alloq-team/tests",
+]
 import_mode = "importlib"
 asyncio_mode = "auto"
 
@@ -223,9 +221,8 @@ branch = true
 omit = []
 source = [
     "app",
-    "server",
-    "common",
     "components/alloq-commons/src/alloq_commons",
+    "components/alloq-dashboard/src/alloq_dashboard",
     "components/alloq-project/src/alloq_project",
     "components/alloq-team/src/alloq_team",
 ]

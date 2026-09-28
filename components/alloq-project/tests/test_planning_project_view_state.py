@@ -190,7 +190,7 @@ def _make_allocation(
     a.project_id = proj_id
     a.week_start = week_start
     a.person_days = person_days
-    a._cached_role_name = "Data Scientist"
+    a.role_name = "Data Scientist"
     return a
 
 

@@ -14,7 +14,6 @@ import appkit_mantine as mn
 from alloq_dashboard.states import (
     BudgetBurnState,
     DashboardState,
-    UnderUtilizationState,
     UtilizationState,
 )
 
@@ -82,19 +81,13 @@ def _employee_bucket_sections(
     noun: str,
 ) -> list[rx.Component]:
     """Render Überlastet / Gut ausgelastet / Defizit / Abwesend sections."""
+    # Counts and rows come from the same payload so they can never disagree.
     data = UtilizationState.data
-    summary = UnderUtilizationState.data
-    well_utilized_count = (
-        summary.total_employees
-        - summary.overloaded_count
-        - summary.affected_count
-        - summary.absent_count
-    )
     return [
         section(
             mn.text("Überlastet (> 100%)", size="sm", fw="600"),
             rx.cond(
-                summary.overloaded_count > 0,
+                data.overloaded_count > 0,
                 rx.foreach(
                     data.employee_breakdown,
                     lambda emp: rx.cond(
@@ -110,7 +103,7 @@ def _employee_bucket_sections(
         section(
             mn.text("Gut ausgelastet (70-100%)", size="sm", fw="600"),
             rx.cond(
-                well_utilized_count > 0,
+                data.well_utilized_count > 0,
                 rx.foreach(
                     data.employee_breakdown,
                     lambda emp: rx.cond(
@@ -127,7 +120,7 @@ def _employee_bucket_sections(
         section(
             mn.text("Auslastungsdefizit (< 70%)", size="sm", fw="600"),
             rx.cond(
-                summary.affected_count > 0,
+                data.under_utilized_count > 0,
                 rx.foreach(
                     data.employee_breakdown,
                     lambda emp: rx.cond(

@@ -8,6 +8,7 @@ page. The full project form remains the path for complete project setup.
 import datetime
 import logging
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from alloq_commons.entities import ProjectEntity
@@ -60,7 +61,13 @@ async def create_quick_project(
         end_date=start_date + datetime.timedelta(days=PLACEHOLDER_DURATION_DAYS),
         budget=0,
     )
-    await project_repo.create(session, entity)
+    try:
+        await project_repo.create(session, entity)
+    except IntegrityError as exc:
+        # A concurrent create took the code between the check and the insert.
+        raise QuickProjectError(
+            f"Projektkürzel '{clean_code}' ist bereits vergeben."
+        ) from exc
     # A new project has no related rows yet, so the read model's collection
     # defaults already describe it correctly.
     project = Project(

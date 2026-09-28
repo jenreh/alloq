@@ -56,7 +56,7 @@ class RiskEntity(Entity, Base):
     )
     measures: Mapped[str | None] = mapped_column(String(2000), nullable=True)
 
-    project = relationship("ProjectEntity", back_populates="risks")
+    project = relationship("ProjectEntity", back_populates="risks", lazy="raise_on_sql")
 
     def to_dict(self) -> dict:
         """Convert entity to dictionary for Pydantic model creation."""

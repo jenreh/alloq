@@ -44,7 +44,7 @@ class TestPublicHolidayEntity:
     def test_to_dict(self) -> None:
         entity = PublicHolidayEntity(
             name="Fronleichnam",
-            date=date(2026, 7, 4),
+            date=date(2026, 6, 4),
             is_recurring=False,
             state_code="NRW",
         )
@@ -54,7 +54,7 @@ class TestPublicHolidayEntity:
         result = entity.to_dict()
         assert result["id"] == 1
         assert result["name"] == "Fronleichnam"
-        assert result["date"] == date(2026, 7, 4)
+        assert result["date"] == date(2026, 6, 4)
         assert result["is_recurring"] is False
         assert result["state_code"] == "NRW"
 
@@ -216,7 +216,7 @@ class TestPublicHolidayRepository:
     async def test_delete_by_id(self, async_session: AsyncSession) -> None:
         repo = PublicHolidayRepository()
         entity = PublicHolidayEntity(
-            name="Pfingstmontag", date=date(2026, 6, 25), is_recurring=False
+            name="Pfingstmontag", date=date(2026, 5, 25), is_recurring=False
         )
         await repo.create(async_session, entity)
         holiday_id = entity.id
@@ -242,8 +242,13 @@ class TestHolidayStateLoading:
         async def _session_ctx():
             yield AsyncMock()
 
+        user = MagicMock(is_admin=True, user_id=1)
+
+        async def _user() -> MagicMock:
+            return user
+
         login_state = MagicMock()
-        login_state.is_authenticated = AsyncMock(return_value=True)()
+        type(login_state).authenticated_user = property(lambda _self: _user())
         object.__setattr__(state, "get_state", AsyncMock(return_value=login_state))
         mock_repo = AsyncMock()
         mock_repo.find_by_year = AsyncMock(return_value=[])

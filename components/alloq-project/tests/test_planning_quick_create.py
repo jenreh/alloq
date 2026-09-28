@@ -1,7 +1,9 @@
 """Tests for inline quick-create of projects in the planning grid."""
 
 import datetime
+from collections.abc import Iterator
 from contextlib import asynccontextmanager
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -9,6 +11,28 @@ import pytest
 from alloq_commons.models.project import Project
 from alloq_commons.services.quick_project import NEW_PROJECT_VALUE, QuickProjectError
 from alloq_project.states.planning_grid_state import PlanningStore
+
+
+class _FakeLogin:
+    """LoginState stand-in for the admin guard on PlanningStore handlers."""
+
+    def __init__(self, *, is_admin: bool) -> None:
+        self.is_admin = is_admin
+
+    @property
+    async def authenticated_user(self) -> Any:
+        return SimpleNamespace(user_id=1, is_admin=self.is_admin)
+
+    async def redir(self) -> None:
+        return None
+
+
+@pytest.fixture(autouse=True)
+def _admin_login() -> Iterator[None]:
+    """Run every handler as an admin unless a test overrides ``get_state``."""
+    login = _FakeLogin(is_admin=True)
+    with patch.object(PlanningStore, "get_state", AsyncMock(return_value=login)):
+        yield
 
 
 def _mock_session_ctx(session: AsyncMock):

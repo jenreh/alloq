@@ -184,7 +184,7 @@ def _allocation(week_key: str, days: float) -> MagicMock:
     a.week_start = datetime.date(*(int(p) for p in week_key.split("_")))
     a.person_days = days
     a.role_id = 1
-    a._cached_role_name = "Data Scientist"
+    a.role_name = "Data Scientist"
     return a
 
 

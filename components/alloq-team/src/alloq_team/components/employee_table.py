@@ -40,7 +40,12 @@ def _employee_name_cell(employee: Employee) -> rx.Component:
                 c="var(--alloq-text)",
                 lh="1.15",
             ),
-            mn.text(f"{employee.job_title}", size="xs", c="dimmed", lh="1"),
+            mn.text(
+                rx.cond(employee.job_title, employee.job_title, employee.seniority),
+                size="xs",
+                c="dimmed",
+                lh="1",
+            ),
             gap="2px",
         ),
         gap="md",
@@ -129,16 +134,24 @@ def _employee_table_row(employee: Employee) -> rx.Component:
                 rx.icon_button(
                     rx.icon("square-pen", size=16),
                     variant="ghost",
-                    on_click=TeamState.select_employee(employee.id),
+                    on_click=[
+                        rx.stop_propagation,
+                        TeamState.select_employee(employee.id),
+                    ],
                 ),
-                delete_dialog(
-                    title="Löschen bestätigen",
-                    content=f"{employee.first_name} {employee.last_name}",
-                    on_click=TeamState.delete_employee(employee.id),
-                    icon_button=True,
-                    color="red",
-                    variant="subtle",
-                    size="sm",
+                # Keep trigger and confirm clicks (portal events bubble through
+                # the React tree) from reaching the row's select_employee.
+                mn.box(
+                    delete_dialog(
+                        title="Löschen bestätigen",
+                        content=f"{employee.first_name} {employee.last_name}",
+                        on_click=TeamState.delete_employee(employee.id),
+                        icon_button=True,
+                        color="red",
+                        variant="subtle",
+                        size="sm",
+                    ),
+                    on_click=rx.stop_propagation,
                 ),
                 gap="12px",
                 wrap="nowrap",

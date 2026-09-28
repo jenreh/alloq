@@ -151,6 +151,7 @@ def _plan_fields() -> rx.Component:
             label="Tage pro Woche",
             default_value=ProjectResourceState.days_per_week,
             on_change=ProjectResourceState.set_days_per_week,
+            on_blur=ProjectResourceState.sync_days_input,
             min=MIN_DAYS_PER_WEEK,
             max=MAX_DAYS_PER_WEEK,
             step=0.5,

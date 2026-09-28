@@ -7,6 +7,8 @@ import appkit_mantine as mn
 from appkit_ui.components.dialogs import delete_dialog
 from appkit_ui.global_states import LoadingState
 
+MAX_TEAM_AVATARS = 4
+
 
 def status_color(state: rx.Var[str]) -> rx.Var[str]:
     """Return the project status badge color."""
@@ -55,6 +57,19 @@ def team_initial(member: TeamMemberBadge) -> rx.Component:
             color="var(--alloq-accent-strong)",
         ),
         label=member.name,
+    )
+
+
+def team_avatars(project: Project) -> rx.Component:
+    """Team avatars capped at MAX_TEAM_AVATARS plus a '+N' overflow avatar."""
+    overflow = project.team_members.length() - MAX_TEAM_AVATARS
+    return mn.avatar.group(
+        rx.foreach(project.team_members[:MAX_TEAM_AVATARS], team_initial),
+        rx.cond(
+            overflow > 0,
+            mn.avatar("+" + overflow.to_string(), size="sm", radius="lg"),
+            rx.fragment(),
+        ),
     )
 
 
@@ -135,7 +150,6 @@ def project_card(project: Project) -> rx.Component:
                             wrap="nowrap",
                         ),
                         gap="2px",
-                        nowrap=True,
                         style={"minWidth": 0, "flex": 1},
                     ),
                     gap="md",
@@ -174,9 +188,7 @@ def project_card(project: Project) -> rx.Component:
                     mn.group(
                         rx.cond(
                             project.team_initials.length() > 0,
-                            mn.avatar.group(
-                                rx.foreach(project.team_members, team_initial),
-                            ),
+                            team_avatars(project),
                         ),
                         mn.text(
                             rx.cond(

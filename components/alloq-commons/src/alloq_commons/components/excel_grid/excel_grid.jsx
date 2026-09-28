@@ -33,6 +33,10 @@ const FILL_HANDLE =
 const FILL_PREVIEW = "outline:1px dashed var(--mantine-color-blue-6);outline-offset:-1px;";
 const HANDLE_HIT_PX = 5;
 const ROW_PX = 32;
+// Attributes that define the grid layout (see the header comment).
+const LAYOUT_ATTRS = ["data-row-key", "data-block", "data-cell-key", "data-col"];
+// How long an optimistic value may wait for the server to confirm it.
+const PENDING_TTL_MS = 5000;
 
 function readLayout(root) {
   const rows = [];
@@ -184,7 +188,9 @@ export function ExcelGrid({
     const root = rootRef.current;
     if (!root) return undefined;
     const observer = new MutationObserver((records) => {
-      if (records.some((r) => r.type === "childList")) {
+      // Rows/cells reused by React keep their nodes but get new keys, so key
+      // attribute changes invalidate the cached key -> element map as well.
+      if (records.some((r) => r.type === "childList" || LAYOUT_ATTRS.includes(r.attributeName))) {
         layoutRef.current = null;
         setLayoutVersion((v) => v + 1);
       }
@@ -197,7 +203,7 @@ export function ExcelGrid({
         }
       }
     });
-    observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-value"] });
+    observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-value", ...LAYOUT_ATTRS] });
     return () => observer.disconnect();
   }, [layout]);
 
@@ -290,8 +296,14 @@ export function ExcelGrid({
     (changes, { record = true } = {}) => {
       const batch = G.withBefore(changes, getValue);
       if (!batch.length) return;
-      for (const ch of batch) pendingRef.current.set(ch.key, ch.after);
+      const pending = pendingRef.current;
+      for (const ch of batch) pending.set(ch.key, ch.after);
       onCommit?.(batch.map((ch) => ({ key: ch.key, value: ch.after })));
+      // A rejected or normalized value never shows up in data-value, so drop
+      // entries the server did not confirm instead of keeping them forever.
+      setTimeout(() => {
+        for (const ch of batch) if (pending.get(ch.key) === ch.after) pending.delete(ch.key);
+      }, PENDING_TTL_MS);
       if (record) {
         undoRef.current.push(batch);
         if (undoRef.current.length > 200) undoRef.current.shift();

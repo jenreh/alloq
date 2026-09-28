@@ -12,15 +12,13 @@ from alloq_commons.models.project import Project
 from alloq_project.components.project_card import (
     project_initials,
     status_color,
-    team_initial,
+    team_avatars,
 )
 from alloq_project.states.project_state import ProjectState
 
 import appkit_mantine as mn
 from appkit_ui.components.dialogs import delete_dialog
 from appkit_ui.global_states import LoadingState
-
-MAX_TEAM_AVATARS = 4
 
 SORTABLE_HEADER_STYLE = {
     **TABLE_HEADER_STYLE,
@@ -133,17 +131,9 @@ def _progress_cell(project: Project) -> rx.Component:
 
 
 def _team_cell(project: Project) -> rx.Component:
-    overflow = project.team_members.length() - MAX_TEAM_AVATARS
     return rx.cond(
         project.team_members.length() > 0,
-        mn.avatar.group(
-            rx.foreach(project.team_members[:MAX_TEAM_AVATARS], team_initial),
-            rx.cond(
-                overflow > 0,
-                mn.avatar("+" + overflow.to_string(), size="sm", radius="lg"),
-                rx.fragment(),
-            ),
-        ),
+        team_avatars(project),
         mn.text("—", size="sm", c="dimmed"),
     )
 

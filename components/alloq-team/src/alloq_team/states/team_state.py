@@ -17,6 +17,9 @@ from alloq_commons.models.project import Capacity, Project
 from alloq_commons.models.role import Role
 from alloq_commons.models.view_mode import VIEW_MODE_GRID, VIEW_MODES
 from alloq_commons.repositories.absence_repository import absence_repo
+from alloq_commons.repositories.capacity_allocation_repository import (
+    capacity_allocation_repo,
+)
 from alloq_commons.repositories.capacity_repository import capacity_repo
 from alloq_commons.repositories.employee_repository import employee_repo
 from alloq_commons.repositories.project_repository import project_repo
@@ -30,10 +33,50 @@ from alloq_commons.services.quick_project import (
 
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_ui.global_states import LoadingState
-from appkit_user.authentication.decorators import is_authenticated
+from appkit_user.authentication.decorators import requires_admin
 from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)
+
+# Upper bound for the list queries backing the team page and its dropdowns
+# (the repositories default to 200). Matches the dashboard's limit.
+LIST_LIMIT = 1000
+
+
+def _employee_from_form(form_data: dict) -> EmployeeCreate:
+    """Parse the add/edit employee form into an EmployeeCreate model."""
+    raw_roles = form_data.get("role_ids", [])
+    if isinstance(raw_roles, str):
+        role_ids = [int(x) for x in raw_roles.split(",") if x]
+    else:
+        role_ids = [int(x) for x in raw_roles]
+
+    manager_id_raw = form_data.get("manager_id")
+    return EmployeeCreate(
+        first_name=form_data.get("first_name", "").strip(),
+        last_name=form_data.get("last_name", "").strip(),
+        email=form_data.get("email", "").strip() or None,
+        seniority=form_data.get("seniority", "Advanced"),
+        job_title=form_data.get("job_title", "").strip() or None,
+        location=form_data.get("location", "").strip() or None,
+        manager_id=int(manager_id_raw) if manager_id_raw else None,
+        role_ids=role_ids,
+        hours_per_week=float(form_data.get("hours_per_week", 40.0)),
+        # The field is optional in the form; a cleared input posts "".
+        internal_hours=int(form_data.get("internal_hours") or 0),
+    )
+
+
+def _parse_date_range(values: list[str]) -> tuple[date, date] | None:
+    """Parse a [start, end] ISO date pair; None if missing, malformed or reversed."""
+    if len(values) < 2 or not values[0] or not values[1]:  # noqa: PLR2004
+        return None
+    try:
+        start = date.fromisoformat(values[0][:10])
+        end = date.fromisoformat(values[1][:10])
+    except ValueError:
+        return None
+    return (start, end) if start <= end else None
 
 
 class TeamState(UserSession):
@@ -49,7 +92,6 @@ class TeamState(UserSession):
     current_employee_id: int | None = None
 
     add_modal_open: bool = False
-    edit_modal_open: bool = False
     detail_drawer_open: bool = False
     absence_modal_open: bool = False
     absence_date_range: list[str] = []
@@ -148,10 +190,12 @@ class TeamState(UserSession):
 
     @rx.var
     def employee_select_options(self) -> list[dict[str, str]]:
-        """Return employees formatted for Mantine Select data prop."""
+        """Return possible managers, excluding the employee being edited."""
+        selected_id = self.selected_employee.id if self.selected_employee else None
         return [
             {"value": str(e.id), "label": f"{e.first_name} {e.last_name}"}
             for e in self.employees
+            if e.id != selected_id
         ]
 
     @rx.var
@@ -198,10 +242,13 @@ class TeamState(UserSession):
         self.quick_project_code = ""
         self.is_quick_creating = False
 
-    def open_add_project_modal(self) -> None:
-        """Open the add-project-to-employee modal."""
+    @requires_admin
+    async def open_add_project_modal(self) -> AsyncGenerator[Any]:
+        """Open the add-project-to-employee modal and load the project options."""
         self._reset_quick_create()
         self.add_project_modal_open = True
+        yield
+        await self._load_all_projects()
 
     def close_add_project_modal(self) -> None:
         """Close the add-project-to-employee modal."""
@@ -210,21 +257,14 @@ class TeamState(UserSession):
 
     def open_add_modal(self) -> list[rx.event.EventSpec]:
         """Open the add employee modal."""
+        # A stale selection would be excluded from the e-mail uniqueness check.
+        self.selected_employee = None
         self.add_modal_open = True
         return [EmployeeValidationState.initialize()]
 
     def close_add_modal(self) -> None:
         """Close the add employee modal."""
         self.add_modal_open = False
-
-    def open_edit_modal(self) -> None:
-        """Open the edit employee modal."""
-        self.edit_modal_open = True
-
-    def close_edit_modal(self) -> None:
-        """Close the edit employee modal."""
-        self.edit_modal_open = False
-        self.selected_employee = None
 
     def close_detail_drawer(self) -> None:
         """Close the detail drawer."""
@@ -245,7 +285,7 @@ class TeamState(UserSession):
     async def _load_employees(self) -> None:
         """Internal load logic for employees with role names."""
         async with get_asyncdb_session() as session:
-            entities = await employee_repo.find_all_paginated(session)
+            entities = await employee_repo.find_all_paginated(session, limit=LIST_LIMIT)
             self.employees = [Employee(**e.to_dict()) for e in entities]
 
     async def _fetch_employee(self, employee_id: int) -> Employee | None:
@@ -269,8 +309,8 @@ class TeamState(UserSession):
             entities = await role_repo.find_all_paginated(session)
             self.available_roles = [Role(**e.to_dict()) for e in entities]
 
-    @is_authenticated
-    async def load_employees(self) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def load_employees(self) -> AsyncGenerator[Any]:
         """Load all employees from the database."""
         self.is_loading = True
         yield
@@ -286,47 +326,48 @@ class TeamState(UserSession):
         finally:
             self.is_loading = False
 
-    @is_authenticated
-    async def select_employee(self, employee_id: int) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def select_employee(self, employee_id: int) -> AsyncGenerator[Any]:
         """Select an employee and open detail drawer."""
+        error = ""
+        try:
+            employee = await self._open_employee_details(employee_id)
+            if employee:
+                yield EmployeeValidationState.initialize(
+                    employee=employee,
+                    default_role_ids=[str(r) for r in employee.role_ids],
+                )
+            else:
+                error = "Mitarbeiter nicht gefunden."
+        except Exception:
+            logger.exception("Failed to load employee %s", employee_id)
+            error = "Fehler beim Laden des Mitarbeiters."
+        if error:
+            yield rx.toast.error(error, position="top-right")
+        # The card sets the global loading flag before calling this handler.
+        yield LoadingState.set_is_loading(False)
+
+    async def _open_employee_details(self, employee_id: int) -> Employee | None:
+        """Load an employee with absences and capacities into the detail drawer."""
         async with get_asyncdb_session() as session:
             entity = await employee_repo.find_by_id(session, employee_id)
-            if entity:
-                self.selected_employee = Employee(**entity.to_dict())
-                absence_entities = await absence_repo.find_by_employee_id(
-                    session, employee_id
-                )
-                self.absences = [Absence(**a.to_dict()) for a in absence_entities]
-                self.detail_drawer_open = True
-                await self._load_all_projects()
-                await self._load_employee_capacities(employee_id)
-                yield EmployeeValidationState.initialize(
-                    employee=self.selected_employee,
-                    default_role_ids=[str(r) for r in self.selected_employee.role_ids],
-                )
-                yield LoadingState.set_is_loading(False)
-                yield
+            if not entity:
+                return None
+            employee = Employee(**entity.to_dict())
+            absence_entities = await absence_repo.find_by_employee_id(
+                session, employee_id
+            )
+            absences = [Absence(**a.to_dict()) for a in absence_entities]
+        self.selected_employee = employee
+        self.absences = absences
+        self.detail_drawer_open = True
+        await self._load_employee_capacities(employee_id)
+        return employee
 
-    @is_authenticated
-    async def select_employee_and_edit(
-        self, employee_id: int
-    ) -> AsyncGenerator[Any, None]:
-        """Select an employee and open edit modal."""
-        async with get_asyncdb_session() as session:
-            entity = await employee_repo.find_by_id(session, employee_id)
-            if entity:
-                self.selected_employee = Employee(**entity.to_dict())
-                self.open_edit_modal()
-                yield EmployeeValidationState.initialize(
-                    employee=self.selected_employee,
-                    default_role_ids=[str(r) for r in self.selected_employee.role_ids],
-                )
-                yield
-
-    @is_authenticated
+    @requires_admin
     async def select_employee_and_add_absence(
         self, employee_id: int
-    ) -> AsyncGenerator[Any, None]:
+    ) -> AsyncGenerator[Any]:
         """Select an employee and open the absence modal."""
         async with get_asyncdb_session() as session:
             entity = await employee_repo.find_by_id(session, employee_id)
@@ -335,33 +376,13 @@ class TeamState(UserSession):
                 self.open_absence_modal()
                 yield
 
-    @is_authenticated
-    async def create_employee(self, form_data: dict) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def create_employee(self, form_data: dict) -> AsyncGenerator[Any]:
         """Create a new employee from form submission."""
         self.is_loading = True
         yield
         try:
-            raw_roles = form_data.get("role_ids", [])
-            if isinstance(raw_roles, str):
-                role_ids = [int(x) for x in raw_roles.split(",") if x]
-            else:
-                role_ids = [int(x) for x in raw_roles]
-
-            manager_id_raw = form_data.get("manager_id")
-            manager_id = int(manager_id_raw) if manager_id_raw else None
-
-            emp_data = EmployeeCreate(
-                first_name=form_data.get("first_name", "").strip(),
-                last_name=form_data.get("last_name", "").strip(),
-                email=form_data.get("email", "").strip() or None,
-                seniority=form_data.get("seniority", "Advanced"),
-                job_title=form_data.get("job_title", "").strip() or None,
-                location=form_data.get("location", "").strip() or None,
-                manager_id=manager_id,
-                role_ids=role_ids,
-                hours_per_week=float(form_data.get("hours_per_week", 40.0)),
-                internal_hours=int(form_data.get("internal_hours", 4)),
-            )
+            emp_data = _employee_from_form(form_data)
 
             async with get_asyncdb_session() as session:
                 entity = EmployeeEntity(
@@ -386,16 +407,15 @@ class TeamState(UserSession):
                 f"Mitarbeiter '{emp_data.first_name} {emp_data.last_name}' erstellt.",
                 position="top-right",
             )
-        except Exception as e:
-            logger.error("Failed to create employee: %s", e)
+        except Exception:
+            logger.exception("Failed to create employee")
             self.is_loading = False
             yield rx.toast.error(
-                f"Fehler beim Erstellen: {e}",
-                position="top-right",
+                "Mitarbeiter konnte nicht erstellt werden.", position="top-right"
             )
 
-    @is_authenticated
-    async def update_employee(self, form_data: dict) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def update_employee(self, form_data: dict) -> AsyncGenerator[Any]:
         """Update an existing employee from form submission."""
         try:
             if not self.selected_employee:
@@ -404,29 +424,14 @@ class TeamState(UserSession):
                 )
                 return
 
-            raw_roles = form_data.get("role_ids", [])
-            if isinstance(raw_roles, str):
-                role_ids = [int(x) for x in raw_roles.split(",") if x]
-            else:
-                role_ids = [int(x) for x in raw_roles]
-
-            manager_id_raw = form_data.get("manager_id")
-            manager_id = int(manager_id_raw) if manager_id_raw else None
-
-            emp_data = EmployeeCreate(
-                first_name=form_data.get("first_name", "").strip(),
-                last_name=form_data.get("last_name", "").strip(),
-                email=form_data.get("email", "").strip() or None,
-                seniority=form_data.get("seniority", "Advanced"),
-                job_title=form_data.get("job_title", "").strip() or None,
-                location=form_data.get("location", "").strip() or None,
-                manager_id=manager_id,
-                role_ids=role_ids,
-                hours_per_week=float(form_data.get("hours_per_week", 40.0)),
-                internal_hours=int(form_data.get("internal_hours", 4)),
-            )
-
+            emp_data = _employee_from_form(form_data)
             employee_id = self.selected_employee.id
+            if emp_data.manager_id == employee_id:
+                yield rx.toast.error(
+                    "Ein Mitarbeiter kann nicht sein eigener Vorgesetzter sein.",
+                    position="top-right",
+                )
+                return
             async with get_asyncdb_session() as session:
                 entity = await employee_repo.find_by_id(session, employee_id)
                 if not entity:
@@ -455,15 +460,14 @@ class TeamState(UserSession):
                 f"Mitarbeiter '{name}' aktualisiert.",
                 position="top-right",
             )
-        except Exception as e:
-            logger.error("Failed to update employee: %s", e)
+        except Exception:
+            logger.exception("Failed to update employee")
             yield rx.toast.error(
-                f"Fehler beim Aktualisieren: {e}",
-                position="top-right",
+                "Mitarbeiter konnte nicht aktualisiert werden.", position="top-right"
             )
 
-    @is_authenticated
-    async def delete_employee(self, employee_id: int) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def delete_employee(self, employee_id: int) -> AsyncGenerator[Any]:
         """Delete an employee by ID."""
         self.is_loading = True
         yield
@@ -481,40 +485,31 @@ class TeamState(UserSession):
             self.close_detail_drawer()
             self.is_loading = False
             yield rx.toast.info("Mitarbeiter gelöscht.", position="top-right")
-        except Exception as e:
-            logger.error("Failed to delete employee: %s", e)
+        except Exception:
+            logger.exception("Failed to delete employee")
             self.is_loading = False
             yield rx.toast.error(
-                f"Fehler beim Löschen: {e}",
-                position="top-right",
+                "Mitarbeiter konnte nicht gelöscht werden.", position="top-right"
             )
 
-    @is_authenticated
-    async def create_absence(self, form_data: dict) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def create_absence(self, form_data: dict) -> AsyncGenerator[Any]:
         """Create a new absence for the selected employee."""
         _ = form_data  # Reflex requires this keyword arg for on_submit
-        logger.info("create_absence called with data: %s", self.absence_date_range)
+        logger.debug("create_absence called with data: %s", self.absence_date_range)
         if not self.selected_employee:
             yield rx.toast.error("Kein Mitarbeiter ausgewählt.", position="top-right")
             return
 
-        date_range = self.absence_date_range
-
-        if (
-            not date_range
-            or len(date_range) < 2  # noqa: PLR2004
-            or not date_range[0]
-            or not date_range[1]
-        ):
+        date_range = _parse_date_range(self.absence_date_range)
+        if date_range is None:
             yield rx.toast.error(
                 "Bitte einen gültigen Zeitraum auswählen.", position="top-right"
             )
             return
+        start, end = date_range
 
-        start_date_str = date_range[0][:10]
-        end_date_str = date_range[1][:10]
-
-        if date.fromisoformat(start_date_str) < datetime.now(tz=UTC).date():
+        if start < datetime.now(tz=UTC).date():
             yield rx.toast.error(
                 "Abwesenheiten dürfen nicht in der Vergangenheit beginnen.",
                 position="top-right",
@@ -523,39 +518,52 @@ class TeamState(UserSession):
 
         try:
             absence_data = AbsenceCreate(
-                employee_id=self.selected_employee.id,
-                start_date=start_date_str,
-                end_date=end_date_str,
+                employee_id=self.selected_employee.id, start_date=start, end_date=end
             )
 
             async with get_asyncdb_session() as session:
-                entity = AbsenceEntity(
-                    employee_id=absence_data.employee_id,
-                    start_date=absence_data.start_date,
-                    end_date=absence_data.end_date,
-                )
-                await absence_repo.create(session, entity)
-
-                # Reload absences
                 absence_entities = await absence_repo.find_by_employee_id(
-                    session, self.selected_employee.id
+                    session, absence_data.employee_id
                 )
-                self.absences = [Absence(**a.to_dict()) for a in absence_entities]
+                # Overlaps would be double-counted in the utilization figures.
+                overlaps = any(
+                    a.start_date <= end and a.end_date >= start
+                    for a in absence_entities
+                )
+                if not overlaps:
+                    entity = AbsenceEntity(
+                        employee_id=absence_data.employee_id,
+                        start_date=absence_data.start_date,
+                        end_date=absence_data.end_date,
+                    )
+                    await absence_repo.create(session, entity)
+                    absence_entities = await absence_repo.find_by_employee_id(
+                        session, absence_data.employee_id
+                    )
+
+            if overlaps:
+                yield rx.toast.error(
+                    "Der Zeitraum überschneidet sich mit einer bestehenden "
+                    "Abwesenheit.",
+                    position="top-right",
+                )
+                return
+
+            self.absences = [Absence(**a.to_dict()) for a in absence_entities]
 
             # Reload all employees so the cards update with the new absence
             await self._load_employees()
 
             self.close_absence_modal()
             yield rx.toast.info("Abwesenheit eingetragen.", position="top-right")
-        except Exception as e:
-            logger.error("Failed to create absence: %s", e)
+        except Exception:
+            logger.exception("Failed to create absence")
             yield rx.toast.error(
-                f"Fehler beim Erstellen: {e}",
-                position="top-right",
+                "Abwesenheit konnte nicht eingetragen werden.", position="top-right"
             )
 
-    @is_authenticated
-    async def delete_absence(self, absence_id: int) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def delete_absence(self, absence_id: int) -> AsyncGenerator[Any]:
         """Delete an absence by ID."""
         try:
             async with get_asyncdb_session() as session:
@@ -570,17 +578,16 @@ class TeamState(UserSession):
             await self._load_employees()
 
             yield rx.toast.info("Abwesenheit gelöscht.", position="top-right")
-        except Exception as e:
-            logger.error("Failed to delete absence: %s", e)
+        except Exception:
+            logger.exception("Failed to delete absence")
             yield rx.toast.error(
-                f"Fehler beim Löschen: {e}",
-                position="top-right",
+                "Abwesenheit konnte nicht gelöscht werden.", position="top-right"
             )
 
     async def _load_all_projects(self) -> None:
         """Load all projects for selection dropdowns."""
         async with get_asyncdb_session() as session:
-            entities = await project_repo.find_all_paginated(session)
+            entities = await project_repo.find_all_paginated(session, limit=LIST_LIMIT)
             self.all_projects = [Project(**e.to_dict()) for e in entities]
 
     async def _load_employee_capacities(self, employee_id: int) -> None:
@@ -589,10 +596,8 @@ class TeamState(UserSession):
             entities = await capacity_repo.find_by_employee_id(session, employee_id)
             self.employee_capacities = [Capacity(**e.to_dict()) for e in entities]
 
-    @is_authenticated
-    async def assign_project_to_employee(
-        self, form_data: dict
-    ) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def assign_project_to_employee(self, form_data: dict) -> AsyncGenerator[Any]:
         """Assign a project to the selected employee."""
         if not self.selected_employee:
             yield rx.toast.error("Kein Mitarbeiter ausgewählt.", position="top-right")
@@ -625,25 +630,38 @@ class TeamState(UserSession):
                 return
 
             async with get_asyncdb_session() as session:
-                entity = CapacityEntity(
-                    project_id=project_id,
-                    employee_id=employee_id,
-                    role_id=role_id,
-                    start_date=project.start_date,
-                    end_date=project.end_date,
-                    hours_per_week=self.selected_employee.hours_per_week,
+                existing = await capacity_repo.find_by_project_and_employee(
+                    session, project_id, employee_id
                 )
-                await capacity_repo.create(session, entity)
+                duplicate = any(c.role_id == role_id for c in existing)
+                if not duplicate:
+                    entity = CapacityEntity(
+                        project_id=project_id,
+                        employee_id=employee_id,
+                        role_id=role_id,
+                        start_date=project.start_date,
+                        end_date=project.end_date,
+                        hours_per_week=self.selected_employee.hours_per_week,
+                    )
+                    await capacity_repo.create(session, entity)
+            if duplicate:
+                yield rx.toast.info(
+                    "Projekt ist mit dieser Rolle bereits zugewiesen.",
+                    position="top-right",
+                )
+                return
 
             await self._load_employee_capacities(employee_id)
             self.close_add_project_modal()
             yield rx.toast.info("Projekt zugewiesen.", position="top-right")
-        except Exception as e:
-            logger.error("Failed to assign project: %s", e)
-            yield rx.toast.error(f"Fehler beim Zuweisen: {e}", position="top-right")
+        except Exception:
+            logger.exception("Failed to assign project")
+            yield rx.toast.error(
+                "Projekt konnte nicht zugewiesen werden.", position="top-right"
+            )
 
-    @is_authenticated
-    async def quick_create_project(self) -> AsyncGenerator[Any, None]:
+    @requires_admin
+    async def quick_create_project(self) -> AsyncGenerator[Any]:
         """Create a project from the inline fields and select it."""
         self.is_quick_creating = True
         yield
@@ -657,10 +675,12 @@ class TeamState(UserSession):
             self.is_quick_creating = False
             yield rx.toast.error(str(exc), position="top-right")
             return
-        except Exception as exc:
-            logger.error("Failed to quick-create project: %s", exc)
+        except Exception:
+            logger.exception("Failed to quick-create project")
             self.is_quick_creating = False
-            yield rx.toast.error(f"Fehler: {exc}", position="top-right")
+            yield rx.toast.error(
+                "Projekt konnte nicht angelegt werden.", position="top-right"
+            )
             return
 
         self.all_projects = [*self.all_projects, project]
@@ -670,10 +690,10 @@ class TeamState(UserSession):
         self.is_quick_creating = False
         yield rx.toast.info(f"Projekt '{project.code}' angelegt.", position="top-right")
 
-    @is_authenticated
+    @requires_admin
     async def remove_project_from_employee(
         self, project_id: int
-    ) -> AsyncGenerator[Any, None]:
+    ) -> AsyncGenerator[Any]:
         """Remove a project assignment from the selected employee."""
         if not self.selected_employee:
             yield rx.toast.error("Kein Mitarbeiter ausgewählt.", position="top-right")
@@ -682,20 +702,27 @@ class TeamState(UserSession):
         try:
             employee_id = self.selected_employee.id
             async with get_asyncdb_session() as session:
-                deleted = await capacity_repo.delete_by_project_and_employee(
+                # Weekly allocations have no FK to the capacity row; remove them
+                # in the same transaction so they stop counting as planned load.
+                deleted_capacity = await capacity_repo.delete_by_project_and_employee(
                     session, project_id, employee_id
                 )
-                if not deleted:
-                    yield rx.toast.error(
-                        "Zuweisung nicht gefunden.", position="top-right"
+                deleted_allocations = (
+                    await capacity_allocation_repo.delete_by_project_and_employee(
+                        session, project_id, employee_id
                     )
-                    return
+                )
+            if not (deleted_capacity or deleted_allocations):
+                yield rx.toast.error("Zuweisung nicht gefunden.", position="top-right")
+                return
 
             await self._load_employee_capacities(employee_id)
             yield rx.toast.info("Projektzuweisung entfernt.", position="top-right")
-        except Exception as e:
-            logger.error("Failed to remove project assignment: %s", e)
-            yield rx.toast.error(f"Fehler beim Entfernen: {e}", position="top-right")
+        except Exception:
+            logger.exception("Failed to remove project assignment")
+            yield rx.toast.error(
+                "Projektzuweisung konnte nicht entfernt werden.", position="top-right"
+            )
 
 
 class EmployeeValidationState(rx.State):
@@ -823,6 +850,7 @@ class EmployeeValidationState(rx.State):
             self.email_error = ""
 
     @rx.event
+    @requires_admin
     async def validate_email_unique(self) -> None:
         """Check email format and uniqueness against the database."""
         email = self.email.strip() if self.email else ""

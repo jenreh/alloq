@@ -13,6 +13,9 @@ logger = logging.getLogger(__name__)
 
 class AppConfig(ApplicationConfig):
     authentication: AuthenticationConfiguration
+    # Peer addresses allowed to set X-Forwarded-Proto. None trusts every peer,
+    # so set it wherever the backend port is reachable without the proxy.
+    trusted_proxies: set[str] | None = None
 
 
 @lru_cache(maxsize=1)
@@ -20,5 +23,5 @@ def configure() -> Configuration[AppConfig]:
     logger.debug("--- Configuring application settings ---")
     return service_registry().configure(
         AppConfig,
-        env_file="/.env",
+        env_file=".env",
     )

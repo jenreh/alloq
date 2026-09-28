@@ -1,7 +1,7 @@
 profile: local
 
 reflex:
-  deploy_url: http://localhost
+  deploy_url: http://localhost:8080
   frontend_port: 8080
 
 app:
@@ -12,7 +12,8 @@ app:
     echo: False
 
   authentication:
-    server_url: http://localhost:8080
+    server_url: http://localhost
+    server_port: 8080
 
     # Replaces the provider list from config.yaml (lists are overwritten, not
     # merged): local dev has no azure secrets, so only github is configured.
