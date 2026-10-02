@@ -318,6 +318,7 @@ class PlanningStore(UserSession):
                         cells=cells,
                     )
                 )
+            project_rows.sort(key=lambda row: row.name.lower())
             internal_hours = emp.get("internal_hours", 4)
             internal_days = internal_hours / 8.0
             wp = int(emp.get("workload_percent", 100) or 100)
