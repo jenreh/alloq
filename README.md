@@ -123,6 +123,9 @@ task db:revision -- "description"  # Create new migration
 
 Weekly capacity grid with per-employee allocation, over/under-utilization highlighting, and role badges.
 
+The calendar button beside each employee's “+” opens absence entry. Saving updates
+the planning grid and keeps unsaved allocation edits.
+
 ![Resource Planning](doc/planning.png)
 
 Capacities are edited like in a spreadsheet (reusable `excel_grid` component in

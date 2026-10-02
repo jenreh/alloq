@@ -207,7 +207,9 @@ def add_employee_modal() -> rx.Component:
     )
 
 
-def absence_modal() -> rx.Component:
+def absence_modal(
+    on_submit: EventType = TeamState.create_absence,
+) -> rx.Component:
     """Modal for adding an absence period."""
     return mn.modal(
         modal_form_layout(
@@ -234,7 +236,7 @@ def absence_modal() -> rx.Component:
                 width="100%",
             ),
             footer=_employee_footer("Speichern", TeamState.close_absence_modal),
-            on_submit=TeamState.create_absence,
+            on_submit=on_submit,
             reset_on_submit=True,
         ),
         title="Abwesenheit hinzufügen",
