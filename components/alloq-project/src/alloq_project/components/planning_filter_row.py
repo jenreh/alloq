@@ -39,6 +39,14 @@ def planning_filter_row() -> rx.Component:
                         gap="4px",
                     ),
                 },
+                {
+                    "value": "Abwesenheiten",
+                    "label": mn.center(
+                        rx.icon("chart-gantt", size=16),
+                        rx.text("Abwesenheiten", size="2"),
+                        gap="4px",
+                    ),
+                },
             ],
             value=PlanningStore.view_mode,
             on_change=PlanningStore.set_view_mode,

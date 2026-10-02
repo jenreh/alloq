@@ -32,6 +32,22 @@ class MonthSpan(BaseModel):
     span: int
 
 
+class AbsenceGanttBar(BaseModel):
+    left_px: float
+    width_px: float
+    lane: int
+    label: str
+    tooltip: str
+
+
+class AbsenceGanttRow(BaseModel):
+    real_id: int
+    name: str
+    job_title: str = ""
+    bars: list[AbsenceGanttBar] = []
+    height_px: int = 56
+
+
 class GridCell(BaseModel):
     key: str = ""
     week_key: str

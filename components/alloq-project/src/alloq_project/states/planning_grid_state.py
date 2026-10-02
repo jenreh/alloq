@@ -64,10 +64,12 @@ from alloq_project.services.planning_builders import (
     split_edits,
     wire_pairs,
 )
+from alloq_project.services.planning_gantt import build_absence_gantt
 from alloq_project.states.planning_models import (
     LABEL_COL_PX,
     TIME_RANGE_WEEKS,
     WEEK_COL_PX,
+    AbsenceGanttRow,
     AbsenceRow,
     EmployeeAllocationRow,
     EmployeeBlock,
@@ -114,18 +116,7 @@ HEATMAP_VIEW = "Heatmap"
 
 
 class PlanningStore(UserSession):
-    """Unified planning state.
-
-    Single source of truth for the resource planning page:
-
-    - Entity caches (projects/employees/roles) loaded once from the DB.
-    - Canonical allocations (`cells`) keyed
-      ``"{emp_id}|{proj_code}|{wk_key}"``.
-    - Render metadata, edit/filter/view state, modal/collapse flags.
-
-    The two pivots (Grid view, Project view) are computed views of the
-    same store; edits update `cells` directly with no cross-state sync.
-    """
+    """Shared planning entities, allocations, filters and derived views."""
 
     # === Entity caches ===
 
@@ -487,6 +478,16 @@ class PlanningStore(UserSession):
         if self.view_mode != HEATMAP_VIEW:
             return []
         return self._filter_employees(self.employee_blocks)
+
+    @rx.var(cache=True)
+    def absence_gantt_rows(self) -> list[AbsenceGanttRow]:
+        if self.view_mode != "Abwesenheiten":
+            return []
+        return build_absence_gantt(
+            self._filter_employees(self.employee_blocks),
+            self.available_employees,
+            self.weeks,
+        )
 
     @rx.var(cache=True, backend=True)
     def projects(self) -> list[ProjectBlock]:
