@@ -87,6 +87,10 @@
   "mypy-type-checker.preferDaemon": true,
   "mypy-type-checker.reportingScope": "workspace",
   "python-envs.defaultPackageManager": "ms-python.python:uv",
+  "python-envs.workspaceSearchPaths": [
+    ".venv.mac",
+    ".venv"
+  ],
   "chat.agent.maxRequests": 100,
   "[jsonc]": {
     "editor.defaultFormatter": "vscode.json-language-features"

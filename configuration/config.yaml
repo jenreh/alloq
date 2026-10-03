@@ -22,7 +22,7 @@ app:
     host: secret:mn-db-host
     port: 5432
     name: secret:mn-db-name
-    encryption_key: secret:mn-db-encryption-key
+    encryption_key: secret:avui-db-encryption-key
     pool_size: 10 # change only when needed
     max_overflow: 30 # change only when needed
     echo: False # Set to True to enable SQL logging
@@ -37,9 +37,9 @@ app:
     # OAuth callback URLs are derived from server_url and server_port.
     oauth_providers:
       - provider: "github"
-        client_id: secret:mn-oauth-github-client-id
-        client_secret: secret:mn-oauth-github-client-secret
+        client_id: secret:avui-oauth-github-client-id
+        client_secret: secret:avui-oauth-github-client-secret
       - provider: "azure"
-        client_id: secret:mn-oauth-azure-client-id
-        client_secret: secret:mn-oauth-azure-client-secret
-        tenant_id: secret:mn-oauth-azure-tenant-id
+        client_id: secret:avui-oauth-azure-client-id
+        client_secret: secret:avui-oauth-azure-client-secret
+        tenant_id: secret:avui-oauth-azure-tenant-id
