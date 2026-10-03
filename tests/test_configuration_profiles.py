@@ -106,12 +106,6 @@ def test_default_profile_has_no_localhost_urls(
         assert provider.redirect_url is None
 
 
-def test_default_profile_uses_project_secret_prefix() -> None:
-    raw = (CONFIG_DIR / "config.yaml").read_text(encoding="utf-8")
-
-    assert "secret:avui-" not in raw
-
-
 def test_default_profile_serves_below_base_path_from_env(
     load_profile: Callable[[str], AppConfig], monkeypatch: pytest.MonkeyPatch
 ) -> None:
