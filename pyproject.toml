@@ -5,15 +5,15 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "alembic>=1.18.4",
+    "alembic>=1.20.0",
     "alloq-commons",
     "alloq-dashboard",
     "alloq-project",
     "alloq-team",
-    "appkit-user==1.15.0",
-    "appkit-mantine==1.15.0",
-    "appkit-commons[azure]==1.15.0",
-    "appkit-ui==1.15.0",
+    "appkit-user==1.15.1",
+    "appkit-mantine==1.15.1",
+    "appkit-commons[azure]==1.15.1",
+    "appkit-ui==1.15.1",
     "psycopg[binary,pool]==3.3.6",
     "reflex==0.9.12",
 ]
@@ -23,12 +23,12 @@ dev = [
     "aiosqlite==0.22.1",
     "bump-my-version==1.5.1",
     "detect-secrets==1.5.0",
-    "faker==40.39.0",
+    "faker==40.40.0",
     "pre-commit==4.6.2",
     "pytest_asyncio==1.4.0",
     "pytest-cov==7.1.0",
     "pytest==9.1.1",
-    "ruff==0.16.9",
+    "ruff==0.16.10",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -36,6 +36,15 @@ packages = ["app"]
 
 [tool.uv]
 cache-dir = ".cache/uv_cache"
+# Security floors for transitive deps (Dependabot #13-#31); raise, never remove
+constraint-dependencies = [
+    "anyio>=4.14.2",
+    "oauthlib>=4.0.0",
+    "python-engineio>=4.13.2",
+    "python-socketio>=5.16.2",
+    "urllib3>=2.8.0",
+    "virtualenv>=21.7.13",
+]
 
 [tool.uv.workspace]
 members = ["components/*"]
