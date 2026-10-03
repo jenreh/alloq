@@ -183,11 +183,13 @@ def summary_stat(label: str, value: rx.Var[float]) -> rx.Component:
     """Muted label followed by a person-day figure."""
     return mn.group(
         mn.text(label, size="xs", c="var(--alloq-text-muted)"),
-        de_number(
-            value=value,
-            decimal_scale=2,
-            fixed_decimal_scale=True,
-            suffix=" PT",
+        mn.text(
+            de_number(
+                value=value,
+                decimal_scale=2,
+                fixed_decimal_scale=True,
+                suffix=" PT",
+            ),
             size="xs",
             fw="600",
             c="var(--alloq-text)",

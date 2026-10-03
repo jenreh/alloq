@@ -30,6 +30,7 @@ from alloq_project.components.planning_shared import (
     planning_excel_grid,
     summary_stat,
 )
+from alloq_project.states.planning_absence_state import PlanningAbsenceState
 from alloq_project.states.planning_grid_state import (
     EmployeeBlock,
     GesamtCell,
@@ -37,6 +38,8 @@ from alloq_project.states.planning_grid_state import (
     PlanningStore,
     ProjectAllocationRow,
 )
+from alloq_team.components.employee import absence_modal
+from alloq_team.states.team_state import TeamState
 from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
@@ -147,16 +150,6 @@ def _employee_header_row(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
                     align="center",
                     wrap="nowrap",
                 ),
-                mn.tooltip(
-                    mn.action_icon(
-                        rx.icon("plus", size=14, stroke_width=2),
-                        variant="subtle",
-                        color="gray",
-                        size="xs",
-                        on_click=PlanningStore.open_add_project_for_employee(emp.id),  # ty: ignore[invalid-argument-type]
-                    ),
-                    label="Projekt zuweisen",
-                ),
                 justify="space-between",
                 align="center",
                 wrap="nowrap",
@@ -170,6 +163,36 @@ def _employee_header_row(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
             },
         ),
         block_header_info_cell(
+            mn.group(
+                mn.tooltip(
+                    mn.action_icon(
+                        rx.icon("calendar-plus", size=14, stroke_width=2),
+                        variant="subtle",
+                        color="gray",
+                        size="xs",
+                        aria_label="Abwesenheit eintragen",
+                        on_click=TeamState.select_employee_and_add_absence(  # ty: ignore[invalid-argument-type]
+                            emp.real_id,
+                        ),
+                    ),
+                    label="Abwesenheit eintragen",
+                ),
+                mn.tooltip(
+                    mn.action_icon(
+                        rx.icon("plus", size=14, stroke_width=2),
+                        variant="subtle",
+                        color="gray",
+                        size="xs",
+                        aria_label="Projekt zuweisen",
+                        on_click=PlanningStore.open_add_project_for_employee(  # ty: ignore[invalid-argument-type]
+                            emp.id,
+                        ),
+                    ),
+                    label="Projekt zuweisen",
+                ),
+                gap="xs",
+                wrap="nowrap",
+            ),
             summary_stat("Geplant", emp.planned_days),
             summary_stat("Verfügbar", emp.available_days),
             background=EMP_HEADER_BG,
@@ -488,6 +511,7 @@ def _add_project_modal() -> rx.Component:
 def planning_grid() -> rx.Component:
     return rx.fragment(
         _add_project_modal(),
+        absence_modal(on_submit=PlanningAbsenceState.create_absence),
         rx.cond(
             PlanningStore.is_loaded,
             planning_excel_grid(

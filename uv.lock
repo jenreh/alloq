@@ -119,10 +119,14 @@ version = "0.2.0"
 source = { editable = "components/alloq-project" }
 dependencies = [
     { name = "alloq-commons" },
+    { name = "alloq-team" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "alloq-commons", editable = "components/alloq-commons" }]
+requires-dist = [
+    { name = "alloq-commons", editable = "components/alloq-commons" },
+    { name = "alloq-team", editable = "components/alloq-team" },
+]
 
 [[package]]
 name = "alloq-team"

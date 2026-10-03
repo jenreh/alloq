@@ -14,11 +14,3 @@ app:
   authentication:
     server_url: http://localhost
     server_port: 8080
-
-    # Replaces the provider list from config.yaml (lists are overwritten, not
-    # merged): local dev has no azure secrets, so only github is configured.
-    oauth_providers:
-      - provider: "github"
-        client_id: secret:avui-oauth-github-client-id
-        client_secret: secret:avui-oauth-github-client-secret
-        redirect_url: http://localhost:8080/oauth/github/callback

@@ -4,6 +4,7 @@ from alloq_commons.components.page_header import page_header
 
 import appkit_mantine as mn
 from alloq_project.components.planning_filter_row import planning_filter_row
+from alloq_project.components.planning_gantt import planning_gantt
 from alloq_project.components.planning_grid import planning_grid
 from alloq_project.components.planning_heatmap import planning_heatmap
 from alloq_project.components.planning_project_view import (
@@ -45,6 +46,7 @@ def create_planning_page(
                     PlanningStore.view_mode,
                     ("Grid", planning_grid()),
                     ("Heatmap", planning_heatmap()),
+                    ("Abwesenheiten", planning_gantt()),
                     ("Projekte", planning_project_view()),
                     rx.fragment(),
                 ),

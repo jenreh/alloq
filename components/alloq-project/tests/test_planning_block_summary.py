@@ -217,6 +217,56 @@ class TestStoreBlocksCarrySummary:
         assert block.planned_days == 2.0
         assert block.available_days == round(expected_free, 2)
 
+    def test_employee_projects_are_alphabetical_by_display_name(self) -> None:
+        state = self._store()
+        names = [
+            "RTL Studios",
+            "bertelsmann CC AI",
+            "Merz Medical Writing",
+            "Intern - Akquise",
+            "AOK Niedersachsen",
+        ]
+        projects = [_project(i, f"P{i}") for i in range(1, 6)]
+        for project, name in zip(projects, names, strict=True):
+            project.name_de = name
+        state.project_meta, _ = build_project_meta(projects)
+        state.employee_meta = [
+            {
+                **state.employee_meta[0],
+                "project_ids": ["proj-1", "proj-2", "proj-3", "proj-4"],
+            },
+            {
+                **state.employee_meta[0],
+                "id": "emp-2",
+                "real_id": 2,
+                "project_ids": ["proj-3", "proj-1", "proj-4"],
+            },
+        ]
+        state.cells = {
+            f"{emp['id']}|P{i}|{week.key}": float(i)
+            for emp in state.employee_meta
+            for i in range(1, 6)
+            for week in state.weeks
+        }
+
+        blocks = state.employee_blocks
+
+        assert [row.name for row in blocks[0].projects] == [
+            names[1],
+            names[3],
+            names[2],
+            names[0],
+        ]
+        assert [row.name for row in blocks[1].projects] == [
+            names[3],
+            names[2],
+            names[0],
+        ]
+        for block in blocks:
+            for row in block.projects:
+                assert row.emp_id == block.id
+                assert row.cells[0].value == float(row.real_project_id)
+
     def test_project_block(self) -> None:
         block = self._store().project_blocks[0]
         assert block.planned_days == 2.0
