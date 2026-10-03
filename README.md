@@ -195,3 +195,26 @@ Production secrets are referenced via `secret:` prefix in config and resolved fr
 
 > [!NOTE]
 > Never commit credentials. Use `.env` files locally and proper secret management in production.
+
+### Serving below a path prefix
+
+The app can run below a URL prefix (for example `/alloq`) behind a reverse
+proxy that serves the exported frontend and forwards the backend routes with
+the prefix stripped. Everything is set from the environment:
+
+| Variable | Export | Backend | Purpose |
+| --- | --- | --- | --- |
+| `REFLEX_FRONTEND_PATH=/alloq` | yes | **no** | Prefixes assets and the router basename. On the backend it would break the appkit login redirects, which expect prefix-free paths. |
+| `REFLEX_API_URL=http://localhost:8080/alloq` | yes | yes | The path names the websocket namespace, so both sides need the same value. A `localhost` host is swapped for the page's host in the browser. |
+| `APP__BASE_PATH=/alloq` | no | yes | Puts the prefix into the derived OAuth callback URLs. |
+| `APP__AUTHENTICATION__SESSION_COOKIE_NAME` | yes | yes | Use a name per app when several apps share one host. |
+
+```bash
+REFLEX_FRONTEND_PATH=/alloq REFLEX_API_URL=http://localhost:8080/alloq \
+  reflex export --frontend-only --no-zip   # output: .web/build/client/alloq
+REFLEX_API_URL=http://localhost:8080/alloq \
+  reflex run --env prod --backend-only --backend-port 8002
+```
+
+Use `/alloq/ping` as the health probe. Reflex's `/_health` needs `reflex[db]`,
+which this app does not install.

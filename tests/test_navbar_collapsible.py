@@ -1,6 +1,7 @@
 """Tests for app.components.navbar_collapsible module."""
 
-from unittest.mock import patch
+from collections.abc import Callable
+from unittest.mock import MagicMock, patch
 
 import reflex as rx
 
@@ -10,6 +11,7 @@ from app.components.navbar_collapsible import (
     NavbarCollapseState,
     _gated,
     _is_route_active,
+    _logo,
     app_navbar_collapsible,
 )
 
@@ -186,3 +188,33 @@ class TestAppNavbarCollapsible:
     def test_returns_component(self) -> None:
         result = app_navbar_collapsible()
         assert isinstance(result, rx.Component)
+
+
+class TestStaticAssetsUnderFrontendPath:
+    """Static asset URLs must carry Reflex's frontend_path when one is set."""
+
+    @staticmethod
+    def _render_with_frontend_path(
+        prefix: str, factory: Callable[[], rx.Component] = app_navbar_collapsible
+    ) -> str:
+        config = MagicMock()
+        config.prepend_frontend_path.side_effect = lambda path: f"{prefix}{path}"
+        with patch("reflex.assets.get_config", return_value=config):
+            return str(factory())
+
+    def test_logo_is_prefixed(self) -> None:
+        rendered = self._render_with_frontend_path("/alloq", _logo)
+
+        assert "/alloq/img/logo.svg" in rendered
+
+    def test_section_icons_are_prefixed(self) -> None:
+        rendered = self._render_with_frontend_path("/alloq")
+
+        assert "/alloq/icons/project_icon.svg" in rendered
+        assert "/alloq/icons/project_icon_dark.svg" in rendered
+
+    def test_no_unprefixed_asset_paths(self) -> None:
+        rendered = self._render_with_frontend_path("/alloq")
+
+        for raw in ('"/img/', '"/icons/', "`/img/", "`/icons/"):
+            assert raw not in rendered

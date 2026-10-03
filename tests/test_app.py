@@ -10,7 +10,7 @@ from appkit_user.authentication import add_session_guard
 from appkit_user.authentication.session_filter import SessionFilter
 
 from app import app as app_module
-from app.app import add_https_middleware
+from app.app import add_https_middleware, auth_page_logos
 from app.configuration import AppConfig
 
 
@@ -85,3 +85,21 @@ class TestAppWiring:
         middlewares = app_module.app._middlewares
 
         assert any(isinstance(m, SessionFilter) for m in middlewares)
+
+
+class TestAuthPageLogos:
+    def test_logos_carry_frontend_path(self) -> None:
+        config = MagicMock()
+        config.prepend_frontend_path.side_effect = lambda path: f"/alloq{path}"
+
+        with patch("reflex.assets.get_config", return_value=config):
+            logos = auth_page_logos()
+
+        assert logos["logo"].startswith("/alloq/img/appkit_logo.svg")
+        assert logos["logo_dark"].startswith("/alloq/img/appkit_logo_dark.svg")
+
+    def test_logos_at_site_root(self) -> None:
+        logos = auth_page_logos()
+
+        assert logos["logo"].startswith("/img/appkit_logo.svg")
+        assert logos["logo_dark"].startswith("/img/appkit_logo_dark.svg")

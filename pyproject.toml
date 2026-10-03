@@ -12,7 +12,7 @@ dependencies = [
     "alloq-team",
     "appkit-user==1.15.0",
     "appkit-mantine==1.15.0",
-    "appkit-commons==1.15.0",
+    "appkit-commons[azure]==1.15.0",
     "appkit-ui==1.15.0",
     "psycopg[binary,pool]==3.3.6",
     "reflex==0.9.12",
@@ -96,7 +96,10 @@ indent-width = 4
 line-length = 88
 target-version = "py314"
 extend-exclude = [
+    ".agents",
     ".cache",
+    ".claude",
+    ".codex",
     ".devcontainer",
     ".github",
     ".vscode",

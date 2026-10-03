@@ -31,6 +31,25 @@ class TestUrlSettings:
         assert rxconfig._url_settings(None) == {}
 
 
+class TestPortSettings:
+    def test_passes_explicitly_configured_ports(self) -> None:
+        reflex = ReflexConfig(frontend_port=8080, backend_port=3030)
+
+        assert rxconfig._port_settings(reflex) == {
+            "frontend_port": 8080,
+            "backend_port": 3030,
+        }
+
+    def test_omits_ports_left_at_model_default(self) -> None:
+        # `reflex run --backend-only` exits when a frontend port is configured.
+        reflex = ReflexConfig(backend_port=3030)
+
+        assert rxconfig._port_settings(reflex) == {"backend_port": 3030}
+
+    def test_no_reflex_block(self) -> None:
+        assert rxconfig._port_settings(None) == {}
+
+
 class TestRequireDatabase:
     def test_missing_database_fails_with_clear_error(self) -> None:
         registry = MagicMock()

@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     # Optional local overrides (gitignored). It must provide the Fernet key:
-    #   MN_DB_ENCRYPTION_KEY=<python -c "from cryptography.fernet import Fernet;
+    #   AVUI_DB_ENCRYPTION_KEY=<python -c "from cryptography.fernet import Fernet;
     #                          print(Fernet.generate_key().decode())">
     env_file:
       - path: .env.docker
