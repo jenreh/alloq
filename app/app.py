@@ -58,10 +58,23 @@ ALLOQ_THEME = am.create_theme(
 
 am.set_app_theme(ALLOQ_THEME)
 
-create_login_page()
+
+def auth_page_logos() -> dict[str, str]:
+    """Logos for appkit's auth pages, honoring Reflex's frontend_path.
+
+    appkit_user defaults to raw "/img/..." paths, which miss the prefix when
+    the app is served below the site root.
+    """
+    return {
+        "logo": rx.asset("img/appkit_logo.svg"),
+        "logo_dark": rx.asset("img/appkit_logo_dark.svg"),
+    }
+
+
+create_login_page(**auth_page_logos())
 create_profile_page(app_navbar_collapsible())
-create_password_reset_request_page()
-create_password_reset_confirm_page()
+create_password_reset_request_page(**auth_page_logos())
+create_password_reset_confirm_page(**auth_page_logos())
 create_users_page(app_navbar_collapsible())
 create_roles_page(app_navbar_collapsible())
 create_holidays_page(app_navbar_collapsible())

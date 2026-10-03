@@ -110,3 +110,44 @@ def test_default_profile_uses_project_secret_prefix() -> None:
     raw = (CONFIG_DIR / "config.yaml").read_text(encoding="utf-8")
 
     assert "secret:avui-" not in raw
+
+
+def test_default_profile_serves_below_base_path_from_env(
+    load_profile: Callable[[str], AppConfig], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("APP__AUTHENTICATION__SERVER_URL", "https://apps.example.com")
+    monkeypatch.setenv("APP__AUTHENTICATION__SERVER_PORT", "443")
+    monkeypatch.setenv("APP__BASE_PATH", "/alloq")
+
+    app_config = load_profile("")
+
+    assert app_config.base_path == "/alloq"
+    assert app_config.authentication.oauth_providers
+    for provider in app_config.authentication.oauth_providers:
+        assert provider.redirect_url == (
+            f"https://apps.example.com:443/alloq/oauth/{provider.provider}/callback"
+        )
+
+
+@pytest.mark.parametrize(
+    ("profile", "frontend_port"),
+    [("", None), ("local", 8080), ("devcontainer", 8080), ("docker_test", 8080)],
+)
+def test_frontend_port_per_profile(
+    load_profile: Callable[[str], AppConfig],
+    monkeypatch: pytest.MonkeyPatch,
+    profile: str,
+    frontend_port: int | None,
+) -> None:
+    """Production must not pin a frontend port: it runs `--backend-only`."""
+    monkeypatch.setenv("APP__AUTHENTICATION__SERVER_URL", "https://alloq.example.com")
+    monkeypatch.setenv("APP__AUTHENTICATION__SERVER_PORT", "443")
+    load_profile(profile)  # applies the env/secret stubs and PROFILES
+
+    reflex = Configuration[AppConfig](_env_file=None).reflex
+
+    assert reflex is not None
+    configured = (
+        reflex.frontend_port if "frontend_port" in reflex.model_fields_set else None
+    )
+    assert configured == frontend_port

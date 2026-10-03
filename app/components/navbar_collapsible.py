@@ -260,21 +260,18 @@ def _rail_section_button(section: dict[str, Any]) -> rx.Component:
 
     def _section_icon(is_active: Any = None) -> rx.Component:
         if icon_img:
+            # rx.asset() adds Reflex's frontend_path, raw "/icons/..." would not.
+            light_src = rx.asset(f"icons/{icon_img}.svg")
+            dark_src = rx.asset(f"icons/{icon_img}_dark.svg")
             if is_active is not None:
                 # When active, always use the dark (white stroke) variant
                 src = rx.cond(
                     is_active,
-                    f"/icons/{icon_img}_dark.svg",
-                    rx.color_mode_cond(
-                        light=f"/icons/{icon_img}.svg",
-                        dark=f"/icons/{icon_img}_dark.svg",
-                    ),
+                    dark_src,
+                    rx.color_mode_cond(light=light_src, dark=dark_src),
                 )
             else:
-                src = rx.color_mode_cond(
-                    light=f"/icons/{icon_img}.svg",
-                    dark=f"/icons/{icon_img}_dark.svg",
-                )
+                src = rx.color_mode_cond(light=light_src, dark=dark_src)
             return rx.image(
                 src=src,
                 style={
@@ -533,7 +530,7 @@ def _logo() -> rx.Component:
     return mn.center(
         mn.tooltip(
             mn.image(
-                src="/img/logo.svg",
+                src=rx.asset("img/logo.svg"),
                 h="32px",
                 w="32px",
                 fit="contain",

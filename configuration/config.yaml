@@ -2,7 +2,8 @@ profile: default
 
 reflex:
   deploy_url: http://localhost
-  frontend_port: 8080
+  # No frontend_port here: it would stop `reflex run --backend-only`. Profiles
+  # that serve the frontend set it; production passes REFLEX_FRONTEND_PORT.
   backend_port: 3030
   workers: 1
 

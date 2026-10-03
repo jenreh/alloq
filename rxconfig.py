@@ -46,13 +46,33 @@ def _url_settings(reflex: ReflexConfig | None) -> _UrlSettings:
     return settings
 
 
+class _PortSettings(TypedDict, total=False):
+    frontend_port: int
+    backend_port: int
+
+
+def _port_settings(reflex: ReflexConfig | None) -> _PortSettings:
+    """Pass only ports the YAML sets explicitly; others keep Reflex's defaults.
+
+    A configured frontend port makes `reflex run --backend-only` exit, so the
+    production profile leaves it to REFLEX_FRONTEND_PORT or --frontend-port.
+    """
+    settings: _PortSettings = {}
+    if reflex is None:
+        return settings
+    if "frontend_port" in reflex.model_fields_set:
+        settings["frontend_port"] = reflex.frontend_port
+    if "backend_port" in reflex.model_fields_set:
+        settings["backend_port"] = reflex.backend_port
+    return settings
+
+
 database = _require_database()
 reflex = _lookup(ReflexConfig)
 
 config = rx.Config(
     app_name="app",
-    frontend_port=reflex.frontend_port if reflex else 8080,
-    backend_port=reflex.backend_port if reflex else 3030,
+    **_port_settings(reflex),
     db_url=database.url,
     async_db_url=database.url,
     **_url_settings(reflex),
