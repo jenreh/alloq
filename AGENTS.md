@@ -23,7 +23,7 @@
 <!-- plan:start
 goal: <one line clear goal>
 constraints:
-- Python 3.13; Reflex UI; FastAPI; SQLAlchemy 2.0; Alembic; Pydantic; appkit_mantine;
+- Python 3.14; Reflex UI; FastAPI; SQLAlchemy 2.0; Alembic; Pydantic; appkit_mantine;
 - logging: no f-strings in logger calls
 - files ≤ 1000 lines; apply design patterns where appropriate
 - minimal diff; add/adjust tests first
@@ -62,7 +62,7 @@ Prefer official docs; widen via web search for cross-version issues.
 
 1. Memory first — search prior solutions.
 2. Reasoning plan — Task Bootstrap Pattern.
-3. `task sync` (uv, Python 3.13).
+3. `task sync` (uv, Python 3.14).
 4. `task test` — snapshot current failures.
 
 ### Triage Failures
@@ -144,13 +144,6 @@ Full rules in **python-coding** skill. Key:
 ---
 
 ## 9) Skills
-
-| Skill | Purpose |
-| --- | --- |
-| `python-coding` | Python 3.14 style, logging, type annotations, design patterns, testing |
-| `python-clean-code` | Enforce Clean Code Developer (CCD) architecture and software quality principles |
-| `code-cleanup` | Refactor and simplify Python files modified in the current session if they get complex/big |
-| `boost` | Use when the user wants to refine, sharpen, or expand a rough idea into a detailed implementation prompt |
 
 | Skill | Purpose |
 | --- | --- |
