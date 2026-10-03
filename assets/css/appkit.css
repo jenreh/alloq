@@ -1,6 +1,7 @@
-/* Tailwind directives — processed by PostCSS with tailwindcss plugin */
-@import "tailwindcss";
-
+/* Tailwind directives — processed by PostCSS with tailwindcss plugin.
+   Tailwind itself comes from Reflex's TailwindV4Plugin (styles/tailwind.css);
+   a second @import "tailwindcss" here breaks the prerender step of
+   `reflex export` with ENOENT .web/tailwindcss. */
 @custom-variant dark (&:where(.dark, .dark *));
 
 @layer components {
