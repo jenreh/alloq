@@ -3,6 +3,9 @@ profile: local
 reflex:
   deploy_url: http://localhost:8080
   frontend_port: 8080
+  frontend_path: /alloq
+  workers: 1
+  single_port: false
 
 app:
   environment: local

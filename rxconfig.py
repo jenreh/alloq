@@ -72,6 +72,7 @@ reflex = _lookup(ReflexConfig)
 
 config = rx.Config(
     app_name="app",
+    frontend_path=reflex.frontend_path if reflex else "",
     **_port_settings(reflex),
     db_url=database.url,
     async_db_url=database.url,

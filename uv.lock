@@ -80,10 +80,10 @@ requires-dist = [
     { name = "alloq-dashboard", editable = "components/alloq-dashboard" },
     { name = "alloq-project", editable = "components/alloq-project" },
     { name = "alloq-team", editable = "components/alloq-team" },
-    { name = "appkit-commons", extras = ["azure"], specifier = "==1.15.1" },
-    { name = "appkit-mantine", specifier = "==1.15.1" },
-    { name = "appkit-ui", specifier = "==1.15.1" },
-    { name = "appkit-user", specifier = "==1.15.1" },
+    { name = "appkit-commons", extras = ["azure"], specifier = "==1.16.0" },
+    { name = "appkit-mantine", specifier = "==1.16.0" },
+    { name = "appkit-ui", specifier = "==1.16.0" },
+    { name = "appkit-user", specifier = "==1.16.0" },
     { name = "psycopg", extras = ["binary", "pool"], specifier = "==3.3.6" },
     { name = "reflex", specifier = "==0.9.12" },
 ]
@@ -179,7 +179,7 @@ wheels = [
 
 [[package]]
 name = "appkit-commons"
-version = "1.15.1"
+version = "1.16.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorlog" },
@@ -190,9 +190,9 @@ dependencies = [
     { name = "sqlalchemy-utils" },
     { name = "starlette" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f7/73/1c7dc3d225ef7239c73255342f56a9beb4446be35ac03f1fd02837825295/appkit_commons-1.15.1.tar.gz", hash = "sha256:7729921358ef917d5f89a7f24608c4a7f78d6d9101bc104112c44a77da356d7a", size = 59771, upload-time = "2026-10-03T18:11:30.764Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2e/ce/a578b05c9a2771b012ad217ec34f656c94761f1872a1c1979aaa5f0c0bfd/appkit_commons-1.16.0.tar.gz", hash = "sha256:06095282aada359bb2703eb01eedcd545e231871987165997d60f54d109d8548", size = 61566, upload-time = "2026-10-04T17:41:56.265Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/de/18/fbc6edf0a43d1ea921b46e3314e265e209d7bc20ee1c94934535adac3dc2/appkit_commons-1.15.1-py3-none-any.whl", hash = "sha256:44655c8e906c170ac317082ebf2132017a10ff1c6723322b7edc965fb4564b5a", size = 37382, upload-time = "2026-10-03T18:11:24.614Z" },
+    { url = "https://files.pythonhosted.org/packages/f0/41/4ec71ab19980595434c32bc20951f14b7f5243ed27da871a3adfd4f00127/appkit_commons-1.16.0-py3-none-any.whl", hash = "sha256:66320309b211dde6d482d5730719dbb83520fd4521f3aa183c99c368451afa97", size = 38777, upload-time = "2026-10-04T17:41:49.823Z" },
 ]
 
 [package.optional-dependencies]
@@ -203,31 +203,31 @@ azure = [
 
 [[package]]
 name = "appkit-mantine"
-version = "1.15.1"
+version = "1.16.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "reflex" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cf/bf/73941f3c31d171cc89937be704b38abeb29dde4d4d1e4b74c9c683679d88/appkit_mantine-1.15.1.tar.gz", hash = "sha256:9de3e1133a218aa81fa45c2d69eb545da53227126bba25852a50b4c648496447", size = 250192, upload-time = "2026-10-03T18:11:32.337Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/60/90/9755ac6448717f6dbec6711b6c463540f7dcc859ae32c12365d5cd6b8835/appkit_mantine-1.16.0.tar.gz", hash = "sha256:34ae22fd525754afc8e0a28e2a67025b504fee757cc9d953707119207608d472", size = 250190, upload-time = "2026-10-04T17:41:58.069Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f4/03/558a70224e17e79f8698e945be0604e420e69d478bece52ac3d9604393a0/appkit_mantine-1.15.1-py3-none-any.whl", hash = "sha256:0f5f06e8594f0b26a5df3e4e3539b922693780d51f27af5400049ec5a6331951", size = 308082, upload-time = "2026-10-03T18:11:26.452Z" },
+    { url = "https://files.pythonhosted.org/packages/ae/d7/d5f66aa7b1419e1f9edb640c8b8451c55c91a75f2ec824e772149f19b8cd/appkit_mantine-1.16.0-py3-none-any.whl", hash = "sha256:d1094e378b1e627f5dd60d07660d9ce3cf96449471f43c6b3e4252ba8cdfa374", size = 308083, upload-time = "2026-10-04T17:41:51.995Z" },
 ]
 
 [[package]]
 name = "appkit-ui"
-version = "1.15.1"
+version = "1.16.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "appkit-mantine" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/bc/ed/60bdb2936356f7ccbdf1c4b488eb12597de7af2d69bf86e39a1c373b5d98/appkit_ui-1.15.1.tar.gz", hash = "sha256:9f0131620b1661a28d5dc9dfc31599c84cd8d1d47b5545de537d0ffbbeb37bbf", size = 13902, upload-time = "2026-10-03T18:11:33.375Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/28/d9/2f8538f4829421e137ab97e340aab4efc5444a509ed2843e20ae17aa120e/appkit_ui-1.16.0.tar.gz", hash = "sha256:9ed02089d13630a113cf7170a67822eccf98a9ea103dd7803670bc1116d8a62d", size = 13902, upload-time = "2026-10-04T17:41:58.879Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/06/3c/9813eb8023bc4fec05a41ce544c3f951d47eaba173d0d8f29e10627cb80a/appkit_ui-1.15.1-py3-none-any.whl", hash = "sha256:9aaf16ff01d38b6302a5099af952f21d55eedc1d91cf79885e6b3ba866c7e369", size = 17014, upload-time = "2026-10-03T18:11:27.685Z" },
+    { url = "https://files.pythonhosted.org/packages/0b/46/5993ca2669caf1a4e8b7f36c9a405e45d5ce51c6cc16c41083070dda6f48/appkit_ui-1.16.0-py3-none-any.whl", hash = "sha256:684383f13e54c03b7247246b0d01eb13a885538b18d72096351b81fe3632737a", size = 17013, upload-time = "2026-10-04T17:41:53.28Z" },
 ]
 
 [[package]]
 name = "appkit-user"
-version = "1.15.1"
+version = "1.16.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "appkit-commons" },
@@ -238,9 +238,9 @@ dependencies = [
     { name = "requests-oauthlib" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b3/96/45619303ed6a068386c99aad26f900d8768e2548ad2c9dc11ad6415e6277/appkit_user-1.15.1.tar.gz", hash = "sha256:e3dfb2dd5a1a3cc901422505fc22623936f403fd263063ce9e736bb3957a94e8", size = 881797, upload-time = "2026-10-03T18:11:33.989Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7c/35/50ed1f944b52841ae2b302b6926cfef316c161f202589641006f5ba65042/appkit_user-1.16.0.tar.gz", hash = "sha256:0db25700e95b0d13d2aafe4ccc20be0897e09b6409217a0243f6a099c1ddbe0d", size = 886130, upload-time = "2026-10-04T17:41:59.792Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/cd/95/dcf514f94b70d3c9a5f32509e4b6dd441ad8b903b6c8139b9d176b5fd1fb/appkit_user-1.15.1-py3-none-any.whl", hash = "sha256:a82642eabca0fa4c0922f8ccea9d64f84a5883c50ed218e8b41e75645971933c", size = 81744, upload-time = "2026-10-03T18:11:28.585Z" },
+    { url = "https://files.pythonhosted.org/packages/55/4f/770ebccc9ee494cbacf4520349cd5b1ec3660f364dc6a767aa516cd2c191/appkit_user-1.16.0-py3-none-any.whl", hash = "sha256:d3c3dd24d27c4ae568623a76ed645cde3cd05ad8e09b3ad08556703bb4b1ee1d", size = 82620, upload-time = "2026-10-04T17:41:54.212Z" },
 ]
 
 [[package]]
