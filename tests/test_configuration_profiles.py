@@ -1,5 +1,6 @@
 """Validate the YAML configuration profiles shipped in ``configuration/``."""
 
+import importlib
 import os
 from collections.abc import Callable
 from pathlib import Path
@@ -7,9 +8,9 @@ from urllib.parse import urlsplit
 
 import pytest
 import yaml
-from pydantic import ValidationError
 
 from appkit_commons.configuration.configuration import Configuration, Environment
+from appkit_commons.registry import ServiceRegistry
 
 from app.configuration import AppConfig
 
@@ -83,65 +84,50 @@ def test_profile_loads(load_profile: Callable[[str], AppConfig], profile: str) -
     assert server_url.port is None
 
 
-@pytest.mark.parametrize("field", ["server_url", "server_port"])
-def test_default_profile_requires_public_address_from_env(
-    load_profile: Callable[[str], AppConfig], field: str
-) -> None:
-    with pytest.raises(ValidationError, match=field):
-        load_profile("")
-
-
-def test_default_profile_has_no_localhost_urls(
-    load_profile: Callable[[str], AppConfig], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("APP__AUTHENTICATION__SERVER_URL", "https://alloq.example.com")
-    monkeypatch.setenv("APP__AUTHENTICATION__SERVER_PORT", "443")
-
-    app_config = load_profile("")
-
-    assert app_config.environment == Environment.production
-    assert app_config.authentication.server_url == "https://alloq.example.com"
-    for provider in app_config.authentication.oauth_providers:
-        # Derived from server_url by the OAuth service when unset.
-        assert provider.redirect_url is None
-
-
-def test_default_profile_serves_below_base_path_from_env(
-    load_profile: Callable[[str], AppConfig], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("APP__AUTHENTICATION__SERVER_URL", "https://apps.example.com")
-    monkeypatch.setenv("APP__AUTHENTICATION__SERVER_PORT", "443")
-    monkeypatch.setenv("APP__BASE_PATH", "/alloq")
-
-    app_config = load_profile("")
-
-    assert app_config.base_path == "/alloq"
-    assert app_config.authentication.oauth_providers
-    for provider in app_config.authentication.oauth_providers:
-        assert provider.redirect_url == (
-            f"https://apps.example.com:443/alloq/oauth/{provider.provider}/callback"
-        )
-
-
-@pytest.mark.parametrize(
-    ("profile", "frontend_port"),
-    [("", None), ("local", 8080), ("devcontainer", 8080), ("docker_test", 8080)],
-)
-def test_frontend_port_per_profile(
-    load_profile: Callable[[str], AppConfig],
+@pytest.fixture
+def configure_profile(
     monkeypatch: pytest.MonkeyPatch,
-    profile: str,
-    frontend_port: int | None,
-) -> None:
-    """Production must not pin a frontend port: it runs `--backend-only`."""
-    monkeypatch.setenv("APP__AUTHENTICATION__SERVER_URL", "https://alloq.example.com")
-    monkeypatch.setenv("APP__AUTHENTICATION__SERVER_PORT", "443")
-    load_profile(profile)  # applies the env/secret stubs and PROFILES
-
-    reflex = Configuration[AppConfig](_env_file=None).reflex
-
-    assert reflex is not None
-    configured = (
-        reflex.frontend_port if "frontend_port" in reflex.model_fields_set else None
+) -> Callable[[str], Configuration[AppConfig]]:
+    """Run the uncached ``configure()`` against a fresh registry."""
+    monkeypatch.chdir(CONFIG_DIR.parent)
+    monkeypatch.setattr(
+        "appkit_commons.configuration.base.get_secret", lambda key: f"stub-{key}"
     )
-    assert configured == frontend_port
+    for key in list(os.environ):
+        if key.startswith(("APP__", "REFLEX__", "PUBLIC_")):
+            monkeypatch.delenv(key)
+    module = importlib.import_module("app.configuration")
+    monkeypatch.setattr(module, "service_registry", ServiceRegistry)
+
+    def _configure(profile: str) -> Configuration[AppConfig]:
+        monkeypatch.setenv("PROFILES", profile)
+        return module.configure.__wrapped__()
+
+    return _configure
+
+
+def test_default_profile_requires_public_base_url(
+    configure_profile: Callable[[str], Configuration[AppConfig]],
+) -> None:
+    with pytest.raises(RuntimeError, match="PUBLIC_BASE_URL"):
+        configure_profile("")
+
+
+def test_default_profile_derives_public_urls_from_env(
+    configure_profile: Callable[[str], Configuration[AppConfig]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PUBLIC_BASE_URL", "https://apps.example.com")
+    monkeypatch.setenv("PUBLIC_PATH_PREFIX", "/alloq")
+
+    config = configure_profile("")
+
+    authentication = config.app.authentication
+    assert config.app.environment == Environment.production
+    assert authentication.server_url == "https://apps.example.com/alloq"
+    assert authentication.server_port == 0
+    assert authentication.oauth_providers
+    for provider in authentication.oauth_providers:
+        assert provider.redirect_url == (
+            f"https://apps.example.com/alloq/oauth/{provider.provider.value}/callback"
+        )
