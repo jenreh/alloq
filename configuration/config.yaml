@@ -14,16 +14,18 @@ app:
   logging: logging.prod.yaml
   environment: production
   backend_timeout: 180 # seconds
-  # Reverse-proxy addresses allowed to set X-Forwarded-Proto (unset: trust all)
+  # Reverse-proxy addresses allowed to set X-Forwarded-Proto (unset: trust all).
+  # Set it where the backend port is reachable without the proxy; behind the
+  # platform container the backend listens on loopback only.
   # trusted_proxies: ["10.0.0.4"]
 
   database:
-    username: secret:mn-db-user
-    password: secret:mn-db-password
-    host: secret:mn-db-host
+    username: secret:alloq-db-user
+    password: secret:alloq-db-password
+    host: secret:alloq-db-host
     port: 5432
-    name: secret:mn-db-name
-    encryption_key: secret:avui-db-encryption-key
+    name: secret:alloq-db-name
+    encryption_key: secret:common-db-encryption-key
     pool_size: 10 # change only when needed
     max_overflow: 30 # change only when needed
     echo: False # Set to True to enable SQL logging
@@ -31,16 +33,18 @@ app:
   authentication:
     session_timeout: 25 # minutes
     auth_token_refresh_delta: 10 # minutes
-    # server_url/server_port have no default on purpose: production must provide
-    # the public address via APP__AUTHENTICATION__SERVER_URL and
-    # APP__AUTHENTICATION__SERVER_PORT (e.g. 443); profiles set their own.
+    # Placeholders. Production derives the public address, the OAuth callback
+    # URLs and the Reflex URLs from PUBLIC_BASE_URL and PUBLIC_PATH_PREFIX
+    # (app/public_url.py) and refuses to start without PUBLIC_BASE_URL.
+    # Local profiles set their own address.
+    server_url: http://localhost
+    server_port: 0
 
-    # OAuth callback URLs are derived from server_url and server_port.
     oauth_providers:
       - provider: "github"
-        client_id: secret:avui-oauth-github-client-id
-        client_secret: secret:avui-oauth-github-client-secret
+        client_id: secret:common-oauth-github-client-id
+        client_secret: secret:common-oauth-github-client-secret
       - provider: "azure"
-        client_id: secret:avui-oauth-azure-client-id
-        client_secret: secret:avui-oauth-azure-client-secret
-        tenant_id: secret:avui-oauth-azure-tenant-id
+        client_id: secret:common-oauth-azure-client-id
+        client_secret: secret:common-oauth-azure-client-secret
+        tenant_id: secret:common-oauth-azure-tenant-id

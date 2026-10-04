@@ -199,21 +199,24 @@ Production secrets are referenced via `secret:` prefix in config and resolved fr
 ### Serving below a path prefix
 
 The app can run below a URL prefix (for example `/alloq`) behind a reverse
-proxy that serves the exported frontend and forwards the backend routes with
-the prefix stripped. Everything is set from the environment:
+proxy that serves the exported frontend and passes every other path under the
+prefix to the backend (mount mode, appkit 1.16). The public address comes from
+two variables, read by `app/public_url.py`:
 
 | Variable | Export | Backend | Purpose |
 | --- | --- | --- | --- |
-| `REFLEX_FRONTEND_PATH=/alloq` | yes | **no** | Prefixes assets and the router basename. On the backend it would break the appkit login redirects, which expect prefix-free paths. |
-| `REFLEX_API_URL=http://localhost:8080/alloq` | yes | yes | The path names the websocket namespace, so both sides need the same value. A `localhost` host is swapped for the page's host in the browser. |
-| `APP__BASE_PATH=/alloq` | no | yes | Puts the prefix into the derived OAuth callback URLs. |
-| `APP__AUTHENTICATION__SESSION_COOKIE_NAME` | yes | yes | Use a name per app when several apps share one host. |
+| `PUBLIC_BASE_URL=https://apps.example.com` | yes | yes | Origin of the site. Production refuses to start without it. The auth server URL, the OAuth callback URLs and the Reflex URLs are derived from it. |
+| `PUBLIC_PATH_PREFIX=/alloq` | yes | yes | The prefix. Callbacks become `<origin>/alloq/oauth/<provider>/callback`, with no port. |
+| `REFLEX_FRONTEND_PATH=/alloq` | yes | yes | Prefixes assets and the router basename, and names the session cookie (`alloq_session`). Also set by `frontend_path` in the config. |
+| `REFLEX_BACKEND_PATH=/alloq` | yes | yes | Mounts the backend routes under the prefix. |
+| `REFLEX_API_URL=http://localhost:8080` | yes | yes | The origin of the websocket. A `localhost` host is swapped for the page's host in the browser. |
 
 ```bash
-REFLEX_FRONTEND_PATH=/alloq REFLEX_API_URL=http://localhost:8080/alloq \
-  reflex export --frontend-only --no-zip   # output: .web/build/client/alloq
-REFLEX_API_URL=http://localhost:8080/alloq \
-  reflex run --env prod --backend-only --backend-port 8002
+export PUBLIC_BASE_URL=http://localhost:8080 PUBLIC_PATH_PREFIX=/alloq \
+  REFLEX_FRONTEND_PATH=/alloq REFLEX_BACKEND_PATH=/alloq \
+  REFLEX_API_URL=http://localhost:8080
+reflex export --frontend-only --no-zip   # output: .web/build/client/alloq
+reflex run --env prod --backend-only --backend-port 8002
 ```
 
 Use `/alloq/ping` as the health probe. Reflex's `/_health` needs `reflex[db]`,
