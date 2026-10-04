@@ -1,0 +1,11 @@
+profile: prod
+
+reflex:
+  deploy_url: http://localhost
+  backend_port: 3030
+  workers: 2
+  frontend_path: /alloq
+
+app:
+  logging: logging.prod.yaml
+  environment: production
