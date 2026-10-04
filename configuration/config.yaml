@@ -9,7 +9,7 @@ reflex:
   frontend_path: /alloq
 
 app:
-  version: 0.4.0
+  version: 0.4.1
   name: Alloq
   logging: logging.prod.yaml
   environment: production
