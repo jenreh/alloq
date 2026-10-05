@@ -797,6 +797,17 @@ body,
     border-color: transparent !important;
 }
 
+.alloq-planning-filters {
+    position: relative;
+    z-index: 50;
+}
+
+/* Keep wide view/time controls usable inside the filter overflow panel. */
+.alloq-planning-overflow .mantine-SegmentedControl-root {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
 /* Planning filter multiselects — hide all pills, show only count pill via ::after */
 .alloq-filter-ms .mantine-Pill-root {
     display: none !important;

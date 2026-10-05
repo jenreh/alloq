@@ -28,6 +28,8 @@ from app.styles import base_style, base_stylesheets
 ALLOQ_THEME = am.create_theme(
     primary_color="alloqTeal",
     primary_shade={"light": 6, "dark": 7},
+    font_family="Roboto Flex, sans-serif",
+    font_family_monospace="Roboto Mono, monospace",
     colors={
         "alloqWarm": [
             "#fffef8",

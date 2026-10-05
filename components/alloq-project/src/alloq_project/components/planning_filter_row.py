@@ -4,6 +4,13 @@ from alloq_project.states.planning_grid_state import PlanningStore
 import appkit_mantine as mn
 
 
+class _PlanningFilterRow(rx.Component):
+    """Measure inline controls and reveal overflowing filters on hover."""
+
+    library = rx.asset("planning_filter_row.jsx", shared=True).importable_path
+    tag = "PlanningFilterRow"
+
+
 def _ms_class(has_mehr: rx.Var) -> rx.Var:
     """CSS class for filter multi-select, adds 'has-mehr' when needed."""
     return rx.cond(has_mehr, "alloq-filter-ms has-mehr", "alloq-filter-ms")
@@ -11,7 +18,7 @@ def _ms_class(has_mehr: rx.Var) -> rx.Var:
 
 def planning_filter_row() -> rx.Component:
     """Row of inline filters and view toggles for the planning page."""
-    return mn.group(
+    return _PlanningFilterRow.create(
         # View modes with custom React node as label (icons + text)
         mn.segmented_control(
             data=[
@@ -63,6 +70,19 @@ def planning_filter_row() -> rx.Component:
             radius="md",
             bg="var(--alloq-surface-solid)",
         ),
+        # Employee filter
+        mn.multi_select(
+            data=PlanningStore.employee_select_options,
+            value=PlanningStore.employee_filter.to(list[str]),
+            on_change=PlanningStore.set_employee_filter,
+            placeholder="Mitarbeiter",
+            searchable=True,
+            clearable=True,
+            combobox_props={"withinPortal": False},
+            w="12rem",
+            class_name=_ms_class(PlanningStore.employee_filter.length() > 0),
+            style={"--alloq-mehr": PlanningStore.employee_filter_label},
+        ),
         # Project filter
         mn.multi_select(
             data=PlanningStore.project_select_options,
@@ -71,6 +91,7 @@ def planning_filter_row() -> rx.Component:
             placeholder="Projekte",
             searchable=True,
             clearable=True,
+            combobox_props={"withinPortal": False},
             w="12rem",
             class_name=_ms_class(PlanningStore.project_filter.length() > 0),
             style={"--alloq-mehr": PlanningStore.project_filter_label},
@@ -83,21 +104,10 @@ def planning_filter_row() -> rx.Component:
             placeholder="Rollen",
             searchable=True,
             clearable=True,
+            combobox_props={"withinPortal": False},
             w="12rem",
             class_name=_ms_class(PlanningStore.role_filter.length() > 0),
             style={"--alloq-mehr": PlanningStore.role_filter_label},
-        ),
-        # Employee filter
-        mn.multi_select(
-            data=PlanningStore.employee_select_options,
-            value=PlanningStore.employee_filter.to(list[str]),
-            on_change=PlanningStore.set_employee_filter,
-            placeholder="Mitarbeiter",
-            searchable=True,
-            clearable=True,
-            w="12rem",
-            class_name=_ms_class(PlanningStore.employee_filter.length() > 0),
-            style={"--alloq-mehr": PlanningStore.employee_filter_label},
         ),
         mn.switch(
             label="Nur verfügbare",
@@ -106,8 +116,4 @@ def planning_filter_row() -> rx.Component:
             color="alloqTeal.5",
             size="sm",
         ),
-        gap="md",
-        align="center",
-        w="100%",
-        pb="md",
     )
