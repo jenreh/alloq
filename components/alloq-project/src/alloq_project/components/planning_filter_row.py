@@ -99,6 +99,13 @@ def planning_filter_row() -> rx.Component:
             class_name=_ms_class(PlanningStore.employee_filter.length() > 0),
             style={"--alloq-mehr": PlanningStore.employee_filter_label},
         ),
+        mn.switch(
+            label="Nur verfügbare",
+            checked=PlanningStore.available_only,
+            on_change=PlanningStore.set_available_only,
+            color="alloqTeal.5",
+            size="sm",
+        ),
         gap="md",
         align="center",
         w="100%",

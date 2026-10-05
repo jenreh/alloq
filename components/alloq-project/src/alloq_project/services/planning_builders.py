@@ -399,6 +399,56 @@ def employee_summary(block: EmployeeBlock, from_key: str) -> tuple[float, float]
     return round(planned, 2), round(available, 2)
 
 
+def filter_project_blocks(
+    blocks: list[ProjectBlock],
+    weeks: list[WeekColumn],
+    from_key: str,
+    *,
+    project_ids: list[str],
+    role_ids: list[str],
+    employee_ids: list[str],
+    role_id_lookup: dict[str, int],
+    available_employee_ids: set[str] | None = None,
+) -> list[ProjectBlock]:
+    """Filter projects and rebuild totals when availability limits their rows."""
+    result = blocks
+    if available_employee_ids is not None:
+        result = []
+        for block in blocks:
+            employees = [
+                employee
+                for employee in block.employees
+                if employee.emp_id in available_employee_ids
+            ]
+            if not employees:
+                continue
+            filtered = block.model_copy(update={"employees": employees})
+            filtered.gesamt = compute_project_gesamt(weeks, filtered)
+            filtered.heat = compute_project_heat(weeks, filtered)
+            filtered.planned_days, filtered.role_totals = project_summary(
+                filtered, from_key
+            )
+            result.append(filtered)
+    if project_ids:
+        result = [p for p in result if str(p.real_id) in project_ids]
+    if role_ids:
+        result = [
+            p
+            for p in result
+            if any(
+                str(role_id_lookup.get(f"{e.emp_id}|{p.real_id}")) in role_ids
+                for e in p.employees
+            )
+        ]
+    if employee_ids:
+        result = [
+            p
+            for p in result
+            if any(str(e.real_id) in employee_ids for e in p.employees)
+        ]
+    return result
+
+
 def project_summary(
     block: ProjectBlock, from_key: str
 ) -> tuple[float, list[RoleTotal]]:

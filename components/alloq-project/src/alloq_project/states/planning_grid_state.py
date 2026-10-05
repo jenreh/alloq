@@ -54,6 +54,7 @@ from alloq_project.services.planning_builders import (
     edits_to_rows,
     employee_id_by_email,
     employee_summary,
+    filter_project_blocks,
     ingest_allocations,
     managed_employee_ids,
     owned_project_ids,
@@ -67,6 +68,7 @@ from alloq_project.services.planning_builders import (
 from alloq_project.services.planning_gantt import build_absence_gantt
 from alloq_project.states.planning_models import (
     LABEL_COL_PX,
+    MIN_AVAILABLE_PT,
     TIME_RANGE_WEEKS,
     WEEK_COL_PX,
     AbsenceGanttRow,
@@ -112,9 +114,6 @@ PROJECT_VIEW = "Projekte"
 HEATMAP_VIEW = "Heatmap"
 
 
-# === State ===
-
-
 class PlanningStore(UserSession):
     """Shared planning entities, allocations, filters and derived views."""
 
@@ -155,6 +154,7 @@ class PlanningStore(UserSession):
     project_filter: rx.Field[list[str]] = rx.field(default_factory=list)
     role_filter: rx.Field[list[str]] = rx.field(default_factory=list)
     employee_filter: rx.Field[list[str]] = rx.field(default_factory=list)
+    available_only: rx.Field[bool] = rx.field(False)
     project_scope: rx.Field[bool] = rx.field(False)
     employee_scope: rx.Field[bool] = rx.field(False)
     current_employee_id: rx.Field[int | None] = rx.field(None)
@@ -207,6 +207,10 @@ class PlanningStore(UserSession):
     @rx.event
     def set_employee_filter(self, value: list[str]) -> None:
         self.employee_filter = value
+
+    @rx.event
+    def set_available_only(self, value: bool) -> None:
+        self.available_only = value
 
     @rx.event
     def toggle_project_scope(self) -> Any:
@@ -405,7 +409,7 @@ class PlanningStore(UserSession):
     # === Filtered pivots ===
 
     def _filter_employees(self, blocks: list[EmployeeBlock]) -> list[EmployeeBlock]:
-        """Apply the scope toggles and the project/role/employee filters."""
+        """Apply scope, selection and remaining-capacity filters."""
         result = blocks
         if self.project_scope:
             own = owned_project_ids(self.all_projects, self.current_employee_id)
@@ -429,6 +433,8 @@ class PlanningStore(UserSession):
             ]
         if self.employee_filter:
             result = [e for e in result if str(e.real_id) in self.employee_filter]
+        if self.available_only:
+            result = [e for e in result if e.available_days > MIN_AVAILABLE_PT]
         return result
 
     @rx.var(cache=True)
@@ -452,25 +458,20 @@ class PlanningStore(UserSession):
             result = [
                 p for p in result if any(str(e.real_id) in mine for e in p.employees)
             ]
-        if self.project_filter:
-            result = [p for p in result if str(p.real_id) in self.project_filter]
-        if self.role_filter:
-            result = [
-                p
-                for p in result
-                if any(
-                    str(self.role_id_lookup.get(f"{e.emp_id}|{p.real_id}"))
-                    in self.role_filter
-                    for e in p.employees
-                )
-            ]
-        if self.employee_filter:
-            result = [
-                p
-                for p in result
-                if any(str(e.real_id) in self.employee_filter for e in p.employees)
-            ]
-        return result
+        return filter_project_blocks(
+            result,
+            self.weeks,
+            self.current_week_key,
+            project_ids=self.project_filter,
+            role_ids=self.role_filter,
+            employee_ids=self.employee_filter,
+            role_id_lookup=self.role_id_lookup,
+            available_employee_ids=(
+                {e.id for e in self._filter_employees(self.employee_blocks)}
+                if self.available_only
+                else None
+            ),
+        )
 
     @rx.var(cache=True)
     def employees(self) -> list[EmployeeBlock]:

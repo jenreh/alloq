@@ -7,6 +7,7 @@ from pydantic import BaseModel
 # === Constants ===
 
 LABEL_COL_PX: int = 300
+MIN_AVAILABLE_PT: float = 3.0
 WEEK_COL_PX: int = 60
 WEEKS_BEFORE_CURRENT = 1
 TIME_RANGE_WEEKS: dict[str, int] = {
