@@ -172,6 +172,11 @@ def absence_days_for_week(absences: list, week_start: datetime.date) -> float:
     return UtilizationService.absence_days_in_week(dated, week_start)
 
 
+def toggled(items: list[str], item: str) -> list[str]:
+    """Return ``items`` with ``item`` removed if present, else appended."""
+    return [i for i in items if i != item] if item in items else [*items, item]
+
+
 def cell_key(emp_id: str, proj_code: str, wk_key: str) -> str:
     """Canonical cell key."""
     return f"{emp_id}|{proj_code}|{wk_key}"

@@ -340,6 +340,31 @@ class TestPlanningStoreProjectView:
         state.toggle_project("proj-1")
         assert "proj-1" not in state.collapsed_projects
 
+    def test_set_all_collapsed_projects(self) -> None:
+        state = self._two_project_store()
+        state.set_all_collapsed(True)
+        assert state.collapsed_projects == [p.id for p in state.project_blocks]
+        assert state.collapsed_employees == []
+        state.set_all_collapsed(False)
+        assert state.collapsed_projects == []
+
+    def test_set_all_collapsed_team(self) -> None:
+        state = self._two_project_store()
+        state.view_mode = "Grid"
+        state.set_all_collapsed(True)
+        assert state.collapsed_employees == [e.id for e in state.employee_blocks]
+        assert len(state.collapsed_employees) == 2
+        assert state.collapsed_projects == []
+        state.set_all_collapsed(False)
+        assert state.collapsed_employees == []
+
+    def test_set_all_collapsed_ignored_in_other_views(self) -> None:
+        state = self._two_project_store()
+        state.view_mode = "Heatmap"
+        state.set_all_collapsed(True)
+        assert state.collapsed_employees == []
+        assert state.collapsed_projects == []
+
     def test_has_dirty_empty(self) -> None:
         state = PlanningStore()
         assert state.has_dirty is False

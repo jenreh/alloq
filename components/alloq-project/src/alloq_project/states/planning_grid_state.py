@@ -63,6 +63,7 @@ from alloq_project.services.planning_builders import (
     role_short,
     sorted_projects,
     split_edits,
+    toggled,
     wire_pairs,
 )
 from alloq_project.services.planning_gantt import build_absence_gantt
@@ -741,21 +742,20 @@ class PlanningStore(UserSession):
 
     @rx.event
     def toggle_employee(self, emp_id: str) -> None:
-        if emp_id in self.collapsed_employees:
-            self.collapsed_employees = [
-                e for e in self.collapsed_employees if e != emp_id
-            ]
-        else:
-            self.collapsed_employees = [*self.collapsed_employees, emp_id]
+        self.collapsed_employees = toggled(self.collapsed_employees, emp_id)
 
     @rx.event
     def toggle_project(self, project_id: str) -> None:
-        if project_id in self.collapsed_projects:
-            self.collapsed_projects = [
-                p for p in self.collapsed_projects if p != project_id
-            ]
-        else:
-            self.collapsed_projects = [*self.collapsed_projects, project_id]
+        self.collapsed_projects = toggled(self.collapsed_projects, project_id)
+
+    @rx.event
+    def set_all_collapsed(self, collapsed: bool) -> None:
+        if self.view_mode == GRID_VIEW:
+            ids = [e.id for e in self.employee_blocks]
+            self.collapsed_employees = ids if collapsed else []
+        elif self.view_mode == PROJECT_VIEW:
+            ids = [p.id for p in self.project_blocks]
+            self.collapsed_projects = ids if collapsed else []
 
     # === Save ===
 

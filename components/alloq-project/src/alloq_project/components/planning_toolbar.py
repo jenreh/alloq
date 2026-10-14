@@ -52,6 +52,46 @@ def _toggle_button(
     )
 
 
+def _action_button(icon: str, tooltip: str, on_click: EventType[()]) -> rx.Component:
+    """Icon-only action button with a tooltip for the planning toolbar."""
+    return mn.tooltip(
+        mn.box(
+            mn.button(
+                rx.icon(icon, size=18, color="var(--alloq-text)"),
+                variant="subtle",
+                on_click=on_click,
+                size="sm",
+                p="0 8px",
+                radius="md",
+            ),
+            display="flex",
+        ),
+        label=tooltip,
+        with_arrow=True,
+        position="bottom",
+    )
+
+
+def _collapse_buttons() -> rx.Component:
+    """Expand/collapse all blocks; only shown in the Team and Projekte views."""
+    return rx.cond(
+        (PlanningStore.view_mode == "Grid") | (PlanningStore.view_mode == "Projekte"),
+        mn.group(
+            _action_button(
+                "chevrons-up-down",
+                "Alle aufklappen",
+                PlanningStore.set_all_collapsed(False),
+            ),
+            _action_button(
+                "chevrons-down-up",
+                "Alle zuklappen",
+                PlanningStore.set_all_collapsed(True),
+            ),
+            gap="4px",
+        ),
+    )
+
+
 def planning_toolbar() -> rx.Component:
     """Fixed top-right toolbar for the resource planning page."""
     return rx.flex(
@@ -65,6 +105,7 @@ def planning_toolbar() -> rx.Component:
             radius="md",
             on_click=ProjectPlanState.open_modal,
         ),
+        _collapse_buttons(),
         mn.tooltip(
             # Box wrapper: see _toggle_button (memoized button, disabled hover).
             mn.box(
