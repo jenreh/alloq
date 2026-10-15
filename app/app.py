@@ -70,6 +70,7 @@ def add_https_middleware(asgi_app: ASGIApp) -> ASGIApp:
 
 app = rx.App(
     head_components=[
+        rx.el.link(rel="icon", href=rx.asset("favicon.ico"), type="image/x-icon"),
         rx.el.style(theme.GLOBAL_CSS),
         *(rx.script(script) for script in (*theme.HEAD_SCRIPTS, SIDEBAR_SCRIPT)),
     ],

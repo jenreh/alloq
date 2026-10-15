@@ -25,7 +25,7 @@ from appkit_ui.global_states import LoadingState
 from appkit_user.authentication.templates import authenticated_page
 
 SIDEBAR_WIDTH_PX = 244
-PANE_GAP_PX = 8
+PANE_GAP_PX = 0
 NARROW_PX = 768
 COLLAPSED_ATTR = "data-sidebar-collapsed"
 OPEN_ATTR = "data-sidebar-open"
@@ -63,7 +63,7 @@ SHELL_CSS = (
     f"{_HIDDEN} .aq-sidebar{{width:0;padding-left:0;padding-right:0;opacity:0;}}"
     f".aq-pane{{flex:1;min-width:0;margin:{PANE_GAP_PX}px {PANE_GAP_PX}px "
     f"{PANE_GAP_PX}px 0;display:flex;flex-direction:column;overflow:hidden;"
-    f"border-radius:{theme.RADIUS};background:{theme.SURFACE};"
+    f"border-radius:0;background:{theme.SURFACE};"
     f"box-shadow:{theme.PANE_SHADOW};transition:margin .22s ease;}}"
     f"{_HIDDEN} .aq-pane{{margin-left:{PANE_GAP_PX}px;}}"
     f".aq-toolbar{{height:{TOOLBAR_HEIGHT_PX}px;flex-shrink:0;display:flex;"
