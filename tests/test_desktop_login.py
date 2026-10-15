@@ -1,7 +1,9 @@
 """Desktop sign-in flow, schema check, profile and build script."""
 
 import importlib.util
+import json
 import os
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 from types import SimpleNamespace
@@ -335,3 +337,37 @@ class TestBuildScript:
         assert script.drop_stale_runtime(tmp_path, "3.14.6") is True
         assert not (tmp_path / "python").exists()
         assert script.drop_stale_runtime(tmp_path, "3.14.6") is False
+
+
+class TestDevShellSync:
+    def test_dev_shell_mirrors_production_and_is_idempotent(
+        self, tmp_path: Path
+    ) -> None:
+        script = _desktop_script()
+        dev = tmp_path / "tauri-dev" / "src-tauri"
+        (dev / "src").mkdir(parents=True)
+        (dev / "src" / "main.rs").write_text(
+            '#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]\n'
+            "fn main() {\n    // >>> reflex-desktop plugins >>>\n"
+            "    // <<< reflex-desktop plugins <<<\n}\n"
+        )
+        (dev / "Cargo.toml").write_text('[package]\nversion = "0.1.0"\n\n[[bin]]\n')
+        (dev / "tauri.conf.json").write_text('{"version": "0.1.0"}')
+        (dev.parent / ".gitignore").write_text("/dist/\n")
+
+        for _ in range(2):
+            script.sync_dev_shell(script.SRC_TAURI, dev)
+
+        main_rs = (dev / "src" / "main.rs").read_text()
+        assert main_rs.count("mod app_menu;") == 1
+        assert main_rs.count(".menu(build_menu)") == 1
+        assert (dev / "src" / "app_menu.rs").exists()
+        cargo = (dev / "Cargo.toml").read_text()
+        assert cargo.count("objc2-app-kit") == 1
+        prod = (script.SRC_TAURI / "Cargo.toml").read_text()
+        assert re.search(r'^version = "([^"]*)"', cargo, re.M).group(1) == re.search(
+            r'^version = "([^"]*)"', prod, re.M
+        ).group(1)
+        conf = json.loads((dev / "tauri.conf.json").read_text())
+        assert conf["app"]["windows"][0]["windowEffects"]
+        assert (dev.parent / ".gitignore").read_text().count("app_menu.rs") == 1

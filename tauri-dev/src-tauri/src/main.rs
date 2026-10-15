@@ -3,6 +3,12 @@
 // the URL baked into env.json at build time, so there is no local server to launch.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod app_menu;
+
+#[cfg(target_os = "macos")]
+use app_menu::about;
+use app_menu::build_menu;
+
 #[cfg(all(unix, not(target_os = "macos")))]
 fn reflex_desktop_send_notification(
     app_name: &str,
@@ -94,6 +100,15 @@ fn main() {
     tauri::Builder::default()
     // >>> reflex-desktop plugins >>>
     // <<< reflex-desktop plugins <<<
+        .menu(build_menu)
+        .on_menu_event(|app, event| {
+            #[cfg(target_os = "macos")]
+            if event.id() == "about" {
+                about::show(&app.package_info().version.to_string());
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (app, event);
+        })
         .invoke_handler(tauri::generate_handler![reflex_desktop_notify])
         .setup(|app| {
             // >>> reflex-desktop setup >>>

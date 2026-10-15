@@ -4,29 +4,31 @@
 pub mod about {
     use objc2::rc::Retained;
     use objc2::runtime::AnyObject;
-    use objc2::MainThreadMarker;
+    use objc2::{AnyThread, MainThreadMarker};
     use objc2_app_kit::{
-        NSAboutPanelOptionApplicationVersion, NSAboutPanelOptionCredits, NSApplication,
-        NSColor, NSFont, NSFontAttributeName, NSForegroundColorAttributeName,
+        NSAboutPanelOptionApplicationIcon, NSAboutPanelOptionApplicationVersion,
+        NSAboutPanelOptionCredits, NSApplication, NSColor, NSImage, NSFont, NSFontAttributeName, NSForegroundColorAttributeName,
         NSLinkAttributeName, NSMutableParagraphStyle, NSParagraphStyleAttributeName,
         NSTextAlignment,
     };
     use objc2_foundation::{
-        ns_string, NSDictionary, NSMutableAttributedString, NSRange,
+        ns_string, NSData, NSDictionary, NSMutableAttributedString, NSRange,
         NSString, NSURL,
     };
 
     const COPYRIGHT: &str = "\u{a9} 2026 Jens Rehp\u{f6}hler";
     const PREFIX: &str = "Ressourcenplanung f\u{fc}r Softwareteams";
-    // Optional linked name after PREFIX; empty: no link.
-    const AUTHOR: &str = "";
-    const AUTHOR_URL: &str = "";
+    const REPO_LABEL: &str = "github.com/jenreh/alloq";
+    const REPO_URL: &str = "https://github.com/jenreh/alloq";
+    const LICENSE: &str = "MIT-Lizenz";
+    const ICON: &[u8] = include_bytes!("../icons/128x128@2x.png");
 
     fn credits() -> Retained<NSMutableAttributedString> {
-        let text = format!("{PREFIX}{AUTHOR}");
+        let text = format!("{PREFIX}\n{REPO_LABEL} \u{b7} {LICENSE}");
         let credits = NSMutableAttributedString::from_nsstring(&NSString::from_str(&text));
         let whole = NSRange::new(0, text.encode_utf16().count());
-        let link = NSRange::new(PREFIX.encode_utf16().count(), AUTHOR.encode_utf16().count());
+        let link_start = PREFIX.encode_utf16().count() + 1;
+        let link = NSRange::new(link_start, REPO_LABEL.encode_utf16().count());
         unsafe {
             let style = NSMutableParagraphStyle::new();
             style.setAlignment(NSTextAlignment::Center);
@@ -35,7 +37,7 @@ pub mod about {
             credits.addAttribute_value_range(NSFontAttributeName, &font, whole);
             credits.addAttribute_value_range(NSForegroundColorAttributeName, &color, whole);
             credits.addAttribute_value_range(NSParagraphStyleAttributeName, &style, whole);
-            if let Some(url) = NSURL::URLWithString(&NSString::from_str(AUTHOR_URL)) {
+            if let Some(url) = NSURL::URLWithString(&NSString::from_str(REPO_URL)) {
                 credits.addAttribute_value_range(NSLinkAttributeName, &url, link);
             }
         }
@@ -49,13 +51,18 @@ pub mod about {
         let version = NSString::from_str(version);
         let copyright = NSString::from_str(COPYRIGHT);
         let credits = credits();
+        let icon = NSImage::initWithData(NSImage::alloc(), &NSData::with_bytes(ICON));
         unsafe {
-            let keys: [&NSString; 3] = [
+            let mut keys: Vec<&NSString> = vec![
                 NSAboutPanelOptionApplicationVersion,
                 ns_string!("Copyright"),
                 NSAboutPanelOptionCredits,
             ];
-            let values: [&AnyObject; 3] = [&version, &copyright, &credits];
+            let mut values: Vec<&AnyObject> = vec![&version, &copyright, &credits];
+            if let Some(icon) = icon.as_deref() {
+                keys.push(NSAboutPanelOptionApplicationIcon);
+                values.push(icon);
+            }
             let options = NSDictionary::from_slices(&keys, &values);
             NSApplication::sharedApplication(mtm).orderFrontStandardAboutPanelWithOptions(&options);
         }
