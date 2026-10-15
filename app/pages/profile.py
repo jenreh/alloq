@@ -1,32 +1,30 @@
 import reflex as rx
-from alloq_commons.components import page_header
+from alloq_commons.components.shell import app_page
+from alloq_commons.components.toolbar import window_toolbar
 
 import appkit_mantine as mn
-from appkit_user.authentication.templates import (
-    authenticated,
-)
 from appkit_user.user_management.components.user_profile import user_profile_view
 
 
 def create_profile_page(
-    navbar: rx.Component,
+    sidebar: rx.Component,
     route: str = "/profile",
     title: str = "Profil",
 ) -> rx.Component:
     """Create the profile page with authentication.
 
     Args:
-        navbar: The navigation bar to use in the page.
+        sidebar: The sidebar to use in the page.
 
     Returns:
         The profile page component.
     """
 
-    @authenticated(
+    @app_page(
         route=route,
         title=title,
-        navbar=navbar,
-        with_header=False,
+        sidebar=sidebar,
+        toolbar=window_toolbar("Profil", "Kontoeinstellungen und Passwort"),
     )
     def _profile_page() -> rx.Component:
         """The profile page.
@@ -34,19 +32,6 @@ def create_profile_page(
         Returns:
             The UI for the profile page.
         """
-        return mn.stack(
-            page_header(
-                title="Kontoeinstellungen",
-                description="Verwalten Sie Ihre Kontoeinstellungen und das Passwort.",
-            ),
-            user_profile_view(padding="0"),
-            gap="0",
-            max_width="800px",
-            width="100%",
-            pr="2rem",
-            pl="2rem",
-            pt="2.1rem",
-            pb="4rem",
-        )
+        return mn.box(user_profile_view(padding="0"), max_width="800px", w="100%")
 
     return _profile_page

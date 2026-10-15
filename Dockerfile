@@ -22,7 +22,7 @@ COPY pyproject.toml uv.lock README.md .python-version ./
 COPY components ./components
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-install-project --all-extras
+    uv sync --frozen --no-dev --no-group desktop --no-install-project --all-extras
 
 COPY alembic.ini start.sh rxconfig.py ./
 COPY configuration ./configuration
@@ -31,7 +31,7 @@ COPY alembic ./alembic
 COPY app ./app
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --all-extras \
+    uv sync --frozen --no-dev --no-group desktop --all-extras \
     && chmod +x start.sh
 
 # ───────────────────────────  Stage 2 ─ Runtime  ────────────────────────────

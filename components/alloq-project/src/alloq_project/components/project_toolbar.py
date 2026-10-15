@@ -1,81 +1,34 @@
 import reflex as rx
+from alloq_commons.components.toolbar import (
+    icon_button,
+    primary_button,
+    segmented,
+    toolbar_search,
+)
 from alloq_commons.components.view_mode_toggle import view_mode_toggle
+from alloq_project.states.project_list_state import FILTERS
 from alloq_project.states.project_state import ProjectState
 
-import appkit_mantine as mn
+
+def project_filter() -> rx.Component:
+    """Filter segments in the toolbar center."""
+    return segmented(ProjectState.list_filter, ProjectState.set_list_filter, FILTERS)
 
 
-def add_project_button() -> rx.Component:
-    """Button to add a new project."""
-    return mn.action_icon(
-        rx.icon("plus", size=20),
-        variant="filled",
-        auto_contrast=True,
-        size="lg",
-        radius="md",
-        on_click=ProjectState.open_add_modal,
-    )
-
-
-def project_search_bar() -> rx.Component:
-    """Search input for filtering projects."""
-    return mn.text_input(
-        placeholder="Suchen...",
-        left_section=rx.icon("search", size=16),
-        left_section_pointer_events="none",
-        right_section=rx.cond(
-            ProjectState.search_filter != "",
-            mn.action_icon(
-                rx.icon("x", size=14),
-                variant="subtle",
-                color="gray",
-                size="sm",
-                on_click=ProjectState.set_search_filter(""),
-            ),
-            rx.fragment(),
+def project_toolbar() -> list[rx.Component]:
+    """Toolbar actions of the projects page."""
+    return [
+        toolbar_search(
+            ProjectState.search_filter,
+            ProjectState.set_search_filter,
+            "Projekt oder Kunde",
         ),
-        value=ProjectState.search_filter,
-        on_change=ProjectState.set_search_filter,
-        size="sm",
-        w="18rem",
-    )
-
-
-def project_status_filter() -> rx.Component:
-    """Filter projects by status."""
-    return mn.select(
-        data=[
-            {"value": "all", "label": "Alle"},
-            {"value": "Geplant", "label": "Geplant"},
-            {"value": "Aktiv", "label": "Aktiv"},
-            {"value": "Risiko", "label": "Risiko"},
-            {"value": "Abgeschlossen", "label": "Abgeschlossen"},
-        ],
-        value=ProjectState.status_filter,
-        on_change=ProjectState.set_status_filter,
-        clearable=False,
-        searchable=False,
-        size="sm",
-        w="9rem",
-    )
-
-
-def project_toolbar() -> rx.Component:
-    """Top-right project page toolbar."""
-    return rx.flex(
-        project_search_bar(),
-        project_status_filter(),
-        add_project_button(),
-        mn.space(w="xs"),
         view_mode_toggle(ProjectState.view_mode, ProjectState.set_view_mode),
-        width="auto",
-        gap="12px",
-        align="center",
-        justify="end",
-        style={
-            "position": "fixed",
-            "top": "2.25rem",
-            "right": "2rem",
-            "z_index": "20",
-        },
-    )
+        icon_button(
+            "panel-right",
+            "Inspektor ein- oder ausblenden",
+            ProjectState.toggle_inspector,
+            active=ProjectState.show_inspector,
+        ),
+        primary_button("Projekt anlegen", "plus", ProjectState.open_add_modal),
+    ]

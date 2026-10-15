@@ -3,6 +3,13 @@ from alloq_project.states.planning_grid_state import PlanningStore
 
 import appkit_mantine as mn
 
+VIEW_MODES: list[tuple[str, str, str]] = [
+    ("Grid", "Team", "users"),
+    ("Projekte", "Projekte", "folder-kanban"),
+    ("Heatmap", "Heatmap", "grid-3x3"),
+    ("Abwesenheiten", "Abwesenheiten", "calendar-off"),
+]
+
 
 class _PlanningFilterRow(rx.Component):
     """Measure inline controls and reveal overflowing filters on hover."""
@@ -16,59 +23,39 @@ def _ms_class(has_mehr: rx.Var) -> rx.Var:
     return rx.cond(has_mehr, "alloq-filter-ms has-mehr", "alloq-filter-ms")
 
 
+def planning_view_switch() -> rx.Component:
+    """Segmented control for the planning views, shown in the toolbar."""
+    return mn.segmented_control(
+        data=[
+            {
+                "value": value,
+                "label": mn.center(
+                    rx.icon(icon, size=14, stroke_width=1.8),
+                    mn.text(label, fz="12.5px"),
+                    gap="5px",
+                ),
+            }
+            for value, label, icon in VIEW_MODES
+        ],
+        value=PlanningStore.view_mode,
+        on_change=PlanningStore.set_view_mode,
+        size="xs",
+        radius="md",
+        class_name="aq-segmented",
+    )
+
+
 def planning_filter_row() -> rx.Component:
-    """Row of inline filters and view toggles for the planning page."""
+    """Scope bar of the planning page: time range, filters, availability."""
     return _PlanningFilterRow.create(
-        # View modes with custom React node as label (icons + text)
-        mn.segmented_control(
-            data=[
-                {
-                    "value": "Grid",
-                    "label": mn.center(
-                        rx.icon("layout-grid", size=16),
-                        rx.text("Team", size="2"),
-                        gap="4px",
-                    ),
-                },
-                {
-                    "value": "Projekte",
-                    "label": mn.center(
-                        rx.icon("chart-bar", size=16),
-                        rx.text("Projekte", size="2"),
-                        gap="4px",
-                    ),
-                },
-                {
-                    "value": "Heatmap",
-                    "label": mn.center(
-                        rx.icon("grid-3x3", size=16),
-                        rx.text("Heatmap", size="2"),
-                        gap="4px",
-                    ),
-                },
-                {
-                    "value": "Abwesenheiten",
-                    "label": mn.center(
-                        rx.icon("chart-gantt", size=16),
-                        rx.text("Abwesenheiten", size="2"),
-                        gap="4px",
-                    ),
-                },
-            ],
-            value=PlanningStore.view_mode,
-            on_change=PlanningStore.set_view_mode,
-            color="dark",
-            radius="md",
-            bg="var(--alloq-surface-solid)",
-        ),
         # Time range
         mn.segmented_control(
             data=["3 Monate", "6 Monate", "12 Monate"],
             value=PlanningStore.time_range,
             on_change=PlanningStore.set_time_range,
-            color="alloqTeal.5",
+            size="xs",
             radius="md",
-            bg="var(--alloq-surface-solid)",
+            class_name="aq-segmented",
         ),
         # Employee filter
         mn.multi_select(
@@ -79,7 +66,8 @@ def planning_filter_row() -> rx.Component:
             searchable=True,
             clearable=True,
             combobox_props={"withinPortal": False},
-            w="12rem",
+            size="xs",
+            w="11rem",
             class_name=_ms_class(PlanningStore.employee_filter.length() > 0),
             style={"--alloq-mehr": PlanningStore.employee_filter_label},
         ),
@@ -92,7 +80,8 @@ def planning_filter_row() -> rx.Component:
             searchable=True,
             clearable=True,
             combobox_props={"withinPortal": False},
-            w="12rem",
+            size="xs",
+            w="11rem",
             class_name=_ms_class(PlanningStore.project_filter.length() > 0),
             style={"--alloq-mehr": PlanningStore.project_filter_label},
         ),
@@ -105,7 +94,8 @@ def planning_filter_row() -> rx.Component:
             searchable=True,
             clearable=True,
             combobox_props={"withinPortal": False},
-            w="12rem",
+            size="xs",
+            w="11rem",
             class_name=_ms_class(PlanningStore.role_filter.length() > 0),
             style={"--alloq-mehr": PlanningStore.role_filter_label},
         ),
@@ -113,7 +103,7 @@ def planning_filter_row() -> rx.Component:
             label="Nur verfügbare",
             checked=PlanningStore.available_only,
             on_change=PlanningStore.set_available_only,
-            color="alloqTeal.5",
-            size="sm",
+            color="blue",
+            size="xs",
         ),
     )

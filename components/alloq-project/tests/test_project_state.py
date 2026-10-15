@@ -68,9 +68,9 @@ class TestProjectState:
         assert len(result) == 1
         assert result[0].code == "RISK"
 
-    def test_view_mode_defaults_to_grid(self) -> None:
+    def test_view_mode_defaults_to_list(self) -> None:
         state = ProjectState()
-        assert state.view_mode == "grid"
+        assert state.view_mode == "table"
 
     def test_set_view_mode_accepts_known_modes(self) -> None:
         state = ProjectState()
@@ -163,6 +163,7 @@ class TestProjectValidationState:
 # ---------------------------------------------------------------------------
 
 MODULE = "alloq_project.states.project_state"
+LIST_MODULE = "alloq_project.states.project_list_state"
 
 
 class _FakeLogin:
@@ -280,6 +281,52 @@ class TestProjectStateAuthorization:
 
 class TestProjectStateHandlers:
     """Behavior of project/status/risk handlers."""
+
+    @pytest.mark.asyncio
+    async def test_update_inspected_project_state_saves_immediately(self) -> None:
+        state = _drawer_state()
+        _login_as(state)
+        entity = SimpleNamespace(state="Geplant")
+        session = AsyncMock()
+
+        with (
+            patch(f"{LIST_MODULE}.get_asyncdb_session", _mock_session_ctx(session)),
+            patch(f"{LIST_MODULE}.project_repo") as repo,
+        ):
+            repo.find_by_id = AsyncMock(return_value=entity)
+            events = await _drain(state.update_inspected_project_state(1, "Aktiv"))
+
+        repo.find_by_id.assert_awaited_once()
+        session.commit.assert_awaited_once()
+        assert entity.state == "Aktiv"
+        assert state.projects[0].state == "Aktiv"
+        assert _has_text(events, "Status gespeichert")
+
+    @pytest.mark.asyncio
+    async def test_update_inspected_project_state_rejects_unknown_value(self) -> None:
+        state = _drawer_state()
+        _login_as(state)
+
+        with patch(f"{LIST_MODULE}.project_repo") as repo:
+            repo.find_by_id = AsyncMock()
+            events = await _drain(state.update_inspected_project_state(1, "Unbekannt"))
+
+        repo.find_by_id.assert_not_awaited()
+        assert state.projects[0].state == "Geplant"
+        assert _has_text(events, "Ungültiger Projektstatus")
+
+    @pytest.mark.asyncio
+    async def test_non_admin_cannot_update_inspected_project_state(self) -> None:
+        state = _drawer_state()
+        _login_as(state, is_admin=False)
+
+        with patch(f"{LIST_MODULE}.project_repo") as repo:
+            repo.find_by_id = AsyncMock()
+            events = await _drain(state.update_inspected_project_state(1, "Aktiv"))
+
+        repo.find_by_id.assert_not_awaited()
+        assert state.projects[0].state == "Geplant"
+        assert _has_text(events, "Berechtigung")
 
     @pytest.mark.asyncio
     async def test_delete_status_of_other_project_is_ignored(self) -> None:

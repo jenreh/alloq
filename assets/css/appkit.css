@@ -8,8 +8,7 @@
 
     /* Splash container styles for login screens */
     .splash-container {
-        background: var(--alloq-app-bg);
-        background-color: var(--alloq-bg-base, #faf9f3);
+        background: var(--aq-splash-background);
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
@@ -51,13 +50,13 @@
     }
 
     .mantine-Modal-content {
-        border-radius: 9px !important;
-        border: 3px solid var(--alloq-border-strong, var(--mantine-primary-color-4)) !important;
+        border: 0 !important;
+        box-shadow: var(--aq-pane-shadow) !important;
     }
 
     .mantine-Modal-title {
-        font-weight: 500 !important;
-        font-size: 1.2rem !important;
+        font-weight: 650 !important;
+        font-size: 15px !important;
     }
 
     .mantine-Modal-header {
@@ -102,7 +101,7 @@
         top: 0;
         left: 0;
         width: 100%;
-        height: 4px;
+        height: 2px;
         overflow: hidden;
         z-index: 9998;
     }
@@ -115,11 +114,9 @@
         width: 100%;
         height: 100%;
         background: linear-gradient(90deg,
-            #e7b830,
-            #f6d94d,
-            #d99f18,
-            #f8eaa8,
-            #e7b830);
+            transparent,
+            var(--aq-accent),
+            transparent);
         background-size: 200% 100%;
         animation: rotate-gradient 2s linear infinite;
     }

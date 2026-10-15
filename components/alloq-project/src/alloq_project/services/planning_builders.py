@@ -507,6 +507,8 @@ def build_employee_meta(
                 "id": eid,
                 "real_id": int(emp.id),
                 "name": f"{emp.first_name} {emp.last_name}".strip(),
+                "first_name": emp.first_name or "",
+                "last_name": emp.last_name or "",
                 "initials": (f"{emp.first_name[:1]}{emp.last_name[:1]}".upper() or "?"),
                 "job_title": emp.job_title or "",
                 "role_short": primary_short,

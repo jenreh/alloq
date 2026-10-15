@@ -340,6 +340,38 @@ class TestPlanningStoreProjectView:
         state.toggle_project("proj-1")
         assert "proj-1" not in state.collapsed_projects
 
+    def test_toggle_all_sections_collapses_then_expands_everything(self) -> None:
+        state = self._two_project_store()
+        employee_ids = {employee["id"] for employee in state.employee_meta}
+        project_ids = {project["id"] for project in state.project_meta}
+
+        assert state.all_sections_collapsed is False
+
+        state.toggle_all_sections()
+
+        assert set(state.collapsed_employees) == employee_ids
+        assert set(state.collapsed_projects) == project_ids
+        assert state.all_sections_collapsed is True
+
+        state.toggle_all_sections()
+
+        assert state.collapsed_employees == []
+        assert state.collapsed_projects == []
+        assert state.all_sections_collapsed is False
+
+    def test_toggle_all_sections_collapses_mixed_state(self) -> None:
+        state = self._two_project_store()
+        state.collapsed_employees = [state.employee_meta[0]["id"]]
+
+        state.toggle_all_sections()
+
+        assert set(state.collapsed_employees) == {
+            employee["id"] for employee in state.employee_meta
+        }
+        assert set(state.collapsed_projects) == {
+            project["id"] for project in state.project_meta
+        }
+
     def test_has_dirty_empty(self) -> None:
         state = PlanningStore()
         assert state.has_dirty is False

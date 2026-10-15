@@ -1,315 +1,141 @@
-from typing import cast
+"""Team list (macOS table) with groups and the employee inspector."""
 
 import reflex as rx
-from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.formatters import de_number
-from alloq_commons.components.table_styles import (
-    NO_WRAP_CELL_STYLE,
-    TABLE_HEADER_STYLE,
-    TABLE_STYLE,
-    TABLE_WRAPPER_STYLE,
+from alloq_commons.components.list_view import (
+    cell_main,
+    empty_list,
+    list_group,
+    list_header,
+    list_row,
+    meter,
+    number,
+    split_view,
+    sticky_block_header,
+    tag,
 )
-from alloq_commons.models.employee import Employee
-from alloq_team.components.employee_card import (
-    _employee_initials,
+from alloq_team.components.employee_inspector import employee_inspector
+from alloq_team.components.employee_parts import (
+    employee_avatar,
+    load_label,
+    tone_color,
 )
+from alloq_team.states.team_list_state import TeamDetail
 from alloq_team.states.team_state import TeamState
-from reflex.vars import ArrayVar, NumberVar, ObjectVar
+from reflex.vars import ArrayVar, ObjectVar
 
 import appkit_mantine as mn
+from appkit_ui.global_states import LoadingState
 
-HIGH_WORKLOAD_PERCENT = 75
-WORKLOAD_LIMIT_PERCENT = 100
-
-
-def _workload_color(workload_percent: NumberVar) -> rx.Var[str]:
-    """Return a Mantine color for workload severity."""
-    return cast(
-        "rx.Var[str]",
-        rx.cond(
-            workload_percent > WORKLOAD_LIMIT_PERCENT,
-            "red",
-            rx.cond(workload_percent >= HIGH_WORKLOAD_PERCENT, "yellow", "green"),
-        ),
-    )
+TEMPLATE = "minmax(200px, 2fr) 110px 48px minmax(130px, 1fr) 70px 64px"
+COLUMNS: list[tuple[str, str, bool]] = [
+    ("Name", "name", False),
+    ("Rolle", "role", False),
+    ("h/W", "hours", True),
+    ("Auslastung diese Woche", "load_percent", False),
+    ("Frei 8 W.", "free_days", True),
+    ("Projekte", "project_count", True),
+]
 
 
-def _employee_name_cell(employee: ObjectVar[Employee]) -> rx.Component:
-    """Render employee identity with avatar and short identifier."""
-    return mn.group(
-        _employee_initials(employee),
-        mn.stack(
-            mn.text(
-                f"{employee.first_name} {employee.last_name}",
-                size="sm",
-                fw="700",
-                c="var(--alloq-text)",
-                lh="1.15",
+def _row(row: ObjectVar[TeamDetail]) -> rx.Component:
+    return list_row(
+        cell_main(employee_avatar(row), row.name, row.subtitle),
+        rx.el.span(rx.cond(row.role != "", tag(row.role), rx.fragment())),
+        number(row.hours),
+        mn.group(
+            meter(
+                rx.cond(row.absent_now, 0, row.load_percent), tone_color(row.load_tone)
             ),
-            mn.text(
-                rx.cond(employee.job_title, employee.job_title, employee.seniority),
-                size="xs",
-                c="dimmed",
-                lh="1",
+            number(
+                load_label(row),
+                minWidth="56px",
+                color=tone_color(row.load_tone),
+                fontWeight=rx.cond(row.load_tone == "negative", "600", "400"),
             ),
-            gap="2px",
+            gap=8,
+            wrap="nowrap",
         ),
-        gap="md",
-        align="center",
-        wrap="nowrap",
-    )
-
-
-def _location_cell(employee: ObjectVar[Employee]) -> rx.Component:
-    """Render job title as the role column from the reference table."""
-    return mn.text(
-        rx.cond(employee.location, employee.location, ""),
-        size="sm",
-        c="var(--alloq-text)",
-    )
-
-
-def _workload_cell(employee: ObjectVar[Employee]) -> rx.Component:
-    """Render workload progress and percentage."""
-    return mn.group(
-        mn.progress(
-            value=employee.workload_percent,
-            color=_workload_color(employee.workload_percent.to(int)),
-            size="sm",
-            radius="xl",
-            w="8rem",
-            bg="var(--alloq-meter-track)",
-        ),
-        mn.text(
+        number(
             de_number(
-                value=employee.workload_percent,
-                suffix="%",
-            ),
-            size="sm",
-            c=rx.cond(
-                employee.workload_percent.to(int) > WORKLOAD_LIMIT_PERCENT,
-                "var(--mantine-color-red-7)",
-                "var(--alloq-text)",
-            ),
-            miw="3rem",
-        ),
-        gap="md",
-        align="center",
-        wrap="nowrap",
-    )
-
-
-def _role_badge(role_name: str) -> rx.Component:
-    """Render a compact role badge with screenshot palette colors."""
-    return mn.badge(
-        role_name,
-        size="sm",
-        variant="filled",
-        radius="sm",
-        fw="800",
-    )
-
-
-def _employee_table_row(employee: ObjectVar[Employee]) -> rx.Component:
-    """Render a single employee as a table row."""
-    return mn.table.tr(
-        mn.table.td(_employee_name_cell(employee), width="300px", min_width="240px"),
-        mn.table.td(employee.location, width="150px", min_width="120px"),
-        mn.table.td(employee.seniority, width="120px", min_width="120px"),
-        mn.table.td(
-            mn.group(
-                rx.foreach(
-                    employee.role_names,
-                    _role_badge,
-                ),
-                gap="6px",
-                wrap="wrap",
-            ),
-        ),
-        mn.table.td(
-            de_number(
-                value=employee.hours_per_week,
-                suffix=" h/Woche",
+                value=row.free_days,
+                suffix=" PT",
                 decimal_scale=1,
-            ),
-            style=NO_WRAP_CELL_STYLE,
+                fixed_decimal_scale=True,
+            )
         ),
-        mn.table.td(_workload_cell(employee), style=NO_WRAP_CELL_STYLE),
-        mn.table.td(
-            mn.group(
-                rx.icon_button(
-                    rx.icon("square-pen", size=16),
-                    variant="ghost",
-                    on_click=[
-                        rx.stop_propagation,
-                        TeamState.select_employee(employee.id),  # ty: ignore[invalid-argument-type]
-                    ],
-                ),
-                # Keep trigger and confirm clicks (portal events bubble through
-                # the React tree) from reaching the row's select_employee.
-                mn.box(
-                    delete_dialog(
-                        title="Löschen bestätigen",
-                        content=f"{employee.first_name} {employee.last_name}",
-                        on_click=TeamState.delete_employee(employee.id),  # ty: ignore[invalid-argument-type]
-                        icon_button=True,
-                        color="red",
-                        variant="subtle",
-                        size="sm",
-                    ),
-                    on_click=rx.stop_propagation,
-                ),
-                gap="12px",
-                wrap="nowrap",
-                align="center",
-            ),
-            width="1%",
-            style={"whiteSpace": "nowrap"},
-        ),
-        class_name="alloq-team-table-row",
-        style={"cursor": "pointer"},
-        on_click=TeamState.select_employee(employee.id),  # ty: ignore[invalid-argument-type]
+        number(row.project_count),
+        template=TEMPLATE,
+        selected=TeamState.inspected.to(TeamDetail).id == row.id,
+        on_click=TeamState.inspect(row.id),  # ty: ignore[invalid-argument-type]
+        on_double_click=[
+            LoadingState.set_is_loading(True),
+            TeamState.select_employee(row.id),  # ty: ignore[invalid-argument-type]
+        ],
     )
 
 
-def _employee_table_section(title: str, employees: ArrayVar) -> rx.Component:
-    """Helper to render a titled section of the employee table."""
+def _group(title: str, rows: ArrayVar) -> rx.Component:
     return rx.cond(
-        employees.length() > 0,
-        mn.stack(
-            mn.text(
+        rows.length() > 0,
+        mn.box(
+            list_group(
                 title,
-                size="lg",
-                fw="700",
+                rows.length(),
+                style=sticky_block_header("30px"),
             ),
-            mn.box(
-                mn.table(
-                    mn.table.thead(
-                        mn.table.tr(
-                            mn.table.th(
-                                mn.text("Mitarbeiter", size="sm", fw="800"),
-                                style=TABLE_HEADER_STYLE,
-                                width="300px",
-                                min_width="240px",
-                            ),
-                            mn.table.th(
-                                mn.text("Standort", size="sm", fw="800"),
-                                style=TABLE_HEADER_STYLE,
-                                width="150px",
-                                min_width="120px",
-                            ),
-                            mn.table.th(
-                                mn.text("Level", size="sm", fw="800"),
-                                style=TABLE_HEADER_STYLE,
-                                width="120px",
-                                min_width="120px",
-                            ),
-                            mn.table.th(
-                                mn.text("Rollen", size="sm", fw="800"),
-                                style=TABLE_HEADER_STYLE,
-                            ),
-                            mn.table.th(
-                                mn.text("Stunden", size="sm", fw="800"),
-                                style=TABLE_HEADER_STYLE,
-                            ),
-                            mn.table.th(
-                                mn.text("Auslastung", size="sm", fw="800"),
-                                style=TABLE_HEADER_STYLE,
-                            ),
-                            mn.table.th(
-                                mn.text("", size="sm"), style=TABLE_HEADER_STYLE
-                            ),
-                        ),
-                    ),
-                    mn.table.tbody(
-                        rx.foreach(
-                            employees,
-                            _employee_table_row,
-                        ),
-                    ),
-                    sticky_header=True,
-                    sticky_header_offset="0px",
-                    striped=False,
-                    highlight_on_hover=True,
-                    highlight_on_hover_color="var(--alloq-surface-hover)",
-                    w="100%",
-                    style=TABLE_STYLE,
-                ),
-                width="100%",
-                m="0",
-                p="12px",
-                style=TABLE_WRAPPER_STYLE,
-            ),
-            gap="sm",
+            rx.foreach(rows, _row),
         ),
+        rx.fragment(),
     )
 
 
-def _no_employees_table_state() -> rx.Component:
-    """Empty state when no employees match the current filter (table view)."""
-    return mn.center(
-        mn.stack(
-            mn.center(
-                rx.icon("users", size=48, color="var(--mantine-color-gray-5)"),
-            ),
-            rx.cond(
-                TeamState.search_filter != "",
-                mn.text(
-                    "Keine Mitarbeiter gefunden.",
-                    size="lg",
-                    fw="500",
-                    c="gray",
-                    ta="center",
-                ),
-                mn.stack(
-                    mn.text(
-                        "Noch keine Mitarbeiter vorhanden.",
-                        size="lg",
-                        fw="500",
-                        c="gray",
-                        ta="center",
-                    ),
-                    mn.text(
-                        "Fügen Sie Ihren ersten Mitarbeiter hinzu.",
-                        size="sm",
-                        c="dimmed",
-                        ta="center",
-                    ),
-                    gap="xs",
-                    align="center",
-                ),
-            ),
-            gap="md",
-            align="center",
+def _total_row() -> rx.Component:
+    return rx.el.div(
+        rx.el.span("Summe", style={"gridColumn": "span 4"}),
+        number(
+            de_number(
+                value=TeamState.visible_total_free_days,
+                suffix=" PT",
+                decimal_scale=1,
+                fixed_decimal_scale=True,
+            )
         ),
-        py="4rem",
-        width="100%",
+        rx.fragment(),
+        class_name="aq-tfoot",
+        style={"gridTemplateColumns": TEMPLATE},
+        custom_attrs={"role": "row"},
+    )
+
+
+def employee_list() -> rx.Component:
+    return mn.box(
+        list_header(
+            COLUMNS,
+            TEMPLATE,
+            sort_column=TeamState.sort_column,
+            sort_desc=TeamState.sort_desc,
+            on_sort=TeamState.toggle_sort,
+        ),
+        _group("Meine Mitarbeiter", TeamState.mine_rows),
+        _group("Weitere Mitarbeiter", TeamState.other_rows),
+        rx.cond(
+            TeamState.row_count == 0,
+            empty_list("Keine Mitarbeiter mit diesem Filter."),
+            rx.fragment(),
+        ),
+        _total_row(),
     )
 
 
 def employee_table() -> rx.Component:
-    """Table view of all employees."""
+    """List view of the team with the inspector on the right."""
     return rx.cond(
-        TeamState.is_loading,
-        mn.center(
-            rx.hstack(
-                rx.spinner(size="3"),
-                mn.text("Lade Team...", size="sm"),
-                align="center",
-                spacing="3",
-            ),
-            py="xl",
-        ),
-        rx.cond(
-            (TeamState.my_employees.length() == 0)
-            & (TeamState.other_employees.length() == 0),
-            _no_employees_table_state(),
-            mn.stack(
-                _employee_table_section("Meine Mitarbeiter", TeamState.my_employees),
-                _employee_table_section(
-                    "Weitere Mitarbeiter", TeamState.other_employees
-                ),
-                gap="xl",
-            ),
+        TeamState.is_loading & (TeamState.employees.length() == 0),
+        mn.center(mn.loader(size="sm"), py="xl", flex="1"),
+        split_view(
+            employee_list(),
+            employee_inspector(),
+            show_inspector=TeamState.show_inspector,
         ),
     )

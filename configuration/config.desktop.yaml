@@ -1,0 +1,48 @@
+profile: desktop
+
+# Desktop app (Tauri, embedded backend). Active when ALLOQ_DESKTOP=1 or inside
+# the app bundle; rxconfig.py adds this profile then.
+#
+# No secrets here, and none may be added: the file ships inside the app.
+# Every user signs in with Microsoft Entra ID and connects to Postgres with
+# their own access token (app/desktop). `secret:` references are allowed only
+# for public identifiers (tenant_id, client_id, host, name): scripts/desktop.py
+# resolves them on the build machine; see doc/desktop.md.
+
+reflex:
+  deploy_url: null
+  api_url: null
+  frontend_path: ""
+  backend_port: 18442 # must match BACKEND_PORT in tauri/src-tauri/src/main.rs
+  workers: 1
+
+app:
+  environment: local
+  logging: logging.yaml
+
+  database:
+    # User and password come from the Entra sign-in for every connection.
+    username: ""
+    password: ""
+    host: secret:alloq-db-host
+    name: secret:alloq-db-name
+    ssl_mode: require
+    # Only appkit's stored OAuth tokens are encrypted; the desktop app never
+    # touches them, so it has no key.
+    encryption_key: ""
+    pool_size: 2
+    max_overflow: 3
+
+  authentication:
+    server_url: http://127.0.0.1
+    server_port: 18442
+    # The web OAuth flows need client secrets; the desktop app has its own
+    # public-client sign-in (app.desktop below).
+    oauth_providers: []
+
+  desktop:
+    tenant_id: secret:common-oauth-azure-tenant-id
+    client_id: secret:common-oauth-azure-client-id
+    # Postgres role to log in as. Empty: the user's own principal (UPN).
+    # With an Entra group as database principal, use the group name.
+    db_role: ""

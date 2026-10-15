@@ -1,6 +1,8 @@
 import reflex as rx
-from alloq_commons.components import page_header, roles_table, roles_toolbar
-from alloq_commons.components.auth import authenticated
+from alloq_commons import theme
+from alloq_commons.components import roles_table, roles_toolbar
+from alloq_commons.components.shell import app_page
+from alloq_commons.components.toolbar import window_toolbar
 from alloq_commons.state.role_states import RoleState
 
 import appkit_mantine as mn
@@ -8,41 +10,32 @@ from appkit_user.authentication.components.components import requires_admin
 
 
 def create_roles_page(
-    navbar: rx.Component,
+    sidebar: rx.Component,
     route: str = "/admin/roles",
     title: str = "Rollen",
 ) -> rx.Component:
-    """Page factory for role management."""
+    """Page factory for rollen management."""
 
-    @authenticated(
+    @app_page(
         route=route,
         title=title,
-        navbar=navbar,
-        with_header=False,
+        sidebar=sidebar,
+        toolbar=window_toolbar(
+            "Rollen",
+            "Administration · Rollen anlegen, bearbeiten und löschen",
+            actions=roles_toolbar(),
+        ),
         admin_only=True,
         on_load=[RoleState.load_roles],
     )
     def _roles_page() -> rx.Component:
         return requires_admin(
-            mn.stack(
-                page_header(
-                    nav_path=["Administration", "Rollen"],
-                    title="Rollen verwalten",
-                    description="Rollen anlegen, bearbeiten und löschen.",
-                ),
-                roles_toolbar(),
-                mn.box(
-                    roles_table(),
-                    background_color="var(--alloq-fade-bg)",
-                    border_radius="var(--mantine-radius-lg)",
-                    p="1rem",
-                    w="100%",
-                ),
+            mn.box(
+                roles_table(),
+                style=theme.CARD,
+                p="xs",
+                w="100%",
                 max_width="1200px",
-                min_width="862px",
-                spacing="6",
-                pr=".8rem",
-                pl="2rem",
             ),
         )
 

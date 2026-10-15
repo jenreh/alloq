@@ -17,12 +17,14 @@ from alloq_project.components.planning_shared import (
     CURRENT_WEEK_BG,
     EMP_HEADER_BG,
     LABEL_CELL_BASE,
+    STICKY_BLOCK_HEADER,
     STICKY_LEFT_BODY,
     STICKY_LEFT_EMP_HEADER,
     STICKY_LEFT_GESAMT,
     block_header_info_cell,
     current_week_bg,
     editable_value_cell,
+    empty_grid_row,
     format_de,
     format_gesamt,
     grid_row,
@@ -49,55 +51,28 @@ import appkit_mantine as mn
 # ---------------------------------------------------------------------------
 
 
-def _gesamt_bg(bucket: rx.Var[str]) -> rx.Var[str]:
-    return match_str(
-        bucket,
-        (
-            "available",
-            "light-dark(var(--mantine-color-green-1), rgba(64, 192, 87, 0.18))",
-        ),
-        (
-            "balanced",
-            "light-dark(var(--mantine-color-green-0), rgba(64, 192, 87, 0.10))",
-        ),
-        (
-            "tight",
-            "light-dark(var(--mantine-color-violet-1), rgba(151, 117, 250, 0.22))",
-        ),
-        (
-            "over",
-            "light-dark(var(--mantine-color-red-2), rgba(250, 82, 82, 0.28))",
-        ),
-        (
-            "absent",
-            "light-dark(var(--mantine-color-blue-1), rgba(34, 139, 230, 0.22))",
-        ),
-        "transparent",
-    )
-
-
 def _gesamt_color(bucket: rx.Var[str]) -> rx.Var[str]:
     return match_str(
         bucket,
         (
             "over",
-            "light-dark(var(--mantine-color-red-9), var(--mantine-color-red-3))",
+            "light-dark(var(--mantine-color-red-7), var(--mantine-color-red-3))",
         ),
         (
             "tight",
-            "light-dark(var(--mantine-color-violet-9), var(--mantine-color-violet-3))",
+            "light-dark(var(--mantine-color-violet-7), var(--mantine-color-violet-3))",
         ),
         (
             "available",
-            "light-dark(var(--mantine-color-green-9), var(--mantine-color-green-3))",
+            "light-dark(var(--mantine-color-green-7), var(--mantine-color-green-3))",
         ),
         (
             "balanced",
-            "light-dark(var(--mantine-color-green-8), var(--mantine-color-green-4))",
+            "light-dark(var(--mantine-color-green-6), var(--mantine-color-green-4))",
         ),
         (
             "absent",
-            "light-dark(var(--mantine-color-blue-9), var(--mantine-color-blue-3))",
+            "light-dark(var(--mantine-color-blue-7), var(--mantine-color-blue-3))",
         ),
         "var(--alloq-text)",
     )
@@ -125,7 +100,12 @@ def _employee_header_row(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
                         size="sm",
                         on_click=PlanningStore.toggle_employee(emp.id),  # ty: ignore[invalid-argument-type]
                     ),
-                    mn.text(emp.name, size="sm", fw="700", c="var(--alloq-text)"),
+                    mn.text(
+                        emp.last_name + ", " + emp.first_name,
+                        size="sm",
+                        fw="700",
+                        c="var(--alloq-text)",
+                    ),
                     de_number(
                         emp.hours_per_week,
                         suffix="h/W",
@@ -197,6 +177,7 @@ def _employee_header_row(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
             summary_stat("Verfügbar", emp.available_days),
             background=EMP_HEADER_BG,
         ),
+        style=STICKY_BLOCK_HEADER,
     )
 
 
@@ -278,48 +259,25 @@ def _absence_value_cell(cell: ObjectVar[GridCell]) -> rx.Component:
     return mn.box(
         rx.cond(
             cell.value.to(float) > 0,
-            mn.box(
+            mn.text(
                 format_de(cell.value),
-                style={
-                    "backgroundColor": (
-                        "light-dark(var(--mantine-color-blue-1), "
-                        "rgba(34, 139, 230, 0.22))"
-                    ),
-                    "color": (
-                        "light-dark(var(--mantine-color-blue-9), "
-                        "var(--mantine-color-blue-3))"
-                    ),
-                    "borderRadius": "4px",
-                    "padding": "2px 6px",
-                    "fontWeight": "500",
-                    "minWidth": "26px",
-                    "textAlign": "center",
-                },
+                size="xs",
+                c="var(--alloq-text-muted)",
             ),
-            mn.text("", size="sm"),
+            mn.text("", size="xs"),
         ),
-        style={**CELL_BASE, "backgroundColor": current_week_bg(cell.week_key)},
+        style={
+            **CELL_BASE,
+            "color": "var(--alloq-text-muted)",
+            "backgroundColor": current_week_bg(cell.week_key),
+        },
     )
 
 
 def _absence_row(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
     return grid_row(
         mn.box(
-            mn.group(
-                mn.box(
-                    style={
-                        "width": "4px",
-                        "height": "20px",
-                        "borderRadius": "2px",
-                        "backgroundColor": "var(--mantine-color-blue-4)",
-                        "flexShrink": "0",
-                    },
-                ),
-                mn.text("Abwesenheit", size="sm", c="var(--alloq-text-muted)"),
-                gap="sm",
-                align="center",
-                wrap="nowrap",
-            ),
+            mn.text("Abwesenheit", size="xs", c="var(--alloq-text-muted)"),
             style={
                 **LABEL_CELL_BASE,
                 **STICKY_LEFT_BODY,
@@ -334,48 +292,25 @@ def _internal_value_cell(cell: ObjectVar[GridCell]) -> rx.Component:
     return mn.box(
         rx.cond(
             cell.value.to(float) > 0,
-            mn.box(
+            mn.text(
                 format_de(cell.value),
-                style={
-                    "backgroundColor": (
-                        "light-dark(var(--mantine-color-orange-1), "
-                        "rgba(255, 146, 43, 0.18))"
-                    ),
-                    "color": (
-                        "light-dark(var(--mantine-color-orange-9), "
-                        "var(--mantine-color-orange-3))"
-                    ),
-                    "borderRadius": "4px",
-                    "padding": "2px 6px",
-                    "fontWeight": "500",
-                    "minWidth": "26px",
-                    "textAlign": "center",
-                },
+                size="xs",
+                c="var(--alloq-text-muted)",
             ),
-            mn.text("", size="sm"),
+            mn.text("", size="xs"),
         ),
-        style={**CELL_BASE, "backgroundColor": current_week_bg(cell.week_key)},
+        style={
+            **CELL_BASE,
+            "color": "var(--alloq-text-muted)",
+            "backgroundColor": current_week_bg(cell.week_key),
+        },
     )
 
 
 def _internal_row(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
     return grid_row(
         mn.box(
-            mn.group(
-                mn.box(
-                    style={
-                        "width": "4px",
-                        "height": "20px",
-                        "borderRadius": "2px",
-                        "backgroundColor": "var(--mantine-color-orange-4)",
-                        "flexShrink": "0",
-                    },
-                ),
-                mn.text("Interne Projekte", size="sm", c="var(--alloq-text-muted)"),
-                gap="sm",
-                align="center",
-                wrap="nowrap",
-            ),
+            mn.text("Interne Projekte", size="xs", c="var(--alloq-text-muted)"),
             style={
                 **LABEL_CELL_BASE,
                 **STICKY_LEFT_BODY,
@@ -392,7 +327,6 @@ def _gesamt_value_cell(cell: ObjectVar[GesamtCell]) -> rx.Component:
         format_gesamt(cell.value),
         style={
             **CELL_BASE,
-            "backgroundColor": _gesamt_bg(cell.bucket),
             "backgroundImage": rx.cond(
                 is_current,
                 f"linear-gradient({CURRENT_WEEK_BG}, {CURRENT_WEEK_BG})",
@@ -400,6 +334,7 @@ def _gesamt_value_cell(cell: ObjectVar[GesamtCell]) -> rx.Component:
             ),
             "color": _gesamt_color(cell.bucket),
             "fontWeight": "600",
+            "fontSize": "11px",
         },
     )
 
@@ -407,7 +342,7 @@ def _gesamt_value_cell(cell: ObjectVar[GesamtCell]) -> rx.Component:
 def _gesamt_row(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
     return grid_row(
         mn.box(
-            mn.text("Gesamt (frei)", size="sm", fw="700", c="var(--alloq-text)"),
+            mn.text("Gesamt (frei)", size="12px", fw="700", c="var(--alloq-text)"),
             style={
                 **LABEL_CELL_BASE,
                 **STICKY_LEFT_GESAMT,
@@ -428,6 +363,7 @@ def _employee_block(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
                 _internal_row(emp),
                 _absence_row(emp),
                 _gesamt_row(emp),
+                empty_grid_row(),
             ),
             rx.fragment(),
         ),

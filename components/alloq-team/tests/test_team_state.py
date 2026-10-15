@@ -542,3 +542,15 @@ class TestCreateAbsence:
         created = repos["absence_repo"].create.await_args.args[1]
         assert created.start_date == date(2099, 1, 12)
         assert created.end_date == date(2099, 1, 13)
+
+    async def test_creates_one_day_absence(self, repos: dict[str, AsyncMock]) -> None:
+        state = self._state(["2099-01-12", "2099-01-12"])
+        repos["absence_repo"].find_by_employee_id = AsyncMock(return_value=[])
+        repos["employee_repo"].find_all_paginated = AsyncMock(return_value=[])
+        with _as_user(state):
+            items = await _run(state.create_absence, {})
+
+        assert "eingetragen" in _toasts(items)
+        created = repos["absence_repo"].create.await_args.args[1]
+        assert created.start_date == date(2099, 1, 12)
+        assert created.end_date == date(2099, 1, 12)

@@ -1,294 +1,130 @@
-from typing import Any
+"""Project list (macOS table) with groups and the project inspector."""
 
 import reflex as rx
-from alloq_commons.components.dialogs import delete_dialog
-from alloq_commons.components.formatters import de_number, format_date_de_named
-from alloq_commons.components.table_styles import (
-    NO_WRAP_CELL_STYLE,
-    TABLE_HEADER_STYLE,
-    TABLE_STYLE,
-    TABLE_WRAPPER_STYLE,
+from alloq_commons import theme
+from alloq_commons.components.formatters import de_number
+from alloq_commons.components.list_view import (
+    badge,
+    cell_main,
+    empty_list,
+    list_group,
+    list_header,
+    list_row,
+    meter,
+    number,
+    split_view,
+    sticky_block_header,
 )
 from alloq_commons.models.project import Project
-from alloq_project.components.project_card import (
-    project_initials,
-    status_color,
-    team_avatars,
-)
+from alloq_project.components.project_inspector import project_inspector
+from alloq_project.components.project_parts import period, project_tile, status_tone
 from alloq_project.states.project_state import ProjectState
 from reflex.vars import ArrayVar, ObjectVar
 
 import appkit_mantine as mn
 from appkit_ui.global_states import LoadingState
 
-SORTABLE_HEADER_STYLE = {
-    **TABLE_HEADER_STYLE,
-    "cursor": "pointer",
-    "userSelect": "none",
-}
+TEMPLATE = "minmax(180px, 2fr) 86px 160px 96px minmax(90px, 1fr) 52px"
+COLUMNS: list[tuple[str, str, bool]] = [
+    ("Projekt", "name", False),
+    ("Status", "state", False),
+    ("Zeitraum", "start_date", False),
+    ("Bedarf", "total_pt", True),
+    ("Verbraucht", "current_spent", False),
+    ("Risiken", "risk_count", True),
+]
 
 
-def _sort_indicator(column: str) -> rx.Component:
-    """Chevron showing the sort direction on the active column."""
-    return rx.cond(
-        ProjectState.sort_column == column,
-        rx.cond(
-            ProjectState.sort_desc,
-            rx.icon("chevron-down", size=14),
-            rx.icon("chevron-up", size=14),
-        ),
-        rx.fragment(),
-    )
-
-
-def _header(label: str, column: str = "", **props: Any) -> rx.Component:
-    """Table header cell; clickable for sorting when a column key is given."""
-    if not column:
-        return mn.table.th(
-            mn.text(label, size="sm", fw="800"), style=TABLE_HEADER_STYLE, **props
-        )
-    return mn.table.th(
-        mn.group(
-            mn.text(label, size="sm", fw="800"),
-            _sort_indicator(column),
-            gap="4px",
-            wrap="nowrap",
-            align="center",
-        ),
-        style=SORTABLE_HEADER_STYLE,
-        on_click=ProjectState.toggle_sort(column),
-        **props,
-    )
-
-
-def _project_name_cell(project: ObjectVar[Project]) -> rx.Component:
-    """Project avatar with name and code."""
-    return mn.group(
-        project_initials(project),
-        mn.stack(
-            mn.text(
-                project.name_de,
-                size="sm",
-                fw="700",
-                c="var(--alloq-text)",
-                lh="1.15",
-                truncate=True,
-            ),
-            mn.text(project.code, size="xs", c="dimmed", lh="1"),
-            gap="2px",
-            style={"minWidth": 0},
-        ),
-        gap="md",
-        align="center",
-        wrap="nowrap",
-    )
-
-
-def _status_badge(project: ObjectVar[Project]) -> rx.Component:
-    return mn.badge(
-        project.state,
-        color=status_color(project.state),
-        variant="light",
-        radius="xl",
-        size="md",
-        left_section=mn.text("●", size="8px"),
-        style={"textTransform": "none", "fontWeight": "700"},
-    )
-
-
-def _period_cell(project: ObjectVar[Project]) -> rx.Component:
-    # Each date stays on one line; the only allowed break is after the arrow.
-    return mn.text(
-        rx.el.span(
-            f"{
-                rx.cond(
-                    project.start_date, format_date_de_named(project.start_date), '—'
-                )
-            } →",
-            style=NO_WRAP_CELL_STYLE,
-        ),
-        " ",
-        rx.el.span(
-            rx.cond(project.end_date, format_date_de_named(project.end_date), "—"),
-            style=NO_WRAP_CELL_STYLE,
-        ),
-        size="sm",
-        c="var(--alloq-text)",
-    )
-
-
-def _progress_cell(project: ObjectVar[Project]) -> rx.Component:
-    return mn.group(
-        mn.progress(
-            value=project.current_progress,
-            color=rx.cond(project.risk_count.to(int) > 0, "red", project.color),
-            size="sm",
-            radius="xl",
-            w="6rem",
-            bg="var(--alloq-meter-track)",
-        ),
-        de_number(value=project.current_progress, suffix="%"),
-        gap="sm",
-        align="center",
-        wrap="nowrap",
-    )
-
-
-def _team_cell(project: ObjectVar[Project]) -> rx.Component:
-    return rx.cond(
-        project.team_members.length() > 0,
-        team_avatars(project),
-        mn.text("—", size="sm", c="dimmed"),
-    )
-
-
-def _risk_cell(project: ObjectVar[Project]) -> rx.Component:
-    return rx.cond(
-        project.risk_count.to(int) > 0,
-        mn.group(
-            rx.icon("triangle-alert", size=14, color="var(--mantine-color-red-6)"),
-            de_number(value=project.risk_count),
-            gap="4px",
-            wrap="nowrap",
-            align="center",
-        ),
-        mn.text("—", size="sm", c="dimmed"),
-    )
-
-
-def _actions_cell(project: ObjectVar[Project]) -> rx.Component:
-    return mn.group(
-        mn.box(
-            rx.icon_button(
-                rx.icon("square-pen", size=16),
-                variant="ghost",
-                on_click=[
-                    LoadingState.set_is_loading(True),
-                    ProjectState.select_project_with_tab(project.id, "daten"),  # ty: ignore[invalid-argument-type]
-                ],
-            ),
-            on_click=rx.stop_propagation,
-        ),
-        mn.box(
-            delete_dialog(
-                title="Projekt löschen",
-                content=project.name_de,
-                on_click=ProjectState.delete_project(project.id),  # ty: ignore[invalid-argument-type]
-                icon_button=True,
-                color="red",
-                variant="subtle",
-                size="sm",
-            ),
-            on_click=rx.stop_propagation,
-        ),
-        gap="12px",
-        wrap="nowrap",
-        align="center",
-    )
-
-
-def _project_table_row(project: ObjectVar[Project]) -> rx.Component:
-    """Render a single project as a table row."""
-    return mn.table.tr(
-        mn.table.td(_project_name_cell(project)),
-        mn.table.td(project.customer),
-        mn.table.td(_status_badge(project)),
-        mn.table.td(_period_cell(project)),
-        mn.table.td(
+def _row(project: ObjectVar[Project]) -> rx.Component:
+    selected = ProjectState.inspected.to(Project).id == project.id
+    return list_row(
+        cell_main(project_tile(project), project.name_de, project.customer),
+        rx.el.span(badge(project.state, status_tone(project.state))),
+        number(period(project), right=False, color=theme.TEXT_MUTED),
+        number(
             de_number(value=project.total_pt, suffix=" PT"),
-            style=NO_WRAP_CELL_STYLE,
-            ta="right",
+            fontWeight="600",
         ),
-        mn.table.td(
-            de_number(value=project.budget, suffix=" €"),
-            style=NO_WRAP_CELL_STYLE,
-            ta="right",
+        mn.group(
+            meter(project.current_spent),
+            number(project.current_spent.to(str) + " %", minWidth="38px"),
+            gap=8,
+            wrap="nowrap",
         ),
-        mn.table.td(
-            de_number(value=project.current_spent, suffix="%"),
-            style=NO_WRAP_CELL_STYLE,
-            ta="right",
+        number(
+            rx.cond(project.risk_count > 0, project.risk_count.to(str), "–"),
+            color=rx.cond(project.risk_count > 0, theme.NEGATIVE, theme.TEXT_MUTED),
+            fontWeight=rx.cond(project.risk_count > 0, "600", "400"),
         ),
-        mn.table.td(_progress_cell(project), style=NO_WRAP_CELL_STYLE),
-        mn.table.td(_team_cell(project)),
-        mn.table.td(_risk_cell(project)),
-        mn.table.td(_actions_cell(project), style=NO_WRAP_CELL_STYLE),
-        style={"cursor": rx.cond(LoadingState.is_loading, "wait", "pointer")},
-        on_click=[
+        template=TEMPLATE,
+        selected=selected,
+        on_click=ProjectState.inspect(project.id),  # ty: ignore[invalid-argument-type]
+        on_double_click=[
             LoadingState.set_is_loading(True),
             ProjectState.select_project(project.id),  # ty: ignore[invalid-argument-type]
         ],
     )
 
 
-def _table_head() -> rx.Component:
-    return mn.table.thead(
-        mn.table.tr(
-            _header("Projekt", "name", width="280px"),
-            _header("Kunde", "customer", width="160px"),
-            _header("Status", "state", width="140px"),
-            _header("Zeitraum", "start_date", width="220px"),
-            _header("PT", "total_pt", width="100px"),
-            _header("Budget", "budget", width="130px"),
-            _header("Verbraucht", "current_spent", width="120px"),
-            _header("Fortschritt", "current_progress", width="170px"),
-            _header("Team", width="150px"),
-            _header("Risiken", "risk_count", width="100px"),
-            _header("", width="90px"),
+def _group(title: str, rows: ArrayVar) -> rx.Component:
+    return rx.cond(
+        rows.length() > 0,
+        mn.box(
+            list_group(
+                title,
+                rows.length(),
+                style=sticky_block_header("30px"),
+            ),
+            rx.foreach(rows, _row),
         ),
+        rx.fragment(),
     )
 
 
-def _project_table_section(title: str, projects: ArrayVar) -> rx.Component:
-    """Titled table section; hidden when there are no projects."""
-    return rx.cond(
-        projects.length() > 0,
-        mn.stack(
-            mn.text(title, size="lg", fw="700"),
-            mn.box(
-                mn.table(
-                    _table_head(),
-                    mn.table.tbody(rx.foreach(projects, _project_table_row)),
-                    sticky_header=True,
-                    sticky_header_offset="0px",
-                    striped=False,
-                    highlight_on_hover=True,
-                    highlight_on_hover_color="var(--alloq-surface-hover)",
-                    w="100%",
-                    miw="1670px",
-                    style=TABLE_STYLE,
-                ),
-                width="100%",
-                m="0",
-                p="12px",
-                style=TABLE_WRAPPER_STYLE,
-            ),
-            gap="sm",
+def _total_row() -> rx.Component:
+    return rx.el.div(
+        rx.el.span("Summe", style={"gridColumn": "span 3"}),
+        number(de_number(value=ProjectState.visible_total_pt, suffix=" PT")),
+        rx.fragment(),
+        rx.fragment(),
+        class_name="aq-tfoot",
+        style={"gridTemplateColumns": TEMPLATE},
+        custom_attrs={"role": "row"},
+    )
+
+
+def project_list() -> rx.Component:
+    return mn.box(
+        list_header(
+            COLUMNS,
+            TEMPLATE,
+            sort_column=ProjectState.sort_column,
+            sort_desc=ProjectState.sort_desc,
+            on_sort=ProjectState.toggle_sort,
         ),
+        _group("Meine Projekte", ProjectState.mine_rows),
+        _group("Weitere Projekte", ProjectState.other_rows),
+        rx.cond(
+            ProjectState.row_count == 0,
+            empty_list("Keine Projekte mit diesem Filter."),
+            rx.fragment(),
+        ),
+        _total_row(),
     )
 
 
 def project_table(empty_state: rx.Component) -> rx.Component:
-    """Table view of all projects, split into 'my projects' and 'other projects'."""
+    """List view of all projects with the inspector on the right."""
     return rx.cond(
-        ProjectState.is_loading,
-        mn.center(
-            rx.hstack(
-                rx.spinner(size="3"),
-                mn.text("Lade Projekte...", size="sm"),
-                align="center",
-                spacing="3",
-            ),
-            py="xl",
-        ),
+        ProjectState.is_loading & (ProjectState.projects.length() == 0),
+        mn.center(mn.loader(size="sm"), py="xl", flex="1"),
         rx.cond(
-            (ProjectState.my_projects.length() == 0)
-            & (ProjectState.other_projects.length() == 0),
+            ProjectState.projects.length() == 0,
             empty_state,
-            mn.stack(
-                _project_table_section("Meine Projekte", ProjectState.my_projects),
-                _project_table_section("Weitere Projekte", ProjectState.other_projects),
-                gap="xl",
+            split_view(
+                project_list(),
+                project_inspector(),
+                show_inspector=ProjectState.show_inspector,
             ),
         ),
     )

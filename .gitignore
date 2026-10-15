@@ -114,3 +114,8 @@ venv.bak/
 venv/
 wheels/
 .playwright-mcp/
+
+# Desktop app (generated)
+requirements.txt
+.task/checksum/desktop-requirements
+frontend.zip

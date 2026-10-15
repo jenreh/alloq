@@ -334,6 +334,8 @@ class PlanningStore(UserSession):
                 id=emp_id,
                 real_id=emp["real_id"],
                 name=emp["name"],
+                first_name=emp.get("first_name", ""),
+                last_name=emp.get("last_name", ""),
                 initials=emp["initials"],
                 job_title=emp.get("job_title", ""),
                 role=emp.get("role_short", ""),
@@ -441,7 +443,13 @@ class PlanningStore(UserSession):
     def filtered_employees(self) -> list[EmployeeBlock]:
         if self.view_mode != GRID_VIEW:
             return []
-        return self._filter_employees(self.employee_blocks)
+        return sorted(
+            self._filter_employees(self.employee_blocks),
+            key=lambda employee: (
+                employee.last_name.casefold(),
+                employee.first_name.casefold(),
+            ),
+        )
 
     @rx.var(cache=True)
     def filtered_projects(self) -> list[ProjectBlock]:
@@ -756,6 +764,26 @@ class PlanningStore(UserSession):
             ]
         else:
             self.collapsed_projects = [*self.collapsed_projects, project_id]
+
+    @rx.var
+    def all_sections_collapsed(self) -> bool:
+        employee_ids = {employee["id"] for employee in self.employee_meta}
+        project_ids = {project["id"] for project in self.project_meta}
+        return (
+            bool(employee_ids or project_ids)
+            and employee_ids.issubset(self.collapsed_employees)
+            and project_ids.issubset(self.collapsed_projects)
+        )
+
+    @rx.event
+    def toggle_all_sections(self) -> None:
+        if self.all_sections_collapsed:
+            self.collapsed_employees = []
+            self.collapsed_projects = []
+            return
+
+        self.collapsed_employees = [employee["id"] for employee in self.employee_meta]
+        self.collapsed_projects = [project["id"] for project in self.project_meta]
 
     # === Save ===
 

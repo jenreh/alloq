@@ -18,7 +18,7 @@ import pytest
 import reflex as rx
 
 PACKAGES = ("alloq_commons", "alloq_dashboard", "alloq_project", "alloq_team")
-EXTRA_MODULES = ("app.components.navbar_collapsible",)
+EXTRA_MODULES = ("app.components.sidebar_state", "app.desktop.login_state")
 OWN_PACKAGES = frozenset({*PACKAGES, "app"})
 
 # Reflex adds ``setvar`` to every state; it only sets a declared var.
@@ -39,8 +39,16 @@ INLINE_ADMIN_CHECK: dict[str, frozenset[str]] = {
     )
 }
 
+# Sign-in and sign-out run without a session by nature (like appkit's
+# LoginState). The desktop login checks the user itself: Entra ID decides who
+# reaches the database, the alloq account decides who gets a session.
+PRE_AUTH_HANDLERS: dict[str, frozenset[str]] = {
+    "DesktopLoginState": frozenset({"sign_in_with_microsoft", "sign_out"}),
+}
+
 UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
-    "NavbarCollapseState": frozenset({"collapse", "select_section", "toggle"}),
+    "SplashState": frozenset({"finish"}),
+    "SidebarState": frozenset({"invalidate"}),
     "DashboardState": frozenset({"close_drill_down", "open_drill_down"}),
     "RoleState": frozenset(
         {
@@ -63,6 +71,9 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
     ),
     "TeamState": frozenset(
         {
+            "inspect",
+            "set_list_filter",
+            "toggle_inspector",
             "close_absence_modal",
             "close_add_modal",
             "close_add_project_modal",
@@ -76,6 +87,7 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
             "set_search_filter",
             "set_view_mode",
             "toggle_section_expanded",
+            "toggle_sort",
         }
     ),
     "EmployeeValidationState": frozenset(
@@ -91,7 +103,6 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
             "set_manager_id",
             "set_role_ids",
             "set_seniority",
-            "validate_all",
             "validate_email",
             "validate_first_name",
             "validate_hours_per_week",
@@ -102,6 +113,9 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
     ),
     "ProjectState": frozenset(
         {
+            "inspect",
+            "set_list_filter",
+            "toggle_inspector",
             "add_project_risk",
             "close_add_modal",
             "close_detail_drawer",
@@ -124,7 +138,6 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
             "set_status_draft_date",
             "set_status_draft_notes",
             "set_status_draft_progress",
-            "set_status_filter",
             "set_status_notes",
             "set_status_progress",
             "set_view_mode",
@@ -198,6 +211,7 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
             "set_role_filter",
             "set_time_range",
             "set_view_mode",
+            "toggle_all_sections",
             "toggle_employee",
             "toggle_employee_scope",
             "toggle_project",
@@ -238,6 +252,8 @@ def _own_states() -> dict[str, type[rx.State]]:
         cls.__name__: cls
         for cls in _subclasses(rx.State)
         if cls.__module__.split(".")[0] in OWN_PACKAGES
+        # Mixins are checked through the states they are mixed into.
+        and not cls._mixin
     }
 
 
@@ -300,6 +316,7 @@ def test_every_handler_is_admin_guarded_or_ui_only() -> None:
         if not _is_requires_admin(handler.fn)
         and name not in INLINE_ADMIN_CHECK.get(state_name, frozenset())
         and name not in UI_ONLY_HANDLERS.get(state_name, frozenset())
+        and name not in PRE_AUTH_HANDLERS.get(state_name, frozenset())
     )
     assert unguarded == [], (
         "Guard these handlers with @requires_admin, or add them to "
@@ -309,7 +326,7 @@ def test_every_handler_is_admin_guarded_or_ui_only() -> None:
 
 def test_allowlists_have_no_stale_entries() -> None:
     stale = []
-    for allowlist in (UI_ONLY_HANDLERS, INLINE_ADMIN_CHECK):
+    for allowlist in (UI_ONLY_HANDLERS, INLINE_ADMIN_CHECK, PRE_AUTH_HANDLERS):
         for state_name, names in allowlist.items():
             handlers = _handlers(STATES[state_name]) if state_name in STATES else {}
             stale += [
