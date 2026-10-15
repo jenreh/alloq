@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import datetime
+import datetime as dt
 import logging
 import math
 from collections.abc import AsyncGenerator
@@ -265,21 +265,19 @@ def _distribute_with_avail(
     return [round(v, 2) for v in result]
 
 
-def _weeks_between(start: datetime.date, end: datetime.date) -> int:
+def _weeks_between(start: dt.date, end: dt.date) -> int:
     """Number of Monday-anchored weeks touched by [start, end]."""
     return len(week_starts(start, end))
 
 
-def _weekdays_in(
-    week_start: datetime.date, start: datetime.date, end: datetime.date
-) -> int:
+def _weekdays_in(week_start: dt.date, start: dt.date, end: dt.date) -> int:
     """Mon-Fri days of the week starting ``week_start`` inside [start, end]."""
     first = max(week_start, start)
-    last = min(week_start + datetime.timedelta(days=4), end)
+    last = min(week_start + dt.timedelta(days=4), end)
     return sum(
         1
         for n in range((last - first).days + 1)
-        if (first + datetime.timedelta(days=n)).weekday() < WORKDAYS_PER_WEEK
+        if (first + dt.timedelta(days=n)).weekday() < WORKDAYS_PER_WEEK
     )
 
 
@@ -332,7 +330,7 @@ class ProjectPlanState(rx.State):
     role_options_data: rx.Field[list[dict[str, str]]] = rx.field(
         default_factory=list
     )  # snapshot from PlanningStore
-    holiday_dates: rx.Field[list[datetime.date]] = rx.field(
+    holiday_dates: rx.Field[list[dt.date]] = rx.field(
         default_factory=list
     )  # snapshot from PlanningStore
     # role_id, role_name, person_days
@@ -365,8 +363,8 @@ class ProjectPlanState(rx.State):
         if not self.start_iso or not self.end_iso:
             return 0
         try:
-            s = datetime.date.fromisoformat(self.start_iso)
-            e = datetime.date.fromisoformat(self.end_iso)
+            s = dt.date.fromisoformat(self.start_iso)
+            e = dt.date.fromisoformat(self.end_iso)
         except ValueError:
             return 0
         return _weeks_between(s, e)
@@ -461,8 +459,8 @@ class ProjectPlanState(rx.State):
         if not self.start_iso or not self.end_iso:
             return "—"
         try:
-            s = datetime.date.fromisoformat(self.start_iso)
-            e = datetime.date.fromisoformat(self.end_iso)
+            s = dt.date.fromisoformat(self.start_iso)
+            e = dt.date.fromisoformat(self.end_iso)
         except ValueError:
             return "—"
         sf = f"{s.day:02d}. {GERMAN_MONTHS_LONG[s.month - 1]} {s.year}"
@@ -475,12 +473,12 @@ class ProjectPlanState(rx.State):
         if not self.start_iso or self.effective_weeks == 0:
             return []
         try:
-            start = datetime.date.fromisoformat(self.start_iso)
+            start = dt.date.fromisoformat(self.start_iso)
         except ValueError:
             return []
         segs: list[dict[str, str]] = []
         for i in range(self.effective_weeks):
-            d = start + datetime.timedelta(days=7 * i)
+            d = start + dt.timedelta(days=7 * i)
             label = f"{GERMAN_MONTHS_LONG[d.month - 1]} {d.year % 100}"
             if segs and segs[-1]["label"] == label:
                 segs[-1]["span"] = str(int(segs[-1]["span"]) + 1)
@@ -612,8 +610,8 @@ class ProjectPlanState(rx.State):
     async def _load_planned_pt_per_week(
         self,
         project_id: int,
-        start: datetime.date | None,
-        end: datetime.date | None,
+        start: dt.date | None,
+        end: dt.date | None,
     ) -> dict[str, dict[str, float]]:
         """Prior PT per employee per week in [start, end], excluding current project.
 
@@ -641,8 +639,8 @@ class ProjectPlanState(rx.State):
     @rx.event
     def num_weeks_from(self, start: str, end: str) -> int:
         try:
-            s = datetime.date.fromisoformat(start)
-            e = datetime.date.fromisoformat(end)
+            s = dt.date.fromisoformat(start)
+            e = dt.date.fromisoformat(end)
         except ValueError:
             return 0
         return _weeks_between(s, e)
@@ -682,8 +680,8 @@ class ProjectPlanState(rx.State):
             return None
         try:
             pid = int(self.selected_project_id)
-            s = datetime.date.fromisoformat(self.start_iso)
-            e = datetime.date.fromisoformat(self.end_iso)
+            s = dt.date.fromisoformat(self.start_iso)
+            e = dt.date.fromisoformat(self.end_iso)
         except ValueError, TypeError:
             return None
         try:
@@ -710,7 +708,7 @@ class ProjectPlanState(rx.State):
         monday = self._project_start_monday()
         if monday is None:
             return None
-        self.end_iso = (monday + datetime.timedelta(days=7 * max(1, n) - 1)).isoformat()
+        self.end_iso = (monday + dt.timedelta(days=7 * max(1, n) - 1)).isoformat()
         return await self._refresh_prior_allocations()
 
     @rx.event
@@ -803,19 +801,19 @@ class ProjectPlanState(rx.State):
     def filtered_count(self) -> int:
         return len(self.filtered_employees)
 
-    def _project_weeks(self) -> list[datetime.date]:
+    def _project_weeks(self) -> list[dt.date]:
         """Mon-anchored week starts spanning the project window."""
         if not self.start_iso:
             return []
         try:
-            s = datetime.date.fromisoformat(self.start_iso)
+            s = dt.date.fromisoformat(self.start_iso)
         except ValueError:
             return []
-        monday = s - datetime.timedelta(days=s.weekday())
-        return [monday + datetime.timedelta(weeks=i) for i in range(self.num_weeks)]
+        monday = s - dt.timedelta(days=s.weekday())
+        return [monday + dt.timedelta(weeks=i) for i in range(self.num_weeks)]
 
     def _weekly_avail(
-        self, emp: dict[str, Any], weeks_starts: list[datetime.date]
+        self, emp: dict[str, Any], weeks_starts: list[dt.date]
     ) -> list[float]:
         """Per-week PT free for this project.
 
@@ -828,8 +826,8 @@ class ProjectPlanState(rx.State):
             return []
         absences = [
             AbsencePeriod(
-                start_date=datetime.date.fromisoformat(a["start"]),
-                end_date=datetime.date.fromisoformat(a["end"]),
+                start_date=dt.date.fromisoformat(a["start"]),
+                end_date=dt.date.fromisoformat(a["end"]),
             )
             for a in emp.get("absences", [])
             if a.get("start") and a.get("end")
@@ -857,15 +855,15 @@ class ProjectPlanState(rx.State):
         return out
 
     def _weekly_absent(
-        self, emp: dict[str, Any], weeks_starts: list[datetime.date]
+        self, emp: dict[str, Any], weeks_starts: list[dt.date]
     ) -> list[bool]:
         """Per-week absence flag (true if any absence overlaps the week)."""
         if not weeks_starts:
             return []
         absences = [
             AbsencePeriod(
-                start_date=datetime.date.fromisoformat(a["start"]),
-                end_date=datetime.date.fromisoformat(a["end"]),
+                start_date=dt.date.fromisoformat(a["start"]),
+                end_date=dt.date.fromisoformat(a["end"]),
             )
             for a in emp.get("absences", [])
             if a.get("start") and a.get("end")
@@ -876,15 +874,15 @@ class ProjectPlanState(rx.State):
         ]
 
     def _gross_capacity(
-        self, emp: dict[str, Any], weeks_starts: list[datetime.date]
+        self, emp: dict[str, Any], weeks_starts: list[dt.date]
     ) -> float:
         """Gross capacity over project window (absence+internal subtracted)."""
         if not weeks_starts:
             return 0.0
         absences = [
             AbsencePeriod(
-                start_date=datetime.date.fromisoformat(a["start"]),
-                end_date=datetime.date.fromisoformat(a["end"]),
+                start_date=dt.date.fromisoformat(a["start"]),
+                end_date=dt.date.fromisoformat(a["end"]),
             )
             for a in emp.get("absences", [])
             if a.get("start") and a.get("end")
@@ -904,13 +902,11 @@ class ProjectPlanState(rx.State):
             total += max(0.0, work_days_per_week - absence_days - internal_days)
         return round(total, 1)
 
-    def _free_pt(self, emp: dict[str, Any], weeks_starts: list[datetime.date]) -> float:
+    def _free_pt(self, emp: dict[str, Any], weeks_starts: list[dt.date]) -> float:
         """Free PT this project may use: capacity minus prior other-project alloc."""
         return round(sum(self._weekly_avail(emp, weeks_starts)), 1)
 
-    def _net_pt_for(
-        self, e: dict[str, Any], weeks_starts: list[datetime.date]
-    ) -> float:
+    def _net_pt_for(self, e: dict[str, Any], weeks_starts: list[dt.date]) -> float:
         return self._free_pt(e, weeks_starts)
 
     @rx.var(cache=True)
@@ -1146,27 +1142,27 @@ class ProjectPlanState(rx.State):
             return
         self.role_by_employee = {**self.role_by_employee, str(eid): rid}
 
-    def _window(self) -> tuple[datetime.date, datetime.date] | None:
+    def _window(self) -> tuple[dt.date, dt.date] | None:
         try:
             return (
-                datetime.date.fromisoformat(self.start_iso),
-                datetime.date.fromisoformat(self.end_iso),
+                dt.date.fromisoformat(self.start_iso),
+                dt.date.fromisoformat(self.end_iso),
             )
         except ValueError:
             return None
 
-    def _project_start_monday(self) -> datetime.date | None:
+    def _project_start_monday(self) -> dt.date | None:
         if not self.start_iso:
             return None
         try:
-            d = datetime.date.fromisoformat(self.start_iso)
+            d = dt.date.fromisoformat(self.start_iso)
         except ValueError:
             return None
-        return d - datetime.timedelta(days=d.weekday())
+        return d - dt.timedelta(days=d.weekday())
 
     def _build_plans(
         self,
-    ) -> list[tuple[PlanTarget, list[tuple[datetime.date, float]]]]:
+    ) -> list[tuple[PlanTarget, list[tuple[dt.date, float]]]]:
         """Per selected employee: target and weekly PT (> 0) using the ramp shape.
 
         Employees without a role or without any planned week are left out, so
@@ -1178,7 +1174,7 @@ class ProjectPlanState(rx.State):
             return []
         weeks_starts = self._project_weeks()
         selected = set(self.selected_employee_ids)
-        plans: list[tuple[PlanTarget, list[tuple[datetime.date, float]]]] = []
+        plans: list[tuple[PlanTarget, list[tuple[dt.date, float]]]] = []
         for emp in self.employee_pool:
             role_id = self._emp_role_id(emp)
             pt = float(self.planned_by_employee.get(str(emp["id"]), 0.0))

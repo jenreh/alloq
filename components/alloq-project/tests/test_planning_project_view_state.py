@@ -1,6 +1,6 @@
 """Tests for the project pivot of PlanningStore and its helper functions."""
 
-import datetime
+import datetime as dt
 from unittest.mock import MagicMock
 
 from alloq_commons.models.employee import Employee
@@ -183,7 +183,7 @@ def _make_employee(id_: int, first: str, last: str) -> MagicMock:
 
 
 def _make_allocation(
-    emp_id: int, proj_id: int, week_start: datetime.date, person_days: float
+    emp_id: int, proj_id: int, week_start: dt.date, person_days: float
 ) -> MagicMock:
     a = MagicMock()
     a.employee_id = emp_id
@@ -194,9 +194,9 @@ def _make_allocation(
     return a
 
 
-def _week_date(key: str) -> datetime.date:
+def _week_date(key: str) -> dt.date:
     y, m, d = (int(p) for p in key.split("_"))
-    return datetime.date(y, m, d)
+    return dt.date(y, m, d)
 
 
 def _populated_store(

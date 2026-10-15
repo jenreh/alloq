@@ -1,6 +1,6 @@
 """PlanningStore: admin guard, heatmap filters, refresh and save edge cases."""
 
-import datetime
+import datetime as dt
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
@@ -200,8 +200,8 @@ class TestRefreshKeepsEdits:
                 id=1,
                 code="A",
                 name_de="Alpha",
-                start_date=datetime.date(2026, 1, 1),
-                end_date=datetime.date(2026, 3, 1),
+                start_date=dt.date(2026, 1, 1),
+                end_date=dt.date(2026, 3, 1),
             )
         ]
         state.add_project_selected = "1"
@@ -254,8 +254,8 @@ class TestAddProjectGuards:
                 id=1,
                 code="A",
                 name_de="Alpha",
-                start_date=datetime.date(2026, 1, 1),
-                end_date=datetime.date(2026, 3, 1),
+                start_date=dt.date(2026, 1, 1),
+                end_date=dt.date(2026, 3, 1),
             )
         ]
         session = AsyncMock()
@@ -294,9 +294,7 @@ class TestSaveGridRoles:
             ),
         ):
             await state._populate(3)
-        weeks = [
-            datetime.date(*(int(p) for p in w.key.split("_"))) for w in state.weeks
-        ]
+        weeks = [dt.date(*(int(p) for p in w.key.split("_"))) for w in state.weeks]
         allocations = [
             SimpleNamespace(
                 employee_id=1,
@@ -380,8 +378,8 @@ class TestAllocationRepository:
             code="R",
             customer="K",
             name_de="Repo",
-            start_date=datetime.date(2026, 1, 5),
-            end_date=datetime.date(2026, 3, 1),
+            start_date=dt.date(2026, 1, 5),
+            end_date=dt.date(2026, 3, 1),
             budget=1,
         )
         employee = EmployeeEntity(first_name="A", last_name="B", seniority="Senior")
@@ -395,7 +393,7 @@ class TestAllocationRepository:
         self, async_session: AsyncSession
     ) -> None:
         pid, eid, rid = await self._seed(async_session)
-        week = datetime.date(2026, 1, 5)
+        week = dt.date(2026, 1, 5)
         row = {
             "project_id": pid,
             "employee_id": eid,
@@ -419,13 +417,13 @@ class TestAllocationRepository:
                 project_id=pid,
                 employee_id=eid,
                 role_id=rid,
-                week_start=datetime.date(2026, 1, 12),
+                week_start=dt.date(2026, 1, 12),
                 person_days=3.0,
             )
         )
         await async_session.flush()
         rows = await capacity_allocation_repo.find_cells_in_range(
-            async_session, datetime.date(2026, 1, 5), datetime.date(2026, 1, 31)
+            async_session, dt.date(2026, 1, 5), dt.date(2026, 1, 31)
         )
         assert [(r.employee_id, r.role_name, r.person_days) for r in rows] == [
             (eid, "Dev", 3.0)
@@ -434,14 +432,10 @@ class TestAllocationRepository:
 
 def test_absence_days_for_week_counts_overlapping_absences_once() -> None:
     """Overlapping absences share workdays; the grid must not double-count."""
-    week_start = datetime.date(2026, 4, 27)
+    week_start = dt.date(2026, 4, 27)
     absences = [
-        SimpleNamespace(
-            start_date=datetime.date(2026, 4, 27), end_date=datetime.date(2026, 4, 29)
-        ),
-        SimpleNamespace(
-            start_date=datetime.date(2026, 4, 28), end_date=datetime.date(2026, 4, 30)
-        ),
+        SimpleNamespace(start_date=dt.date(2026, 4, 27), end_date=dt.date(2026, 4, 29)),
+        SimpleNamespace(start_date=dt.date(2026, 4, 28), end_date=dt.date(2026, 4, 30)),
         SimpleNamespace(start_date=None, end_date=None),
     ]
 
@@ -465,8 +459,8 @@ async def test_load_entities_keeps_absences_in_displayed_past_weeks() -> None:
         AbsenceEntity(
             id=2,
             employee_id=1,
-            start_date=first_day - datetime.timedelta(days=14),
-            end_date=first_day - datetime.timedelta(days=10),
+            start_date=first_day - dt.timedelta(days=14),
+            end_date=first_day - dt.timedelta(days=10),
         ),
     ]
     state = PlanningStore()
@@ -503,8 +497,8 @@ def _failing_store() -> PlanningStore:
         Project(
             id=1,
             code="A",
-            start_date=datetime.date(2099, 1, 1),
-            end_date=datetime.date(2099, 12, 31),
+            start_date=dt.date(2099, 1, 1),
+            end_date=dt.date(2099, 12, 31),
         )
     ]
     return state

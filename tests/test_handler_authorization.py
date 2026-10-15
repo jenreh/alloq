@@ -18,7 +18,11 @@ import pytest
 import reflex as rx
 
 PACKAGES = ("alloq_commons", "alloq_dashboard", "alloq_project", "alloq_team")
-EXTRA_MODULES = ("app.components.sidebar_state", "app.desktop.login_state")
+EXTRA_MODULES = (
+    "app.components.sidebar_state",
+    "app.desktop.db_access_state",
+    "app.desktop.login_state",
+)
 OWN_PACKAGES = frozenset({*PACKAGES, "app"})
 
 # Reflex adds ``setvar`` to every state; it only sets a declared var.

@@ -1,6 +1,6 @@
 """Tests for client-driven cell editing in PlanningStore."""
 
-import datetime
+import datetime as dt
 import math
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
@@ -414,7 +414,7 @@ class TestLoading:
     async def test_fetch_holidays_queries_repo(self) -> None:
         state = PlanningStore()
         holiday = AsyncMock()
-        holiday.date = datetime.date(2026, 10, 3)
+        holiday.date = dt.date(2026, 10, 3)
         with (
             patch(f"{_STATE}.get_asyncdb_session", _mock_session_ctx(AsyncMock())),
             patch(

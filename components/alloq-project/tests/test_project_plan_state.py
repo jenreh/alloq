@@ -1,6 +1,6 @@
 """Tests for the 'Projekt planen' wizard state (distribution, capacity, save)."""
 
-import datetime
+import datetime as dt
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from appkit_user.authentication.states import LoginState
 
 MODULE = "alloq_project.states.project_plan_state"
-MON = datetime.date(2026, 1, 5)
+MON = dt.date(2026, 1, 5)
 
 
 class _FakeLogin:
@@ -96,15 +96,13 @@ async def _failing_session() -> AsyncIterator[Any]:
 class TestWeeksBetween:
     def test_counts_monday_anchored_weeks(self) -> None:
         # Wed -> Tue of the next week touches two calendar weeks.
-        assert (
-            _weeks_between(datetime.date(2026, 1, 7), datetime.date(2026, 1, 13)) == 2
-        )
+        assert _weeks_between(dt.date(2026, 1, 7), dt.date(2026, 1, 13)) == 2
 
     def test_same_week(self) -> None:
-        assert _weeks_between(MON, MON + datetime.timedelta(days=4)) == 1
+        assert _weeks_between(MON, MON + dt.timedelta(days=4)) == 1
 
     def test_end_before_start(self) -> None:
-        assert _weeks_between(MON, MON - datetime.timedelta(days=1)) == 0
+        assert _weeks_between(MON, MON - dt.timedelta(days=1)) == 0
 
 
 class TestRampDown:
@@ -147,9 +145,7 @@ class TestCapacity:
     async def test_prior_load_queries_from_monday_and_loads_holidays(self) -> None:
         state = _plan_state(1, [], "2026-03-04", "2026-03-20")
         find = AsyncMock(return_value=[])
-        holidays = AsyncMock(
-            return_value=[SimpleNamespace(date=datetime.date(2026, 3, 6))]
-        )
+        holidays = AsyncMock(return_value=[SimpleNamespace(date=dt.date(2026, 3, 6))])
 
         @asynccontextmanager
         async def _ctx() -> AsyncIterator[Any]:
@@ -162,8 +158,8 @@ class TestCapacity:
         ):
             assert await state._refresh_prior_allocations() is None
         assert find.await_args is not None
-        assert find.await_args.args[1] == datetime.date(2026, 3, 2)
-        assert state.holiday_dates == [datetime.date(2026, 3, 6)]
+        assert find.await_args.args[1] == dt.date(2026, 3, 2)
+        assert state.holiday_dates == [dt.date(2026, 3, 6)]
 
     @pytest.mark.asyncio
     async def test_prior_load_error_is_reported_not_treated_as_free(self) -> None:
@@ -250,7 +246,7 @@ class TestNextStep:
                     name_de="P",
                     color=None,
                     start_date=MON,
-                    end_date=datetime.date(2026, 3, 1),
+                    end_date=dt.date(2026, 3, 1),
                     team_initials=[],
                     required_capacities=[],
                 )
@@ -282,7 +278,7 @@ async def _seed(session: AsyncSession) -> tuple[int, int, int, int]:
         customer="K",
         name_de="Plan",
         start_date=MON,
-        end_date=datetime.date(2026, 3, 1),
+        end_date=dt.date(2026, 3, 1),
         budget=1,
     )
     alice = EmployeeEntity(first_name="Alice", last_name="A", seniority="Senior")
@@ -294,7 +290,7 @@ async def _seed(session: AsyncSession) -> tuple[int, int, int, int]:
 
 
 def _alloc(
-    pid: int, eid: int, rid: int, week: datetime.date, pd: float
+    pid: int, eid: int, rid: int, week: dt.date, pd: float
 ) -> CapacityAllocationEntity:
     return CapacityAllocationEntity(
         project_id=pid, employee_id=eid, role_id=rid, week_start=week, person_days=pd
@@ -306,8 +302,8 @@ class TestSavePlan:
     async def test_only_selected_employees_in_window_are_replaced(
         self, async_session_factory: async_sessionmaker[AsyncSession]
     ) -> None:
-        before = MON - datetime.timedelta(weeks=1)
-        week2 = MON + datetime.timedelta(weeks=1)
+        before = MON - dt.timedelta(weeks=1)
+        week2 = MON + dt.timedelta(weeks=1)
         async with async_session_factory() as session:
             pid, alice, bob, rid = await _seed(session)
             session.add_all(

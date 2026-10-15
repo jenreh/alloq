@@ -11,7 +11,7 @@ snapshot.
 
 from __future__ import annotations
 
-import datetime
+import datetime as dt
 import logging
 from collections.abc import AsyncGenerator
 from typing import Any
@@ -129,7 +129,7 @@ class PlanningStore(UserSession):
 
     weeks: rx.Field[list[WeekColumn]] = rx.field(default_factory=list)
     month_spans: rx.Field[list[MonthSpan]] = rx.field(default_factory=list)
-    holiday_dates: rx.Field[list[datetime.date]] = rx.field(default_factory=list)
+    holiday_dates: rx.Field[list[dt.date]] = rx.field(default_factory=list)
     is_loaded: rx.Field[bool] = rx.field(False)
 
     cells: rx.Field[dict[str, float]] = rx.field(default_factory=dict)
@@ -555,12 +555,12 @@ class PlanningStore(UserSession):
 
     # === Loading ===
 
-    async def _fetch_holidays(self, num_weeks: int) -> set[datetime.date]:
+    async def _fetch_holidays(self, num_weeks: int) -> set[dt.date]:
         """Load public holidays covering the rolling planning window."""
         if num_weeks <= 0:
             return set()
         anchor = anchor_date()
-        end = anchor + datetime.timedelta(days=7 * num_weeks - 1)
+        end = anchor + dt.timedelta(days=7 * num_weeks - 1)
         async with get_asyncdb_session() as session:
             rows = await public_holiday_repo.find_by_date_range(session, anchor, end)
             return {row.date for row in rows if row.date}
@@ -570,8 +570,8 @@ class PlanningStore(UserSession):
     ) -> tuple[list[Any], list[CapAssignment]]:
         if not weeks:
             return [], []
-        first = datetime.date(*(int(p) for p in weeks[0].key.split("_")))
-        last = datetime.date(*(int(p) for p in weeks[-1].key.split("_")))
+        first = dt.date(*(int(p) for p in weeks[0].key.split("_")))
+        last = dt.date(*(int(p) for p in weeks[-1].key.split("_")))
         project_ids = [int(p.id) for p in self.available_projects]
         async with get_asyncdb_session() as session:
             allocs = await capacity_allocation_repo.find_cells_in_range(

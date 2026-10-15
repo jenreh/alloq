@@ -53,23 +53,27 @@ Einstellungen zusätzlich zur Web-Plattform.
 
 ### Postgres (Azure Database for PostgreSQL, Flexible Server)
 
-1. Microsoft-Entra-Authentifizierung aktivieren und einen Entra-Admin setzen.
-2. Als Entra-Admin die Prinzipale anlegen, entweder je Person
-   (`SELECT * FROM pgaadauth_create_principal('ada@firma.de', false, false);`)
-   oder einmal für eine Entra-Gruppe, z. B. `alloq-desktop`.
-   Bei einer Gruppe in `config.desktop.yaml` `db_role: alloq-desktop` setzen;
-   die Personen melden sich dann mit dem Gruppennamen an.
-3. Rechte vergeben, z. B. über eine Rolle `alloq_app`:
-
-   ```sql
-   GRANT USAGE ON SCHEMA public TO alloq_app;
-   GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO alloq_app;
-   GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO alloq_app;
-   GRANT alloq_app TO "ada@firma.de";  -- oder TO "alloq-desktop"
-   ```
-
+1. Microsoft-Entra-Authentifizierung aktivieren und die erste Person als
+   Entra-Admin setzen (Typ „User“, ihr UPN). In knowledgeai-container ist das
+   `pg_entra_admin`. Diese Person ist Datenbank-Admin und meldet sich wie alle
+   anderen mit ihrem eigenen Konto an; `db_role` bleibt leer.
+2. Die Migration `ee66ff77aa88` legt auf dem Server die Rolle
+   `<datenbank>_app` an (`alloq_app`). Sie darf alle Tabellen lesen und ändern,
+   auch die späterer Migrationen, aber das Schema nicht ändern. Die
+   Datenbank-Admins (`azure_pg_admin`) dürfen sie weitergeben.
+3. Zugriff vergeben: Die erste Person öffnet in der Desktop-App
+   „Administration · Benutzer“ und klickt in der Zeile einer Person auf das
+   Datenbank-Symbol. Die App legt den Entra-Prinzipal der Person an (falls es
+   ihn noch nicht gibt) und gibt ihr die Rolle. Ein zweiter Klick entzieht die
+   Rolle wieder. Grün heißt: hat Zugriff.
 4. Netzwerk: Der Server muss von den Rechnern aus erreichbar sein (VPN oder
    Firewall-Regel). TLS ist Pflicht (`ssl_mode: require`).
+
+Das Datenbank-Symbol gibt es nur in der Desktop-App, denn nur dort verbindet
+sich die App mit dem Konto der angemeldeten Person. Ohne Admin-Rechte in der
+Datenbank zeigt es den Zugriff nur an. Die E-Mail-Adresse in alloq muss dem
+Microsoft-Anmeldenamen (UPN) entsprechen, auch in der Groß- und
+Kleinschreibung, denn Postgres meldet die Person mit diesem Namen an.
 
 Wichtig: Wer Datenbankrechte hat, kann mit seinem Token auch direkt auf die
 Datenbank zugreifen, an den Admin-Prüfungen der App vorbei. Die Rolle deshalb

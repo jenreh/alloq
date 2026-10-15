@@ -1,6 +1,6 @@
 """Tests for the per-block summaries shown next to employee/project headers."""
 
-import datetime
+import datetime as dt
 from unittest.mock import MagicMock
 
 from alloq_project.services.planning_builders import (
@@ -77,8 +77,8 @@ class TestCurrentWeekKey:
 
     def test_is_monday(self) -> None:
         y, m, d = (int(p) for p in current_week_key().split("_"))
-        assert datetime.date(y, m, d).weekday() == 0
-        assert datetime.date(y, m, d) > anchor_date()
+        assert dt.date(y, m, d).weekday() == 0
+        assert dt.date(y, m, d) > anchor_date()
 
 
 class TestEmployeeSummary:
@@ -181,7 +181,7 @@ def _allocation(week_key: str, days: float) -> MagicMock:
     a = MagicMock()
     a.employee_id = 1
     a.project_id = 1
-    a.week_start = datetime.date(*(int(p) for p in week_key.split("_")))
+    a.week_start = dt.date(*(int(p) for p in week_key.split("_")))
     a.person_days = days
     a.role_id = 1
     a.role_name = "Data Scientist"
