@@ -114,3 +114,15 @@ venv.bak/
 venv/
 wheels/
 .playwright-mcp/
+.task
+frontend.zip
+
+# Tauri and Reflex build output
+/tauri/dist/
+/tauri/src-tauri/target/
+/tauri/src-tauri/python/python/
+/tauri/src-tauri/site-packages/
+/tauri/src-tauri/app/.web/
+/tauri/src-tauri/app/.states/
+/tauri/src-tauri/app/.reflex_desktop_build
+/tauri/**/.DS_Store

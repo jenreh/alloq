@@ -176,6 +176,10 @@ User management with activation, verification, and admin role assignment.
 
 ## Deployment
 
+For desktop access with Entra ID, follow the [Postgres setup](doc/desktop.md#postgres-azure-database-for-postgresql-flexible-server).
+After migrating, grant `alloq_app` with `ADMIN OPTION` to the actual Entra admin
+principal; Azure's protected `azure_pg_admin` role must remain unchanged.
+
 ### Docker
 
 ```bash
