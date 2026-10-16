@@ -1,6 +1,6 @@
 """Tests for the project pivot of PlanningStore and its helper functions."""
 
-import datetime
+import datetime as dt
 from unittest.mock import MagicMock
 
 from alloq_commons.models.employee import Employee
@@ -183,7 +183,7 @@ def _make_employee(id_: int, first: str, last: str) -> MagicMock:
 
 
 def _make_allocation(
-    emp_id: int, proj_id: int, week_start: datetime.date, person_days: float
+    emp_id: int, proj_id: int, week_start: dt.date, person_days: float
 ) -> MagicMock:
     a = MagicMock()
     a.employee_id = emp_id
@@ -194,9 +194,9 @@ def _make_allocation(
     return a
 
 
-def _week_date(key: str) -> datetime.date:
+def _week_date(key: str) -> dt.date:
     y, m, d = (int(p) for p in key.split("_"))
-    return datetime.date(y, m, d)
+    return dt.date(y, m, d)
 
 
 def _populated_store(
@@ -339,6 +339,38 @@ class TestPlanningStoreProjectView:
 
         state.toggle_project("proj-1")
         assert "proj-1" not in state.collapsed_projects
+
+    def test_toggle_all_sections_collapses_then_expands_everything(self) -> None:
+        state = self._two_project_store()
+        employee_ids = {employee["id"] for employee in state.employee_meta}
+        project_ids = {project["id"] for project in state.project_meta}
+
+        assert state.all_sections_collapsed is False
+
+        state.toggle_all_sections()
+
+        assert set(state.collapsed_employees) == employee_ids
+        assert set(state.collapsed_projects) == project_ids
+        assert state.all_sections_collapsed is True
+
+        state.toggle_all_sections()
+
+        assert state.collapsed_employees == []
+        assert state.collapsed_projects == []
+        assert state.all_sections_collapsed is False
+
+    def test_toggle_all_sections_collapses_mixed_state(self) -> None:
+        state = self._two_project_store()
+        state.collapsed_employees = [state.employee_meta[0]["id"]]
+
+        state.toggle_all_sections()
+
+        assert set(state.collapsed_employees) == {
+            employee["id"] for employee in state.employee_meta
+        }
+        assert set(state.collapsed_projects) == {
+            project["id"] for project in state.project_meta
+        }
 
     def test_has_dirty_empty(self) -> None:
         state = PlanningStore()

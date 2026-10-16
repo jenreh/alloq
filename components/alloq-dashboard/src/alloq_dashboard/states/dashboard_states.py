@@ -14,7 +14,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol, Self
 
 import reflex as rx
-from alloq_project.states.project_state import ProjectState
 
 from alloq_dashboard.models import (
     BudgetBurnKpi,
@@ -148,14 +147,8 @@ class DashboardState(UserSession):
     async def load_all(self) -> list[Any]:
         """Trigger parallel background loads on every card substate."""
         return [
-            ProjectState.load_projects,
-            ProjectsOverviewState.load,
-            ProjectHealthState.load,
-            BudgetBurnState.load,
             UtilizationState.load,
             UnderUtilizationState.load,
-            RoleCapacityState.load,
-            RiskState.load,
         ]
 
 

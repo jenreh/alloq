@@ -201,10 +201,11 @@ class ResourceCandidate(BaseModel):
 
 
 class TeamMemberBadge(BaseModel):
-    """Minimal read model for a team member badge in a project card."""
+    """Minimal project-team member data, including planned person-days."""
 
     initials: str = ""
     name: str = ""
+    planned_pt: float = 0.0
 
 
 class Project(BaseModel):

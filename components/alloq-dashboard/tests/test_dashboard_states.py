@@ -13,9 +13,14 @@ from alloq_dashboard.models import ProjectsOverviewKpi, RiskKpi
 from alloq_dashboard.states.dashboard_states import (
     CACHE_TTL_SECONDS,
     LOAD_ERROR_MESSAGE,
+    BudgetBurnState,
     DashboardState,
+    ProjectHealthState,
     ProjectsOverviewState,
     RiskState,
+    RoleCapacityState,
+    UnderUtilizationState,
+    UtilizationState,
     _is_fresh,
     _ts_now,
 )
@@ -172,7 +177,12 @@ async def test_load_all_returns_card_loads_for_admin() -> None:
     with _login_as(DashboardState, _ADMIN):
         result = await DashboardState.load_all.fn(state)
     assert isinstance(result, list)
-    assert RiskState.load in result
+    assert result == [UtilizationState.load, UnderUtilizationState.load]
+    assert BudgetBurnState.load not in result
+    assert ProjectHealthState.load not in result
+    assert ProjectsOverviewState.load not in result
+    assert RiskState.load not in result
+    assert RoleCapacityState.load not in result
 
 
 @pytest.mark.asyncio

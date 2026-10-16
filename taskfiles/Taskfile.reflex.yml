@@ -23,3 +23,51 @@ tasks:
   run:prod:
     desc: Start the reflex web application in prod mode
     cmd: "{{.RUNNER}} reflex run --env prod --single-port"
+
+  # ----------------------------------------------------------------------------
+  # Desktop App (reflex-desktop / Tauri, backend embedded)
+  # Needs Rust (rustup or Homebrew) and Xcode CLT; --bundle also needs cargo-tauri.
+  # ALLOQ_DESKTOP=1 enables the desktop profile and the DesktopPlugin (rxconfig.py).
+  # scripts/desktop.py bundles Python 3.14 and the YAML profiles (no secrets).
+  # requirements.txt (generated) lists the app's packages for the embedded runtime.
+  # Fill in configuration/config.desktop.yaml first (doc/desktop.md).
+  # ----------------------------------------------------------------------------
+
+  desktop:requirements:
+    desc: Write requirements.txt for the embedded runtime from uv.lock
+    cmd: uv export --no-dev --no-hashes --no-emit-project --no-editable --no-header --format requirements.txt --output-file requirements.txt --quiet
+    sources: [uv.lock, pyproject.toml]
+    generates: [requirements.txt]
+
+  desktop:doctor:
+    desc: Check the native toolchain for the desktop app
+    env: &desktop_env
+      ALLOQ_DESKTOP: "1"
+      CARGO_TARGET_DIR: "{{.ROOT_DIR}}/tauri/src-tauri/target"
+    cmd: "{{.RUNNER}} --group desktop python scripts/desktop.py doctor --bundle"
+
+  desktop:dev:
+    desc: Start the desktop app with hot reload and the fake sign-in (local DB)
+    env:
+      ALLOQ_DESKTOP: "1"
+      CARGO_TARGET_DIR: "{{.ROOT_DIR}}/tauri/src-tauri/target"
+      # Fake Microsoft sign-in (app/desktop/fake.py); override with
+      # ALLOQ_FAKE_ENTRA_EMAIL=<email> task desktop:dev
+      ALLOQ_FAKE_ENTRA_EMAIL: '{{.ALLOQ_FAKE_ENTRA_EMAIL | default "admin@aila-solutions.com"}}'
+    cmd: "{{.RUNNER}} --group desktop python scripts/desktop.py dev"
+
+  desktop:run:
+    desc: Build the desktop app (debug) and open the native window
+    deps: [desktop:requirements]
+    env: *desktop_env
+    cmd: "{{.RUNNER}} --group desktop python scripts/desktop.py run --debug"
+
+  desktop:build:
+    desc: Build the release desktop app and the macOS installer (.dmg)
+    deps: [desktop:requirements]
+    env: *desktop_env
+    cmd: "{{.RUNNER}} --group desktop python scripts/desktop.py build --release --bundle"
+
+  desktop:clean:
+    desc: Remove Tauri build artifacts
+    cmd: rm -rf tauri/src-tauri/target

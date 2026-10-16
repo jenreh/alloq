@@ -1,6 +1,6 @@
 """Tests for inline quick-create of projects in the planning grid."""
 
-import datetime
+import datetime as dt
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
@@ -46,13 +46,13 @@ def _mock_session_ctx(session: AsyncMock):
 
 
 def _new_project() -> Project:
-    start = datetime.date(2026, 9, 14)
+    start = dt.date(2026, 9, 14)
     return Project(
         id=7,
         code="NEU",
         name_de="Neue Plattform",
         start_date=start,
-        end_date=start + datetime.timedelta(days=90),
+        end_date=start + dt.timedelta(days=90),
     )
 
 

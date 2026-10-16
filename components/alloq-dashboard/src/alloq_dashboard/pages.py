@@ -1,13 +1,9 @@
 from typing import cast
 
 import reflex as rx
-from alloq_commons.components.auth import authenticated
-from alloq_commons.components.page_header import page_header
+from alloq_commons.components.shell import app_page
+from alloq_commons.components.toolbar import window_toolbar
 from alloq_commons.roles import ALL_ROLES
-from alloq_project.components.project_overview import (
-    add_project_modal,
-    project_detail_drawer,
-)
 from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
@@ -33,16 +29,16 @@ def _greeting() -> rx.Var:
 
 
 def create_dashboard_page(
-    navbar: rx.Component,
+    sidebar: rx.Component,
     route: str = "/",
-    title: str = "Dashboard",
+    title: str = "Übersicht",
 ) -> rx.Component:
 
-    @authenticated(
+    @app_page(
         route=route,
         title=title,
-        navbar=navbar,
-        with_header=False,
+        sidebar=sidebar,
+        toolbar=window_toolbar("Übersicht", _greeting()),
         admin_only=True,
         on_load=[
             UserState.set_available_roles(ALL_ROLES),
@@ -52,25 +48,11 @@ def create_dashboard_page(
     def _dashboard_page() -> rx.Component:
         return requires_admin(
             mn.stack(
-                page_header(
-                    nav_path=[_greeting()],
-                    title="Aktuelle Auslastung",
-                    description=(
-                        "Überwachen Sie wichtige Kennzahlen "
-                        "und verfügbare Kapazitäten, um die Ressourcenplanung "
-                        "optimal zu steuern."
-                    ),
-                ),
                 dashboard_grid(),
                 drill_down_drawer(),
-                add_project_modal(),
-                project_detail_drawer(),
                 width="100%",
                 max_width="1360px",
                 gap="lg",
-                pr="2rem",
-                pl="2rem",
-                pb="4rem",
             ),
         )
 

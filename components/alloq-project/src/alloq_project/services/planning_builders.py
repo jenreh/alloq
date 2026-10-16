@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import datetime
+import datetime as dt
 import math
 from typing import Any
 
@@ -28,16 +28,16 @@ from alloq_project.states.planning_models import (
 WORK_DAYS_PER_WEEK: int = 5
 
 
-def anchor_date() -> datetime.date:
+def anchor_date() -> dt.date:
     """Rolling anchor: Monday of (current week - WEEKS_BEFORE_CURRENT)."""
-    today = datetime.date.today()  # noqa: DTZ011
-    monday = today - datetime.timedelta(days=today.weekday())
-    return monday - datetime.timedelta(weeks=WEEKS_BEFORE_CURRENT)
+    today = dt.date.today()  # noqa: DTZ011
+    monday = today - dt.timedelta(days=today.weekday())
+    return monday - dt.timedelta(weeks=WEEKS_BEFORE_CURRENT)
 
 
 def current_week_key() -> str:
     """Week key of the Monday of the current week (same clock as the anchor)."""
-    monday = anchor_date() + datetime.timedelta(weeks=WEEKS_BEFORE_CURRENT)
+    monday = anchor_date() + dt.timedelta(weeks=WEEKS_BEFORE_CURRENT)
     return week_key_for_date(monday)
 
 
@@ -126,13 +126,13 @@ def project_heat_bucket(allocated: float) -> str:
 
 def build_weeks(
     num_weeks: int,
-    holiday_dates: set[datetime.date] | None = None,
+    holiday_dates: set[dt.date] | None = None,
 ) -> tuple[list[WeekColumn], list[MonthSpan]]:
     holidays = holiday_dates or set()
     weeks: list[WeekColumn] = []
     anchor = anchor_date()
     for i in range(num_weeks):
-        d = anchor + datetime.timedelta(days=7 * i)
+        d = anchor + dt.timedelta(days=7 * i)
         work_days = UtilizationService.work_days_for_week(
             d, holidays, workload_percent=100, base_work_days=float(WORK_DAYS_PER_WEEK)
         )
@@ -154,7 +154,7 @@ def build_weeks(
     return weeks, spans
 
 
-def week_key_for_date(d: datetime.date) -> str:
+def week_key_for_date(d: dt.date) -> str:
     return f"{d.year}_{d.month:02d}_{d.day:02d}"
 
 
@@ -167,7 +167,7 @@ def role_short(name: str) -> str:
     return name[:3].upper()
 
 
-def absence_days_for_week(absences: list, week_start: datetime.date) -> float:
+def absence_days_for_week(absences: list, week_start: dt.date) -> float:
     dated = [a for a in absences if a.start_date and a.end_date]
     return UtilizationService.absence_days_in_week(dated, week_start)
 
@@ -277,7 +277,7 @@ def edits_to_rows(
         if not real_eid or not real_pid or not role_id:
             continue
         try:
-            week = datetime.date(*(int(p) for p in wk_key.split("_")))
+            week = dt.date(*(int(p) for p in wk_key.split("_")))
         except TypeError, ValueError:
             continue
         rows[key] = {
@@ -482,7 +482,7 @@ def build_employee_meta(
     def _abbrev_for(name: str) -> str:
         return _abbrev.get(name) or role_short(name)
 
-    week_starts = [datetime.date(*(int(p) for p in k.split("_"))) for k in wks]
+    week_starts = [dt.date(*(int(p) for p in k.split("_"))) for k in wks]
     emp_meta: list[dict[str, Any]] = []
     absence_map: dict[str, list[float]] = {}
     for emp in available_employees:
@@ -507,6 +507,8 @@ def build_employee_meta(
                 "id": eid,
                 "real_id": int(emp.id),
                 "name": f"{emp.first_name} {emp.last_name}".strip(),
+                "first_name": emp.first_name or "",
+                "last_name": emp.last_name or "",
                 "initials": (f"{emp.first_name[:1]}{emp.last_name[:1]}".upper() or "?"),
                 "job_title": emp.job_title or "",
                 "role_short": primary_short,
@@ -558,9 +560,7 @@ def ingest_allocations(
     role_id_lookup: dict[str, int] = {}
     pairs: set[tuple[str, int]] = set()
 
-    week_starts = {
-        datetime.date(*(int(part) for part in key.split("_"))) for key in wk_set
-    }
+    week_starts = {dt.date(*(int(part) for part in key.split("_"))) for key in wk_set}
     normalized_cells = UtilizationService.compute_heatmap_allocation_cells(
         allocations=[
             UtilizationAllocationInput(

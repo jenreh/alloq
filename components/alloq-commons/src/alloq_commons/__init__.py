@@ -1,4 +1,3 @@
-from alloq_commons.components import page_header
 from alloq_commons.components.role import roles_table
 from alloq_commons.entities import (
     AbsenceEntity,
@@ -31,7 +30,6 @@ __all__ = [
     "SeniorityLevel",
     "absence_repo",
     "employee_repo",
-    "page_header",
     "role_repo",
     "roles_table",
 ]

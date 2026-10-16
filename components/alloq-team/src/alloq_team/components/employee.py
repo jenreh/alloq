@@ -1,4 +1,5 @@
 import reflex as rx
+from alloq_commons import theme
 from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.formatters import format_date_de
 from alloq_commons.components.forms import quick_project_fields, section
@@ -24,8 +25,10 @@ from reflex.vars import ObjectVar
 import appkit_mantine as mn
 from appkit_ui.components.form_inputs import hidden_field
 
-HIGH_WORKLOAD_PERCENT = 75
-WORKLOAD_LIMIT_PERCENT = 100
+
+class _AbsenceDatePickerInput(mn.DatePickerInput):
+    allow_single_date_in_range: rx.Var[bool] | None = None
+
 
 # --- Form Fields ---
 
@@ -215,10 +218,11 @@ def absence_modal(
         modal_form_layout(
             content=mn.flex(
                 section(
-                    mn.date_picker_input(
+                    _AbsenceDatePickerInput.create(
                         label="Zeitraum",
                         name="date_range",
                         type="range",
+                        allow_single_date_in_range=True,
                         placeholder="Zeitraum wählen",
                         min_date=TeamState.current_date,
                         value=TeamState.absence_date_range.to(list[str]),
@@ -261,7 +265,7 @@ def _absence_row(absence: ObjectVar[Absence]) -> rx.Component:
             + " bis "
             + format_date_de(absence.end_date),
             size="0.66rem",
-            ff="'Roboto Mono', monospace",
+            ff=theme.FONT_MONO,
             style={
                 "color": "var(--alloq-item-text)",
                 "fontWeight": "400",
@@ -294,7 +298,7 @@ def _project_row(capacity: ObjectVar[Capacity]) -> rx.Component:
             mn.text(
                 f"{capacity.project_code} - {capacity.project_name}",
                 size="0.66rem",
-                ff="'Roboto Mono', monospace",
+                ff=theme.FONT_MONO,
                 style={
                     "color": "var(--alloq-item-text)",
                     "fontWeight": "500",
@@ -303,7 +307,7 @@ def _project_row(capacity: ObjectVar[Capacity]) -> rx.Component:
             mn.text(
                 capacity.role_name,
                 size="0.6rem",
-                ff="'Roboto Mono', monospace",
+                ff=theme.FONT_MONO,
                 c="dimmed",
             ),
             gap="2px",
@@ -414,7 +418,7 @@ def employee_detail_drawer() -> rx.Component:
                                 mn.group(
                                     mn.text(
                                         "Keine Abwesenheiten.",
-                                        ff="'Roboto Mono', monospace",
+                                        ff=theme.FONT_MONO,
                                         size="0.66rem",
                                         c="dimmed",
                                     ),
@@ -455,7 +459,7 @@ def employee_detail_drawer() -> rx.Component:
                                 mn.group(
                                     mn.text(
                                         "Keine Projekte zugewiesen.",
-                                        ff="'Roboto Mono', monospace",
+                                        ff=theme.FONT_MONO,
                                         size="0.66rem",
                                         c="dimmed",
                                     ),
@@ -510,17 +514,16 @@ def employee_detail_drawer() -> rx.Component:
 
 
 def team_overview() -> rx.Component:
-    """Complete team overview component with grid/table toggle."""
-    return mn.stack(
+    """Complete team overview component with list/card toggle."""
+    return mn.box(
         add_employee_modal(),
         absence_modal(),
         add_project_modal(),
         employee_detail_drawer(),
         rx.cond(
             TeamState.view_mode == "grid",
-            employee_grid(),
+            mn.box(employee_grid(), p="22px 24px 28px", style={"overflow": "auto"}),
             employee_table(),
         ),
-        gap="md",
-        width="100%",
+        style={"display": "flex", "flexDirection": "column", "minHeight": "0"},
     )

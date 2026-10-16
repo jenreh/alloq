@@ -1,0 +1,15 @@
+profile: desktop_fake
+
+# Development only (ALLOQ_FAKE_ENTRA_EMAIL, see app/desktop/fake.py): the
+# desktop app with a faked Microsoft sign-in, against the local database with
+# the local credentials. Never bundled (scripts/desktop.py ships an allowlist).
+
+reflex:
+  frontend_port: 18443
+
+app:
+  database:
+    username: secret:alloq-db-user
+    password: secret:alloq-db-password
+    ssl_mode: disable
+    encryption_key: secret:common-db-encryption-key

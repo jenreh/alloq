@@ -1,12 +1,13 @@
 """Dashboard reflex state classes."""
 
+from alloq_project.states.project_state import ProjectState
+
 from alloq_dashboard.states.dashboard_states import (
     BudgetBurnState,
     DashboardState,
     RoleCapacityState,
     ProjectHealthState,
     ProjectsOverviewState,
-    ProjectState,
     RiskState,
     UnderUtilizationState,
     UtilizationState,

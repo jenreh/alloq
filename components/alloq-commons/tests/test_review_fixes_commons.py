@@ -1,6 +1,6 @@
 """Regression tests for code-review fixes in alloq-commons."""
 
-import datetime
+import datetime as dt
 from contextlib import asynccontextmanager
 from datetime import date
 from typing import Any
@@ -219,7 +219,7 @@ class TestHolidayStateRequiresAdmin:
 
 class TestHolidayYear:
     def test_previous_year_is_selectable(self) -> None:
-        current = datetime.datetime.now(tz=datetime.UTC).year
+        current = dt.datetime.now(tz=dt.UTC).year
         years = HolidayState().available_years
         assert years[0] == str(current - 1)
         assert str(current) in years
@@ -242,7 +242,7 @@ class TestHolidayYear:
             state.selected_year = 2025  # user picks a year afterwards
             await _drain(state.load_holidays())
 
-        current = datetime.datetime.now(tz=datetime.UTC).year
+        current = dt.datetime.now(tz=dt.UTC).year
         assert repo.find_by_year.await_args_list[0].args[1] == current
         assert state.selected_year == 2025  # later loads keep the user's choice
 
@@ -315,7 +315,7 @@ class TestUtilizationHolidaysAndWorkload:
         assert heat.percent == 78
 
     def test_holiday_reduces_capacity_like_the_grid(self) -> None:
-        holiday = MONDAY + datetime.timedelta(days=4)
+        holiday = MONDAY + dt.timedelta(days=4)
         heat = UtilizationService.compute_heat_from_raw(
             used_days=3.5,
             internal_hours=4,
@@ -383,7 +383,7 @@ class TestPlanningWeekStarts:
         weeks = UtilizationService.planning_week_starts(3)
         monday = UtilizationService.monday_of(date.today())  # noqa: DTZ011
         assert weeks[0] == monday
-        assert weeks[2] == monday + datetime.timedelta(weeks=2)
+        assert weeks[2] == monday + dt.timedelta(weeks=2)
 
     def test_explicit_anchor(self) -> None:
         assert UtilizationService.planning_week_starts(1, MONDAY) == [MONDAY]
@@ -392,7 +392,7 @@ class TestPlanningWeekStarts:
         heat = UtilizationService.compute_heat_from_raw(
             used_days=0.0,
             internal_hours=0,
-            absences=(AbsencePeriod(MONDAY, MONDAY + datetime.timedelta(days=4)),),
+            absences=(AbsencePeriod(MONDAY, MONDAY + dt.timedelta(days=4)),),
             week_start=MONDAY,
         )
         assert heat.is_absent is True
@@ -430,13 +430,32 @@ class TestProjectTeamSkipsZeroAllocations:
         busy.id, cleared.id = 1, 2
         project = _project()
         project.capacity_allocations = [
-            CapacityAllocationEntity(employee=busy, week_start=MONDAY, person_days=1.0),
             CapacityAllocationEntity(
-                employee=cleared, week_start=MONDAY, person_days=0.0
+                employee=busy, week_start=date(2025, 12, 29), person_days=1.0
+            ),
+            CapacityAllocationEntity(
+                employee=cleared, week_start=date(2025, 12, 29), person_days=0.0
+            ),
+            CapacityAllocationEntity(
+                employee=busy, week_start=date(2025, 12, 22), person_days=5.0
+            ),
+            CapacityAllocationEntity(
+                employee=busy, week_start=date(2026, 12, 28), person_days=2.5
+            ),
+            CapacityAllocationEntity(
+                employee=busy, week_start=date(2026, 12, 28), person_days=0.333
+            ),
+            CapacityAllocationEntity(
+                employee=busy, week_start=date(2026, 12, 28), person_days=0.333
+            ),
+            CapacityAllocationEntity(
+                employee=busy, week_start=date(2027, 1, 4), person_days=5.0
             ),
         ]
         assert project._team_initials() == ["AB"]
-        assert project._team_members() == [{"initials": "AB", "name": "Anna Berg"}]
+        assert project._team_members() == [
+            {"initials": "AB", "name": "Anna Berg", "planned_pt": 4.17}
+        ]
 
 
 class TestModelValidation:

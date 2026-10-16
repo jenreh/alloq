@@ -1,4 +1,5 @@
 import reflex as rx
+from alloq_commons import theme
 from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.formatters import format_date_de
 from alloq_commons.models.employee import Employee
@@ -96,7 +97,6 @@ def _role_tags(employee: ObjectVar[Employee]) -> rx.Component:
                 lambda r: mn.badge(
                     r,
                     variant="light",
-                    # color="yellow",
                     size="sm",
                     radius="sm",
                     style={
@@ -140,7 +140,7 @@ def _absence_list(employee: ObjectVar[Employee]) -> rx.Component:
                         + " bis "
                         + format_date_de(absence.end_date),
                         size="0.66rem",
-                        ff="'Roboto Mono', monospace",
+                        ff=theme.FONT_MONO,
                         style={
                             "color": "var(--alloq-item-text)",
                             "fontWeight": "400",
@@ -173,7 +173,7 @@ def _absence_list(employee: ObjectVar[Employee]) -> rx.Component:
                 mn.group(
                     mn.text(
                         "Keine Abwesenheiten.",
-                        ff="'Roboto Mono', monospace",
+                        ff=theme.FONT_MONO,
                         size="0.66rem",
                         c="dimmed",
                         align="center",

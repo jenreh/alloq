@@ -1,6 +1,6 @@
 """Tests for the role resolution of PlanningStore.save_grid."""
 
-import datetime
+import datetime as dt
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
@@ -60,7 +60,7 @@ def _employee() -> Employee:
     )
 
 
-def _allocation(role_id: int, week_start: datetime.date) -> SimpleNamespace:
+def _allocation(role_id: int, week_start: dt.date) -> SimpleNamespace:
     return SimpleNamespace(
         employee_id=1,
         project_id=1,
@@ -131,7 +131,7 @@ class TestSaveGridRole:
     @pytest.mark.asyncio
     async def test_existing_allocation_role_takes_precedence(self) -> None:
         weeks, _ = build_weeks(2)
-        week = datetime.date(*(int(p) for p in weeks[0].key.split("_")))
+        week = dt.date(*(int(p) for p in weeks[0].key.split("_")))
         allocations = [_allocation(ROLE_B, week)]
 
         saved = await _saved_role_ids(allocations, [_assignment(ROLE_A)])

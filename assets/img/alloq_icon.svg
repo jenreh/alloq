@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-3 0 184 184" width="184" height="184">
+  <defs>
+    <linearGradient id="alloq-mark" x1="0.15" y1="0.2" x2="0.85" y2="0.85">
+      <stop offset="0" stop-color="#14ADA3"/>
+      <stop offset="0.45" stop-color="#7DC3B0"/>
+      <stop offset="1" stop-color="#FCE3A6"/>
+    </linearGradient>
+  </defs>
+  <path d="M 18 124 L 72 25 Q 84 4 97 25 L 158 128 Q 168 148 146 148 L 82 128"
+        fill="none" stroke="url(#alloq-mark)" stroke-width="27"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

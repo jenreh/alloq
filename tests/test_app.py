@@ -3,6 +3,7 @@
 from collections.abc import Sequence
 from unittest.mock import MagicMock, patch
 
+from reflex_base.registry import RegistrationContext
 from starlette.types import Receive, Scope, Send
 
 from appkit_commons.middleware import ForceHTTPSMiddleware
@@ -71,6 +72,16 @@ class TestAppConfigTrustedProxies:
 
 
 class TestAppWiring:
+    def test_planning_page_is_the_homepage(self) -> None:
+        registered_pages = {
+            kwargs["route"]: kwargs
+            for _, kwargs in RegistrationContext.ensure_context().decorated_pages
+        }
+
+        assert registered_pages["/"]["title"] == "Ressourcenplanung"
+        assert registered_pages["/plan"]["title"] == "Ressourcenplanung"
+        assert registered_pages["/dashboard"]["title"] == "Übersicht"
+
     def test_session_guard_installed(self) -> None:
         transformers = app_module.app.api_transformer
         assert isinstance(transformers, Sequence)

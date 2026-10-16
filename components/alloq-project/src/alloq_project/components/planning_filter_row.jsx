@@ -42,8 +42,8 @@ function OverflowFilters({ items }) {
           ref={target}
           aria-label="Weitere Filter"
           variant="subtle"
-          color="alloqTeal.5"
-          size="lg"
+          color="gray"
+          size={28}
           radius="md"
           onMouseEnter={open}
           onMouseLeave={closeAfterLeave}
@@ -90,11 +90,10 @@ export function PlanningFilterRow({ children }) {
   return (
     <OverflowList
       data={React.Children.toArray(children)}
-      gap="md"
+      gap="sm"
       maxRows={1}
       w="100%"
-      pb="md"
-      h="calc(2.25rem + var(--mantine-spacing-md))"
+      h="30px"
       className="alloq-planning-filters"
       style={{ minWidth: 0, alignItems: "stretch", alignContent: "flex-start" }}
       renderItem={(item) => (

@@ -126,3 +126,8 @@ frontend.zip
 /tauri/src-tauri/app/.states/
 /tauri/src-tauri/app/.reflex_desktop_build
 /tauri/**/.DS_Store
+
+# Desktop app (generated)
+requirements.txt
+.task/checksum/desktop-requirements
+frontend.zip

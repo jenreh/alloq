@@ -6,7 +6,6 @@ from alloq_commons.components.formatters import (
     ROW_STYLE,
 )
 
-from alloq_commons.components.page_header import page_header
 from alloq_commons.components.public_holiday import (
     add_holiday_button,
     holidays_table,
@@ -28,7 +27,6 @@ __all__ = [
     "format_date_de_named",
     "holidays_table",
     "holidays_toolbar",
-    "page_header",
     "roles_table",
     "roles_toolbar",
 ]

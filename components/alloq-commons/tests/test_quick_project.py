@@ -1,6 +1,6 @@
 """Tests for minimal-input (quick-create) project creation."""
 
-import datetime
+import datetime as dt
 
 import pytest
 from alloq_commons.entities.project import ProjectStateEnum
@@ -23,16 +23,14 @@ class TestCreateQuickProject:
     ) -> None:
         project = await create_quick_project(async_session, "Neue Plattform", "NEU")
 
-        today = datetime.date.today()  # noqa: DTZ011
+        today = dt.date.today()  # noqa: DTZ011
         assert project.id > 0
         assert project.name_de == "Neue Plattform"
         assert project.code == "NEU"
         assert project.budget == 0
         assert project.state == ProjectStateEnum.PLANNED
         assert project.start_date == today
-        assert project.end_date == today + datetime.timedelta(
-            days=PLACEHOLDER_DURATION_DAYS
-        )
+        assert project.end_date == today + dt.timedelta(days=PLACEHOLDER_DURATION_DAYS)
 
     @pytest.mark.asyncio
     async def test_persists_project(self, async_session: AsyncSession) -> None:

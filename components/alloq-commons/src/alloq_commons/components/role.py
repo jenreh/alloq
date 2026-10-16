@@ -12,6 +12,7 @@ from alloq_commons.components.modal_layout import (
     modal_footer,
     modal_form_layout,
 )
+from alloq_commons.components.toolbar import primary_button, toolbar_search
 from alloq_commons.models import Role
 from alloq_commons.state.role_states import RoleState
 from appkit_ui.components.form_inputs import hidden_field
@@ -139,26 +140,13 @@ def edit_role_modal() -> rx.Component:
 
 def add_role_button() -> rx.Component:
     """Button to open the add role modal."""
-    return mn.action_icon(
-        rx.icon("plus", size=20),
-        variant="filled",
-        auto_contrast=True,
-        size="lg",
-        radius="md",
-        on_click=RoleState.open_add_modal,
-    )
+    return primary_button("Neue Rolle", "plus", RoleState.open_add_modal)
 
 
 def role_search_input() -> rx.Component:
     """Search input for filtering roles by name."""
-    return mn.text_input(
-        placeholder="Rollen suchen...",
-        left_section=rx.icon("search", size=16),
-        left_section_pointer_events="none",
-        value=RoleState.search_filter,
-        on_change=RoleState.set_search_filter,
-        size="sm",
-        w="18rem",
+    return toolbar_search(
+        RoleState.search_filter, RoleState.set_search_filter, "Rollen suchen"
     )
 
 
@@ -166,7 +154,7 @@ def update_role_button(
     role: ObjectVar[Role],
     icon: str = "square-pen",
     icon_size: int = 16,
-    **kwargs,
+    **kwargs: Any,
 ) -> rx.Component:
     """Icon button to open the edit modal for a role."""
     return rx.icon_button(
@@ -176,7 +164,7 @@ def update_role_button(
     )
 
 
-def delete_role_button(role: ObjectVar[Role], **kwargs) -> rx.Component:
+def delete_role_button(role: ObjectVar[Role], **kwargs: Any) -> rx.Component:
     """Delete button with confirmation dialog."""
     return delete_dialog(
         title="Löschen bestätigen",
@@ -294,19 +282,9 @@ def roles_table() -> rx.Component:
     )
 
 
-def roles_toolbar() -> rx.Component:
-    """Top-right role page toolbar."""
-    return rx.flex(
+def roles_toolbar() -> list[rx.Component]:
+    """Toolbar actions of the role page."""
+    return [
         role_search_input(),
         add_role_button(),
-        width="auto",
-        gap="12px",
-        align="center",
-        justify="end",
-        style={
-            "position": "fixed",
-            "top": "2.25rem",
-            "right": "2rem",
-            "z_index": "20",
-        },
-    )
+    ]

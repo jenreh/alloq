@@ -46,6 +46,7 @@ wheels = [
 name = "alloq"
 version = "0.4.4"
 source = { editable = "." }
+default-groups = ["desktop", "dev"]
 dependencies = [
     { name = "alembic" },
     { name = "alloq-commons" },
@@ -56,11 +57,17 @@ dependencies = [
     { name = "appkit-mantine" },
     { name = "appkit-ui" },
     { name = "appkit-user" },
+    { name = "msal" },
+    { name = "msal-extensions" },
     { name = "psycopg", extra = ["binary", "pool"] },
     { name = "reflex" },
+    { name = "sqlmodel" },
 ]
 
 [package.dev-dependencies]
+desktop = [
+    { name = "reflex-desktop" },
+]
 dev = [
     { name = "aiosqlite" },
     { name = "bump-my-version" },
@@ -84,11 +91,15 @@ requires-dist = [
     { name = "appkit-mantine", specifier = "==1.16.1" },
     { name = "appkit-ui", specifier = "==1.16.1" },
     { name = "appkit-user", specifier = "==1.16.1" },
+    { name = "msal", specifier = "==1.39.0" },
+    { name = "msal-extensions", specifier = "==1.3.1" },
     { name = "psycopg", extras = ["binary", "pool"], specifier = "==3.3.6" },
     { name = "reflex", specifier = "==0.10.0" },
+    { name = "sqlmodel", specifier = ">=0.0.48" },
 ]
 
 [package.metadata.requires-dev]
+desktop = [{ name = "reflex-desktop", specifier = "==0.1.0" }]
 dev = [
     { name = "aiosqlite", specifier = "==0.22.1" },
     { name = "bump-my-version", specifier = "==1.6.0" },
@@ -1513,6 +1524,19 @@ wheels = [
 ]
 
 [[package]]
+name = "reflex-desktop"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "reflex" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4e/04/3a15c21d5871de89e480a260362ee47f3898334a466fbdfc5af11def946d/reflex_desktop-0.1.0.tar.gz", hash = "sha256:3dac911208b923efc9cab89b707aa51708556664f419109165d2a4214da955d9", size = 49565, upload-time = "2026-07-02T22:58:07.511Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6b/b2/dde86fc0df860d6e3f2317afaa510b31ba133799f2e7693bb26d6c16ddad/reflex_desktop-0.1.0-py3-none-any.whl", hash = "sha256:db6a7146ab628ef0b1760044914a99025297ff243b22b259431c0298342a25c9", size = 61719, upload-time = "2026-07-02T22:58:06.205Z" },
+]
+
+[[package]]
 name = "reflex-hosting-cli"
 version = "0.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1652,6 +1676,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/0f/7d/eb9565b6a49426552a5bf5c57e7c239c506dc0e4e5315aec6d1e8241dc7c/sqlalchemy_utils-0.42.1.tar.gz", hash = "sha256:881f9cd9e5044dc8f827bccb0425ce2e55490ce44fc0bb848c55cc8ee44cc02e", size = 130789, upload-time = "2025-12-13T03:14:13.591Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7c/25/7400c18c3ee97914cc99c90007795c00a4ec5b60c853b49db7ba24d11179/sqlalchemy_utils-0.42.1-py3-none-any.whl", hash = "sha256:243cfe1b3a1dae3c74118ae633f1d1e0ed8c787387bc33e556e37c990594ac80", size = 91761, upload-time = "2025-12-13T03:14:15.014Z" },
+]
+
+[[package]]
+name = "sqlmodel"
+version = "0.0.48"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "sqlalchemy" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/dd/67/b2c0b771c89c023262dd8fb6ba2cdc6a004e5ff75dd5763051b38ccd133a/sqlmodel-0.0.48.tar.gz", hash = "sha256:5582e87e845e23bb1179a7d8b11a4f5e441b4494528a41ee2fe1d129ffe91543", size = 99329, upload-time = "2026-10-06T21:44:36.391Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4b/76/6f8221eda15f28471c3887e5a75a62cd7338d20ac03e1e78a110a127d61e/sqlmodel-0.0.48-py3-none-any.whl", hash = "sha256:8d389bf735b03a17508e93e888c13a30ef1ddca22dd8e57add12317401e4112e", size = 31468, upload-time = "2026-10-06T21:44:35.326Z" },
 ]
 
 [[package]]

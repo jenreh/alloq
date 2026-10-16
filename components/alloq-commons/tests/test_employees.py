@@ -155,9 +155,9 @@ class TestTeamState:
             (1, "Clara", "Beta"),
         ]
 
-    def test_view_mode_defaults_to_grid(self) -> None:
+    def test_view_mode_defaults_to_list(self) -> None:
         state = TeamState()
-        assert state.view_mode == "grid"
+        assert state.view_mode == "table"
 
     def test_set_view_mode_switches_and_ignores_unknown(self) -> None:
         state = TeamState()

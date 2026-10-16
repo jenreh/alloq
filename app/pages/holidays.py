@@ -1,7 +1,8 @@
 import reflex as rx
-from alloq_commons.components import page_header
-from alloq_commons.components.auth import authenticated
+from alloq_commons import theme
 from alloq_commons.components.public_holiday import holidays_table, holidays_toolbar
+from alloq_commons.components.shell import app_page
+from alloq_commons.components.toolbar import window_toolbar
 from alloq_commons.states.holiday_state import HolidayState
 
 import appkit_mantine as mn
@@ -9,41 +10,32 @@ from appkit_user.authentication.components.components import requires_admin
 
 
 def create_holidays_page(
-    navbar: rx.Component,
+    sidebar: rx.Component,
     route: str = "/admin/holidays",
     title: str = "Feiertage",
 ) -> rx.Component:
-    """Page factory for public holiday management."""
+    """Page factory for feiertage management."""
 
-    @authenticated(
+    @app_page(
         route=route,
         title=title,
-        navbar=navbar,
-        with_header=False,
+        sidebar=sidebar,
+        toolbar=window_toolbar(
+            "Feiertage",
+            "Administration · NRW-Feiertage pflegen",
+            actions=holidays_toolbar(),
+        ),
         admin_only=True,
         on_load=[HolidayState.load_holidays],
     )
     def _holidays_page() -> rx.Component:
         return requires_admin(
-            mn.stack(
-                page_header(
-                    nav_path=["Administration", "Feiertage"],
-                    title="Feiertage verwalten",
-                    description="NRW-Feiertage anlegen, bearbeiten und löschen.",
-                ),
-                holidays_toolbar(),
-                mn.box(
-                    holidays_table(),
-                    background_color="var(--alloq-fade-bg)",
-                    border_radius="var(--mantine-radius-lg)",
-                    p="1rem",
-                    w="100%",
-                ),
+            mn.box(
+                holidays_table(),
+                style=theme.CARD,
+                p="xs",
+                w="100%",
                 max_width="1200px",
-                min_width="862px",
-                spacing="6",
-                pr=".8rem",
-                pl="2rem",
             ),
         )
 

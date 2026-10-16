@@ -8,7 +8,7 @@ This avoids `DetachedInstanceError` on lazy-loaded ORM relationships.
 
 from __future__ import annotations
 
-import datetime
+import datetime as dt
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
@@ -203,7 +203,7 @@ class _RoleRow:
 
 
 def _today() -> date:
-    return datetime.datetime.now(tz=UTC).date()
+    return dt.datetime.now(tz=UTC).date()
 
 
 def _monday(d: date) -> date:

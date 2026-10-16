@@ -1,6 +1,6 @@
 import enum
 import logging
-from datetime import date
+from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
@@ -152,35 +152,47 @@ class ProjectEntity(Entity, Base):
             "updated": self.updated,
         }
 
-    def _staffed_employees(self) -> list[EmployeeEntity]:
-        """Return unique employees with at least one non-zero allocation."""
-        employees = []
-        seen_employee_ids = set()
+    def _staffed_employee_capacity(self) -> list[tuple[EmployeeEntity, float]]:
+        """Return project members and planned PT from the project's start week."""
+        if not self.start_date or not self.end_date:
+            return []
+
+        first_week = self.start_date - timedelta(days=self.start_date.weekday())
+        last_week = self.end_date - timedelta(days=self.end_date.weekday())
+        planned_by_employee: dict[int, tuple[EmployeeEntity, float]] = {}
         for allocation in self.capacity_allocations or []:
             employee = allocation.employee
+            week_start = allocation.week_start
+            person_days = allocation.person_days or 0.0
             if (
                 not employee
-                or employee.id in seen_employee_ids
-                or (allocation.person_days or 0.0) <= 0
+                or employee.id is None
+                or week_start is None
+                or not first_week <= week_start <= last_week
+                or person_days <= 0
             ):
                 continue
-            seen_employee_ids.add(employee.id)
-            employees.append(employee)
-        return employees
+            _, planned = planned_by_employee.get(employee.id, (employee, 0.0))
+            planned_by_employee[employee.id] = (employee, planned + person_days)
+        return [
+            (employee, round(planned_pt, 2))
+            for employee, planned_pt in planned_by_employee.values()
+        ]
 
     def _team_initials(self) -> list[str]:
         """Return unique initials of employees with non-zero allocations."""
         return [
             f"{employee.first_name[:1]}{employee.last_name[:1]}"
-            for employee in self._staffed_employees()
+            for employee, _ in self._staffed_employee_capacity()
         ]
 
     def _team_members(self) -> list[dict]:
-        """Return unique team members with non-zero allocations."""
+        """Return team members with planned person-days in the project period."""
         return [
             {
                 "initials": f"{employee.first_name[:1]}{employee.last_name[:1]}",
                 "name": f"{employee.first_name} {employee.last_name}",
+                "planned_pt": planned_pt,
             }
-            for employee in self._staffed_employees()
+            for employee, planned_pt in self._staffed_employee_capacity()
         ]

@@ -1,4 +1,7 @@
 import reflex as rx
+from alloq_commons import theme
+from alloq_commons.components.shell import SIDEBAR_SCRIPT
+from alloq_commons.desktop import is_desktop
 from alloq_dashboard.pages import create_dashboard_page
 from alloq_project.pages import create_planning_page, create_projects_overview_page
 from alloq_team.pages import create_team_overview_page
@@ -12,53 +15,26 @@ from appkit_user.authentication.pages import (  # noqa: F401
     github_oauth_callback_page,
 )
 from appkit_user.user_management.pages import (
-    create_login_page,
     create_password_reset_confirm_page,
     create_password_reset_request_page,
 )
 
-from app.components.navbar_collapsible import app_navbar_collapsible
+from app.components.sidebar import sidebar
 from app.configuration import configure
+from app.desktop.entra import EntraSignIn, install_db_auth
+from app.desktop.login_state import get_sign_in
 from app.pages.holidays import create_holidays_page
+from app.pages.login import create_login_page
 from app.pages.profile import create_profile_page
 from app.pages.roles import create_roles_page
 from app.pages.users import create_users_page
 from app.styles import base_style, base_stylesheets
 
-ALLOQ_THEME = am.create_theme(
-    primary_color="alloqTeal",
-    primary_shade={"light": 6, "dark": 7},
-    font_family="Roboto Flex, sans-serif",
-    font_family_monospace="Roboto Mono, monospace",
-    colors={
-        "alloqWarm": [
-            "#fffef8",
-            "#fbf8ed",
-            "#f7efd1",
-            "#f8eaa8",
-            "#f6d94d",
-            "#f1ca45",
-            "#d99f18",
-            "#a97811",
-            "#6f4f0f",
-            "#3e2d0b",
-        ],
-        "alloqTeal": [
-            "#eef8f8",
-            "#d9eeee",
-            "#b9dddd",
-            "#95c7c8",
-            "#6f9fa5",
-            "#5b858b",
-            "#486d73",
-            "#3c5a5f",
-            "#32494e",
-            "#293c40",
-        ],
-    },
-)
+am.set_app_theme(theme.MANTINE_THEME)
 
-am.set_app_theme(ALLOQ_THEME)
+if is_desktop() and isinstance(sign_in := get_sign_in(), EntraSignIn):
+    # Every database connection signs in with the user's Entra token.
+    install_db_auth(sign_in)
 
 
 def auth_page_logos() -> dict[str, str]:
@@ -73,17 +49,18 @@ def auth_page_logos() -> dict[str, str]:
     }
 
 
-create_login_page(**auth_page_logos())
-create_profile_page(app_navbar_collapsible())
+create_login_page()
+create_profile_page(sidebar())
 create_password_reset_request_page(**auth_page_logos())
 create_password_reset_confirm_page(**auth_page_logos())
-create_users_page(app_navbar_collapsible())
-create_roles_page(app_navbar_collapsible())
-create_holidays_page(app_navbar_collapsible())
-create_team_overview_page(app_navbar_collapsible())
-create_projects_overview_page(app_navbar_collapsible())
-create_planning_page(app_navbar_collapsible())
-create_dashboard_page(app_navbar_collapsible())
+create_users_page(sidebar())
+create_roles_page(sidebar())
+create_holidays_page(sidebar())
+create_team_overview_page(sidebar())
+create_projects_overview_page(sidebar())
+create_planning_page(sidebar(), route="/")
+create_planning_page(sidebar())
+create_dashboard_page(sidebar(), route="/dashboard")
 
 
 def add_https_middleware(asgi_app: ASGIApp) -> ASGIApp:
@@ -92,6 +69,11 @@ def add_https_middleware(asgi_app: ASGIApp) -> ASGIApp:
 
 
 app = rx.App(
+    head_components=[
+        rx.el.link(rel="icon", href=rx.asset("favicon.ico"), type="image/x-icon"),
+        rx.el.style(theme.GLOBAL_CSS),
+        *(rx.script(script) for script in (*theme.HEAD_SCRIPTS, SIDEBAR_SCRIPT)),
+    ],
     stylesheets=base_stylesheets,
     style=base_style,
     api_transformer=[add_session_guard, add_https_middleware],

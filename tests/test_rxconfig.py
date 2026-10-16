@@ -56,7 +56,7 @@ class TestRequireDatabase:
         registry.get.side_effect = KeyError("DatabaseConfig")
 
         with (
-            patch("rxconfig.service_registry", return_value=registry),
+            patch.object(rxconfig, "service_registry", return_value=registry),
             pytest.raises(RuntimeError, match=r"app\.database"),
         ):
             rxconfig._require_database()
@@ -66,5 +66,5 @@ class TestRequireDatabase:
         registry = MagicMock()
         registry.get.return_value = database
 
-        with patch("rxconfig.service_registry", return_value=registry):
+        with patch.object(rxconfig, "service_registry", return_value=registry):
             assert rxconfig._require_database() is database

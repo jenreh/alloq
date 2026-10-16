@@ -102,6 +102,8 @@ class EmployeeBlock(BaseModel):
     id: str
     real_id: int = 0
     name: str
+    first_name: str = ""
+    last_name: str = ""
     initials: str
     job_title: str = ""
     role: str

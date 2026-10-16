@@ -11,7 +11,7 @@ snapshot.
 
 from __future__ import annotations
 
-import datetime
+import datetime as dt
 import logging
 from collections.abc import AsyncGenerator
 from typing import Any
@@ -129,7 +129,7 @@ class PlanningStore(UserSession):
 
     weeks: rx.Field[list[WeekColumn]] = rx.field(default_factory=list)
     month_spans: rx.Field[list[MonthSpan]] = rx.field(default_factory=list)
-    holiday_dates: rx.Field[list[datetime.date]] = rx.field(default_factory=list)
+    holiday_dates: rx.Field[list[dt.date]] = rx.field(default_factory=list)
     is_loaded: rx.Field[bool] = rx.field(False)
 
     cells: rx.Field[dict[str, float]] = rx.field(default_factory=dict)
@@ -334,6 +334,8 @@ class PlanningStore(UserSession):
                 id=emp_id,
                 real_id=emp["real_id"],
                 name=emp["name"],
+                first_name=emp.get("first_name", ""),
+                last_name=emp.get("last_name", ""),
                 initials=emp["initials"],
                 job_title=emp.get("job_title", ""),
                 role=emp.get("role_short", ""),
@@ -441,7 +443,13 @@ class PlanningStore(UserSession):
     def filtered_employees(self) -> list[EmployeeBlock]:
         if self.view_mode != GRID_VIEW:
             return []
-        return self._filter_employees(self.employee_blocks)
+        return sorted(
+            self._filter_employees(self.employee_blocks),
+            key=lambda employee: (
+                employee.last_name.casefold(),
+                employee.first_name.casefold(),
+            ),
+        )
 
     @rx.var(cache=True)
     def filtered_projects(self) -> list[ProjectBlock]:
@@ -547,12 +555,12 @@ class PlanningStore(UserSession):
 
     # === Loading ===
 
-    async def _fetch_holidays(self, num_weeks: int) -> set[datetime.date]:
+    async def _fetch_holidays(self, num_weeks: int) -> set[dt.date]:
         """Load public holidays covering the rolling planning window."""
         if num_weeks <= 0:
             return set()
         anchor = anchor_date()
-        end = anchor + datetime.timedelta(days=7 * num_weeks - 1)
+        end = anchor + dt.timedelta(days=7 * num_weeks - 1)
         async with get_asyncdb_session() as session:
             rows = await public_holiday_repo.find_by_date_range(session, anchor, end)
             return {row.date for row in rows if row.date}
@@ -562,8 +570,8 @@ class PlanningStore(UserSession):
     ) -> tuple[list[Any], list[CapAssignment]]:
         if not weeks:
             return [], []
-        first = datetime.date(*(int(p) for p in weeks[0].key.split("_")))
-        last = datetime.date(*(int(p) for p in weeks[-1].key.split("_")))
+        first = dt.date(*(int(p) for p in weeks[0].key.split("_")))
+        last = dt.date(*(int(p) for p in weeks[-1].key.split("_")))
         project_ids = [int(p.id) for p in self.available_projects]
         async with get_asyncdb_session() as session:
             allocs = await capacity_allocation_repo.find_cells_in_range(
@@ -756,6 +764,26 @@ class PlanningStore(UserSession):
             ]
         else:
             self.collapsed_projects = [*self.collapsed_projects, project_id]
+
+    @rx.var
+    def all_sections_collapsed(self) -> bool:
+        employee_ids = {employee["id"] for employee in self.employee_meta}
+        project_ids = {project["id"] for project in self.project_meta}
+        return (
+            bool(employee_ids or project_ids)
+            and employee_ids.issubset(self.collapsed_employees)
+            and project_ids.issubset(self.collapsed_projects)
+        )
+
+    @rx.event
+    def toggle_all_sections(self) -> None:
+        if self.all_sections_collapsed:
+            self.collapsed_employees = []
+            self.collapsed_projects = []
+            return
+
+        self.collapsed_employees = [employee["id"] for employee in self.employee_meta]
+        self.collapsed_projects = [project["id"] for project in self.project_meta]
 
     # === Save ===
 

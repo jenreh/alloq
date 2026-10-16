@@ -8,12 +8,14 @@ from alloq_commons.components.formatters import de_number
 from alloq_project.components.planning_shared import (
     CELL_BASE,
     LABEL_CELL_BASE,
+    STICKY_BLOCK_HEADER,
     STICKY_LEFT_BODY,
     STICKY_LEFT_EMP_HEADER,
     STICKY_LEFT_GESAMT,
     block_header_info_cell,
     current_week_bg,
     editable_value_cell,
+    empty_grid_row,
     format_gesamt,
     grid_row,
     header_block,
@@ -120,6 +122,7 @@ def _project_header_row(proj: ObjectVar[ProjectBlock]) -> rx.Component:
             rx.foreach(proj.role_totals, _role_total_badge),
             background=PROJ_HEADER_BG,
         ),
+        style=STICKY_BLOCK_HEADER,
     )
 
 
@@ -236,6 +239,7 @@ def _project_block(proj: ObjectVar[ProjectBlock]) -> rx.Component:
             mn.box(
                 rx.foreach(proj.employees, _employee_row_view),
                 _project_gesamt_row(proj),
+                empty_grid_row(),
             ),
             rx.fragment(),
         ),
