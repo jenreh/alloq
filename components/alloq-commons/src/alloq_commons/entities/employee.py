@@ -1,4 +1,4 @@
-import datetime
+import datetime as dt
 import enum
 import logging
 
@@ -66,7 +66,7 @@ class EmployeeEntity(Entity, Base):
         lazy="selectin",
     )
 
-    def to_dict(self, absences_since: datetime.date | None = None) -> dict:
+    def to_dict(self, absences_since: dt.date | None = None) -> dict:
         """Convert entity to dictionary for Pydantic model creation.
 
         Absences ending before *absences_since* are dropped; the default is
@@ -76,7 +76,7 @@ class EmployeeEntity(Entity, Base):
 
         absences = []
         if getattr(self, "absences", None):
-            since = absences_since or datetime.datetime.now(datetime.UTC).date()
+            since = absences_since or dt.datetime.now(dt.UTC).date()
             valid_absences = [
                 a
                 for a in self.absences

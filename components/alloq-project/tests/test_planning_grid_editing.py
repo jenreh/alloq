@@ -1,6 +1,6 @@
 """Tests for client-driven cell editing in PlanningStore."""
 
-import datetime
+import datetime as dt
 import math
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
@@ -12,6 +12,7 @@ import pytest
 from alloq_commons.models.employee import Employee
 from alloq_commons.models.project import Project
 from alloq_project.services.planning_builders import (
+    build_employee_meta,
     build_weeks,
     cell_key,
     dirty_keys_for,
@@ -326,6 +327,18 @@ class TestSettersAndLabels:
         state.project_filter = ["1"]
         assert [e.id for e in state.filtered_employees] == ["emp-1"]
 
+    def test_filtered_employees_are_sorted_by_last_name(self) -> None:
+        state = _store()
+        state.available_employees = [
+            Employee(id=1, first_name="Alice", last_name="Zimmer"),
+            Employee(id=2, first_name="Bob", last_name="Adams"),
+        ]
+        state.employee_meta, state.absence_days = build_employee_meta(
+            state.available_employees, state._week_keys()
+        )
+
+        assert [employee.real_id for employee in state.filtered_employees] == [2, 1]
+
     def test_filtered_employees_by_project_scope(self) -> None:
         state = _store()
         state.current_employee_id = 9
@@ -401,7 +414,7 @@ class TestLoading:
     async def test_fetch_holidays_queries_repo(self) -> None:
         state = PlanningStore()
         holiday = AsyncMock()
-        holiday.date = datetime.date(2026, 10, 3)
+        holiday.date = dt.date(2026, 10, 3)
         with (
             patch(f"{_STATE}.get_asyncdb_session", _mock_session_ctx(AsyncMock())),
             patch(

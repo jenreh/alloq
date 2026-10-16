@@ -62,14 +62,13 @@ def project_detail_drawer() -> rx.Component:
                     on_change=ProjectState.set_active_tab,
                     full_width=True,
                     size="sm",
-                    color="alloqTeal.5",
+                    color="blue",
                     radius="md",
                     bg="var(--alloq-surface-solid)",
                     style={"flexShrink": "0"},
                     w="66%",
                 ),
                 padding="9px 18px",
-                # border_bottom="1px solid var(--alloq-border)",
                 background="var(--alloq-surface-muted)",
                 box_shadow="0 2px 8px rgba(0, 0, 0, 0.08)",
                 z_index="1",
@@ -219,14 +218,13 @@ def project_grid() -> rx.Component:
 
 def project_overview() -> rx.Component:
     """Complete project overview component."""
-    return mn.stack(
+    return mn.box(
         add_project_modal(),
         project_detail_drawer(),
         rx.cond(
             ProjectState.view_mode == VIEW_MODE_GRID,
-            project_grid(),
+            mn.box(project_grid(), p="22px 24px 28px", style={"overflow": "auto"}),
             project_table(_no_projects_state()),
         ),
-        gap="md",
-        width="100%",
+        style={"display": "flex", "flexDirection": "column", "minHeight": "0"},
     )

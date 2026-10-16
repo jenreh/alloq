@@ -5,7 +5,7 @@ default or to a placeholder date range that stays editable on the full project
 page. The full project form remains the path for complete project setup.
 """
 
-import datetime
+import datetime as dt
 import logging
 
 from sqlalchemy.exc import IntegrityError
@@ -53,12 +53,12 @@ async def create_quick_project(
     if await project_repo.find_by_code(session, clean_code):
         raise QuickProjectError(f"Projektkürzel '{clean_code}' ist bereits vergeben.")
 
-    start_date = datetime.date.today()  # noqa: DTZ011
+    start_date = dt.date.today()  # noqa: DTZ011
     entity = ProjectEntity(
         code=clean_code,
         name_de=clean_name,
         start_date=start_date,
-        end_date=start_date + datetime.timedelta(days=PLACEHOLDER_DURATION_DAYS),
+        end_date=start_date + dt.timedelta(days=PLACEHOLDER_DURATION_DAYS),
         budget=0,
     )
     try:

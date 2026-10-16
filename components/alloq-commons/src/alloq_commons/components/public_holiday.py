@@ -13,6 +13,7 @@ from alloq_commons.components.modal_layout import (
     modal_footer,
     modal_form_layout,
 )
+from alloq_commons.components.toolbar import primary_button, toolbar_search
 from alloq_commons.models.public_holiday import PublicHoliday
 from alloq_commons.states.holiday_state import HolidayState
 from appkit_ui.components.form_inputs import hidden_field
@@ -136,26 +137,13 @@ def edit_holiday_modal() -> rx.Component:
 
 def add_holiday_button() -> rx.Component:
     """Button to open the add holiday modal."""
-    return mn.action_icon(
-        rx.icon("plus", size=20),
-        variant="filled",
-        auto_contrast=True,
-        size="lg",
-        radius="md",
-        on_click=HolidayState.open_add_modal,
-    )
+    return primary_button("Neuer Feiertag", "plus", HolidayState.open_add_modal)
 
 
 def holiday_search_input() -> rx.Component:
     """Search input for filtering holidays by name."""
-    return mn.text_input(
-        placeholder="Feiertage suchen...",
-        left_section=rx.icon("search", size=16),
-        left_section_pointer_events="none",
-        value=HolidayState.search_filter,
-        on_change=HolidayState.set_search_filter,
-        size="sm",
-        w="16rem",
+    return toolbar_search(
+        HolidayState.search_filter, HolidayState.set_search_filter, "Feiertage suchen"
     )
 
 
@@ -166,8 +154,9 @@ def holiday_year_select() -> rx.Component:
         value=HolidayState.selected_year_str,
         on_change=HolidayState.change_year,
         allow_deselect=False,
-        size="sm",
-        w="8rem",
+        size="xs",
+        radius="md",
+        w="6.5rem",
         key=rx.State.router.page.path,
     )
 
@@ -284,20 +273,10 @@ def holidays_table() -> rx.Component:
     )
 
 
-def holidays_toolbar() -> rx.Component:
-    """Top-right holiday page toolbar."""
-    return rx.flex(
+def holidays_toolbar() -> list[rx.Component]:
+    """Toolbar actions of the holiday page."""
+    return [
         holiday_search_input(),
         holiday_year_select(),
         add_holiday_button(),
-        width="auto",
-        gap="12px",
-        align="center",
-        justify="end",
-        style={
-            "position": "fixed",
-            "top": "2.25rem",
-            "right": "2rem",
-            "z_index": "20",
-        },
-    )
+    ]

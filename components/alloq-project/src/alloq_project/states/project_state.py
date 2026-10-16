@@ -23,7 +23,7 @@ from alloq_commons.models.project import (
     RiskMatrixCell,
 )
 from alloq_commons.models.role import Role
-from alloq_commons.models.view_mode import VIEW_MODE_GRID, VIEW_MODES
+from alloq_commons.models.view_mode import VIEW_MODE_TABLE, VIEW_MODES
 from alloq_commons.repositories import (
     capacity_allocation_repo,
     capacity_repo,
@@ -42,6 +42,7 @@ from alloq_project.services.project_sorting import (
     SORT_COLUMNS,
     sort_projects,
 )
+from alloq_project.states.project_list_state import ProjectListState
 from sqlalchemy.exc import IntegrityError
 
 from appkit_commons.database.session import get_asyncdb_session
@@ -111,7 +112,7 @@ def _risk_score_color(score: int) -> str:
     return "var(--alloq-risk-critical)"
 
 
-class ProjectState(UserSession):
+class ProjectState(ProjectListState, UserSession):
     """State for project management."""
 
     projects: rx.Field[list[Project]] = rx.field(default_factory=list)
@@ -164,7 +165,7 @@ class ProjectState(UserSession):
 
     search_filter: rx.Field[str] = rx.field("")
     status_filter: rx.Field[str] = rx.field("all")
-    view_mode: str = rx.LocalStorage(VIEW_MODE_GRID, name="alloq_projects_view_mode")
+    view_mode: str = rx.LocalStorage(VIEW_MODE_TABLE, name="alloq_projects_view")
     sort_column: rx.Field[str] = rx.field(DEFAULT_SORT_COLUMN)
     sort_desc: rx.Field[bool] = rx.field(False)
 
@@ -177,11 +178,6 @@ class ProjectState(UserSession):
     def set_search_filter(self, value: str) -> None:
         """Update the search filter."""
         self.search_filter = value
-
-    @rx.event
-    def set_status_filter(self, value: str) -> None:
-        """Update the status filter."""
-        self.status_filter = value or "all"
 
     @rx.event
     def set_view_mode(self, mode: str) -> None:

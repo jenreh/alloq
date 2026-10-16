@@ -15,7 +15,7 @@ from alloq_commons.models.employee import (
 )
 from alloq_commons.models.project import Capacity, Project
 from alloq_commons.models.role import Role
-from alloq_commons.models.view_mode import VIEW_MODE_GRID, VIEW_MODES
+from alloq_commons.models.view_mode import VIEW_MODE_TABLE, VIEW_MODES
 from alloq_commons.repositories.absence_repository import absence_repo
 from alloq_commons.repositories.capacity_allocation_repository import (
     capacity_allocation_repo,
@@ -31,6 +31,7 @@ from alloq_commons.services.quick_project import (
     create_quick_project,
 )
 
+from alloq_team.states.team_list_state import TeamListState
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_ui.global_states import LoadingState
 from appkit_user.authentication.decorators import requires_admin
@@ -79,7 +80,7 @@ def _parse_date_range(values: list[str]) -> tuple[date, date] | None:
     return (start, end) if start <= end else None
 
 
-class TeamState(UserSession):
+class TeamState(TeamListState, UserSession):
     """State for team member management."""
 
     employees: rx.Field[list[Employee]] = rx.field(default_factory=list)
@@ -97,7 +98,7 @@ class TeamState(UserSession):
     absence_date_range: rx.Field[list[str]] = rx.field(default_factory=list)
 
     search_filter: rx.Field[str] = rx.field("")
-    view_mode: str = rx.LocalStorage(VIEW_MODE_GRID, name="alloq_team_view_mode")
+    view_mode: str = rx.LocalStorage(VIEW_MODE_TABLE, name="alloq_team_view")
     expanded_sections: rx.Field[list[str]] = rx.field(default_factory=list)
 
     all_projects: rx.Field[list[Project]] = rx.field(default_factory=list)
@@ -203,13 +204,6 @@ class TeamState(UserSession):
         ]
 
     @rx.var
-    def form_role_ids(self) -> list[str]:
-        """Convert selected employee role IDs to strings for multi-select."""
-        if self.selected_employee:
-            return [str(role_id) for role_id in self.selected_employee.role_ids]
-        return []
-
-    @rx.var
     def unassigned_project_options(self) -> list[dict[str, str]]:
         """Projects not yet assigned to the selected employee."""
         assigned_ids = {c.project_id for c in self.employee_capacities}
@@ -301,6 +295,7 @@ class TeamState(UserSession):
         async with get_asyncdb_session() as session:
             entities = await employee_repo.find_all_paginated(session, limit=LIST_LIMIT)
             self.employees = [Employee(**e.to_dict()) for e in entities]
+        await self._refresh_overview()
 
     async def _fetch_employee(self, employee_id: int) -> Employee | None:
         """Fetch a single employee as an Employee read model."""
@@ -474,6 +469,7 @@ class TeamState(UserSession):
             updated_employee = await self._fetch_employee(employee_id)
             if updated_employee:
                 self._upsert_employee(updated_employee)
+                await self._refresh_overview()
             self.close_detail_drawer()
             name = f"{emp_data.first_name} {emp_data.last_name}"
             yield rx.toast.info(
@@ -743,6 +739,7 @@ class TeamState(UserSession):
                 return
 
             await self._load_employee_capacities(employee_id)
+            await self._refresh_overview()
             yield rx.toast.info("Projektzuweisung entfernt.", position="top-right")
         except Exception:
             logger.exception("Failed to remove project assignment")
@@ -945,15 +942,6 @@ class EmployeeValidationState(rx.State):
                 self.internal_hours_error = ""
         except ValueError:
             self.internal_hours_error = "Muss eine ganze Zahl sein."
-
-    @rx.event
-    def validate_all(self) -> None:
-        self.validate_first_name()
-        self.validate_last_name()
-        self.validate_email()
-        self.validate_role_ids()
-        self.validate_hours_per_week()
-        self.validate_internal_hours()
 
     @rx.var
     def has_errors(self) -> bool:

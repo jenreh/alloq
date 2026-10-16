@@ -5,33 +5,12 @@ import appkit_mantine as mn
 from alloq_commons.models.view_mode import VIEW_MODE_GRID, VIEW_MODE_TABLE
 
 
-def _view_mode_button(
-    icon: str,
-    label: str,
-    active: rx.Var[bool] | bool,
-    on_click: EventCallback[()],
-) -> rx.Component:
-    """Icon button with a tooltip.
-
-    The button is wrapped in a box because its state-dependent props make
-    Reflex compile it into a memoized sub-component, which cannot receive
-    the ref that Mantine's tooltip attaches to its child.
-    """
-    return mn.tooltip(
-        mn.box(
-            mn.action_icon(
-                rx.icon(icon, size=20),
-                variant=rx.cond(active, "filled", "subtle"),
-                auto_contrast=True,
-                size="lg",
-                radius="md",
-                on_click=on_click,
-            ),
-            display="flex",
-        ),
-        label=label,
-        with_arrow=True,
-        position="bottom",
+def _icon_label(icon: str, label: str) -> rx.Component:
+    return mn.center(
+        rx.icon(icon, size=15, stroke_width=1.8),
+        title=label,
+        aria_label=label,
+        h=18,
     )
 
 
@@ -39,19 +18,15 @@ def view_mode_toggle(
     view_mode: rx.Var[str] | str,
     on_change: EventCallback[str],
 ) -> rx.Component:
-    """Toggle between grid (cards) and table view."""
-    return mn.group(
-        _view_mode_button(
-            "layout-grid",
-            "Kachelansicht",
-            view_mode == VIEW_MODE_GRID,
-            on_change(VIEW_MODE_GRID),
-        ),
-        _view_mode_button(
-            "list",
-            "Listenansicht",
-            view_mode == VIEW_MODE_TABLE,
-            on_change(VIEW_MODE_TABLE),
-        ),
-        gap="2px",
+    """Segmented switch between list and card view."""
+    return mn.segmented_control(
+        data=[
+            {"value": VIEW_MODE_TABLE, "label": _icon_label("list", "Liste")},
+            {"value": VIEW_MODE_GRID, "label": _icon_label("layout-grid", "Kacheln")},
+        ],
+        value=view_mode,
+        on_change=on_change,
+        size="xs",
+        radius="md",
+        class_name="aq-segmented",
     )

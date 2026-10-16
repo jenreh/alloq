@@ -1,9 +1,12 @@
 import reflex as rx
-from alloq_commons.components.auth import authenticated
-from alloq_commons.components.page_header import page_header
+from alloq_commons.components.shell import app_page
+from alloq_commons.components.toolbar import scope_bar, window_toolbar
 
 import appkit_mantine as mn
-from alloq_project.components.planning_filter_row import planning_filter_row
+from alloq_project.components.planning_filter_row import (
+    planning_filter_row,
+    planning_view_switch,
+)
 from alloq_project.components.planning_gantt import planning_gantt
 from alloq_project.components.planning_grid import planning_grid
 from alloq_project.components.planning_heatmap import planning_heatmap
@@ -13,35 +16,36 @@ from alloq_project.components.planning_project_view import (
 from alloq_project.components.planning_toolbar import planning_toolbar
 from alloq_project.components.project_overview import project_overview
 from alloq_project.components.project_plan_modal import project_plan_modal
-from alloq_project.components.project_toolbar import project_toolbar
+from alloq_project.components.project_toolbar import project_filter, project_toolbar
 from alloq_project.states.planning_grid_state import PlanningStore
 from alloq_project.states.project_state import ProjectState
 from appkit_user.authentication.components.components import requires_admin
 
 
 def create_planning_page(
-    navbar: rx.Component,
+    sidebar: rx.Component,
     route: str = "/plan",
     title: str = "Ressourcenplanung",
 ) -> rx.Component:
 
-    @authenticated(
+    @app_page(
         route=route,
         title=title,
-        navbar=navbar,
-        with_header=False,
+        sidebar=sidebar,
+        toolbar=window_toolbar(
+            "Ressourcenplanung",
+            "Kapazität und Zuweisungen je Woche",
+            center=planning_view_switch(),
+            actions=planning_toolbar(),
+        ),
+        scope=scope_bar(planning_filter_row()),
+        padded=False,
         admin_only=True,
         on_load=PlanningStore.load,
     )
     def _planning_page() -> rx.Component:
         return requires_admin(
-            mn.stack(
-                planning_toolbar(),
-                page_header(
-                    title="Ressourcenplanung",
-                    pb="0.5rem",
-                ),
-                planning_filter_row(),
+            mn.box(
                 rx.match(
                     PlanningStore.view_mode,
                     ("Grid", planning_grid()),
@@ -51,12 +55,7 @@ def create_planning_page(
                     rx.fragment(),
                 ),
                 project_plan_modal(),
-                width="100%",
-                gap="xs",
-                pr="2rem",
-                pl="2rem",
-                pt="2.1rem",
-                pb="0",
+                class_name="aq-planning-body",
             ),
         )
 
@@ -64,38 +63,26 @@ def create_planning_page(
 
 
 def create_projects_overview_page(
-    navbar: rx.Component,
+    sidebar: rx.Component,
     route: str = "/projects",
     title: str = "Projekte",
 ) -> rx.Component:
 
-    @authenticated(
+    @app_page(
         route=route,
         title=title,
-        navbar=navbar,
-        with_header=False,
+        sidebar=sidebar,
+        toolbar=window_toolbar(
+            "Projekte",
+            ProjectState.subtitle,
+            center=project_filter(),
+            actions=project_toolbar(),
+        ),
+        padded=False,
         admin_only=True,
         on_load=[ProjectState.load_projects],
     )
     def _projects_overview_page() -> rx.Component:
-        return requires_admin(
-            mn.stack(
-                project_toolbar(),
-                page_header(
-                    title="Projekte",
-                    description=(
-                        "Alle laufenden und geplanten Projekte mit Budget und "
-                        "Fortschritt."
-                    ),
-                ),
-                project_overview(),
-                width="100%",
-                gap="md",
-                pr="2rem",
-                pl="2rem",
-                pt="2.1rem",
-                pb="4rem",
-            ),
-        )
+        return requires_admin(project_overview())
 
     return _projects_overview_page

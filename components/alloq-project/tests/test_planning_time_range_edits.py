@@ -1,6 +1,6 @@
 """Unsaved grid edits survive switching the planning time range."""
 
-import datetime
+import datetime as dt
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
@@ -59,7 +59,7 @@ def _db_allocations(state: PlanningStore, week_idx: int, days: float) -> list[An
             employee_id=1,
             project_id=1,
             role_id=3,
-            week_start=datetime.date(y, m, d),
+            week_start=dt.date(y, m, d),
             person_days=days,
             role_name="",
         )

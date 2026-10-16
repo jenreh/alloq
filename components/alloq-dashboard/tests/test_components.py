@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from alloq_dashboard.components.capacity_card import role_capacity_cards
+from alloq_dashboard.components.dashboard_grid import dashboard_grid
 from alloq_dashboard.pages import _greeting
 from alloq_dashboard.states import RoleCapacityState
 
@@ -19,3 +20,11 @@ def test_role_capacity_cards_render_loading_and_error_states() -> None:
     state_name = RoleCapacityState.get_name()
     assert f"{state_name}.error_message" in rendered
     assert f"{state_name}.is_loading" in rendered
+
+
+def test_dashboard_grid_does_not_render_role_capacity() -> None:
+    assert RoleCapacityState.get_name() not in str(dashboard_grid())
+
+
+def test_dashboard_grid_contains_only_team_widgets() -> None:
+    assert len(dashboard_grid().children) == 2

@@ -5,6 +5,7 @@ from __future__ import annotations
 import reflex as rx
 from alloq_commons.components.excel_grid import excel_grid, grid_cell_attrs
 from alloq_commons.components.formatters import de_number
+from alloq_commons.components.list_view import sticky_block_header
 from alloq_project.states.planning_grid_state import (
     LABEL_COL_PX,
     WEEK_COL_PX,
@@ -25,24 +26,22 @@ LABEL_COL_WIDTH = f"{LABEL_COL_PX}px"
 WEEK_COL_WIDTH = f"{WEEK_COL_PX}px"
 ROW_HEIGHT = "32px"
 HEADER_ROW_HEIGHT = "30px"
+MONTH_HEADER_BG = "light-dark(var(--mantine-color-blue-0), var(--mantine-color-blue-9))"
 
-CURRENT_WEEK_BG = "light-dark(rgba(255, 212, 59, 0.16), rgba(255, 212, 59, 0.08))"
+CURRENT_WEEK_BG = "var(--aq-now)"
 
 # ---------------------------------------------------------------------------
 # Style dictionaries
 # ---------------------------------------------------------------------------
 
 GRID_WRAPPER_STYLE = {
-    "backgroundColor": "var(--alloq-surface-solid)",
-    "borderRadius": "var(--mantine-radius-sm)",
-    "border": "1px solid var(--alloq-border)",
+    "backgroundColor": "var(--aq-surface)",
     "overflow": "auto",
-    "position": "fixed",
-    "left": "9.3rem",
-    "right": "2rem",
-    "top": "12rem",
-    "bottom": "32px",
+    "flex": "1",
+    "minHeight": "0",
+    "width": "100%",
 }
+"""Fills the content pane below the scope bar and scrolls both ways."""
 
 ROW_STYLE_BASE = {
     "display": "grid",
@@ -80,14 +79,14 @@ STICKY_LEFT_BODY = {
 STICKY_LEFT_HEADER_TOP = {
     "position": "sticky",
     "left": "0",
-    "zIndex": "40",
-    "backgroundColor": "var(--alloq-accent-soft)",
+    "zIndex": "50",
+    "backgroundColor": MONTH_HEADER_BG,
 }
 
 STICKY_LEFT_HEADER = {
     "position": "sticky",
     "left": "0",
-    "zIndex": "40",
+    "zIndex": "50",
     "backgroundColor": "var(--alloq-surface-muted)",
 }
 
@@ -105,6 +104,8 @@ STICKY_LEFT_EMP_HEADER = {
     "backgroundColor": "var(--alloq-surface-hover)",
 }
 
+STICKY_BLOCK_HEADER = sticky_block_header("90px")
+
 HEADER_BLOCK_STYLE = {
     "position": "sticky",
     "top": "0",
@@ -113,7 +114,6 @@ HEADER_BLOCK_STYLE = {
 }
 
 EMP_HEADER_BG = "var(--alloq-surface-hover)"
-GESAMT_BG = "var(--alloq-surface-muted)"
 
 # ---------------------------------------------------------------------------
 # Shared helper functions
@@ -146,6 +146,11 @@ def grid_row(
             **(style or {}),
         },
     )
+
+
+def empty_grid_row() -> rx.Component:
+    """A full-width blank planning row with no cells."""
+    return grid_row(style={"height": ROW_HEIGHT})
 
 
 def format_de(value: rx.Var[float] | float) -> rx.Component:
@@ -243,7 +248,9 @@ def month_cell(month: ObjectVar[MonthSpan]) -> rx.Component:
         style={
             **CELL_BASE,
             "gridColumn": "span " + month.span.to_string(),
-            "backgroundColor": "var(--alloq-accent-soft)",
+            "position": "relative",
+            "zIndex": "0",
+            "backgroundColor": MONTH_HEADER_BG,
             "fontWeight": "500",
             "justifyContent": "flex-start",
             "paddingLeft": "12px",
@@ -258,6 +265,8 @@ def week_label_cell(week: ObjectVar[WeekColumn]) -> rx.Component:
         mn.text(week.label, fz="11px", c="var(--alloq-text-muted)", fw="500"),
         style={
             **CELL_BASE,
+            "position": "relative",
+            "zIndex": "0",
             "minHeight": HEADER_ROW_HEIGHT,
             "backgroundColor": current_week_bg(week.key, "var(--alloq-surface-muted)"),
             "fontWeight": "500",
@@ -271,6 +280,8 @@ def work_days_cell(week: ObjectVar[WeekColumn]) -> rx.Component:
         format_de(week.work_days),
         style={
             **CELL_BASE,
+            "position": "relative",
+            "zIndex": "0",
             "minHeight": HEADER_ROW_HEIGHT,
             "backgroundColor": current_week_bg(week.key, "var(--alloq-surface-muted)"),
             "fontWeight": "500",
