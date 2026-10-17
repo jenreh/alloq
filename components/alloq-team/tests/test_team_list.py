@@ -1,14 +1,18 @@
 """Team list: utilization overview, filter, inspector and rendering."""
 
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import UTC, date, datetime
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from alloq_commons.models.employee import Absence, Employee
-from alloq_team.components.employee_table import employee_list, employee_table
+from alloq_team.components.employee_table import (
+    COLUMNS,
+    employee_list,
+    employee_table,
+)
 from alloq_team.components.toolbar import team_filter, team_toolbar
 from alloq_team.services import team_overview as service
 from alloq_team.services.team_overview import (
@@ -48,8 +52,8 @@ class TestBuildOverview:
         overview = build_overview(
             [_employee(1)], [_alloc(1, 1, 0, 5.0)], PROJECTS, WEEKS
         )[1]
-        assert overview.load_percent == 100
         assert [w.percent for w in overview.weeks] == [100, 0, 0, 0]
+        assert overview.load_percent == 25
         assert overview.free_days == 15.0
         assert overview.free is True
         assert overview.overloaded is False
@@ -66,13 +70,25 @@ class TestBuildOverview:
             ("Alpha", 4.0),
             ("Beta", 1.0),
         ]
-        assert overview.load_percent == 60
+        assert overview.load_percent == 25
+
+    def test_load_percent_is_the_average_over_all_weeks(self) -> None:
+        allocations = [_alloc(1, 1, 0, 5.0), _alloc(1, 1, 1, 5.0)]
+        overview = build_overview([_employee(1)], allocations, PROJECTS, WEEKS)[1]
+        assert [w.percent for w in overview.weeks] == [100, 100, 0, 0]
+        assert overview.load_percent == 50
 
     def test_overload(self) -> None:
+        allocations = [_alloc(1, 1, week, 6.0) for week in range(len(WEEKS))]
+        overview = build_overview([_employee(1)], allocations, PROJECTS, WEEKS)[1]
+        assert overview.load_percent == 120
+        assert overview.overloaded is True
+
+    def test_overload_in_one_week_only_is_not_overloaded(self) -> None:
         overview = build_overview(
             [_employee(1)], [_alloc(1, 1, 0, 7.0)], PROJECTS, WEEKS
         )[1]
-        assert overview.overloaded is True
+        assert overview.overloaded is False
 
     def test_absence_this_week(self) -> None:
         absent = _employee(
@@ -246,6 +262,7 @@ def test_employee_table_headers_enable_sorting() -> None:
         "project_count",
     ):
         assert f'"data-sort":"{key}"' in rendered
+    assert ("Auslastung 8 W.", "load_percent", False) in COLUMNS
     assert "toggle_sort" in rendered
     assert "decimalScale:1" in rendered
     assert "fixedDecimalScale:true" in rendered
@@ -269,7 +286,9 @@ class TestRefreshOverview:
     @pytest.mark.asyncio
     async def test_fills_overviews(self) -> None:
         state = _state()
-        inputs = ([_alloc(2, 1, 0, 5.0)], PROJECTS, frozenset())
+        weeks = week_starts(datetime.now(tz=UTC).date())
+        allocations = [Allocation(1, 2, week, 5.0) for week in weeks]
+        inputs = (allocations, PROJECTS, frozenset())
         with patch(LOAD_INPUTS, AsyncMock(return_value=inputs)):
             await state._refresh_overview()
         assert set(state.overviews) == {1, 2, 3}

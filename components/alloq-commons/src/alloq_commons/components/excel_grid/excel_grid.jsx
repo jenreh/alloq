@@ -631,6 +631,9 @@ export function ExcelGrid({
       id={id}
       ref={setRootRef}
       className={className}
+      // The editor box is measured relative to the root, so the root must be
+      // the input's containing block.
+      style={{ position: "relative" }}
       tabIndex={0}
       role="grid"
       aria-label={gridLabel}

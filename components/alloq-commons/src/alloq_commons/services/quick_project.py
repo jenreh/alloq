@@ -7,11 +7,14 @@ page. The full project form remains the path for complete project setup.
 
 import datetime as dt
 import logging
+from collections.abc import Iterable
+from typing import Any
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from alloq_commons.entities import ProjectEntity
+from alloq_commons.entities.project import ProjectStateEnum
 from alloq_commons.models.project import Project
 from alloq_commons.repositories import project_repo
 
@@ -23,8 +26,29 @@ NEW_PROJECT_OPTION: dict[str, str] = {
     "label": "+ Neues Projekt anlegen",
 }
 
+STATE_GROUPS: tuple[tuple[str, frozenset[str]], ...] = (
+    ("Aktiv", frozenset({ProjectStateEnum.ACTIVE, ProjectStateEnum.AT_RISK})),
+    ("Geplant", frozenset({ProjectStateEnum.PLANNED})),
+    ("Abgeschlossen", frozenset({ProjectStateEnum.COMPLETED})),
+)
+
 MAX_CODE_LENGTH = 5
 PLACEHOLDER_DURATION_DAYS = 90
+
+
+def grouped_project_options(projects: Iterable[Project]) -> list[dict[str, Any]]:
+    """Build select data: the create entry, then projects grouped by state.
+
+    Groups follow ``STATE_GROUPS`` (completed last); empty groups are omitted.
+    """
+    buckets: dict[str, list[dict[str, str]]] = {name: [] for name, _ in STATE_GROUPS}
+    for p in projects:
+        name = next((n for n, states in STATE_GROUPS if p.state in states), "Geplant")
+        buckets[name].append({"value": str(p.id), "label": f"{p.code} - {p.name_de}"})
+    return [
+        NEW_PROJECT_OPTION,
+        *({"group": name, "items": items} for name, items in buckets.items() if items),
+    ]
 
 
 class QuickProjectError(Exception):

@@ -220,7 +220,9 @@ class TestViewGating:
     def test_project_view_only_sends_filtered_projects(self) -> None:
         state = _store("Projekte")
         assert state.filtered_employees == []
-        assert [p.code for p in state.filtered_projects] == ["A", "B"]
+        state.project_meta[0]["employee_ids"] = ["emp-1"]
+        state.project_meta[1]["employee_ids"] = ["emp-2"]
+        assert [p.code for p in state.filtered_projects] == ["A"]
 
 
 class TestPopulate:

@@ -2,6 +2,7 @@ import reflex as rx
 from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.formatters import de_number, format_date_de
 from alloq_commons.components.forms import section
+from alloq_commons.role_colors import role_color_var
 from alloq_project.states.project_resource_state import (
     MAX_DAYS_PER_WEEK,
     MIN_DAYS_PER_WEEK,
@@ -47,7 +48,13 @@ def _period_row(period: ObjectVar) -> rx.Component:
             truncate=True,
             style={"flex": "1", "minWidth": "0"},
         ),
-        mn.badge(period.role_name, variant="light", color="teal", radius="sm"),
+        mn.badge(
+            period.role_name,
+            variant="filled",
+            color=role_color_var(period.role_name),
+            c="var(--alloq-text)",
+            radius="sm",
+        ),
         mn.text(
             format_date_de(period.start) + " \u2013 " + format_date_de(period.end),
             size="xs",

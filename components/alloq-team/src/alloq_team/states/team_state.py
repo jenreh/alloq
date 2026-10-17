@@ -25,10 +25,10 @@ from alloq_commons.repositories.employee_repository import employee_repo
 from alloq_commons.repositories.project_repository import project_repo
 from alloq_commons.repositories.role_repository import role_repo
 from alloq_commons.services.quick_project import (
-    NEW_PROJECT_OPTION,
     NEW_PROJECT_VALUE,
     QuickProjectError,
     create_quick_project,
+    grouped_project_options,
 )
 
 from alloq_team.states.team_list_state import TeamListState
@@ -52,6 +52,9 @@ def _employee_from_form(form_data: dict) -> EmployeeCreate:
     else:
         role_ids = [int(x) for x in raw_roles]
 
+    key_role_id = int(form_data["key_role_id"])
+    role_ids = [key_role_id, *(r for r in role_ids if r != key_role_id)]
+
     manager_id_raw = form_data.get("manager_id")
     return EmployeeCreate(
         first_name=form_data.get("first_name", "").strip(),
@@ -61,6 +64,7 @@ def _employee_from_form(form_data: dict) -> EmployeeCreate:
         job_title=form_data.get("job_title", "").strip() or None,
         location=form_data.get("location", "").strip() or None,
         manager_id=int(manager_id_raw) if manager_id_raw else None,
+        key_role_id=key_role_id,
         role_ids=role_ids,
         hours_per_week=float(form_data.get("hours_per_week", 40.0)),
         # The field is optional in the form; a cleared input posts "".
@@ -204,17 +208,12 @@ class TeamState(TeamListState, UserSession):
         ]
 
     @rx.var
-    def unassigned_project_options(self) -> list[dict[str, str]]:
-        """Projects not yet assigned to the selected employee."""
+    def unassigned_project_options(self) -> list[dict[str, Any]]:
+        """Projects not yet assigned to the selected employee, grouped by state."""
         assigned_ids = {c.project_id for c in self.employee_capacities}
-        return [
-            NEW_PROJECT_OPTION,
-            *(
-                {"value": str(p.id), "label": f"{p.code} - {p.name_de}"}
-                for p in self.all_projects
-                if p.id not in assigned_ids
-            ),
-        ]
+        return grouped_project_options(
+            p for p in self.all_projects if p.id not in assigned_ids
+        )
 
     @rx.var
     def quick_create_active(self) -> bool:
@@ -347,7 +346,9 @@ class TeamState(TeamListState, UserSession):
                 # Reflex types handler calls as positional-only; kwargs are valid.
                 yield EmployeeValidationState.initialize(  # ty: ignore[no-matching-overload]
                     employee=employee,
-                    default_role_ids=[str(r) for r in employee.role_ids],
+                    default_role_ids=[
+                        str(r) for r in employee.role_ids if r != employee.key_role_id
+                    ],
                 )
             else:
                 error = "Mitarbeiter nicht gefunden."
@@ -411,7 +412,9 @@ class TeamState(TeamListState, UserSession):
                     internal_hours=emp_data.internal_hours,
                 )
                 await employee_repo.create(session, entity)
-                await employee_repo.set_roles(session, entity, emp_data.role_ids)
+                await employee_repo.set_roles(
+                    session, entity, emp_data.role_ids, emp_data.key_role_id
+                )
                 await session.commit()
 
             await self._load_employees()
@@ -463,7 +466,9 @@ class TeamState(TeamListState, UserSession):
                 entity.manager_id = emp_data.manager_id
                 entity.hours_per_week = emp_data.hours_per_week
                 entity.internal_hours = emp_data.internal_hours
-                await employee_repo.set_roles(session, entity, emp_data.role_ids)
+                await employee_repo.set_roles(
+                    session, entity, emp_data.role_ids, emp_data.key_role_id
+                )
                 await employee_repo.update(session, entity)
 
             updated_employee = await self._fetch_employee(employee_id)
@@ -760,6 +765,8 @@ class EmployeeValidationState(rx.State):
     location: rx.Field[str] = rx.field("")
     manager_id: rx.Field[str] = rx.field("")
     seniority: rx.Field[str] = rx.field("")
+    key_role_id: rx.Field[str] = rx.field("")
+    # Additional roles; the key role is kept separately.
     role_ids: rx.Field[list[str]] = rx.field(default_factory=list)
     hours_per_week: rx.Field[str] = rx.field("40.0")
     internal_hours: rx.Field[str] = rx.field("4")
@@ -767,7 +774,7 @@ class EmployeeValidationState(rx.State):
     first_name_error: rx.Field[str] = rx.field("")
     last_name_error: rx.Field[str] = rx.field("")
     email_error: rx.Field[str] = rx.field("")
-    role_ids_error: rx.Field[str] = rx.field("")
+    key_role_id_error: rx.Field[str] = rx.field("")
     hours_per_week_error: rx.Field[str] = rx.field("")
     internal_hours_error: rx.Field[str] = rx.field("")
 
@@ -786,6 +793,7 @@ class EmployeeValidationState(rx.State):
             self.location = ""
             self.manager_id = ""
             self.seniority = "Advanced"
+            self.key_role_id = ""
             self.role_ids = []
             self.hours_per_week = "40.0"
             self.internal_hours = "4"
@@ -801,6 +809,7 @@ class EmployeeValidationState(rx.State):
                 else ""
             )
             self.seniority = employee.seniority
+            self.key_role_id = str(employee.key_role_id) if employee.key_role_id else ""
             self.role_ids = default_role_ids or []
             self.hours_per_week = str(employee.hours_per_week)
             self.internal_hours = str(employee.internal_hours)
@@ -808,7 +817,7 @@ class EmployeeValidationState(rx.State):
         self.first_name_error = ""
         self.last_name_error = ""
         self.email_error = ""
-        self.role_ids_error = ""
+        self.key_role_id_error = ""
         self.hours_per_week_error = ""
         self.internal_hours_error = ""
 
@@ -846,9 +855,15 @@ class EmployeeValidationState(rx.State):
         self.seniority = value
 
     @rx.event
+    def set_key_role_id(self, value: str | None) -> None:
+        self.key_role_id = value or ""
+        self.role_ids = [r for r in self.role_ids if r != self.key_role_id]
+        self.form_version += 1
+        self.validate_key_role_id()
+
+    @rx.event
     def set_role_ids(self, value: list[str]) -> None:
-        self.role_ids = value
-        self.validate_role_ids()
+        self.role_ids = [r for r in value if r != self.key_role_id]
 
     @rx.event
     def set_hours_per_week(self, value: str | float) -> None:
@@ -907,11 +922,11 @@ class EmployeeValidationState(rx.State):
             self.email_error = ""
 
     @rx.event
-    def validate_role_ids(self) -> None:
-        if not self.role_ids:
-            self.role_ids_error = "Rollen-Auswahl ist erforderlich."
+    def validate_key_role_id(self) -> None:
+        if not self.key_role_id:
+            self.key_role_id_error = "Schlüsselrolle ist erforderlich."
         else:
-            self.role_ids_error = ""
+            self.key_role_id_error = ""
 
     @rx.event
     def validate_hours_per_week(self) -> None:
@@ -949,7 +964,7 @@ class EmployeeValidationState(rx.State):
             self.first_name_error
             or self.last_name_error
             or self.email_error
-            or self.role_ids_error
+            or self.key_role_id_error
             or self.hours_per_week_error
             or self.internal_hours_error
         )
@@ -966,7 +981,7 @@ class EmployeeValidationState(rx.State):
         return bool(
             self.first_name.strip()
             and self.last_name.strip()
-            and self.role_ids
+            and self.key_role_id
             and hours_valid
             and not self.has_errors
         )

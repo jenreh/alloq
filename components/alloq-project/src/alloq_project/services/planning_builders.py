@@ -8,6 +8,7 @@ from typing import Any
 
 from alloq_commons.models.employee import Employee
 from alloq_commons.models.project import Project
+from alloq_commons.role_colors import role_color
 from alloq_commons.services.utilization import (
     UtilizationAllocationInput,
     UtilizationService,
@@ -85,14 +86,6 @@ GERMAN_MONTHS = [
     "Nov",
     "Dez",
 ]
-
-ROLE_PALETTE: dict[str, str] = {
-    "PM": "var(--mantine-color-violet-1)",
-    "AIA": "var(--mantine-color-orange-1)",
-    "DS": "var(--mantine-color-blue-1)",
-    "AIE": "var(--mantine-color-teal-1)",
-    "RE": "var(--mantine-color-pink-1)",
-}
 
 ROLE_FULL: dict[str, str] = {
     "PM": "Project Manager",
@@ -399,6 +392,25 @@ def employee_summary(block: EmployeeBlock, from_key: str) -> tuple[float, float]
     return round(planned, 2), round(available, 2)
 
 
+def without_internal_projects(blocks: list[EmployeeBlock]) -> list[EmployeeBlock]:
+    """Copies of the blocks without internal project rows; totals stay as is."""
+    return [
+        block.model_copy(
+            update={"projects": [p for p in block.projects if not p.is_internal]}
+        )
+        for block in blocks
+    ]
+
+
+def without_idle_projects(blocks: list[ProjectBlock]) -> list[ProjectBlock]:
+    """Drop projects without any planned effort in the visible range."""
+    return [
+        block
+        for block in blocks
+        if any(cell.value > 0 for row in block.employees for cell in row.cells)
+    ]
+
+
 def filter_project_blocks(
     blocks: list[ProjectBlock],
     weeks: list[WeekColumn],
@@ -494,9 +506,7 @@ def build_employee_meta(
             {
                 "code": _abbrev_for(rn),
                 "full": rn,
-                "color": ROLE_PALETTE.get(
-                    _abbrev_for(rn), "var(--mantine-color-gray-2)"
-                ),
+                "color": role_color(rn),
             }
             for rn in emp.role_names
         ]
@@ -512,9 +522,7 @@ def build_employee_meta(
                 "initials": (f"{emp.first_name[:1]}{emp.last_name[:1]}".upper() or "?"),
                 "job_title": emp.job_title or "",
                 "role_short": primary_short,
-                "role_color": ROLE_PALETTE.get(
-                    primary_short, "var(--mantine-color-gray-2)"
-                ),
+                "role_color": role_color(primary),
                 "role_full": primary or ROLE_FULL.get(primary_short, primary_short),
                 "role_badges": role_badges,
                 "role_ids": list(emp.role_ids) if emp.role_ids else [],
@@ -542,6 +550,7 @@ def build_project_meta(
             "name": p.name_de or "—",
             "color": p.color or "var(--mantine-color-gray-5)",
             "state": getattr(p, "state", ""),
+            "is_internal": bool(getattr(p, "is_internal", False)),
             "employee_ids": [],
         }
         proj_meta.append(entry)

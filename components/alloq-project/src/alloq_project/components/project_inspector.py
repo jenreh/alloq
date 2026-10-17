@@ -14,7 +14,7 @@ from alloq_commons.components.list_view import (
 )
 from alloq_commons.components.toolbar import icon_button
 from alloq_commons.models.project import Project, TeamMemberBadge
-from alloq_project.components.project_parts import period, project_tile
+from alloq_project.components.project_parts import project_tile
 from alloq_project.states.project_state import ProjectState
 from reflex.vars import ObjectVar
 
@@ -142,6 +142,41 @@ def _risks(project: ObjectVar[Project]) -> rx.Component:
     )
 
 
+def _pt(value: rx.Var) -> rx.Component:
+    return de_number(value=value, decimal_scale=0, suffix=" PT")
+
+
+def _date_input(project: ObjectVar[Project], field: str) -> rx.Component:
+    return mn.date_input(
+        value=(
+            ProjectState.inspected_start_date
+            if field == "start"
+            else ProjectState.inspected_end_date
+        ),
+        on_change=lambda value: ProjectState.set_inspected_date_draft(
+            project.id, field, value
+        ),
+        on_blur=ProjectState.save_inspected_dates(project.id),
+        right_section=mn.action_icon(
+            rx.icon("calendar-check", size=14, stroke_width=1.8),
+            variant="subtle",
+            color="gray",
+            size=22,
+            aria_label="Heute",
+            title="Heute",
+            on_click=[
+                ProjectState.set_inspected_date_today(project.id, field),
+                ProjectState.save_inspected_dates(project.id),
+            ],
+        ),
+        right_section_pointer_events="all",
+        clearable=False,
+        locale="de",
+        value_format="DD.MM.YYYY",
+        size="xs",
+    )
+
+
 def _details(project: ObjectVar[Project]) -> rx.Component:
     return mn.stack(
         _heading(project),
@@ -163,9 +198,11 @@ def _details(project: ObjectVar[Project]) -> rx.Component:
                 ),
                 ("Kunde", project.customer),
                 ("Kürzel", project.code),
-                ("Zeitraum", period(project)),
+                ("Start", _date_input(project, "start")),
+                ("Ende", _date_input(project, "end")),
                 ("Budget", de_number(value=project.budget, suffix=" €")),
-                ("Bedarf", de_number(value=project.total_pt, suffix=" PT")),
+                ("Bedarf", _pt(project.total_pt)),
+                ("Geplant", _pt(project.planned_pt)),
             ),
         ),
         inspector_section(

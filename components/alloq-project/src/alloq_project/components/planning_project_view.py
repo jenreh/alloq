@@ -53,13 +53,8 @@ def _role_total_badge(role: ObjectVar[RoleTotal]) -> rx.Component:
         size="sm",
         radius="sm",
         variant="filled",
-        color="gray",
-        style={
-            "backgroundColor": role.color,
-            "color": "var(--alloq-text)",
-            "textTransform": "none",
-            "fontWeight": "500",
-        },
+        color=role.color,
+        c="var(--alloq-text)",
     )
 
 
@@ -150,14 +145,9 @@ def _employee_label_cell(emp: ObjectVar[EmployeeAllocationRow]) -> rx.Component:
                     size="xs",
                     radius="sm",
                     variant="filled",
-                    color="gray",
-                    style={
-                        "backgroundColor": emp.role_color,
-                        "color": "var(--alloq-text)",
-                        "textTransform": "none",
-                        "fontWeight": "700",
-                        "flexShrink": "0",
-                    },
+                    color=emp.role_color,
+                    c="var(--alloq-text)",
+                    fw="700",
                 ),
                 rx.fragment(),
             ),

@@ -2,6 +2,7 @@ import logging
 import re
 from collections.abc import AsyncGenerator
 from datetime import UTC, date, datetime
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from importlib import import_module
 from typing import Any
 
@@ -71,12 +72,17 @@ PROJECT_COLORS = [
 
 
 def _parse_localized_int(value: float | str | None) -> int:
-    """Parse numeric input values that may contain German separators."""
+    """Parse German-formatted numbers ("1.123,50"), rounding half up."""
     if isinstance(value, int | float):
-        return int(value)
-    raw = str(value or 0).strip()
-    raw = raw.replace(".", "").replace(",", ".")
-    return int(float(raw)) if raw else 0
+        raw = str(value)
+    else:
+        raw = str(value or 0).strip().replace(".", "").replace(",", ".")
+    if not raw:
+        return 0
+    try:
+        return int(Decimal(raw).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+    except InvalidOperation as exc:
+        raise ValueError(raw) from exc
 
 
 def _project_error_message(exc: Exception, fallback: str) -> str:
@@ -507,6 +513,7 @@ class ProjectState(ProjectListState, UserSession):
                     state=project_data.state,
                     budget=project_data.budget,
                     color=project_data.color,
+                    is_internal=project_data.is_internal,
                 )
 
                 if project_data.owner_ids:
@@ -577,6 +584,7 @@ class ProjectState(ProjectListState, UserSession):
                 entity.state = project_data.state
                 entity.budget = project_data.budget
                 entity.color = project_data.color
+                entity.is_internal = project_data.is_internal
 
                 entity.owners.clear()
                 for emp_id in project_data.owner_ids:
@@ -667,6 +675,7 @@ class ProjectState(ProjectListState, UserSession):
             state=str(form_data.get("state", ProjectStateEnum.PLANNED.value)),
             budget=budget,
             color=color,
+            is_internal=form_data.get("is_internal") == "on",
             owner_ids=owner_ids,
             required_capacities=required_capacities,
         )
@@ -1255,11 +1264,11 @@ class ProjectValidationState(rx.State):
     state: rx.Field[str] = rx.field(ProjectStateEnum.PLANNED.value)
     budget: rx.Field[int] = rx.field(0)
     color: rx.Field[str] = rx.field(DEFAULT_PROJECT_COLOR)
+    is_internal: rx.Field[bool] = rx.field(False)
     owner_ids: rx.Field[list[str]] = rx.field(default_factory=list)
     role_capacities: rx.Field[dict[str, int]] = rx.field(default_factory=dict)
 
     code_error: rx.Field[str] = rx.field("")
-    customer_error: rx.Field[str] = rx.field("")
     name_de_error: rx.Field[str] = rx.field("")
     date_error: rx.Field[str] = rx.field("")
     budget_error: rx.Field[str] = rx.field("")
@@ -1277,6 +1286,7 @@ class ProjectValidationState(rx.State):
                 self.state = ProjectStateEnum.PLANNED.value
                 self.budget = 0
                 self.color = DEFAULT_PROJECT_COLOR
+                self.is_internal = False
                 self.owner_ids = []
 
                 # Get available roles to initialize capacities to 0
@@ -1295,6 +1305,7 @@ class ProjectValidationState(rx.State):
                 self.state = project.state
                 self.budget = project.budget
                 self.color = project.color
+                self.is_internal = project.is_internal
                 self.owner_ids = [str(oid) for oid in project.owner_ids]
 
                 project_state = await self.get_state(ProjectState)
@@ -1308,7 +1319,6 @@ class ProjectValidationState(rx.State):
                 self.role_capacities = role_caps
 
             self.code_error = ""
-            self.customer_error = ""
             self.name_de_error = ""
             self.date_error = ""
             self.budget_error = ""
@@ -1322,7 +1332,6 @@ class ProjectValidationState(rx.State):
     @rx.event
     def set_customer(self, value: str) -> None:
         self.customer = value
-        self.validate_customer()
 
     @rx.event
     def set_name_de(self, value: str) -> None:
@@ -1362,10 +1371,6 @@ class ProjectValidationState(rx.State):
     @rx.event
     def validate_code(self) -> None:
         self.code_error = "" if self.code.strip() else "Projekt-Code ist erforderlich."
-
-    @rx.event
-    def validate_customer(self) -> None:
-        self.customer_error = "" if self.customer.strip() else "Kunde ist erforderlich."
 
     @rx.event
     def validate_name_de(self) -> None:
@@ -1416,7 +1421,6 @@ class ProjectValidationState(rx.State):
     def has_errors(self) -> bool:
         return bool(
             self.code_error
-            or self.customer_error
             or self.name_de_error
             or self.date_error
             or self.budget_error
@@ -1438,7 +1442,6 @@ class ProjectValidationState(rx.State):
 
         return bool(
             self.code.strip()
-            and self.customer.strip()
             and self.name_de.strip()
             and budget_valid
             and dates_valid

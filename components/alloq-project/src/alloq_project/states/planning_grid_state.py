@@ -29,15 +29,15 @@ from alloq_commons.repositories import (
     public_holiday_repo,
     role_repo,
 )
+from alloq_commons.role_colors import role_color
 from alloq_commons.services.quick_project import (
-    NEW_PROJECT_OPTION,
     NEW_PROJECT_VALUE,
     QuickProjectError,
     create_quick_project,
+    grouped_project_options,
 )
 from alloq_commons.services.utilization import UtilizationService
 from alloq_project.services.planning_builders import (
-    ROLE_PALETTE,
     CapAssignment,
     anchor_date,
     build_employee_meta,
@@ -64,6 +64,8 @@ from alloq_project.services.planning_builders import (
     sorted_projects,
     split_edits,
     wire_pairs,
+    without_idle_projects,
+    without_internal_projects,
 )
 from alloq_project.services.planning_gantt import build_absence_gantt
 from alloq_project.states.planning_models import (
@@ -155,6 +157,7 @@ class PlanningStore(UserSession):
     role_filter: rx.Field[list[str]] = rx.field(default_factory=list)
     employee_filter: rx.Field[list[str]] = rx.field(default_factory=list)
     available_only: rx.Field[bool] = rx.field(False)
+    hide_internal: rx.Field[bool] = rx.field(False)
     project_scope: rx.Field[bool] = rx.field(False)
     employee_scope: rx.Field[bool] = rx.field(False)
     current_employee_id: rx.Field[int | None] = rx.field(None)
@@ -164,7 +167,7 @@ class PlanningStore(UserSession):
     collapsed_projects: rx.Field[list[str]] = rx.field(default_factory=list)
 
     add_project_emp_id: rx.Field[str] = rx.field("")
-    add_project_options: rx.Field[list[dict[str, str]]] = rx.field(default_factory=list)
+    add_project_options: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
     add_project_role_options: rx.Field[list[dict[str, str]]] = rx.field(
         default_factory=list
     )
@@ -211,6 +214,10 @@ class PlanningStore(UserSession):
     @rx.event
     def set_available_only(self, value: bool) -> None:
         self.available_only = value
+
+    @rx.event
+    def set_hide_internal(self, value: bool) -> None:
+        self.hide_internal = value
 
     @rx.event
     def toggle_project_scope(self) -> Any:
@@ -298,7 +305,7 @@ class PlanningStore(UserSession):
                 ]
                 rname = self.role_lookup.get(f"{emp_id}|{proj['real_id']}", "")
                 rshort = role_abbrev_by_name.get(rname) or role_short(rname)
-                rcolor = ROLE_PALETTE.get(rshort, "var(--mantine-color-gray-2)")
+                rcolor = role_color(rname)
                 project_rows.append(
                     ProjectAllocationRow(
                         project_id=str(proj["real_id"]),
@@ -310,6 +317,7 @@ class PlanningStore(UserSession):
                         role_name=rname,
                         role_short=rshort,
                         role_color=rcolor,
+                        is_internal=proj.get("is_internal", False),
                         cells=cells,
                     )
                 )
@@ -379,7 +387,7 @@ class PlanningStore(UserSession):
                 ]
                 rname = self.role_lookup.get(f"{emp_id}|{proj['real_id']}", "")
                 rshort = role_abbrev_by_name.get(rname) or role_short(rname)
-                rcolor = ROLE_PALETTE.get(rshort, "var(--mantine-color-gray-2)")
+                rcolor = role_color(rname)
                 emp_rows.append(
                     EmployeeAllocationRow(
                         emp_id=emp_id,
@@ -400,6 +408,7 @@ class PlanningStore(UserSession):
                 name=proj["name"],
                 color=proj["color"],
                 state=proj.get("state", ""),
+                is_internal=proj.get("is_internal", False),
                 employees=emp_rows,
             )
             block.gesamt = compute_project_gesamt(weeks, block)
@@ -443,8 +452,11 @@ class PlanningStore(UserSession):
     def filtered_employees(self) -> list[EmployeeBlock]:
         if self.view_mode != GRID_VIEW:
             return []
+        blocks = self._filter_employees(self.employee_blocks)
+        if self.hide_internal:
+            blocks = without_internal_projects(blocks)
         return sorted(
-            self._filter_employees(self.employee_blocks),
+            blocks,
             key=lambda employee: (
                 employee.last_name.casefold(),
                 employee.first_name.casefold(),
@@ -455,7 +467,9 @@ class PlanningStore(UserSession):
     def filtered_projects(self) -> list[ProjectBlock]:
         if self.view_mode != PROJECT_VIEW:
             return []
-        result = self.project_blocks
+        result = without_idle_projects(self.project_blocks)
+        if self.hide_internal:
+            result = [p for p in result if not p.is_internal]
         if self.project_scope:
             own = owned_project_ids(self.all_projects, self.current_employee_id)
             result = [p for p in result if str(p.real_id) in own]
@@ -861,14 +875,9 @@ class PlanningStore(UserSession):
             for pid in (emp or {}).get("project_ids", [])
             if pid in proj_idx
         }
-        self.add_project_options = [
-            NEW_PROJECT_OPTION,
-            *(
-                {"value": str(p.id), "label": f"{p.code} - {p.name_de}"}
-                for p in self.available_projects
-                if p.code not in assigned_codes
-            ),
-        ]
+        self.add_project_options = grouped_project_options(
+            p for p in self.available_projects if p.code not in assigned_codes
+        )
 
     def _reset_quick_create(self) -> None:
         self.add_project_selected = ""

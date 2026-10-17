@@ -19,35 +19,31 @@ from reflex.vars import ObjectVar
 import appkit_mantine as mn
 from appkit_ui.global_states import LoadingState
 
-BAR_MAX_PERCENT = 120
-HIGH_PERCENT = 85
 FULL_PERCENT = 100
 
 
 def _week_tone(week: ObjectVar[TeamWeek]) -> rx.Var[str]:
     return rx.cond(
         week.absent,
-        theme.token("border-strong"),
+        theme.TEXT_TERTIARY,
         rx.cond(
             week.percent > FULL_PERCENT,
             theme.NEGATIVE,
-            rx.cond(week.percent >= HIGH_PERCENT, theme.WARNING, theme.ACCENT),
+            theme.POSITIVE,
         ),
     ).to(str)
 
 
 def _bar(week: ObjectVar[TeamWeek]) -> rx.Component:
-    height = rx.cond(week.percent > BAR_MAX_PERCENT, BAR_MAX_PERCENT, week.percent).to(
-        int
-    )
+    height = rx.cond(week.percent > FULL_PERCENT, FULL_PERCENT, week.percent).to(int)
     return mn.tooltip(
         mn.box(
             mn.box(
                 style={
-                    "height": (height * 100 / BAR_MAX_PERCENT).to(str) + "%",
+                    "height": rx.cond(week.absent, FULL_PERCENT, height).to(str) + "%",
                     "minHeight": "2px",
                     "background": _week_tone(week),
-                    "borderRadius": "3px 3px 0 0",
+                    "borderRadius": "3px",
                 }
             ),
             style={
@@ -55,6 +51,9 @@ def _bar(week: ObjectVar[TeamWeek]) -> rx.Component:
                 "display": "flex",
                 "flexDirection": "column",
                 "justifyContent": "flex-end",
+                "background": theme.token("border"),
+                "borderRadius": "3px",
+                "overflow": "hidden",
             },
         ),
         label=week.label

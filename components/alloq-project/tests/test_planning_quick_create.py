@@ -9,7 +9,11 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from alloq_commons.models.project import Project
-from alloq_commons.services.quick_project import NEW_PROJECT_VALUE, QuickProjectError
+from alloq_commons.services.quick_project import (
+    NEW_PROJECT_VALUE,
+    QuickProjectError,
+    grouped_project_options,
+)
 from alloq_project.states.planning_grid_state import PlanningStore
 
 
@@ -86,8 +90,9 @@ class TestQuickCreateOptions:
 
         state._rebuild_add_project_options()
 
-        values = [opt["value"] for opt in state.add_project_options]
-        assert values == [NEW_PROJECT_VALUE]
+        assert [o.get("value") for o in state.add_project_options] == [
+            NEW_PROJECT_VALUE
+        ]
 
     def test_quick_create_active_tracks_selection(self) -> None:
         state = PlanningStore()
@@ -147,7 +152,11 @@ class TestQuickCreateProject:
         ):
             await _drain(state.quick_create_project())
 
-        labels = {opt["value"]: opt["label"] for opt in state.add_project_options}
+        labels = {
+            item["value"]: item["label"]
+            for group in state.add_project_options[1:]
+            for item in group["items"]
+        }
         assert labels["7"] == "NEU - Neue Plattform"
 
     @pytest.mark.asyncio
@@ -208,3 +217,24 @@ class TestAssignWithPendingQuickCreate:
             await _drain(state.add_project_to_employee_grid({"role_id": "3"}))
 
         session.commit.assert_not_called()
+
+
+class TestGroupedProjectOptions:
+    """Projects are grouped by state, completed last."""
+
+    def test_groups_ordered_with_completed_last(self) -> None:
+        projects = [
+            Project(id=1, code="A", name_de="Done", state="Abgeschlossen"),
+            Project(id=2, code="B", name_de="Plan", state="Geplant"),
+            Project(id=3, code="C", name_de="Run", state="Aktiv"),
+            Project(id=4, code="D", name_de="Risk", state="Risiko"),
+        ]
+
+        options = grouped_project_options(projects)
+
+        assert [o.get("group") for o in options[1:]] == [
+            "Aktiv",
+            "Geplant",
+            "Abgeschlossen",
+        ]
+        assert [i["value"] for i in options[1]["items"]] == ["3", "4"]

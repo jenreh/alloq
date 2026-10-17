@@ -79,6 +79,7 @@ class ProjectAllocationRow(BaseModel):
     role_name: str = ""
     role_short: str = ""
     role_color: str = ""
+    is_internal: bool = False
     cells: list[GridCell] = []
 
 
@@ -147,6 +148,7 @@ class ProjectBlock(BaseModel):
     name: str = ""
     color: str = ""
     state: str = ""
+    is_internal: bool = False
     employees: list[EmployeeAllocationRow] = []
     gesamt: list[ProjectGesamtCell] = []
     heat: list[HeatCell] = []

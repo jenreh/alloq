@@ -8,6 +8,7 @@ import reflex as rx
 from alloq_commons.components.formatters import de_number, format_date_de
 from alloq_commons.components.modal_layout import MODAL_CLASS
 from alloq_commons.models.project import Project
+from alloq_commons.role_colors import role_color_var
 from alloq_project.states.project_plan_state import ProjectPlanState
 from reflex.event import EventType
 from reflex.vars import NumberVar, ObjectVar
@@ -692,13 +693,10 @@ def _role_requirement_badge(rc: dict) -> rx.Component:
             wrap="nowrap",
         ),
         size="sm",
-        variant="light",
+        variant="filled",
         radius="xl",
-        color=rx.cond(
-            rc["covered"] == "true",
-            "green",
-            "orange",
-        ),
+        color=role_color_var(rc["role_name"]),
+        c="var(--alloq-text)",
     )
 
 

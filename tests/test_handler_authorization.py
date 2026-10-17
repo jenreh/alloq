@@ -105,6 +105,7 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
             "set_last_name",
             "set_location",
             "set_manager_id",
+            "set_key_role_id",
             "set_role_ids",
             "set_seniority",
             "validate_email",
@@ -112,7 +113,7 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
             "validate_hours_per_week",
             "validate_internal_hours",
             "validate_last_name",
-            "validate_role_ids",
+            "validate_key_role_id",
         }
     ),
     "ProjectState": frozenset(
@@ -129,6 +130,8 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
             "expand_status",
             "open_add_modal",
             "set_active_tab",
+            "set_inspected_date_draft",
+            "set_inspected_date_today",
             "set_risk_draft_description",
             "set_risk_draft_impact",
             "set_risk_draft_measures",
@@ -164,7 +167,6 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
             "set_state",
             "validate_budget",
             "validate_code",
-            "validate_customer",
             "validate_dates",
             "validate_name_de",
         }
@@ -209,6 +211,7 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
             "set_add_project_selected",
             "set_available_only",
             "set_employee_filter",
+            "set_hide_internal",
             "set_project_filter",
             "set_quick_project_code",
             "set_quick_project_name",

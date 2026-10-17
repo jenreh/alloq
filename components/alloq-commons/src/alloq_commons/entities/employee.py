@@ -55,6 +55,11 @@ class EmployeeEntity(Entity, Base):
         ForeignKey("employees.id", ondelete="SET NULL"), nullable=True
     )
 
+    key_role_id: Mapped[int | None] = mapped_column(
+        ForeignKey("roles.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # All roles the employee can fill, including the key role.
     roles = relationship("RoleEntity", secondary=employee_roles, lazy="selectin")
     absences = relationship(
         "AbsenceEntity", lazy="selectin", cascade="all, delete-orphan"
@@ -84,6 +89,8 @@ class EmployeeEntity(Entity, Base):
             ]
             valid_absences.sort(key=lambda a: a.start_date)
             absences = [a.to_dict() for a in valid_absences]
+        # Key role first, so role_names[0] is the employee's main expertise.
+        roles = sorted(self.roles or [], key=lambda r: r.id != self.key_role_id)
         return {
             "id": self.id,
             "first_name": self.first_name,
@@ -93,8 +100,9 @@ class EmployeeEntity(Entity, Base):
             "job_title": self.job_title,
             "location": self.location,
             "manager_id": self.manager_id,
-            "role_ids": [r.id for r in self.roles] if self.roles else [],
-            "role_names": [r.name for r in self.roles] if self.roles else [],
+            "key_role_id": self.key_role_id,
+            "role_ids": [r.id for r in roles],
+            "role_names": [r.name for r in roles],
             "absences": absences,
             "hours_per_week": self.hours_per_week,
             "internal_hours": self.internal_hours,

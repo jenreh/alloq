@@ -220,6 +220,7 @@ class Project(BaseModel):
     state: str = ProjectStateEnum.PLANNED
     budget: int = 0
     color: str = "#FFD43B"
+    is_internal: bool = False
     owner_ids: list[int] = []
     current_progress: int = 0
     current_spent: int = 0
@@ -228,6 +229,7 @@ class Project(BaseModel):
     risk_count: int = 0
     required_capacities: list[RequiredCapacity] = []
     total_pt: int = 0
+    planned_pt: float = 0.0
     ev_earned_value: float = 0.0
     ev_actual_cost: float = 0.0
     ev_eac_linear: float = 0.0
@@ -239,6 +241,7 @@ class Project(BaseModel):
     def compute_total_pt(self) -> Project:
         """Sum the required person days across all roles."""
         self.total_pt = sum(rc.person_days for rc in self.required_capacities)
+        self.planned_pt = round(sum(m.planned_pt for m in self.team_members), 2)
         return self
 
     @property
@@ -251,13 +254,14 @@ class ProjectCreate(BaseModel):
     """Write model for creating projects."""
 
     code: str = Field(..., min_length=1, max_length=50)
-    customer: str = Field(..., min_length=1, max_length=255)
+    customer: str = Field(default="", max_length=255)
     name_de: str = Field(..., min_length=1, max_length=255)
     start_date: date
     end_date: date
     state: str = Field(default=ProjectStateEnum.PLANNED, max_length=20)
     budget: int = Field(..., ge=0)
     color: str = Field(default="#FFD43B", max_length=7)
+    is_internal: bool = False
     owner_ids: list[int] = []
     required_capacities: list[RequiredCapacityCreate] = []
 

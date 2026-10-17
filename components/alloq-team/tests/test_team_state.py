@@ -113,7 +113,8 @@ def _form(**overrides: Any) -> dict[str, Any]:
         "job_title": "",
         "location": "",
         "manager_id": "",
-        "role_ids": "1",
+        "key_role_id": "1",
+        "role_ids": "",
         "hours_per_week": "40",
         "internal_hours": "4",
     }

@@ -106,4 +106,11 @@ def planning_filter_row() -> rx.Component:
             color="blue",
             size="xs",
         ),
+        mn.switch(
+            label="Interne & Abwesenheit ausblenden",
+            checked=PlanningStore.hide_internal,
+            on_change=PlanningStore.set_hide_internal,
+            color="blue",
+            size="xs",
+        ),
     )

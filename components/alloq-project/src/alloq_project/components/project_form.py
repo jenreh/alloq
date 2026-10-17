@@ -51,7 +51,6 @@ def project_form_fields() -> rx.Component:
                 placeholder="z.B. Muster AG",
                 default_value=ProjectValidationState.customer,
                 on_blur=ProjectValidationState.set_customer,
-                error=ProjectValidationState.customer_error,
                 max_length=255,
             ),
             mn.multi_select(
@@ -64,6 +63,12 @@ def project_form_fields() -> rx.Component:
                 searchable=True,
                 placeholder="Owner(s) auswählen",
             ),
+            mn.switch(
+                name="is_internal",
+                label="Internes Projekt",
+                description="Wird in der Projektliste unter Interne Projekte geführt.",
+                default_checked=ProjectValidationState.is_internal,
+            ),
         ),
         section(
             mn.simple_grid(
@@ -71,12 +76,11 @@ def project_form_fields() -> rx.Component:
                     name="budget",
                     label="Budget",
                     default_value=ProjectValidationState.budget,
-                    on_change=ProjectValidationState.set_budget,
+                    on_blur=ProjectValidationState.set_budget,
                     error=ProjectValidationState.budget_error,
                     min=0,
                     step=10000,
-                    decimal_scale=0,
-                    fixed_decimal_scale=True,
+                    decimal_scale=2,
                     required=True,
                     thousand_separator=".",
                     decimal_separator=",",
@@ -210,7 +214,7 @@ def _required_capacity_input(role: ObjectVar[Role]) -> rx.Component:
                     role.id.to_string()
                 ].to(float),
                 # ty cannot infer the lambda's parameter from the event spec.
-                on_change=lambda v: ProjectValidationState.set_role_capacity(  # ty: ignore[invalid-argument-type]
+                on_blur=lambda v: ProjectValidationState.set_role_capacity(  # ty: ignore[invalid-argument-type]
                     role.id.to_string(), v
                 ),
                 min=0,

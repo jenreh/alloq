@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import reflex as rx
 from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.excel_grid import grid_row_attrs
@@ -106,29 +108,16 @@ def _employee_header_row(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
                         fw="700",
                         c="var(--alloq-text)",
                     ),
-                    de_number(
-                        emp.hours_per_week,
-                        suffix="h/W",
-                        size="xs",
-                        c="var(--alloq-text-muted)",
-                        fw="400",
-                    ),
-                    mn.badge(
-                        emp.role,
-                        size="xs",
-                        radius="sm",
-                        variant="filled",
-                        color="gray",
-                        style={
-                            "backgroundColor": emp.role_color,
-                            "color": "var(--alloq-text)",
-                            "textTransform": "none",
-                            "fontWeight": "700",
-                        },
-                    ),
                     gap="sm",
                     align="center",
                     wrap="nowrap",
+                ),
+                de_number(
+                    emp.hours_per_week,
+                    suffix="h/W",
+                    size="xs",
+                    c="var(--alloq-text-muted)",
+                    fw="400",
                 ),
                 justify="space-between",
                 align="center",
@@ -208,14 +197,9 @@ def _project_label_cell(project: ObjectVar[ProjectAllocationRow]) -> rx.Componen
                     size="xs",
                     radius="sm",
                     variant="filled",
-                    color="gray",
-                    style={
-                        "backgroundColor": project.role_color,
-                        "color": "var(--alloq-text)",
-                        "textTransform": "none",
-                        "fontWeight": "700",
-                        "flexShrink": "0",
-                    },
+                    color=project.role_color,
+                    c="var(--alloq-text)",
+                    fw="700",
                 ),
                 rx.fragment(),
             ),
@@ -360,8 +344,11 @@ def _employee_block(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
             ~is_collapsed,
             mn.box(
                 rx.foreach(emp.projects, _project_row_view),
-                _internal_row(emp),
-                _absence_row(emp),
+                rx.cond(
+                    ~PlanningStore.hide_internal,
+                    rx.fragment(_internal_row(emp), _absence_row(emp)),
+                    rx.fragment(),
+                ),
                 _gesamt_row(emp),
                 empty_grid_row(),
             ),
@@ -384,7 +371,7 @@ def _add_project_modal() -> rx.Component:
                     mn.select(
                         name="project_id",
                         label="Projekt",
-                        data=PlanningStore.add_project_options.to(list[dict[str, str]]),
+                        data=PlanningStore.add_project_options.to(list[dict[str, Any]]),
                         value=PlanningStore.add_project_selected,
                         on_change=PlanningStore.set_add_project_selected,
                         required=True,

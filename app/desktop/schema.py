@@ -11,6 +11,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 KNOWN_REVISIONS: Final = (
+    "ab12cd34ef56",
+    "ff77aa88bb99",
     "ee66ff77aa88",
     "dd55ee66ff77",
     "cc44dd55ee66",
