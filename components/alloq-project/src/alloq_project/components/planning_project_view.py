@@ -5,6 +5,7 @@ from __future__ import annotations
 import reflex as rx
 from alloq_commons.components.excel_grid import grid_row_attrs
 from alloq_commons.components.formatters import de_number
+from alloq_commons.role_colors import ROLE_BADGE_TEXT_COLOR
 from alloq_project.components.planning_shared import (
     CELL_BASE,
     LABEL_CELL_BASE,
@@ -54,7 +55,7 @@ def _role_total_badge(role: ObjectVar[RoleTotal]) -> rx.Component:
         radius="sm",
         variant="filled",
         color=role.color,
-        c="var(--alloq-text)",
+        c=ROLE_BADGE_TEXT_COLOR,
     )
 
 
@@ -146,7 +147,7 @@ def _employee_label_cell(emp: ObjectVar[EmployeeAllocationRow]) -> rx.Component:
                     radius="sm",
                     variant="filled",
                     color=emp.role_color,
-                    c="var(--alloq-text)",
+                    c=ROLE_BADGE_TEXT_COLOR,
                     fw="700",
                 ),
                 rx.fragment(),

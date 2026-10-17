@@ -8,6 +8,8 @@ import reflex as rx
 from reflex.vars import Var
 
 DEFAULT_ROLE_COLOR = "hsl(0, 0%, 88%)"
+# Role badges are always pastel, so the label stays dark in both color schemes.
+ROLE_BADGE_TEXT_COLOR = "#25231d"
 _GOLDEN_ANGLE = 137.508
 
 
