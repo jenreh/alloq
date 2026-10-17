@@ -224,11 +224,15 @@ def add_employee_modal() -> rx.Component:
 
 def absence_modal(
     on_submit: EventType = TeamState.create_absence,
+    employee_field: rx.Component | None = None,
 ) -> rx.Component:
-    """Modal for adding an absence period."""
+    """Modal for adding an absence period, optionally choosing the employee."""
     return mn.modal(
         modal_form_layout(
             content=mn.flex(
+                section(employee_field)
+                if employee_field is not None
+                else rx.fragment(),
                 section(
                     _AbsenceDatePickerInput.create(
                         label="Zeitraum",

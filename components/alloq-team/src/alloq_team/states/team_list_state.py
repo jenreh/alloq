@@ -25,7 +25,6 @@ FILTER_MINE = "Meine"
 FILTER_OVERLOADED = "Überlastet"
 FILTER_FREE = "Frei"
 FILTERS = [FILTER_ALL, FILTER_MINE, FILTER_OVERLOADED, FILTER_FREE]
-AVATAR_COLORS = ["#5B7FD6", "#3D9A5E", "#C98C0A", "#7A5AC8", "#C2416B", "#2A93A8"]
 DEFAULT_SORT_COLUMN = "name"
 
 
@@ -99,7 +98,7 @@ def to_detail(employee: Employee, overview: TeamOverview | None) -> TeamDetail:
         name=f"{employee.first_name} {employee.last_name}".strip(),
         subtitle=employee.job_title or employee.seniority,
         initials=_initials(employee),
-        color=AVATAR_COLORS[employee.id % len(AVATAR_COLORS)],
+        color=employee.avatar_color,
         role=employee.role_names[0] if employee.role_names else "",
         roles=", ".join(employee.role_names),
         hours=employee.hours_per_week,

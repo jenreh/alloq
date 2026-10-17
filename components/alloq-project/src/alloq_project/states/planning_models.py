@@ -37,19 +37,93 @@ class MonthSpan(BaseModel):
 
 
 class AbsenceGanttBar(BaseModel):
+    absence_id: int = 0
     left_px: float
     width_px: float
     lane: int
     label: str
-    tooltip: str
+    side_label: str = ""
+    inside: bool = False
+    clipped: bool = False
+    aria_label: str = ""
+    period: str = ""
+    work_days: int = 0
+    calendar_days: int = 0
+    holidays_note: str = ""
+    overlap_note: str = ""
 
 
 class AbsenceGanttRow(BaseModel):
     real_id: int
     name: str
+    initials: str = ""
+    avatar_color: str = ""
     job_title: str = ""
     bars: list[AbsenceGanttBar] = []
-    height_px: int = 56
+    height_px: int = 52
+    total_days: int = 0
+    next_label: str = ""
+
+
+class GanttWeek(BaseModel):
+    key: str
+    kw: int
+    label: str
+    has_holiday: bool = False
+    is_current: bool = False
+    is_month_start: bool = False
+    title: str = ""
+
+
+class GanttMark(BaseModel):
+    left_px: float
+    title: str = ""
+
+
+class CoverageCell(BaseModel):
+    week_key: str
+    label: str
+    level: str = "ok"
+    title: str = ""
+
+
+class AffectedProject(BaseModel):
+    name: str
+    color: str = ""
+    days_label: str
+    weeks: str
+
+
+class UpcomingAbsence(BaseModel):
+    name: str
+    initials: str = ""
+    avatar_color: str = ""
+    period: str
+    relative: str
+    is_running: bool = False
+    projects: list[AffectedProject] = []
+    status: str = "none"
+    status_label: str = ""
+
+
+class AbsenceGanttView(BaseModel):
+    rows: list[AbsenceGanttRow] = []
+    weeks: list[GanttWeek] = []
+    coverage: list[CoverageCell] = []
+    holidays: list[GanttMark] = []
+    holiday_days: list[int] = []
+    month_lines: list[int] = []
+    upcoming: list[UpcomingAbsence] = []
+    today_px: float = -1
+    min_day: int = 0
+    day_px: float = 0
+    width_px: int = 0
+    horizon_start: str = ""
+    team_size: int = 0
+    total_days: int = 0
+    total_label: str = ""
+    bottleneck_label: str = ""
+    bottleneck_title: str = ""
 
 
 class GridCell(BaseModel):
@@ -68,13 +142,6 @@ class GesamtCell(BaseModel):
     state: str = "free"
     has_absence: bool = False
     breakdown: str = ""
-
-
-class HeatCell(BaseModel):
-    week_key: str
-    percent: int
-    is_absent: bool = False
-    bucket: str = "low"
 
 
 class ProjectAllocationRow(BaseModel):
@@ -114,6 +181,7 @@ class EmployeeBlock(BaseModel):
     first_name: str = ""
     last_name: str = ""
     initials: str
+    avatar_color: str = ""
     job_title: str = ""
     role: str
     role_color: str
@@ -127,7 +195,6 @@ class EmployeeBlock(BaseModel):
     hours_per_week: float = 40.0
     workload_percent: int = 100
     gesamt: list[GesamtCell] = []
-    heat: list[HeatCell] = []
     planned_days: float = 0.0
     available_days: float = 0.0
 
@@ -159,6 +226,5 @@ class ProjectBlock(BaseModel):
     is_internal: bool = False
     employees: list[EmployeeAllocationRow] = []
     gesamt: list[ProjectGesamtCell] = []
-    heat: list[HeatCell] = []
     planned_days: float = 0.0
     role_totals: list[RoleTotal] = []

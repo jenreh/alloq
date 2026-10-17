@@ -82,7 +82,8 @@ def _employee_initials(employee: ObjectVar[Employee]) -> rx.Component:
     """Avatar with initials."""
     return mn.avatar(
         name=f"{employee.first_name} {employee.last_name}",
-        color="var(--alloq-accent-strong)",
+        color=employee.avatar_color,
+        variant="filled",
         size="md",
         radius="xl",
     )

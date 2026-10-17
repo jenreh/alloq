@@ -85,6 +85,7 @@ SHELL_CSS = (
     ".aq-body[data-flush]>*{flex:1;min-height:0;display:flex;"
     "flex-direction:column;}"
     f".aq-segmented{{background:{theme.token('segmented')};}}"
+    ".aq-segmented .mantine-SegmentedControl-label{padding-inline:12px;}"
     ".aq-icon-btn{color:" + theme.TEXT_MUTED + ";}"
     f".aq-icon-btn[data-active=true]{{background:{theme.token('accent-soft')};"
     f"color:{theme.ACCENT};}}"

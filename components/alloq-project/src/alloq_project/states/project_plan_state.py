@@ -38,6 +38,7 @@ class _PreviewRow(TypedDict):
     id: int
     name: str
     role: str
+    avatar_color: str
     planned_label: str
     weekly_total: str
     weekly_max: str
@@ -564,6 +565,7 @@ class ProjectPlanState(rx.State):
                 "id": e.id,
                 "name": f"{e.first_name} {e.last_name}".strip(),
                 "roles": ", ".join(e.role_names),
+                "avatar_color": e.avatar_color,
                 "role_ids": list(e.role_ids),
                 "seniority": e.seniority or "",
                 "workload_percent": int(e.workload_percent or 100),
@@ -780,6 +782,7 @@ class ProjectPlanState(rx.State):
                     "id": e["id"],
                     "name": e["name"],
                     "roles": e["roles"],
+                    "avatar_color": e.get("avatar_color", ""),
                     "seniority": e["seniority"],
                     "available_label": available_label,
                     "sub_label": sub_label,
@@ -1021,6 +1024,7 @@ class ProjectPlanState(rx.State):
                     id=int(eid),
                     name=str(emp["name"]),
                     role=role_label.get(rid, ""),
+                    avatar_color=str(emp.get("avatar_color", "")),
                     planned_label=f"{pt:g} PT",
                     weekly_total=f"{sum(weekly):g} PT",
                     weekly_max=f"{wmax:g}",

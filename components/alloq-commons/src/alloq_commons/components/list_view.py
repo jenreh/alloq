@@ -85,6 +85,7 @@ LIST_CSS = (
     "place-items:center;color:#fff;font-size:11px;font-weight:650;flex-shrink:0;}"
     ".aq-tile[data-size=lg]{width:44px;height:44px;border-radius:11px;"
     "font-size:15px;}"
+    ".aq-tile[data-shape=round]{border-radius:50%;}"
     "@media (max-width: 1100px){.aq-inspector{width:280px;}}"
     "@media (max-width: 820px){.aq-split{flex-direction:column;overflow:auto;}"
     ".aq-split-main{overflow:visible;flex:none;}"
@@ -226,8 +227,11 @@ def tile(
     return rx.el.span(
         text,
         class_name="aq-tile",
-        custom_attrs={"data-size": "lg" if large else "md"},
-        style={"background": color, **({"borderRadius": "50%"} if round_ else {})},
+        custom_attrs={
+            "data-size": "lg" if large else "md",
+            **({"data-shape": "round"} if round_ else {}),
+        },
+        style={"background": color},
     )
 
 

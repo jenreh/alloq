@@ -19,6 +19,7 @@ from alloq_project.components.planning_shared import (
     CELL_BASE,
     EMP_HEADER_BG,
     LABEL_CELL_BASE,
+    ROW_LABEL_FONT_SIZE,
     STICKY_BLOCK_HEADER,
     STICKY_LEFT_BODY,
     STICKY_LEFT_EMP_HEADER,
@@ -207,7 +208,7 @@ def _project_label_cell(project: ObjectVar[ProjectAllocationRow]) -> rx.Componen
             ),
             mn.text(
                 project.name,
-                size="sm",
+                size=ROW_LABEL_FONT_SIZE,
                 c="var(--alloq-text)",
                 truncate=True,
                 flex="1",

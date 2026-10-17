@@ -10,7 +10,10 @@ from reflex.vars import Var
 DEFAULT_ROLE_COLOR = "hsl(0, 0%, 88%)"
 # Role badges are always pastel, so the label stays dark in both color schemes.
 ROLE_BADGE_TEXT_COLOR = "#25231d"
+# Avatars without a key role.
+AVATAR_FALLBACK_COLOR = "#8E8E93"
 _GOLDEN_ANGLE = 137.508
+_GOLDEN_ANGLE_MILLI = 137508
 
 
 def _hash(key: str) -> int:
@@ -38,3 +41,15 @@ def role_color_var(label: Var) -> Var[str]:
         f"return `hsl(${{Math.round((h * {_GOLDEN_ANGLE}) % 360)}}, 70%, 82%)`; "
         f"}})({label})"
     ).to(str)
+
+
+def role_avatar_color(role_id: int | None) -> str:
+    """Return the solid avatar fill for an employee's key role.
+
+    Hues step by the golden angle per role id, so each role gets its own,
+    well separated color. The fill is dark enough for white initials.
+    """
+    if not role_id:
+        return AVATAR_FALLBACK_COLOR
+    hue = (role_id * _GOLDEN_ANGLE_MILLI // 1000) % 360
+    return f"hsl({hue}, 55%, 42%)"

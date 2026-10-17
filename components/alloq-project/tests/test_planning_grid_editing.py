@@ -208,14 +208,6 @@ class TestViewGating:
         state = _store("Grid")
         assert len(state.filtered_employees) == 2
         assert state.filtered_projects == []
-        assert state.employees == []
-        assert state.avg_heat == []
-
-    def test_heatmap_view_only_sends_heat_data(self) -> None:
-        state = _store("Heatmap")
-        assert state.filtered_employees == []
-        assert len(state.employees) == 2
-        assert len(state.avg_heat) == len(state.weeks)
 
     def test_project_view_only_sends_filtered_projects(self) -> None:
         state = _store("Projekte")
@@ -288,7 +280,7 @@ class TestSettersAndLabels:
         state.set_add_project_selected(None)  # type: ignore[arg-type]
         state.set_quick_project_name("Neu")
         state.set_quick_project_code("NEU")
-        state.set_view_mode("Heatmap")
+        state.set_view_mode("Abwesenheiten")
         state.set_project_filter(["1"])
         state.set_role_filter(["2", "3"])
         state.set_employee_filter(["4"])
@@ -297,7 +289,7 @@ class TestSettersAndLabels:
         state.toggle_employee("emp-1")
         assert state.add_project_selected == ""
         assert (state.quick_project_name, state.quick_project_code) == ("Neu", "NEU")
-        assert state.view_mode == "Heatmap"
+        assert state.view_mode == "Abwesenheiten"
         assert state.project_scope is True
         assert state.employee_scope is True
         assert state.collapsed_employees == ["emp-1"]

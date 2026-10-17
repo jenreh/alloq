@@ -12,9 +12,7 @@ from alloq_project.services.planning_builders import (
     build_weeks,
     cell_key,
     compute_project_gesamt,
-    compute_project_heat,
     ingest_allocations,
-    project_heat_bucket,
     wire_pairs,
 )
 from alloq_project.states.planning_grid_state import PlanningStore
@@ -23,22 +21,6 @@ from alloq_project.states.planning_models import (
     GridCell,
     ProjectBlock,
 )
-
-
-class TestProjectHeatBucket:
-    """Tests for project_heat_bucket."""
-
-    def test_zero_allocation(self) -> None:
-        assert project_heat_bucket(0.0) == "low"
-
-    def test_low_allocation(self) -> None:
-        assert project_heat_bucket(1.5) == "mid"
-
-    def test_mid_allocation(self) -> None:
-        assert project_heat_bucket(3.0) == "high"
-
-    def test_high_allocation(self) -> None:
-        assert project_heat_bucket(5.0) == "over"
 
 
 class TestComputeProjectGesamt:
@@ -111,50 +93,6 @@ class TestComputeProjectGesamt:
         )
         result = compute_project_gesamt(weeks, block)
         assert result[0].allocated == 3.5
-
-
-class TestComputeProjectHeat:
-    """Tests for compute_project_heat."""
-
-    def test_no_employees(self) -> None:
-        weeks, _ = build_weeks(2)
-        block = ProjectBlock(
-            id="proj-1",
-            real_id=1,
-            code="TST",
-            name="Test",
-            color="#000",
-            employees=[],
-        )
-        result = compute_project_heat(weeks, block)
-        assert len(result) == 2
-        assert all(c.percent == 0 for c in result)
-
-    def test_full_utilization(self) -> None:
-        weeks, _ = build_weeks(1)
-        emp = EmployeeAllocationRow(
-            emp_id="emp-1",
-            real_id=1,
-            name="Alice",
-            cells=[
-                GridCell(
-                    key="emp-1|TST|k",
-                    week_key=weeks[0].key,
-                    value=weeks[0].work_days,
-                ),
-            ],
-        )
-        block = ProjectBlock(
-            id="proj-1",
-            real_id=1,
-            code="TST",
-            name="Test",
-            color="#000",
-            employees=[emp],
-        )
-        result = compute_project_heat(weeks, block)
-        assert result[0].percent == 100
-        assert result[0].bucket == "high"
 
 
 def _make_project(id_: int, code: str, name: str, color: str = "#FFF") -> MagicMock:
@@ -398,6 +336,33 @@ class TestPlanningStoreProjectView:
 
         assert state.apply_cell_changes([{"key": key, "value": "abc"}]) is not None
         assert state.dirty_keys == []
+
+    def test_open_project_shows_only_that_project(self) -> None:
+        state = self._two_project_store()
+        state.view_mode = "Grid"
+        state.project_filter = ["1"]
+        state.role_filter = ["9"]
+        state.employee_filter = ["9"]
+        state.available_only = True
+        state.hide_internal = True
+        state.project_scope = True
+        state.employee_scope = True
+
+        result = state.open_project(2)
+
+        assert state.view_mode == "Projekte"
+        assert state.project_filter == ["2"]
+        assert (state.role_filter, state.employee_filter) == ([], [])
+        assert not any(
+            (
+                state.available_only,
+                state.hide_internal,
+                state.project_scope,
+                state.employee_scope,
+            )
+        )
+        assert [p.code for p in state.filtered_projects] == ["B"]
+        assert "/plan" in str(result)
 
     def test_filtered_projects_empty_outside_project_view(self) -> None:
         state = self._two_project_store()

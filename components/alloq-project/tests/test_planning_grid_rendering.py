@@ -10,8 +10,10 @@ from alloq_project.components.planning_grid import (
     _gesamt_value_cell,
     _internal_row,
     _internal_value_cell,
+    _project_label_cell,
 )
 from alloq_project.components.planning_project_view import (
+    _employee_label_cell,
     _project_block,
     _project_gesamt_row,
     _project_header_row,
@@ -19,18 +21,22 @@ from alloq_project.components.planning_project_view import (
 from alloq_project.components.planning_shared import (
     BLOCK_GAP,
     MONTH_HEADER_BG,
+    ROW_LABEL_FONT_SIZE,
     STICKY_BLOCK_HEADER,
     STICKY_LEFT_HEADER,
     STICKY_LEFT_HEADER_TOP,
     empty_grid_row,
+    grid_density_vars,
     label_th,
     month_cell,
 )
 from alloq_project.states.planning_models import (
+    EmployeeAllocationRow,
     EmployeeBlock,
     GesamtCell,
     GridCell,
     MonthSpan,
+    ProjectAllocationRow,
     ProjectBlock,
 )
 from reflex.vars import ObjectVar
@@ -148,3 +154,16 @@ def test_gesamt_values_tint_only_overbooked_cells() -> None:
     assert "var(--mantine-color-red-7)" in rendered
     assert "var(--mantine-color-green-7)" in rendered
     assert '["fontSize"] : "11px"' not in rendered
+
+
+def test_row_labels_follow_the_grid_density_font_size() -> None:
+    project = ObjectVar("project", ProjectAllocationRow)
+    employee = ObjectVar("emp", EmployeeAllocationRow)
+
+    assert ROW_LABEL_FONT_SIZE == "var(--aq-grid-label-fs)"
+    assert "--aq-grid-label-fs" in grid_density_vars()
+    for rendered in (
+        str(_project_label_cell(project)),
+        str(_employee_label_cell(employee)),
+    ):
+        assert f'size:"{ROW_LABEL_FONT_SIZE}"' in rendered

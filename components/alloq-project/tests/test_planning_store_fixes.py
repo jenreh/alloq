@@ -1,4 +1,4 @@
-"""PlanningStore: admin guard, heatmap filters, refresh and save edge cases."""
+"""PlanningStore: admin guard, refresh and save edge cases."""
 
 import datetime as dt
 from collections.abc import Iterator
@@ -128,21 +128,6 @@ class TestAdminGuard:
         ):
             await _drain(state.load())
         load.assert_not_called()
-
-
-class TestHeatmapRespectsFilters:
-    def test_employee_filter_limits_rows_and_average(self) -> None:
-        state = _store("Heatmap")
-        assert [e.real_id for e in state.employees] == [1, 2]
-        state.employee_filter = ["2"]
-        assert [e.real_id for e in state.employees] == [2]
-        # Only Bob (nothing planned) is averaged, not Alice's 5 PT week.
-        assert state.avg_heat[0].percent == state.employees[0].heat[0].percent
-
-    def test_role_filter(self) -> None:
-        state = _store("Heatmap")
-        state.role_filter = ["3"]
-        assert [e.real_id for e in state.employees] == [1]
 
 
 class TestLoadErrors:

@@ -4,6 +4,7 @@ from typing import Any
 from pydantic import BaseModel, Field, model_validator
 
 from alloq_commons.entities.employee import SeniorityLevel
+from alloq_commons.role_colors import role_avatar_color
 
 STANDARD_WEEKLY_HOURS = 40.0
 
@@ -53,14 +54,16 @@ class Employee(BaseModel):
     hours_per_week: float = 40.0
     internal_hours: int = 4
     workload_percent: int = 100
+    avatar_color: str = ""
     created: datetime | None = None
     updated: datetime | None = None
 
     def model_post_init(self, __context: Any, /) -> None:
-        """Calculate workload percentage from weekly working hours."""
+        """Derive workload percentage and the key-role avatar color."""
         self.workload_percent = round(
             (self.hours_per_week / STANDARD_WEEKLY_HOURS) * 100
         )
+        self.avatar_color = role_avatar_color(self.key_role_id)
 
 
 class EmployeeCreate(BaseModel):

@@ -17,6 +17,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from alloq_commons.role_colors import role_avatar_color
 from appkit_commons.database.entities import Base, Entity
 
 if TYPE_CHECKING:
@@ -198,6 +199,7 @@ class ProjectEntity(Entity, Base):
             {
                 "initials": f"{employee.first_name[:1]}{employee.last_name[:1]}",
                 "name": f"{employee.first_name} {employee.last_name}",
+                "color": role_avatar_color(employee.key_role_id),
                 "planned_pt": planned_pt,
             }
             for employee, planned_pt in self._staffed_employee_capacity()

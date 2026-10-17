@@ -76,6 +76,14 @@ def test_building_blocks_render() -> None:
         assert text in rendered
 
 
+def test_round_tile_is_a_circle_via_css() -> None:
+    round_tile = str(list_view.tile("AB", "#2E6BD6", round_=True))
+    square_tile = str(list_view.tile("AB", "#2E6BD6"))
+    assert "data-shape" in round_tile
+    assert "data-shape" not in square_tile
+    assert ".aq-tile[data-shape=round]{border-radius:50%;}" in list_view.LIST_CSS
+
+
 def test_group_accepts_sticky_header_style() -> None:
     rendered = str(
         list_view.list_group(

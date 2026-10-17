@@ -59,7 +59,8 @@ def team_initial(member: ObjectVar[TeamMemberBadge]) -> rx.Component:
             member.initials,
             size="sm",
             radius="lg",
-            color="var(--alloq-accent-strong)",
+            color=member.color,
+            variant="filled",
         ),
         label=member.name,
     )

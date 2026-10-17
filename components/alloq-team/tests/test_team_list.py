@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from alloq_commons.models.employee import Absence, Employee
+from alloq_commons.role_colors import role_avatar_color
 from alloq_team.components.employee_table import (
     COLUMNS,
     employee_list,
@@ -120,10 +121,12 @@ class TestDetail:
             first_name="Ada",
             last_name="Lovelace",
             job_title="Engineer",
+            key_role_id=7,
             role_names=["Dev", "Ops"],
             absences=[Absence(start_date=MONDAY, end_date=date(2026, 10, 16))],
         )
         detail = to_detail(employee, TeamOverview(employee_id=3, load_percent=50))
+        assert detail.color == role_avatar_color(7)
         assert detail.name == "Ada Lovelace"
         assert detail.initials == "AL"
         assert detail.subtitle == "Engineer"

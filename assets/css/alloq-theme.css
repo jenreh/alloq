@@ -3,7 +3,6 @@
 
 /* ===== Planning views on the white content pane ===== */
 #planning-grid-root,
-#planning-heatmap-root,
 #project-view-root {
     background-color: var(--aq-surface) !important;
 }

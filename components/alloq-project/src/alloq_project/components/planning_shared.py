@@ -28,6 +28,7 @@ LABEL_COL_WIDTH = f"{LABEL_COL_PX}px"
 WEEK_COL_WIDTH = f"{WEEK_COL_PX}px"
 ROW_HEIGHT = "var(--aq-grid-row, 32px)"
 BLOCK_GAP = "var(--aq-grid-gap, 8px)"
+ROW_LABEL_FONT_SIZE = "var(--aq-grid-label-fs)"
 HEADER_ROW_HEIGHT = "30px"
 MONTH_HEADER_BG = "light-dark(var(--mantine-color-blue-0), var(--mantine-color-blue-9))"
 
@@ -150,11 +151,14 @@ def week_cell_style(
 
 
 def grid_density_vars() -> dict[str, rx.Var[str]]:
-    """CSS variables for row height, font size and block gap of the density."""
+    """CSS variables for row height, font sizes and block gap of the density."""
     compact = PlanningStore.is_compact
     return {
         "--aq-grid-row": rx.cond(compact, "24px", "32px"),
         "--aq-grid-fs": rx.cond(compact, "12px", "0.8125rem"),
+        "--aq-grid-label-fs": rx.cond(
+            compact, "var(--aq-grid-fs)", "var(--mantine-font-size-sm)"
+        ),
         "--aq-grid-gap": rx.cond(compact, "4px", "8px"),
     }
 

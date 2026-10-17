@@ -46,9 +46,7 @@ from alloq_project.services.planning_builders import (
     cell_key,
     cell_role_ids,
     compute_gesamt,
-    compute_heat,
     compute_project_gesamt,
-    compute_project_heat,
     current_week_key,
     dirty_keys_for,
     edits_to_rows,
@@ -69,20 +67,22 @@ from alloq_project.services.planning_builders import (
     without_idle_projects,
     without_internal_projects,
 )
-from alloq_project.services.planning_gantt import build_absence_gantt
+from alloq_project.states.planning_absence_view_mixin import PlanningAbsenceViewMixin
 from alloq_project.states.planning_display_mixin import PlanningDisplayState
+from alloq_project.states.planning_filter_mixin import (
+    PROJECT_VIEW,
+    PlanningFilterMixin,
+)
 from alloq_project.states.planning_models import (
     LABEL_COL_PX,
     MIN_AVAILABLE_PT,
     TIME_RANGE_WEEKS,
     WEEK_COL_PX,
-    AbsenceGanttRow,
     AbsenceRow,
     EmployeeAllocationRow,
     EmployeeBlock,
     GesamtCell,
     GridCell,
-    HeatCell,
     MonthSpan,
     ProjectAllocationRow,
     ProjectBlock,
@@ -105,7 +105,6 @@ __all__ = [
     "EmployeeBlock",
     "GesamtCell",
     "GridCell",
-    "HeatCell",
     "MonthSpan",
     "PlanningStore",
     "ProjectAllocationRow",
@@ -115,11 +114,11 @@ __all__ = [
 ]
 
 GRID_VIEW = "Grid"
-PROJECT_VIEW = "Projekte"
-HEATMAP_VIEW = "Heatmap"
 
 
-class PlanningStore(PlanningDisplayState, UserSession):
+class PlanningStore(
+    PlanningDisplayState, PlanningFilterMixin, PlanningAbsenceViewMixin, UserSession
+):
     """Shared planning entities, allocations, filters and derived views."""
 
     # === Entity caches ===
@@ -156,13 +155,6 @@ class PlanningStore(PlanningDisplayState, UserSession):
     time_range: rx.Field[str] = rx.field("3 Monate")
     is_saving: rx.Field[bool] = rx.field(False)
 
-    project_filter: rx.Field[list[str]] = rx.field(default_factory=list)
-    role_filter: rx.Field[list[str]] = rx.field(default_factory=list)
-    employee_filter: rx.Field[list[str]] = rx.field(default_factory=list)
-    available_only: rx.Field[bool] = rx.field(False)
-    hide_internal: rx.Field[bool] = rx.field(False)
-    project_scope: rx.Field[bool] = rx.field(False)
-    employee_scope: rx.Field[bool] = rx.field(False)
     current_employee_id: rx.Field[int | None] = rx.field(None)
     current_week: rx.Field[str] = rx.field("")
 
@@ -201,46 +193,6 @@ class PlanningStore(PlanningDisplayState, UserSession):
     def set_time_range(self, value: str) -> Any:
         self.time_range = value
         return PlanningStore.reload_with_time_range(value)
-
-    @rx.event
-    def set_project_filter(self, value: list[str]) -> None:
-        self.project_filter = value
-
-    @rx.event
-    def set_role_filter(self, value: list[str]) -> None:
-        self.role_filter = value
-
-    @rx.event
-    def set_employee_filter(self, value: list[str]) -> None:
-        self.employee_filter = value
-
-    @rx.event
-    def set_available_only(self, value: bool) -> None:
-        self.available_only = value
-
-    @rx.event
-    def set_hide_internal(self, value: bool) -> None:
-        self.hide_internal = value
-
-    @rx.event
-    def toggle_project_scope(self) -> Any:
-        if not self.project_scope and self.current_employee_id is None:
-            return self._notify_no_employee()
-        self.project_scope = not self.project_scope
-        return None
-
-    @rx.event
-    def toggle_employee_scope(self) -> Any:
-        if not self.employee_scope and self.current_employee_id is None:
-            return self._notify_no_employee()
-        self.employee_scope = not self.employee_scope
-        return None
-
-    @staticmethod
-    def _notify_no_employee() -> Any:
-        return rx.toast.warning(
-            "Ihrem Benutzer ist kein Mitarbeiter zugeordnet.", position="top-right"
-        )
 
     # === Entity-derived select options ===
 
@@ -351,6 +303,7 @@ class PlanningStore(PlanningDisplayState, UserSession):
                 first_name=emp.get("first_name", ""),
                 last_name=emp.get("last_name", ""),
                 initials=emp["initials"],
+                avatar_color=emp.get("avatar_color", ""),
                 job_title=emp.get("job_title", ""),
                 role=emp.get("role_short", ""),
                 role_color=emp.get("role_color", ""),
@@ -365,7 +318,6 @@ class PlanningStore(PlanningDisplayState, UserSession):
                 workload_percent=wp,
             )
             block.gesamt = compute_gesamt(weeks, block)
-            block.heat = compute_heat(weeks, block)
             block.planned_days, block.available_days = employee_summary(block, from_key)
             blocks.append(block)
         return blocks
@@ -418,15 +370,16 @@ class PlanningStore(PlanningDisplayState, UserSession):
                 employees=emp_rows,
             )
             block.gesamt = compute_project_gesamt(weeks, block)
-            block.heat = compute_project_heat(weeks, block)
             block.planned_days, block.role_totals = project_summary(block, from_key)
             blocks.append(block)
         return blocks
 
     # === Filtered pivots ===
 
-    def _filter_employees(self, blocks: list[EmployeeBlock]) -> list[EmployeeBlock]:
-        """Apply scope, selection and remaining-capacity filters."""
+    def _filter_employees(
+        self, blocks: list[EmployeeBlock], *, planning_filters: bool = True
+    ) -> list[EmployeeBlock]:
+        """Apply scope, selection and (with `planning_filters`) capacity filters."""
         result = blocks
         if self.project_scope:
             own = owned_project_ids(self.all_projects, self.current_employee_id)
@@ -436,7 +389,7 @@ class PlanningStore(PlanningDisplayState, UserSession):
                 self.available_employees, self.current_employee_id
             )
             result = [e for e in result if str(e.real_id) in mine]
-        if self.project_filter:
+        if planning_filters and self.project_filter:
             result = [
                 e
                 for e in result
@@ -450,7 +403,7 @@ class PlanningStore(PlanningDisplayState, UserSession):
             ]
         if self.employee_filter:
             result = [e for e in result if str(e.real_id) in self.employee_filter]
-        if self.available_only:
+        if planning_filters and self.available_only:
             result = [e for e in result if e.available_days > MIN_AVAILABLE_PT]
         return result
 
@@ -501,23 +454,6 @@ class PlanningStore(PlanningDisplayState, UserSession):
             ),
         )
 
-    @rx.var(cache=True)
-    def employees(self) -> list[EmployeeBlock]:
-        _ = self.cells  # explicit dependency for heatmap reactivity
-        if self.view_mode != HEATMAP_VIEW:
-            return []
-        return self._filter_employees(self.employee_blocks)
-
-    @rx.var(cache=True)
-    def absence_gantt_rows(self) -> list[AbsenceGanttRow]:
-        if self.view_mode != "Abwesenheiten":
-            return []
-        return build_absence_gantt(
-            self._filter_employees(self.employee_blocks),
-            self.available_employees,
-            self.weeks,
-        )
-
     @rx.var(cache=True, backend=True)
     def projects(self) -> list[ProjectBlock]:
         return self.project_blocks
@@ -527,43 +463,9 @@ class PlanningStore(PlanningDisplayState, UserSession):
         return len(self.dirty_keys) > 0 or len(self.hidden_edits) > 0
 
     @rx.var(cache=True)
-    def avg_heat(self) -> list[HeatCell]:
-        emps = self.employees  # same filtered population as the heatmap rows
-        if not emps or not self.weeks:
-            return []
-        out: list[HeatCell] = []
-        for idx, week in enumerate(self.weeks):
-            percents = [e.heat[idx].percent for e in emps if idx < len(e.heat)]
-            avg = UtilizationService.compute_team_average(percents)
-            out.append(
-                HeatCell(
-                    week_key=week.key,
-                    percent=avg,
-                    is_absent=False,
-                    bucket=UtilizationService.heat_bucket(avg),
-                )
-            )
-        return out
-
-    @rx.var(cache=True)
     def current_week_key(self) -> str:
         """Current week as of the last populate, so summaries match the columns."""
         return self.current_week or current_week_key()
-
-    @rx.var(cache=True)
-    def project_filter_label(self) -> str:
-        c = len(self.project_filter)
-        return f'"Projekte ({c})"' if c > 0 else ""
-
-    @rx.var(cache=True)
-    def role_filter_label(self) -> str:
-        c = len(self.role_filter)
-        return f'"Rollen ({c})"' if c > 0 else ""
-
-    @rx.var(cache=True)
-    def employee_filter_label(self) -> str:
-        c = len(self.employee_filter)
-        return f'"MA ({c})"' if c > 0 else ""
 
     # === Loading ===
 

@@ -20,7 +20,6 @@ from alloq_project.states.planning_models import (
     EmployeeBlock,
     GesamtCell,
     GridCell,
-    HeatCell,
     MonthSpan,
     ProjectBlock,
     ProjectGesamtCell,
@@ -113,10 +112,6 @@ class CapAssignment:
 
 
 # === Pure helpers ===
-
-
-def project_heat_bucket(allocated: float) -> str:
-    return UtilizationService.project_heat_bucket(allocated)
 
 
 def build_weeks(
@@ -373,29 +368,6 @@ def compute_gesamt(weeks: list[WeekColumn], block: EmployeeBlock) -> list[Gesamt
     return cells
 
 
-def compute_heat(weeks: list[WeekColumn], block: EmployeeBlock) -> list[HeatCell]:
-    cells: list[HeatCell] = []
-    for idx, week in enumerate(weeks):
-        used = sum(p.cells[idx].value for p in block.projects)
-        absence = block.absence.cells[idx].value if block.absence.cells else 0.0
-        internal = block.internal.cells[idx].value if block.internal.cells else 0.0
-        result = UtilizationService.compute_employee_heat(
-            used_days=used,
-            absence_days=absence,
-            internal_days=internal,
-            work_days=scaled_work_days(week, block.workload_percent),
-        )
-        cells.append(
-            HeatCell(
-                week_key=week.key,
-                percent=result.percent,
-                is_absent=result.is_absent,
-                bucket=result.bucket,
-            )
-        )
-    return cells
-
-
 def compute_project_gesamt(
     weeks: list[WeekColumn], block: ProjectBlock
 ) -> list[ProjectGesamtCell]:
@@ -407,31 +379,6 @@ def compute_project_gesamt(
         _, bucket = UtilizationService.compute_project_gesamt(allocated)
         cells.append(
             ProjectGesamtCell(week_key=week.key, allocated=allocated, bucket=bucket)
-        )
-    return cells
-
-
-def compute_project_heat(
-    weeks: list[WeekColumn], block: ProjectBlock
-) -> list[HeatCell]:
-    cells: list[HeatCell] = []
-    n = len(block.employees)
-    for idx, week in enumerate(weeks):
-        allocated = sum(
-            e.cells[idx].value for e in block.employees if idx < len(e.cells)
-        )
-        result = UtilizationService.compute_project_heat(
-            allocated_days=allocated,
-            num_employees=n,
-            work_days=week.work_days,
-        )
-        cells.append(
-            HeatCell(
-                week_key=week.key,
-                percent=result.percent,
-                is_absent=False,
-                bucket=result.bucket,
-            )
         )
     return cells
 
@@ -498,7 +445,6 @@ def filter_project_blocks(
                 continue
             filtered = block.model_copy(update={"employees": employees})
             filtered.gesamt = compute_project_gesamt(weeks, filtered)
-            filtered.heat = compute_project_heat(weeks, filtered)
             filtered.planned_days, filtered.role_totals = project_summary(
                 filtered, from_key
             )
@@ -582,6 +528,7 @@ def build_employee_meta(
                 "first_name": emp.first_name or "",
                 "last_name": emp.last_name or "",
                 "initials": (f"{emp.first_name[:1]}{emp.last_name[:1]}".upper() or "?"),
+                "avatar_color": emp.avatar_color,
                 "job_title": emp.job_title or "",
                 "role_short": primary_short,
                 "role_color": role_color(primary),

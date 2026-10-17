@@ -28,6 +28,7 @@ from alloq_commons.repositories.public_holiday_repository import (
 )
 from alloq_commons.repositories.risk_repository import RiskRepository
 from alloq_commons.repositories.search import escape_like
+from alloq_commons.role_colors import AVATAR_FALLBACK_COLOR
 from alloq_commons.services.quick_project import (
     QuickProjectError,
     create_quick_project,
@@ -454,7 +455,12 @@ class TestProjectTeamSkipsZeroAllocations:
         ]
         assert project._team_initials() == ["AB"]
         assert project._team_members() == [
-            {"initials": "AB", "name": "Anna Berg", "planned_pt": 4.17}
+            {
+                "initials": "AB",
+                "name": "Anna Berg",
+                "color": AVATAR_FALLBACK_COLOR,
+                "planned_pt": 4.17,
+            }
         ]
 
 

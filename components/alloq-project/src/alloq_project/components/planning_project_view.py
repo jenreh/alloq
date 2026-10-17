@@ -9,6 +9,7 @@ from alloq_commons.role_colors import ROLE_BADGE_TEXT_COLOR
 from alloq_project.components.planning_shared import (
     CELL_BASE,
     LABEL_CELL_BASE,
+    ROW_LABEL_FONT_SIZE,
     STICKY_BLOCK_HEADER,
     STICKY_LEFT_BODY,
     STICKY_LEFT_EMP_HEADER,
@@ -115,8 +116,8 @@ def _project_header_row(proj: ObjectVar[ProjectBlock]) -> rx.Component:
         ),
         block_header_info_cell(
             summary_stat("Geplant", proj.planned_days),
-            rx.foreach(proj.role_totals, _role_total_badge),
             background=PROJ_HEADER_BG,
+            end=[rx.foreach(proj.role_totals, _role_total_badge)],
         ),
         style=STICKY_BLOCK_HEADER,
     )
@@ -133,7 +134,7 @@ def _employee_label_cell(emp: ObjectVar[EmployeeAllocationRow]) -> rx.Component:
         mn.group(
             mn.text(
                 emp.name,
-                size="sm",
+                size=ROW_LABEL_FONT_SIZE,
                 c="var(--alloq-text)",
                 truncate=True,
                 flex="1",

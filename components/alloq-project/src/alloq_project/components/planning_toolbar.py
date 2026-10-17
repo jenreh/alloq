@@ -1,5 +1,6 @@
 import reflex as rx
 from alloq_commons.components.toolbar import icon_button, primary_button
+from alloq_project.states.planning_absence_state import PlanningAbsenceState
 from alloq_project.states.planning_grid_state import PlanningStore
 from alloq_project.states.project_plan_state import ProjectPlanState
 
@@ -76,5 +77,11 @@ def planning_toolbar() -> list[rx.Component]:
             disabled=~PlanningStore.has_dirty | PlanningStore.is_saving,
             loading=PlanningStore.is_saving,
         ),
-        primary_button("Projekt planen", "plus", ProjectPlanState.open_modal),
+        rx.cond(
+            PlanningStore.view_mode == "Abwesenheiten",
+            primary_button(
+                "Abwesenheit eintragen", "plus", PlanningAbsenceState.open_new_absence
+            ),
+            primary_button("Projekt planen", "plus", ProjectPlanState.open_modal),
+        ),
     ]

@@ -205,6 +205,7 @@ class TeamMemberBadge(BaseModel):
 
     initials: str = ""
     name: str = ""
+    color: str = ""
     planned_pt: float = 0.0
 
 

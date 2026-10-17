@@ -4,12 +4,12 @@ from alloq_commons.components.toolbar import scope_bar, window_toolbar
 
 import appkit_mantine as mn
 from alloq_project.components.planning_filter_row import (
+    absence_filter_row,
     planning_filter_row,
     planning_view_switch,
 )
 from alloq_project.components.planning_gantt import planning_gantt
 from alloq_project.components.planning_grid import planning_grid
-from alloq_project.components.planning_heatmap import planning_heatmap
 from alloq_project.components.planning_project_view import (
     planning_project_view,
 )
@@ -34,11 +34,21 @@ def create_planning_page(
         sidebar=sidebar,
         toolbar=window_toolbar(
             "Ressourcenplanung",
-            "Kapazität und Zuweisungen je Woche",
+            rx.cond(
+                PlanningStore.view_mode == "Abwesenheiten",
+                "Abwesenheiten und Besetzung je Woche",
+                "Kapazität und Zuweisungen je Woche",
+            ),
             center=planning_view_switch(),
             actions=planning_toolbar(),
         ),
-        scope=scope_bar(planning_filter_row()),
+        scope=scope_bar(
+            rx.cond(
+                PlanningStore.view_mode == "Abwesenheiten",
+                absence_filter_row(),
+                planning_filter_row(),
+            )
+        ),
         padded=False,
         admin_only=True,
         on_load=PlanningStore.load,
@@ -49,7 +59,6 @@ def create_planning_page(
                 rx.match(
                     PlanningStore.view_mode,
                     ("Grid", planning_grid()),
-                    ("Heatmap", planning_heatmap()),
                     ("Abwesenheiten", planning_gantt()),
                     ("Projekte", planning_project_view()),
                     rx.fragment(),

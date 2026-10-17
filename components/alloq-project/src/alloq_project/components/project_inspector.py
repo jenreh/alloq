@@ -15,6 +15,7 @@ from alloq_commons.components.list_view import (
 from alloq_commons.components.toolbar import icon_button
 from alloq_commons.models.project import Project, TeamMemberBadge
 from alloq_project.components.project_parts import project_tile
+from alloq_project.states.planning_grid_state import PlanningStore
 from alloq_project.states.project_state import ProjectState
 from reflex.vars import ObjectVar
 
@@ -57,7 +58,9 @@ def _actions() -> rx.Component:
         plain_button("Bearbeiten", _open("daten"), flex="1"),
         plain_button("Status erfassen", _open("status"), flex="1"),
         icon_button(
-            "calendar-range", "In der Ressourcenplanung öffnen", rx.redirect("/plan")
+            "calendar-range",
+            "In der Ressourcenplanung öffnen",
+            PlanningStore.open_project(_selected().id),  # ty: ignore[invalid-argument-type]
         ),
         gap=8,
         wrap="nowrap",
@@ -78,7 +81,7 @@ def _progress(label: str, value: rx.Var[int], color: str) -> rx.Component:
 
 def _member(member: ObjectVar[TeamMemberBadge]) -> rx.Component:
     return mn.group(
-        tile(member.initials, theme.TEXT_TERTIARY, round_=True),
+        tile(member.initials, member.color, round_=True),
         mn.text(member.name, fz="12.5px", truncate="end", flex="1", miw=0),
         mn.text(
             de_number(

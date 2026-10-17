@@ -474,7 +474,8 @@ def _preview_row(row: dict) -> rx.Component:
         mn.group(
             mn.avatar(
                 name=row["name"],
-                color="var(--alloq-accent-strong)",
+                color=row["avatar_color"],
+                variant="filled",
                 size="md",
                 radius="xl",
             ),
@@ -771,7 +772,8 @@ def _employee_row(emp: dict) -> rx.Component:
                     ),
                     mn.avatar(
                         name=emp["name"],
-                        color="var(--alloq-accent-strong)",
+                        color=emp["avatar_color"],
+                        variant="filled",
                         size="md",
                         radius="xl",
                     ),
