@@ -22,15 +22,16 @@ jobs:
       # dummy secrets let it resolve without a real database or OAuth app.
       PROFILES: local
       SECRET_PROVIDER: local
-      MN_DB_USER: postgres
-      MN_DB_PASSWORD: postgres
-      MN_DB_HOST: localhost
-      MN_DB_NAME: alloq
-      AVUI_OAUTH_GITHUB_CLIENT_ID: ci
-      AVUI_OAUTH_GITHUB_CLIENT_SECRET: ci
-      AVUI_OAUTH_AZURE_CLIENT_ID: ci
-      AVUI_OAUTH_AZURE_CLIENT_SECRET: ci
-      AVUI_OAUTH_AZURE_TENANT_ID: ci
+      # Names follow the `secret:` references in configuration/config.yaml.
+      ALLOQ_DB_USER: postgres
+      ALLOQ_DB_PASSWORD: postgres
+      ALLOQ_DB_HOST: localhost
+      ALLOQ_DB_NAME: alloq
+      COMMON_OAUTH_GITHUB_CLIENT_ID: ci
+      COMMON_OAUTH_GITHUB_CLIENT_SECRET: ci
+      COMMON_OAUTH_AZURE_CLIENT_ID: ci
+      COMMON_OAUTH_AZURE_CLIENT_SECRET: ci
+      COMMON_OAUTH_AZURE_TENANT_ID: ci
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -48,7 +49,7 @@ jobs:
         run: |
           key="$(uv run python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"
           echo "::add-mask::${key}"
-          echo "AVUI_DB_ENCRYPTION_KEY=${key}" >> "$GITHUB_ENV"
+          echo "COMMON_DB_ENCRYPTION_KEY=${key}" >> "$GITHUB_ENV"
 
       - name: Ruff lint
         run: uv run ruff check .
