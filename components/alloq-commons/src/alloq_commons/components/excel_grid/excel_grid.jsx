@@ -61,6 +61,13 @@ function readLayout(root) {
   return { rows, els, cols };
 }
 
+/** Height of the first editable row; rows shrink in the compact density. */
+function rowHeight(root) {
+  const row = root.querySelector("[data-row-key]");
+  const px = row ? row.getBoundingClientRect().height : 0;
+  return px > 0 ? px : ROW_PX;
+}
+
 function attr(value) {
   // Also escapes newlines, which would otherwise end the quoted value early.
   return CSS.escape(String(value));
@@ -449,7 +456,8 @@ export function ExcelGrid({
       const next = G.move(lay, focus, dir, { ctrl: mod });
       select(lay, next, e.shiftKey ? anchor : next);
     } else if (key === "PageDown" || key === "PageUp") {
-      const rows = Math.floor((rootRef.current.clientHeight || ROW_PX) / ROW_PX) - 4;
+      const rowPx = rowHeight(rootRef.current);
+      const rows = Math.floor((rootRef.current.clientHeight || rowPx) / rowPx) - 4;
       const next = G.pageMove(lay, focus, rows, key === "PageUp");
       select(lay, next, e.shiftKey ? anchor : next);
     } else if (key === "Tab") {

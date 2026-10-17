@@ -1,6 +1,7 @@
 """Rendering checks for the planning grid."""
 
 from alloq_project.components.planning_grid import (
+    GESAMT_OVER_BG,
     _absence_row,
     _absence_value_cell,
     _employee_block,
@@ -16,6 +17,7 @@ from alloq_project.components.planning_project_view import (
     _project_header_row,
 )
 from alloq_project.components.planning_shared import (
+    BLOCK_GAP,
     MONTH_HEADER_BG,
     STICKY_BLOCK_HEADER,
     STICKY_LEFT_HEADER,
@@ -75,23 +77,34 @@ def test_employee_header_formats_name_last_name_first() -> None:
     )
 
 
-def test_empty_grid_row_has_height_but_no_cells() -> None:
+def test_employee_header_pins_stats_to_the_right_edge() -> None:
+    rendered = str(_employee_header_row(ObjectVar("emp", EmployeeBlock)))
+    stats = rendered[rendered.index('["right"] : "0"') :]
+
+    assert '["marginLeft"] : "auto"' in stats
+    assert "Geplant" in stats
+    assert "Frei" in stats
+    assert "Projekt zuweisen" not in stats
+
+
+def test_empty_grid_row_is_a_small_gap_without_cells() -> None:
     row = empty_grid_row()
 
     assert row.children == []
-    assert '["height"] : "32px"' in str(row)
+    assert BLOCK_GAP == "var(--aq-grid-gap, 8px)"
+    assert f'["height"] : "{BLOCK_GAP}"' in str(row)
 
 
-def test_employee_block_renders_empty_row_after_gesamt() -> None:
+def test_employee_block_renders_gap_after_gesamt() -> None:
     rendered = str(_employee_block(ObjectVar("emp", EmployeeBlock)))
 
-    assert rendered.index("Gesamt (frei)") < rendered.index('["height"] : "32px"')
+    assert rendered.index("Gesamt (frei)") < rendered.index(f'"{BLOCK_GAP}"')
 
 
-def test_project_block_renders_empty_row_after_gesamt() -> None:
+def test_project_block_renders_gap_after_gesamt() -> None:
     rendered = str(_project_block(ObjectVar("proj", ProjectBlock)))
 
-    assert rendered.index("Gesamt (allokiert)") < rendered.index('["height"] : "32px"')
+    assert rendered.index("Gesamt (allokiert)") < rendered.index(f'"{BLOCK_GAP}"')
 
 
 def test_team_and_project_gesamt_labels_use_the_same_font_size() -> None:
@@ -125,14 +138,13 @@ def test_absence_and_internal_labels_match_header_subtitle_style() -> None:
         assert 'c:"var(--alloq-text-muted)"' in rendered
 
 
-def test_gesamt_values_use_colored_text_without_bucket_background() -> None:
+def test_gesamt_values_tint_only_overbooked_cells() -> None:
     cell = ObjectVar("cell", GesamtCell)
 
     rendered = str(_gesamt_value_cell(cell))
 
     assert '["color"] :' in rendered
-    assert '["backgroundColor"] :' not in rendered
-    assert '["backgroundImage"] :' in rendered
+    assert GESAMT_OVER_BG in rendered
     assert "var(--mantine-color-red-7)" in rendered
     assert "var(--mantine-color-green-7)" in rendered
-    assert '["fontSize"] : "11px"' in rendered
+    assert '["fontSize"] : "11px"' not in rendered

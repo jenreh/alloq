@@ -9,6 +9,7 @@ from pydantic import BaseModel
 LABEL_COL_PX: int = 300
 MIN_AVAILABLE_PT: float = 3.0
 WEEK_COL_PX: int = 60
+COMPACT_WEEK_COL_PX: int = 52
 WEEKS_BEFORE_CURRENT = 1
 TIME_RANGE_WEEKS: dict[str, int] = {
     "3 Monate": 13,
@@ -26,6 +27,8 @@ class WeekColumn(BaseModel):
     week_no: int = 0
     month_label: str
     work_days: float
+    is_month_start: bool = False
+    is_short: bool = False
 
 
 class MonthSpan(BaseModel):
@@ -54,12 +57,17 @@ class GridCell(BaseModel):
     week_key: str
     value: float
     is_dirty: bool = False
+    is_repeat: bool = False
+    is_default: bool = False
 
 
 class GesamtCell(BaseModel):
     week_key: str
     value: float
     bucket: str
+    state: str = "free"
+    has_absence: bool = False
+    breakdown: str = ""
 
 
 class HeatCell(BaseModel):

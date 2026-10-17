@@ -57,6 +57,8 @@ from alloq_project.services.planning_builders import (
     filter_project_blocks,
     ingest_allocations,
     managed_employee_ids,
+    mark_defaults,
+    mark_repeats,
     owned_project_ids,
     parse_cell_changes,
     project_summary,
@@ -68,6 +70,7 @@ from alloq_project.services.planning_builders import (
     without_internal_projects,
 )
 from alloq_project.services.planning_gantt import build_absence_gantt
+from alloq_project.states.planning_display_mixin import PlanningDisplayState
 from alloq_project.states.planning_models import (
     LABEL_COL_PX,
     MIN_AVAILABLE_PT,
@@ -116,7 +119,7 @@ PROJECT_VIEW = "Projekte"
 HEATMAP_VIEW = "Heatmap"
 
 
-class PlanningStore(UserSession):
+class PlanningStore(PlanningDisplayState, UserSession):
     """Shared planning entities, allocations, filters and derived views."""
 
     # === Entity caches ===
@@ -300,9 +303,9 @@ class PlanningStore(UserSession):
                 if proj is None:
                     continue
                 code = proj["code"]
-                cells = [
-                    self._cell(cell_key(emp_id, code, wk), wk, dirty) for wk in wks
-                ]
+                cells = mark_repeats(
+                    [self._cell(cell_key(emp_id, code, wk), wk, dirty) for wk in wks]
+                )
                 rname = self.role_lookup.get(f"{emp_id}|{proj['real_id']}", "")
                 rshort = role_abbrev_by_name.get(rname) or role_short(rname)
                 rcolor = role_color(rname)
@@ -325,19 +328,22 @@ class PlanningStore(UserSession):
             internal_hours = emp.get("internal_hours", 4)
             internal_days = internal_hours / 8.0
             wp = int(emp.get("workload_percent", 100) or 100)
-            internal_cells = [
-                GridCell(
-                    week_key=wks[i],
-                    value=UtilizationService.cap_internal_days(
-                        internal_hours=internal_hours,
-                        absence_days=(ab[i] if i < len(ab) else 0.0),
-                        work_days=UtilizationService.apply_workload(
-                            weeks[i].work_days, wp
+            internal_cells = mark_defaults(
+                [
+                    GridCell(
+                        week_key=wks[i],
+                        value=UtilizationService.cap_internal_days(
+                            internal_hours=internal_hours,
+                            absence_days=(ab[i] if i < len(ab) else 0.0),
+                            work_days=UtilizationService.apply_workload(
+                                weeks[i].work_days, wp
+                            ),
                         ),
-                    ),
-                )
-                for i in range(len(wks))
-            ]
+                    )
+                    for i in range(len(wks))
+                ],
+                internal_days,
+            )
             block = EmployeeBlock(
                 id=emp_id,
                 real_id=emp["real_id"],
@@ -382,9 +388,9 @@ class PlanningStore(UserSession):
                 emp = emp_idx.get(emp_id)
                 if emp is None:
                     continue
-                cells = [
-                    self._cell(cell_key(emp_id, code, wk), wk, dirty) for wk in wks
-                ]
+                cells = mark_repeats(
+                    [self._cell(cell_key(emp_id, code, wk), wk, dirty) for wk in wks]
+                )
                 rname = self.role_lookup.get(f"{emp_id}|{proj['real_id']}", "")
                 rshort = role_abbrev_by_name.get(rname) or role_short(rname)
                 rcolor = role_color(rname)
@@ -543,14 +549,6 @@ class PlanningStore(UserSession):
     def current_week_key(self) -> str:
         """Current week as of the last populate, so summaries match the columns."""
         return self.current_week or current_week_key()
-
-    @rx.var(cache=True)
-    def table_width(self) -> str:
-        return f"{LABEL_COL_PX + len(self.weeks) * WEEK_COL_PX}px"
-
-    @rx.var(cache=True)
-    def grid_template_columns(self) -> str:
-        return f"{LABEL_COL_PX}px repeat({len(self.weeks)}, {WEEK_COL_PX}px)"
 
     @rx.var(cache=True)
     def project_filter_label(self) -> str:

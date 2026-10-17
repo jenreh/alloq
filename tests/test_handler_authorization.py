@@ -221,6 +221,7 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
             "toggle_all_sections",
             "toggle_employee",
             "toggle_employee_scope",
+            "toggle_grid_density",
             "toggle_project",
             "toggle_project_scope",
         }

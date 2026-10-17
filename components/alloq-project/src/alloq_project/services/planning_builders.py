@@ -10,6 +10,7 @@ from alloq_commons.models.employee import Employee
 from alloq_commons.models.project import Project
 from alloq_commons.role_colors import role_color
 from alloq_commons.services.utilization import (
+    FREE_DAYS_PRECISION,
     UtilizationAllocationInput,
     UtilizationService,
 )
@@ -18,6 +19,7 @@ from alloq_project.states.planning_models import (
     WEEKS_BEFORE_CURRENT,
     EmployeeBlock,
     GesamtCell,
+    GridCell,
     HeatCell,
     MonthSpan,
     ProjectBlock,
@@ -129,13 +131,16 @@ def build_weeks(
         work_days = UtilizationService.work_days_for_week(
             d, holidays, workload_percent=100, base_work_days=float(WORK_DAYS_PER_WEEK)
         )
+        month_label = f"{GERMAN_MONTHS[d.month - 1]} {d.year % 100}"
         weeks.append(
             WeekColumn(
                 key=f"{d.year}_{d.month:02d}_{d.day:02d}",
                 label=f"{d.day}.{d.month}.",
                 week_no=d.isocalendar().week,
-                month_label=f"{GERMAN_MONTHS[d.month - 1]} {d.year % 100}",
+                month_label=month_label,
                 work_days=work_days,
+                is_month_start=bool(weeks) and weeks[-1].month_label != month_label,
+                is_short=work_days < WORK_DAYS_PER_WEEK,
             )
         )
     spans: list[MonthSpan] = []
@@ -293,20 +298,77 @@ def scaled_work_days(week: WeekColumn, workload_percent: int) -> float:
     return UtilizationService.apply_workload(week.work_days, workload_percent)
 
 
+def mark_repeats(cells: list[GridCell]) -> list[GridCell]:
+    """Flag non-zero cells that repeat the previous week's value."""
+    previous = 0.0
+    for cell in cells:
+        value = round(cell.value, FREE_DAYS_PRECISION)
+        cell.is_repeat = value > 0 and value == previous
+        previous = value
+    return cells
+
+
+def mark_defaults(cells: list[GridCell], default: float) -> list[GridCell]:
+    """Flag cells holding the usual value so only deviations are shown."""
+    usual = round(default, FREE_DAYS_PRECISION)
+    for cell in cells:
+        cell.is_default = round(cell.value, FREE_DAYS_PRECISION) == usual
+    return cells
+
+
+def gesamt_state(free_days: float) -> str:
+    """Visual state of a Gesamt cell: overbooked, fully booked or free."""
+    free_days = round(free_days, FREE_DAYS_PRECISION)
+    if free_days < 0:
+        return "over"
+    if free_days == 0:
+        return "zero"
+    return "free"
+
+
+MINUS = "\N{MINUS SIGN}"
+
+
+def _de(value: float, *, signed: bool = False) -> str:
+    text = f"{abs(value):.2f}".replace(".", ",")
+    return f"{MINUS}{text}" if signed and value < 0 else text
+
+
+def gesamt_breakdown(
+    work: float, used: float, internal: float, absence: float, free: float
+) -> str:
+    """Tooltip text explaining how a week's free days are computed."""
+    return (
+        f"Arbeitstage {_de(work)} {MINUS} Projekte {_de(used)}"
+        f" {MINUS} Intern {_de(internal)} {MINUS} Abwesenheit {_de(absence)}"
+        f" = {_de(free, signed=True)} PT frei"
+    )
+
+
 def compute_gesamt(weeks: list[WeekColumn], block: EmployeeBlock) -> list[GesamtCell]:
     cells: list[GesamtCell] = []
     for idx, week in enumerate(weeks):
         used = sum(p.cells[idx].value for p in block.projects)
         absence = block.absence.cells[idx].value if block.absence.cells else 0.0
         internal = block.internal.cells[idx].value if block.internal.cells else 0.0
+        work = scaled_work_days(week, block.workload_percent)
         result = UtilizationService.compute_employee_gesamt(
             used_days=used,
             absence_days=absence,
             internal_days=internal,
-            work_days=scaled_work_days(week, block.workload_percent),
+            work_days=work,
         )
         cells.append(
-            GesamtCell(week_key=week.key, value=result.free_days, bucket=result.bucket)
+            GesamtCell(
+                week_key=week.key,
+                value=result.free_days,
+                bucket=result.bucket,
+                state=gesamt_state(result.free_days),
+                has_absence=result.has_absence,
+                breakdown=gesamt_breakdown(
+                    work, used, internal, absence, result.free_days
+                ),
+            )
         )
     return cells
 

@@ -32,6 +32,21 @@ def planning_toolbar() -> list[rx.Component]:
             ),
             rx.fragment(),
         ),
+        rx.cond(
+            (PlanningStore.view_mode == "Grid")
+            | (PlanningStore.view_mode == "Projekte"),
+            icon_button(
+                rx.cond(PlanningStore.is_compact, "unfold-vertical", "fold-vertical"),
+                rx.cond(
+                    PlanningStore.is_compact,
+                    "Kompakte Zeilen – klicken für normale Höhe",
+                    "Normale Zeilen – klicken für kompakte Höhe",
+                ),
+                PlanningStore.toggle_grid_density,
+                active=PlanningStore.is_compact,
+            ),
+            rx.fragment(),
+        ),
         icon_button(
             "folder-kanban",
             rx.cond(
