@@ -5,22 +5,28 @@ from __future__ import annotations
 import reflex as rx
 from alloq_commons.components.excel_grid import grid_row_attrs
 from alloq_commons.components.formatters import de_number
+from alloq_commons.role_colors import ROLE_BADGE_TEXT_COLOR
 from alloq_project.components.planning_shared import (
     CELL_BASE,
+    EDIT_HINT,
     LABEL_CELL_BASE,
+    ROW_LABEL_FONT_SIZE,
     STICKY_BLOCK_HEADER,
     STICKY_LEFT_BODY,
     STICKY_LEFT_EMP_HEADER,
     STICKY_LEFT_GESAMT,
+    VIEW_COLUMN_STYLE,
     block_header_info_cell,
-    current_week_bg,
     editable_value_cell,
     empty_grid_row,
     format_gesamt,
     grid_row,
     header_block,
+    legend_footer,
     planning_excel_grid,
     summary_stat,
+    week_cell_style,
+    week_legend_items,
 )
 from alloq_project.states.planning_grid_state import (
     EmployeeAllocationRow,
@@ -53,13 +59,8 @@ def _role_total_badge(role: ObjectVar[RoleTotal]) -> rx.Component:
         size="sm",
         radius="sm",
         variant="filled",
-        color="gray",
-        style={
-            "backgroundColor": role.color,
-            "color": "var(--alloq-text)",
-            "textTransform": "none",
-            "fontWeight": "500",
-        },
+        color=role.color,
+        c=ROLE_BADGE_TEXT_COLOR,
     )
 
 
@@ -119,8 +120,8 @@ def _project_header_row(proj: ObjectVar[ProjectBlock]) -> rx.Component:
         ),
         block_header_info_cell(
             summary_stat("Geplant", proj.planned_days),
-            rx.foreach(proj.role_totals, _role_total_badge),
             background=PROJ_HEADER_BG,
+            end=[rx.foreach(proj.role_totals, _role_total_badge)],
         ),
         style=STICKY_BLOCK_HEADER,
     )
@@ -137,7 +138,7 @@ def _employee_label_cell(emp: ObjectVar[EmployeeAllocationRow]) -> rx.Component:
         mn.group(
             mn.text(
                 emp.name,
-                size="sm",
+                size=ROW_LABEL_FONT_SIZE,
                 c="var(--alloq-text)",
                 truncate=True,
                 flex="1",
@@ -150,14 +151,9 @@ def _employee_label_cell(emp: ObjectVar[EmployeeAllocationRow]) -> rx.Component:
                     size="xs",
                     radius="sm",
                     variant="filled",
-                    color="gray",
-                    style={
-                        "backgroundColor": emp.role_color,
-                        "color": "var(--alloq-text)",
-                        "textTransform": "none",
-                        "fontWeight": "700",
-                        "flexShrink": "0",
-                    },
+                    color=emp.role_color,
+                    c=ROLE_BADGE_TEXT_COLOR,
+                    fw="700",
                 ),
                 rx.fragment(),
             ),
@@ -194,9 +190,7 @@ def _project_gesamt_cell(cell: ObjectVar[ProjectGesamtCell]) -> rx.Component:
         format_gesamt(cell.allocated),
         style={
             **CELL_BASE,
-            "backgroundColor": current_week_bg(
-                cell.week_key, "var(--alloq-surface-muted)"
-            ),
+            **week_cell_style(cell.week_key, "var(--alloq-surface-muted)"),
             "color": "var(--alloq-text)",
             "fontWeight": "600",
             "fontSize": "11px",
@@ -255,10 +249,17 @@ def planning_project_view() -> rx.Component:
     """Main project-aggregated planning view component."""
     return rx.cond(
         PlanningStore.is_loaded,
-        planning_excel_grid(
-            header_block(),
-            rx.foreach(PlanningStore.filtered_projects, _project_block),
-            grid_id="project-view-root",
+        mn.box(
+            planning_excel_grid(
+                header_block(
+                    "Projekt",
+                    PlanningStore.filtered_projects.length().to_string() + " Projekte",
+                ),
+                rx.foreach(PlanningStore.filtered_projects, _project_block),
+                grid_id="project-view-root",
+            ),
+            legend_footer(*week_legend_items(), hint=EDIT_HINT),
+            style=VIEW_COLUMN_STYLE,
         ),
         mn.center(
             rx.spinner(size="3"),

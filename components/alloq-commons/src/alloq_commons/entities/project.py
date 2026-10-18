@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Column,
     Date,
@@ -12,9 +13,11 @@ from sqlalchemy import (
     Integer,
     String,
     Table,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from alloq_commons.role_colors import role_avatar_color
 from appkit_commons.database.entities import Base, Entity
 
 if TYPE_CHECKING:
@@ -70,6 +73,12 @@ class ProjectEntity(Entity, Base):
     )
     budget: Mapped[int] = mapped_column(Integer, nullable=False)
     color: Mapped[str] = mapped_column(String(7), nullable=False, default="#FFD43B")
+    is_internal: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    booking_number: Mapped[str | None] = mapped_column(
+        String(50), nullable=True, default=""
+    )
     ev_earned_value: Mapped[float | None] = mapped_column(
         Float, nullable=True, default=None
     )
@@ -133,6 +142,8 @@ class ProjectEntity(Entity, Base):
             "state": self.state,
             "budget": self.budget,
             "color": self.color,
+            "is_internal": bool(self.is_internal),
+            "booking_number": self.booking_number or "",
             "owner_ids": [owner.id for owner in self.owners] if self.owners else [],
             "current_progress": latest_status.progress if latest_status else 0,
             "current_spent": latest_status.budget_spent if latest_status else 0,
@@ -192,6 +203,7 @@ class ProjectEntity(Entity, Base):
             {
                 "initials": f"{employee.first_name[:1]}{employee.last_name[:1]}",
                 "name": f"{employee.first_name} {employee.last_name}",
+                "color": role_avatar_color(employee.key_role_id),
                 "planned_pt": planned_pt,
             }
             for employee, planned_pt in self._staffed_employee_capacity()

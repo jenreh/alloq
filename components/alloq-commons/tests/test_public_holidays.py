@@ -5,6 +5,7 @@ from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from alloq_commons.components.public_holiday import holiday_form_fields
 from alloq_commons.entities.public_holiday import PublicHolidayEntity
 from alloq_commons.models.public_holiday import PublicHoliday, PublicHolidayCreate
 from alloq_commons.repositories.public_holiday_repository import PublicHolidayRepository
@@ -286,3 +287,10 @@ class TestHolidayStateLoading:
 
         assert True not in flags
         assert state.is_loading is False
+
+
+class TestHolidayComponents:
+    def test_form_name_limits_length_in_browser(self) -> None:
+        rendered = str(holiday_form_fields())
+        assert "maxLength:255" in rendered
+        assert '["maxLength"]' not in rendered

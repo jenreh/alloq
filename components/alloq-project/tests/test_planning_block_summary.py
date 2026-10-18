@@ -158,6 +158,7 @@ def _employee(emp_id: int) -> MagicMock:
     e.first_name = "Alice"
     e.last_name = "A"
     e.job_title = ""
+    e.avatar_color = "#8E8E93"
     e.role_names = ["Data Scientist"]
     e.role_ids = [1]
     e.absences = []

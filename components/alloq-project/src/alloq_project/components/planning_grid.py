@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import reflex as rx
+from alloq_commons.access import editor_only
 from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.excel_grid import grid_row_attrs
 from alloq_commons.components.formatters import de_number, match_str
@@ -12,15 +15,19 @@ from alloq_commons.components.modal_layout import (
     modal_footer,
     modal_form_layout,
 )
+from alloq_commons.role_colors import ROLE_BADGE_TEXT_COLOR
 from alloq_project.components.planning_shared import (
     CELL_BASE,
-    CURRENT_WEEK_BG,
+    EDIT_HINT,
     EMP_HEADER_BG,
+    HOLIDAY_IMAGE,
     LABEL_CELL_BASE,
+    ROW_LABEL_FONT_SIZE,
     STICKY_BLOCK_HEADER,
     STICKY_LEFT_BODY,
     STICKY_LEFT_EMP_HEADER,
     STICKY_LEFT_GESAMT,
+    VIEW_COLUMN_STYLE,
     block_header_info_cell,
     current_week_bg,
     editable_value_cell,
@@ -29,8 +36,12 @@ from alloq_project.components.planning_shared import (
     format_gesamt,
     grid_row,
     header_block,
+    legend_footer,
+    legend_item,
     planning_excel_grid,
     summary_stat,
+    week_cell_style,
+    week_legend_items,
 )
 from alloq_project.states.planning_absence_state import PlanningAbsenceState
 from alloq_project.states.planning_grid_state import (
@@ -51,30 +62,43 @@ import appkit_mantine as mn
 # ---------------------------------------------------------------------------
 
 
-def _gesamt_color(bucket: rx.Var[str]) -> rx.Var[str]:
+GESAMT_OVER_BG = "light-dark(var(--mantine-color-red-0), rgba(250, 82, 82, 0.18))"
+ABSENCE_HATCH = (
+    "repeating-linear-gradient(135deg, var(--alloq-border-strong) 0 1px,"
+    " transparent 1px 6px)"
+)
+ABSENCE_DOT = {
+    "position": "absolute",
+    "top": "4px",
+    "left": "5px",
+    "width": "5px",
+    "height": "5px",
+    "borderRadius": "50%",
+    "backgroundColor": "var(--alloq-text-muted)",
+}
+ROW_DELETE_CLASS = "aq-row-delete"
+ROW_DELETE_ON_HOVER = {
+    f"& .{ROW_DELETE_CLASS}": {"opacity": "0"},
+    f"&:hover .{ROW_DELETE_CLASS}, & .{ROW_DELETE_CLASS}:focus-within": {
+        "opacity": "1"
+    },
+}
+
+
+FREE_COLOR = "light-dark(var(--mantine-color-green-7), var(--mantine-color-green-3))"
+OVERBOOKED_LABEL = "Überbucht"
+
+
+def _gesamt_color(state: rx.Var[str]) -> rx.Var[str]:
+    """Free days colour: red when overbooked, muted when full, green when free."""
     return match_str(
-        bucket,
+        state,
         (
             "over",
             "light-dark(var(--mantine-color-red-7), var(--mantine-color-red-3))",
         ),
-        (
-            "tight",
-            "light-dark(var(--mantine-color-violet-7), var(--mantine-color-violet-3))",
-        ),
-        (
-            "available",
-            "light-dark(var(--mantine-color-green-7), var(--mantine-color-green-3))",
-        ),
-        (
-            "balanced",
-            "light-dark(var(--mantine-color-green-6), var(--mantine-color-green-4))",
-        ),
-        (
-            "absent",
-            "light-dark(var(--mantine-color-blue-7), var(--mantine-color-blue-3))",
-        ),
-        "var(--alloq-text)",
+        ("zero", "var(--alloq-text-muted)"),
+        FREE_COLOR,
     )
 
 
@@ -106,29 +130,16 @@ def _employee_header_row(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
                         fw="700",
                         c="var(--alloq-text)",
                     ),
-                    de_number(
-                        emp.hours_per_week,
-                        suffix="h/W",
-                        size="xs",
-                        c="var(--alloq-text-muted)",
-                        fw="400",
-                    ),
-                    mn.badge(
-                        emp.role,
-                        size="xs",
-                        radius="sm",
-                        variant="filled",
-                        color="gray",
-                        style={
-                            "backgroundColor": emp.role_color,
-                            "color": "var(--alloq-text)",
-                            "textTransform": "none",
-                            "fontWeight": "700",
-                        },
-                    ),
                     gap="sm",
                     align="center",
                     wrap="nowrap",
+                ),
+                de_number(
+                    emp.hours_per_week,
+                    suffix="h/W",
+                    size="xs",
+                    c="var(--alloq-text-muted)",
+                    fw="400",
                 ),
                 justify="space-between",
                 align="center",
@@ -142,21 +153,19 @@ def _employee_header_row(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
                 "borderBottom": "1px solid var(--alloq-border-strong)",
             },
         ),
-        block_header_info_cell(
+        rx.cond(
+            is_collapsed,
+            rx.foreach(emp.gesamt, _gesamt_value_cell),
+            _employee_info_cell(emp),
+        ),
+        style=STICKY_BLOCK_HEADER,
+    )
+
+
+def _employee_info_cell(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
+    return block_header_info_cell(
+        editor_only(
             mn.group(
-                mn.tooltip(
-                    mn.action_icon(
-                        rx.icon("calendar-plus", size=14, stroke_width=2),
-                        variant="subtle",
-                        color="gray",
-                        size="xs",
-                        aria_label="Abwesenheit eintragen",
-                        on_click=TeamState.select_employee_and_add_absence(  # ty: ignore[invalid-argument-type]
-                            emp.real_id,
-                        ),
-                    ),
-                    label="Abwesenheit eintragen",
-                ),
                 mn.tooltip(
                     mn.action_icon(
                         rx.icon("plus", size=14, stroke_width=2),
@@ -170,14 +179,28 @@ def _employee_header_row(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
                     ),
                     label="Projekt zuweisen",
                 ),
+                mn.tooltip(
+                    mn.action_icon(
+                        rx.icon("calendar-plus", size=14, stroke_width=2),
+                        variant="subtle",
+                        color="gray",
+                        size="xs",
+                        aria_label="Abwesenheit eintragen",
+                        on_click=TeamState.select_employee_and_add_absence(  # ty: ignore[invalid-argument-type]
+                            emp.real_id,
+                        ),
+                    ),
+                    label="Abwesenheit eintragen",
+                ),
                 gap="xs",
                 wrap="nowrap",
             ),
-            summary_stat("Geplant", emp.planned_days),
-            summary_stat("Verfügbar", emp.available_days),
-            background=EMP_HEADER_BG,
         ),
-        style=STICKY_BLOCK_HEADER,
+        background=EMP_HEADER_BG,
+        end=[
+            summary_stat("Geplant", emp.planned_days),
+            summary_stat("Frei", emp.available_days, color=FREE_COLOR),
+        ],
     )
 
 
@@ -195,7 +218,7 @@ def _project_label_cell(project: ObjectVar[ProjectAllocationRow]) -> rx.Componen
             ),
             mn.text(
                 project.name,
-                size="sm",
+                size=ROW_LABEL_FONT_SIZE,
                 c="var(--alloq-text)",
                 truncate=True,
                 flex="1",
@@ -208,30 +231,31 @@ def _project_label_cell(project: ObjectVar[ProjectAllocationRow]) -> rx.Componen
                     size="xs",
                     radius="sm",
                     variant="filled",
-                    color="gray",
-                    style={
-                        "backgroundColor": project.role_color,
-                        "color": "var(--alloq-text)",
-                        "textTransform": "none",
-                        "fontWeight": "700",
-                        "flexShrink": "0",
-                    },
+                    color=project.role_color,
+                    c=ROLE_BADGE_TEXT_COLOR,
+                    fw="700",
                 ),
                 rx.fragment(),
             ),
-            mn.tooltip(
-                delete_dialog(
-                    title="Projektzuweisung entfernen",
-                    content=f"{project.code} — {project.name}",
-                    on_click=PlanningStore.remove_project_from_employee_grid(  # ty: ignore[invalid-argument-type]
-                        project.emp_id, project.real_project_id
+            editor_only(
+                mn.box(
+                    mn.tooltip(
+                        delete_dialog(
+                            title="Projektzuweisung entfernen",
+                            content=f"{project.code} — {project.name}",
+                            on_click=PlanningStore.remove_project_from_employee_grid(  # ty: ignore[invalid-argument-type]
+                                project.emp_id, project.real_project_id
+                            ),
+                            icon_button=True,
+                            color="red",
+                            size="xs",
+                            variant="subtle",
+                        ),
+                        label="Projekt entfernen",
                     ),
-                    icon_button=True,
-                    color="red",
-                    size="xs",
-                    variant="subtle",
+                    class_name=ROW_DELETE_CLASS,
+                    display="flex",
                 ),
-                label="Projekt entfernen",
             ),
             gap="sm",
             align="center",
@@ -252,13 +276,15 @@ def _project_row_view(project: ObjectVar[ProjectAllocationRow]) -> rx.Component:
         _project_label_cell(project),
         rx.foreach(project.cells, editable_value_cell),
         attrs=grid_row_attrs(f"{project.emp_id}|{project.code}", project.emp_id),
+        style=ROW_DELETE_ON_HOVER,
     )
 
 
 def _absence_value_cell(cell: ObjectVar[GridCell]) -> rx.Component:
+    has_absence = cell.value.to(float) > 0
     return mn.box(
         rx.cond(
-            cell.value.to(float) > 0,
+            has_absence,
             mn.text(
                 format_de(cell.value),
                 size="xs",
@@ -268,8 +294,11 @@ def _absence_value_cell(cell: ObjectVar[GridCell]) -> rx.Component:
         ),
         style={
             **CELL_BASE,
+            **week_cell_style(cell.week_key),
             "color": "var(--alloq-text-muted)",
-            "backgroundColor": current_week_bg(cell.week_key),
+            "backgroundImage": rx.cond(
+                has_absence, f"{ABSENCE_HATCH}, {HOLIDAY_IMAGE}", HOLIDAY_IMAGE
+            ),
         },
     )
 
@@ -289,9 +318,10 @@ def _absence_row(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
 
 
 def _internal_value_cell(cell: ObjectVar[GridCell]) -> rx.Component:
+    """Internal days, shown only where they differ from the usual value."""
     return mn.box(
         rx.cond(
-            cell.value.to(float) > 0,
+            (cell.value.to(float) > 0) & ~cell.is_default,
             mn.text(
                 format_de(cell.value),
                 size="xs",
@@ -301,8 +331,8 @@ def _internal_value_cell(cell: ObjectVar[GridCell]) -> rx.Component:
         ),
         style={
             **CELL_BASE,
+            **week_cell_style(cell.week_key),
             "color": "var(--alloq-text-muted)",
-            "backgroundColor": current_week_bg(cell.week_key),
         },
     )
 
@@ -311,7 +341,19 @@ def _internal_row(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
     return grid_row(
         mn.box(
             mn.text("Interne Projekte", size="xs", c="var(--alloq-text-muted)"),
+            mn.text(
+                de_number(
+                    emp.internal_days,
+                    decimal_scale=2,
+                    fixed_decimal_scale=True,
+                    prefix="· ",
+                    suffix=" / Wo.",
+                ),
+                size="xs",
+                c="var(--alloq-text-muted)",
+            ),
             style={
+                "gap": "4px",
                 **LABEL_CELL_BASE,
                 **STICKY_LEFT_BODY,
                 "paddingLeft": "16px",
@@ -322,19 +364,21 @@ def _internal_row(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
 
 
 def _gesamt_value_cell(cell: ObjectVar[GesamtCell]) -> rx.Component:
-    is_current = cell.week_key == PlanningStore.current_week_key
+    """Free days; overbooking is tinted, absence weeks carry a small dot."""
+    is_over = cell.state == "over"
     return mn.box(
+        rx.cond(cell.has_absence, mn.box(style=ABSENCE_DOT), rx.fragment()),
         format_gesamt(cell.value),
+        custom_attrs={"title": cell.breakdown},
         style={
             **CELL_BASE,
-            "backgroundImage": rx.cond(
-                is_current,
-                f"linear-gradient({CURRENT_WEEK_BG}, {CURRENT_WEEK_BG})",
-                "none",
+            **week_cell_style(cell.week_key),
+            "position": "relative",
+            "backgroundColor": rx.cond(
+                is_over, GESAMT_OVER_BG, current_week_bg(cell.week_key)
             ),
-            "color": _gesamt_color(cell.bucket),
-            "fontWeight": "600",
-            "fontSize": "11px",
+            "color": _gesamt_color(cell.state),
+            "fontWeight": rx.cond(is_over, "700", "500"),
         },
     )
 
@@ -360,13 +404,16 @@ def _employee_block(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
             ~is_collapsed,
             mn.box(
                 rx.foreach(emp.projects, _project_row_view),
-                _internal_row(emp),
-                _absence_row(emp),
+                rx.cond(
+                    ~PlanningStore.hide_internal,
+                    rx.fragment(_internal_row(emp), _absence_row(emp)),
+                    rx.fragment(),
+                ),
                 _gesamt_row(emp),
-                empty_grid_row(),
             ),
             rx.fragment(),
         ),
+        empty_grid_row(),
     )
 
 
@@ -384,7 +431,7 @@ def _add_project_modal() -> rx.Component:
                     mn.select(
                         name="project_id",
                         label="Projekt",
-                        data=PlanningStore.add_project_options.to(list[dict[str, str]]),
+                        data=PlanningStore.add_project_options.to(list[dict[str, Any]]),
                         value=PlanningStore.add_project_selected,
                         on_change=PlanningStore.set_add_project_selected,
                         required=True,
@@ -440,6 +487,36 @@ def _add_project_modal() -> rx.Component:
 
 
 # ---------------------------------------------------------------------------
+# Legend
+# ---------------------------------------------------------------------------
+
+
+def _footer() -> rx.Component:
+    return legend_footer(
+        *week_legend_items(),
+        legend_item(
+            {
+                "width": "18px",
+                "height": "14px",
+                "borderRadius": "3px",
+                "backgroundColor": GESAMT_OVER_BG,
+            },
+            OVERBOOKED_LABEL,
+        ),
+        legend_item(
+            {
+                "width": "18px",
+                "height": "14px",
+                "backgroundImage": ABSENCE_HATCH,
+                "boxShadow": "inset 0 0 0 1px var(--aq-border)",
+            },
+            "Abwesenheit",
+        ),
+        hint=EDIT_HINT,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Main component
 # ---------------------------------------------------------------------------
 
@@ -450,12 +527,20 @@ def planning_grid() -> rx.Component:
         absence_modal(on_submit=PlanningAbsenceState.create_absence),
         rx.cond(
             PlanningStore.is_loaded,
-            planning_excel_grid(
-                header_block(),
-                mn.box(
-                    rx.foreach(PlanningStore.filtered_employees, _employee_block),
+            mn.box(
+                planning_excel_grid(
+                    header_block(
+                        "Mitarbeiter",
+                        PlanningStore.filtered_employees.length().to_string()
+                        + " Personen",
+                    ),
+                    mn.box(
+                        rx.foreach(PlanningStore.filtered_employees, _employee_block),
+                    ),
+                    grid_id="planning-grid-root",
                 ),
-                grid_id="planning-grid-root",
+                _footer(),
+                style=VIEW_COLUMN_STYLE,
             ),
             mn.center(
                 rx.hstack(

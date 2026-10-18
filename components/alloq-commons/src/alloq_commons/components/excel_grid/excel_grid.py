@@ -37,6 +37,9 @@ class ExcelGrid(rx.Component):
     saving: Var[bool]
     """True while on_save is running (drives the "save & leave" button)."""
 
+    read_only: Var[bool]
+    """Selection and copy only: no editing, paste, fill or clear."""
+
     grid_label: Var[str]
     min_value: Var[float]
     max_value: Var[float]

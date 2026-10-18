@@ -1,21 +1,27 @@
 """Tests for the app shell and the window toolbar."""
 
 import os
+from pathlib import Path
 from unittest.mock import patch
 
 import reflex as rx
 from alloq_commons.components import shell, toolbar
-from alloq_commons.components.splash import CSS as SPLASH_CSS
 from alloq_commons.components.splash import SplashState, splash
 from alloq_commons.desktop import DESKTOP_ENV, is_desktop
+
+ASSETS_CSS = Path(__file__).parents[3] / "assets" / "css"
+
+
+def _css(name: str) -> str:
+    return (ASSETS_CSS / name).read_text()
 
 
 class TestWindowToolbar:
     def test_active_icon_button_uses_accent_colors(self) -> None:
-        assert (
-            ".aq-icon-btn[data-active=true]{"
-            "background:var(--aq-accent-soft);color:var(--aq-accent);}"
-        ) in shell.SHELL_CSS
+        css = _css("aq-shell.css")
+        assert ".aq-icon-btn[data-active=true] {" in css
+        assert "background: var(--aq-accent-soft);" in css
+        assert "color: var(--aq-accent);" in css
 
     def test_renders_title_subtitle_and_actions(self) -> None:
         rendered = str(
@@ -84,11 +90,12 @@ class TestSidebarScript:
 
     def test_narrow_window_uses_drawer(self) -> None:
         assert f"max-width: {shell.NARROW_PX - 1}px" in shell.SIDEBAR_SCRIPT
-        assert shell.OPEN_ATTR in shell.SHELL_CSS
+        assert shell.OPEN_ATTR in _css("aq-shell.css")
+        assert f"max-width: {shell.NARROW_PX - 1}px" in _css("aq-shell.css")
 
     def test_native_window_leaves_room_for_traffic_lights(self) -> None:
-        assert (
-            "html[data-native][data-sidebar-collapsed] .aq-toolbar" in shell.SHELL_CSS
+        assert "html[data-native][data-sidebar-collapsed] .aq-toolbar" in _css(
+            "aq-shell.css"
         )
 
 
@@ -132,7 +139,7 @@ class TestDesktop:
         rendered = str(splash())
         assert "aq-splash" in rendered
         assert "progressbar" in rendered
-        assert "data-sonner-toaster" in SPLASH_CSS
+        assert "data-sonner-toaster" in _css("aq-splash.css")
 
     def test_splash_state(self) -> None:
         state = SplashState()

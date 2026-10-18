@@ -39,6 +39,25 @@ class TestEmployeeEntity:
         assert entity.seniority == "Senior"
         assert entity.hours_per_week == 40.0
 
+    def test_to_dict_lists_key_role_first(self) -> None:
+        roles = []
+        for role_id, name in ((1, "Architect"), (2, "Engineer"), (3, "Analyst")):
+            role = RoleEntity(name=name)
+            role.id = role_id
+            roles.append(role)
+        entity = EmployeeEntity(
+            first_name="Anna",
+            last_name="Schmidt",
+            seniority=SeniorityLevel.EXPERT.value,
+        )
+        entity.id = 5
+        entity.roles = roles
+        entity.key_role_id = 3
+        result = entity.to_dict()
+        assert result["key_role_id"] == 3
+        assert result["role_ids"] == [3, 1, 2]
+        assert result["role_names"] == ["Analyst", "Architect", "Engineer"]
+
     def test_to_dict(self) -> None:
         entity = EmployeeEntity(
             first_name="Anna",

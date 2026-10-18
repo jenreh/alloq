@@ -17,6 +17,7 @@ from collections.abc import AsyncGenerator
 from typing import Any
 
 import reflex as rx
+from alloq_commons.access import requires_editor, requires_viewer
 from alloq_commons.entities import CapacityEntity, RoleEntity
 from alloq_commons.models.employee import Employee
 from alloq_commons.models.project import Project
@@ -29,15 +30,15 @@ from alloq_commons.repositories import (
     public_holiday_repo,
     role_repo,
 )
+from alloq_commons.role_colors import role_color
 from alloq_commons.services.quick_project import (
-    NEW_PROJECT_OPTION,
     NEW_PROJECT_VALUE,
     QuickProjectError,
     create_quick_project,
+    grouped_project_options,
 )
 from alloq_commons.services.utilization import UtilizationService
 from alloq_project.services.planning_builders import (
-    ROLE_PALETTE,
     CapAssignment,
     anchor_date,
     build_employee_meta,
@@ -46,9 +47,7 @@ from alloq_project.services.planning_builders import (
     cell_key,
     cell_role_ids,
     compute_gesamt,
-    compute_heat,
     compute_project_gesamt,
-    compute_project_heat,
     current_week_key,
     dirty_keys_for,
     edits_to_rows,
@@ -57,6 +56,8 @@ from alloq_project.services.planning_builders import (
     filter_project_blocks,
     ingest_allocations,
     managed_employee_ids,
+    mark_defaults,
+    mark_repeats,
     owned_project_ids,
     parse_cell_changes,
     project_summary,
@@ -64,20 +65,36 @@ from alloq_project.services.planning_builders import (
     sorted_projects,
     split_edits,
     wire_pairs,
+    without_idle_projects,
+    without_internal_projects,
 )
-from alloq_project.services.planning_gantt import build_absence_gantt
+from alloq_project.services.planning_view_settings import (
+    READ_SCRIPT,
+    ViewSettings,
+    parse_view_settings,
+    view_settings_script,
+)
+from alloq_project.states.planning_absence_view_mixin import PlanningAbsenceViewMixin
+from alloq_project.states.planning_display_mixin import (
+    COMPACT,
+    NORMAL,
+    PlanningDisplayState,
+)
+from alloq_project.states.planning_filter_mixin import (
+    GRID_VIEW,
+    PROJECT_VIEW,
+    PlanningFilterMixin,
+)
 from alloq_project.states.planning_models import (
     LABEL_COL_PX,
     MIN_AVAILABLE_PT,
     TIME_RANGE_WEEKS,
     WEEK_COL_PX,
-    AbsenceGanttRow,
     AbsenceRow,
     EmployeeAllocationRow,
     EmployeeBlock,
     GesamtCell,
     GridCell,
-    HeatCell,
     MonthSpan,
     ProjectAllocationRow,
     ProjectBlock,
@@ -88,7 +105,6 @@ from alloq_project.states.planning_models import (
 from sqlalchemy import select
 
 from appkit_commons.database.session import get_asyncdb_session
-from appkit_user.authentication.decorators import requires_admin
 from appkit_user.authentication.states import UserSession
 
 log = logging.getLogger(__name__)
@@ -100,7 +116,6 @@ __all__ = [
     "EmployeeBlock",
     "GesamtCell",
     "GridCell",
-    "HeatCell",
     "MonthSpan",
     "PlanningStore",
     "ProjectAllocationRow",
@@ -109,12 +124,13 @@ __all__ = [
     "WeekColumn",
 ]
 
-GRID_VIEW = "Grid"
-PROJECT_VIEW = "Projekte"
-HEATMAP_VIEW = "Heatmap"
 
-
-class PlanningStore(UserSession):
+class PlanningStore(
+    PlanningDisplayState,
+    PlanningFilterMixin,
+    PlanningAbsenceViewMixin,
+    UserSession,
+):
     """Shared planning entities, allocations, filters and derived views."""
 
     # === Entity caches ===
@@ -151,20 +167,20 @@ class PlanningStore(UserSession):
     time_range: rx.Field[str] = rx.field("3 Monate")
     is_saving: rx.Field[bool] = rx.field(False)
 
-    project_filter: rx.Field[list[str]] = rx.field(default_factory=list)
-    role_filter: rx.Field[list[str]] = rx.field(default_factory=list)
-    employee_filter: rx.Field[list[str]] = rx.field(default_factory=list)
-    available_only: rx.Field[bool] = rx.field(False)
-    project_scope: rx.Field[bool] = rx.field(False)
-    employee_scope: rx.Field[bool] = rx.field(False)
     current_employee_id: rx.Field[int | None] = rx.field(None)
     current_week: rx.Field[str] = rx.field("")
 
     collapsed_employees: rx.Field[list[str]] = rx.field(default_factory=list)
     collapsed_projects: rx.Field[list[str]] = rx.field(default_factory=list)
+    # Browser copy of "collapse all", applied again whenever the grid loads.
+    # "Collapse all" as stored in the browser; applied again on every populate.
+    _collapse_saved: bool = False
+    # Set when filters were cleared on purpose; the next settings read keeps
+    # the scopes off instead of restoring them.
+    _filters_focused: bool = False
 
     add_project_emp_id: rx.Field[str] = rx.field("")
-    add_project_options: rx.Field[list[dict[str, str]]] = rx.field(default_factory=list)
+    add_project_options: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
     add_project_role_options: rx.Field[list[dict[str, str]]] = rx.field(
         default_factory=list
     )
@@ -195,42 +211,6 @@ class PlanningStore(UserSession):
     def set_time_range(self, value: str) -> Any:
         self.time_range = value
         return PlanningStore.reload_with_time_range(value)
-
-    @rx.event
-    def set_project_filter(self, value: list[str]) -> None:
-        self.project_filter = value
-
-    @rx.event
-    def set_role_filter(self, value: list[str]) -> None:
-        self.role_filter = value
-
-    @rx.event
-    def set_employee_filter(self, value: list[str]) -> None:
-        self.employee_filter = value
-
-    @rx.event
-    def set_available_only(self, value: bool) -> None:
-        self.available_only = value
-
-    @rx.event
-    def toggle_project_scope(self) -> Any:
-        if not self.project_scope and self.current_employee_id is None:
-            return self._notify_no_employee()
-        self.project_scope = not self.project_scope
-        return None
-
-    @rx.event
-    def toggle_employee_scope(self) -> Any:
-        if not self.employee_scope and self.current_employee_id is None:
-            return self._notify_no_employee()
-        self.employee_scope = not self.employee_scope
-        return None
-
-    @staticmethod
-    def _notify_no_employee() -> Any:
-        return rx.toast.warning(
-            "Ihrem Benutzer ist kein Mitarbeiter zugeordnet.", position="top-right"
-        )
 
     # === Entity-derived select options ===
 
@@ -293,12 +273,12 @@ class PlanningStore(UserSession):
                 if proj is None:
                     continue
                 code = proj["code"]
-                cells = [
-                    self._cell(cell_key(emp_id, code, wk), wk, dirty) for wk in wks
-                ]
+                cells = mark_repeats(
+                    [self._cell(cell_key(emp_id, code, wk), wk, dirty) for wk in wks]
+                )
                 rname = self.role_lookup.get(f"{emp_id}|{proj['real_id']}", "")
                 rshort = role_abbrev_by_name.get(rname) or role_short(rname)
-                rcolor = ROLE_PALETTE.get(rshort, "var(--mantine-color-gray-2)")
+                rcolor = role_color(rname)
                 project_rows.append(
                     ProjectAllocationRow(
                         project_id=str(proj["real_id"]),
@@ -310,6 +290,7 @@ class PlanningStore(UserSession):
                         role_name=rname,
                         role_short=rshort,
                         role_color=rcolor,
+                        is_internal=proj.get("is_internal", False),
                         cells=cells,
                     )
                 )
@@ -317,19 +298,22 @@ class PlanningStore(UserSession):
             internal_hours = emp.get("internal_hours", 4)
             internal_days = internal_hours / 8.0
             wp = int(emp.get("workload_percent", 100) or 100)
-            internal_cells = [
-                GridCell(
-                    week_key=wks[i],
-                    value=UtilizationService.cap_internal_days(
-                        internal_hours=internal_hours,
-                        absence_days=(ab[i] if i < len(ab) else 0.0),
-                        work_days=UtilizationService.apply_workload(
-                            weeks[i].work_days, wp
+            internal_cells = mark_defaults(
+                [
+                    GridCell(
+                        week_key=wks[i],
+                        value=UtilizationService.cap_internal_days(
+                            internal_hours=internal_hours,
+                            absence_days=(ab[i] if i < len(ab) else 0.0),
+                            work_days=UtilizationService.apply_workload(
+                                weeks[i].work_days, wp
+                            ),
                         ),
-                    ),
-                )
-                for i in range(len(wks))
-            ]
+                    )
+                    for i in range(len(wks))
+                ],
+                internal_days,
+            )
             block = EmployeeBlock(
                 id=emp_id,
                 real_id=emp["real_id"],
@@ -337,6 +321,7 @@ class PlanningStore(UserSession):
                 first_name=emp.get("first_name", ""),
                 last_name=emp.get("last_name", ""),
                 initials=emp["initials"],
+                avatar_color=emp.get("avatar_color", ""),
                 job_title=emp.get("job_title", ""),
                 role=emp.get("role_short", ""),
                 role_color=emp.get("role_color", ""),
@@ -351,7 +336,6 @@ class PlanningStore(UserSession):
                 workload_percent=wp,
             )
             block.gesamt = compute_gesamt(weeks, block)
-            block.heat = compute_heat(weeks, block)
             block.planned_days, block.available_days = employee_summary(block, from_key)
             blocks.append(block)
         return blocks
@@ -374,12 +358,12 @@ class PlanningStore(UserSession):
                 emp = emp_idx.get(emp_id)
                 if emp is None:
                     continue
-                cells = [
-                    self._cell(cell_key(emp_id, code, wk), wk, dirty) for wk in wks
-                ]
+                cells = mark_repeats(
+                    [self._cell(cell_key(emp_id, code, wk), wk, dirty) for wk in wks]
+                )
                 rname = self.role_lookup.get(f"{emp_id}|{proj['real_id']}", "")
                 rshort = role_abbrev_by_name.get(rname) or role_short(rname)
-                rcolor = ROLE_PALETTE.get(rshort, "var(--mantine-color-gray-2)")
+                rcolor = role_color(rname)
                 emp_rows.append(
                     EmployeeAllocationRow(
                         emp_id=emp_id,
@@ -400,18 +384,20 @@ class PlanningStore(UserSession):
                 name=proj["name"],
                 color=proj["color"],
                 state=proj.get("state", ""),
+                is_internal=proj.get("is_internal", False),
                 employees=emp_rows,
             )
             block.gesamt = compute_project_gesamt(weeks, block)
-            block.heat = compute_project_heat(weeks, block)
             block.planned_days, block.role_totals = project_summary(block, from_key)
             blocks.append(block)
         return blocks
 
     # === Filtered pivots ===
 
-    def _filter_employees(self, blocks: list[EmployeeBlock]) -> list[EmployeeBlock]:
-        """Apply scope, selection and remaining-capacity filters."""
+    def _filter_employees(
+        self, blocks: list[EmployeeBlock], *, planning_filters: bool = True
+    ) -> list[EmployeeBlock]:
+        """Apply scope, selection and (with `planning_filters`) capacity filters."""
         result = blocks
         if self.project_scope:
             own = owned_project_ids(self.all_projects, self.current_employee_id)
@@ -421,7 +407,7 @@ class PlanningStore(UserSession):
                 self.available_employees, self.current_employee_id
             )
             result = [e for e in result if str(e.real_id) in mine]
-        if self.project_filter:
+        if planning_filters and self.project_filter:
             result = [
                 e
                 for e in result
@@ -435,7 +421,7 @@ class PlanningStore(UserSession):
             ]
         if self.employee_filter:
             result = [e for e in result if str(e.real_id) in self.employee_filter]
-        if self.available_only:
+        if planning_filters and self.available_only:
             result = [e for e in result if e.available_days > MIN_AVAILABLE_PT]
         return result
 
@@ -443,8 +429,11 @@ class PlanningStore(UserSession):
     def filtered_employees(self) -> list[EmployeeBlock]:
         if self.view_mode != GRID_VIEW:
             return []
+        blocks = self._filter_employees(self.employee_blocks)
+        if self.hide_internal:
+            blocks = without_internal_projects(blocks)
         return sorted(
-            self._filter_employees(self.employee_blocks),
+            blocks,
             key=lambda employee: (
                 employee.last_name.casefold(),
                 employee.first_name.casefold(),
@@ -455,7 +444,9 @@ class PlanningStore(UserSession):
     def filtered_projects(self) -> list[ProjectBlock]:
         if self.view_mode != PROJECT_VIEW:
             return []
-        result = self.project_blocks
+        result = without_idle_projects(self.project_blocks)
+        if self.hide_internal:
+            result = [p for p in result if not p.is_internal]
         if self.project_scope:
             own = owned_project_ids(self.all_projects, self.current_employee_id)
             result = [p for p in result if str(p.real_id) in own]
@@ -481,23 +472,6 @@ class PlanningStore(UserSession):
             ),
         )
 
-    @rx.var(cache=True)
-    def employees(self) -> list[EmployeeBlock]:
-        _ = self.cells  # explicit dependency for heatmap reactivity
-        if self.view_mode != HEATMAP_VIEW:
-            return []
-        return self._filter_employees(self.employee_blocks)
-
-    @rx.var(cache=True)
-    def absence_gantt_rows(self) -> list[AbsenceGanttRow]:
-        if self.view_mode != "Abwesenheiten":
-            return []
-        return build_absence_gantt(
-            self._filter_employees(self.employee_blocks),
-            self.available_employees,
-            self.weeks,
-        )
-
     @rx.var(cache=True, backend=True)
     def projects(self) -> list[ProjectBlock]:
         return self.project_blocks
@@ -507,51 +481,9 @@ class PlanningStore(UserSession):
         return len(self.dirty_keys) > 0 or len(self.hidden_edits) > 0
 
     @rx.var(cache=True)
-    def avg_heat(self) -> list[HeatCell]:
-        emps = self.employees  # same filtered population as the heatmap rows
-        if not emps or not self.weeks:
-            return []
-        out: list[HeatCell] = []
-        for idx, week in enumerate(self.weeks):
-            percents = [e.heat[idx].percent for e in emps if idx < len(e.heat)]
-            avg = UtilizationService.compute_team_average(percents)
-            out.append(
-                HeatCell(
-                    week_key=week.key,
-                    percent=avg,
-                    is_absent=False,
-                    bucket=UtilizationService.heat_bucket(avg),
-                )
-            )
-        return out
-
-    @rx.var(cache=True)
     def current_week_key(self) -> str:
         """Current week as of the last populate, so summaries match the columns."""
         return self.current_week or current_week_key()
-
-    @rx.var(cache=True)
-    def table_width(self) -> str:
-        return f"{LABEL_COL_PX + len(self.weeks) * WEEK_COL_PX}px"
-
-    @rx.var(cache=True)
-    def grid_template_columns(self) -> str:
-        return f"{LABEL_COL_PX}px repeat({len(self.weeks)}, {WEEK_COL_PX}px)"
-
-    @rx.var(cache=True)
-    def project_filter_label(self) -> str:
-        c = len(self.project_filter)
-        return f'"Projekte ({c})"' if c > 0 else ""
-
-    @rx.var(cache=True)
-    def role_filter_label(self) -> str:
-        c = len(self.role_filter)
-        return f'"Rollen ({c})"' if c > 0 else ""
-
-    @rx.var(cache=True)
-    def employee_filter_label(self) -> str:
-        c = len(self.employee_filter)
-        return f'"MA ({c})"' if c > 0 else ""
 
     # === Loading ===
 
@@ -640,6 +572,8 @@ class PlanningStore(UserSession):
         self.cells = {**cells, **visible}
         self.hidden_edits = hidden
         self.dirty_keys = dirty_keys_for(self.cells, self.saved_cells)
+        if self._collapse_saved:
+            self._collapse_all_sections()
         self.is_loaded = True
 
     async def _load_entities(self) -> None:
@@ -673,11 +607,11 @@ class PlanningStore(UserSession):
         )
 
     @rx.event
-    @requires_admin
+    @requires_viewer
     async def load(self) -> AsyncGenerator[Any]:
         """Load entity caches and populate the grid for the current time range."""
         self.is_loading = True
-        yield
+        yield self._focus_employee_from_url()
         try:
             await self._load_entities()
             await self._populate(self._range_weeks())
@@ -688,17 +622,17 @@ class PlanningStore(UserSession):
             )
         finally:
             self.is_loading = False
-        yield
+        yield rx.call_script(READ_SCRIPT, callback=PlanningStore.apply_view_settings)
 
     @rx.event
-    @requires_admin
+    @requires_viewer
     async def refresh(self) -> None:
         """Reload entities and allocations, keeping unsaved grid edits."""
         await self._load_entities()
         await self._populate(self._range_weeks(), keep_edits=True)
 
     @rx.event
-    @requires_admin
+    @requires_viewer
     async def reload_with_time_range(self, time_range: str) -> Any:
         """Reload for another range, carrying unsaved edits over."""
         await self._populate(self._range_weeks(time_range), keep_edits=True)
@@ -748,22 +682,24 @@ class PlanningStore(UserSession):
     # === Collapse ===
 
     @rx.event
-    def toggle_employee(self, emp_id: str) -> None:
+    def toggle_employee(self, emp_id: str) -> Any:
         if emp_id in self.collapsed_employees:
             self.collapsed_employees = [
                 e for e in self.collapsed_employees if e != emp_id
             ]
         else:
             self.collapsed_employees = [*self.collapsed_employees, emp_id]
+        return self._sync_collapse_saved()
 
     @rx.event
-    def toggle_project(self, project_id: str) -> None:
+    def toggle_project(self, project_id: str) -> Any:
         if project_id in self.collapsed_projects:
             self.collapsed_projects = [
                 p for p in self.collapsed_projects if p != project_id
             ]
         else:
             self.collapsed_projects = [*self.collapsed_projects, project_id]
+        return self._sync_collapse_saved()
 
     @rx.var
     def all_sections_collapsed(self) -> bool:
@@ -776,19 +712,56 @@ class PlanningStore(UserSession):
         )
 
     @rx.event
-    def toggle_all_sections(self) -> None:
+    def toggle_all_sections(self) -> Any:
         if self.all_sections_collapsed:
             self.collapsed_employees = []
             self.collapsed_projects = []
-            return
+        else:
+            self._collapse_all_sections()
+        return self._sync_collapse_saved()
 
+    def _collapse_all_sections(self) -> None:
         self.collapsed_employees = [employee["id"] for employee in self.employee_meta]
         self.collapsed_projects = [project["id"] for project in self.project_meta]
+
+    def _sync_collapse_saved(self) -> Any:
+        """Store "collapse all" when it changed; single sections are not stored."""
+        if self.all_sections_collapsed == self._collapse_saved:
+            return None
+        self._collapse_saved = self.all_sections_collapsed
+        return self._store_view_settings()
+
+    # === Browser-stored toolbar settings ===
+
+    def _store_view_settings(self) -> Any:
+        settings = ViewSettings(
+            compact=self.grid_density == COMPACT,
+            collapsed=self._collapse_saved,
+            project_scope=self.project_scope,
+            employee_scope=self.employee_scope,
+        )
+        return rx.call_script(view_settings_script(settings))
+
+    @rx.event
+    def apply_view_settings(self, raw: str) -> Any:
+        """Apply the toolbar settings the browser stored (callback of `load`)."""
+        settings = parse_view_settings(raw)
+        self.grid_density = COMPACT if settings.compact else NORMAL
+        self._collapse_saved = settings.collapsed
+        if settings.collapsed:
+            self._collapse_all_sections()
+        if self._filters_focused:
+            self._filters_focused = False
+            return self._store_view_settings()
+        if self.current_employee_id is not None:
+            self.project_scope = settings.project_scope
+            self.employee_scope = settings.employee_scope
+        return None
 
     # === Save ===
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def save_grid(self) -> AsyncGenerator[Any]:
         if self.is_saving:
             return
@@ -861,14 +834,9 @@ class PlanningStore(UserSession):
             for pid in (emp or {}).get("project_ids", [])
             if pid in proj_idx
         }
-        self.add_project_options = [
-            NEW_PROJECT_OPTION,
-            *(
-                {"value": str(p.id), "label": f"{p.code} - {p.name_de}"}
-                for p in self.available_projects
-                if p.code not in assigned_codes
-            ),
-        ]
+        self.add_project_options = grouped_project_options(
+            p for p in self.available_projects if p.code not in assigned_codes
+        )
 
     def _reset_quick_create(self) -> None:
         self.add_project_selected = ""
@@ -899,7 +867,7 @@ class PlanningStore(UserSession):
         self._reset_quick_create()
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def quick_create_project(self) -> AsyncGenerator[Any]:
         """Create a project from the inline fields and select it."""
         self.is_quick_creating = True
@@ -933,7 +901,7 @@ class PlanningStore(UserSession):
         )
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def add_project_to_employee_grid(
         self, form_data: dict
     ) -> AsyncGenerator[Any]:
@@ -1002,7 +970,7 @@ class PlanningStore(UserSession):
         }
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def remove_project_from_employee_grid(
         self, emp_id: str, project_id: int
     ) -> AsyncGenerator[Any]:

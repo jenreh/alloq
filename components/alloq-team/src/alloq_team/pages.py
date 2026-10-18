@@ -1,11 +1,11 @@
 import reflex as rx
+from alloq_commons.access import editor_only, no_access
 from alloq_commons.components.shell import app_page
 from alloq_commons.components.toolbar import window_toolbar
 
 from alloq_team.components.employee import team_overview
 from alloq_team.components.toolbar import team_filter, team_toolbar
 from alloq_team.states.team_state import TeamState
-from appkit_user.authentication.components.components import requires_admin
 
 
 def create_team_overview_page(
@@ -25,10 +25,9 @@ def create_team_overview_page(
             actions=team_toolbar(),
         ),
         padded=False,
-        admin_only=True,
         on_load=[TeamState.load_employees],
     )
     def _team_overview_page() -> rx.Component:
-        return requires_admin(team_overview())
+        return editor_only(team_overview(), fallback=no_access())
 
     return _team_overview_page

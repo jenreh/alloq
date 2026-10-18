@@ -4,9 +4,11 @@ from datetime import UTC, date, datetime
 from typing import Any
 
 import reflex as rx
+from alloq_commons.access import requires_editor
 from alloq_commons.entities.absence import AbsenceEntity
 from alloq_commons.entities.capacity import CapacityEntity
 from alloq_commons.entities.employee import EmployeeEntity
+from alloq_commons.models.department import Department
 from alloq_commons.models.employee import (
     Absence,
     AbsenceCreate,
@@ -25,16 +27,20 @@ from alloq_commons.repositories.employee_repository import employee_repo
 from alloq_commons.repositories.project_repository import project_repo
 from alloq_commons.repositories.role_repository import role_repo
 from alloq_commons.services.quick_project import (
-    NEW_PROJECT_OPTION,
     NEW_PROJECT_VALUE,
     QuickProjectError,
     create_quick_project,
+    grouped_project_options,
 )
+from alloq_commons.state.department_states import load_departments
 
+from alloq_team.states.employee_form import (
+    default_department_id,
+    employee_from_form,
+)
 from alloq_team.states.team_list_state import TeamListState
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_ui.global_states import LoadingState
-from appkit_user.authentication.decorators import requires_admin
 from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)
@@ -42,30 +48,7 @@ logger = logging.getLogger(__name__)
 # Upper bound for the list queries backing the team page and its dropdowns
 # (the repositories default to 200). Matches the dashboard's limit.
 LIST_LIMIT = 1000
-
-
-def _employee_from_form(form_data: dict) -> EmployeeCreate:
-    """Parse the add/edit employee form into an EmployeeCreate model."""
-    raw_roles = form_data.get("role_ids", [])
-    if isinstance(raw_roles, str):
-        role_ids = [int(x) for x in raw_roles.split(",") if x]
-    else:
-        role_ids = [int(x) for x in raw_roles]
-
-    manager_id_raw = form_data.get("manager_id")
-    return EmployeeCreate(
-        first_name=form_data.get("first_name", "").strip(),
-        last_name=form_data.get("last_name", "").strip(),
-        email=form_data.get("email", "").strip() or None,
-        seniority=form_data.get("seniority", "Advanced"),
-        job_title=form_data.get("job_title", "").strip() or None,
-        location=form_data.get("location", "").strip() or None,
-        manager_id=int(manager_id_raw) if manager_id_raw else None,
-        role_ids=role_ids,
-        hours_per_week=float(form_data.get("hours_per_week", 40.0)),
-        # The field is optional in the form; a cleared input posts "".
-        internal_hours=int(form_data.get("internal_hours") or 0),
-    )
+_EMAIL_FORMAT_ERROR = "Bitte eine gültige E-Mail-Adresse eingeben."
 
 
 def _parse_date_range(values: list[str]) -> tuple[date, date] | None:
@@ -80,6 +63,22 @@ def _parse_date_range(values: list[str]) -> tuple[date, date] | None:
     return (start, end) if start <= end else None
 
 
+def _employee_columns(emp_data: EmployeeCreate) -> dict[str, Any]:
+    """Entity columns written from the employee form (roles are set separately)."""
+    return {
+        "first_name": emp_data.first_name,
+        "last_name": emp_data.last_name,
+        "email": emp_data.email,
+        "seniority": emp_data.seniority.value,
+        "job_title": emp_data.job_title,
+        "location": emp_data.location,
+        "department_id": emp_data.department_id,
+        "manager_id": emp_data.manager_id,
+        "hours_per_week": emp_data.hours_per_week,
+        "internal_hours": emp_data.internal_hours,
+    }
+
+
 class TeamState(TeamListState, UserSession):
     """State for team member management."""
 
@@ -87,6 +86,7 @@ class TeamState(TeamListState, UserSession):
     selected_employee: rx.Field[Employee | None] = rx.field(None)
     absences: rx.Field[list[Absence]] = rx.field(default_factory=list)
     available_roles: rx.Field[list[Role]] = rx.field(default_factory=list)
+    available_departments: rx.Field[list[Department]] = rx.field(default_factory=list)
     is_loading: rx.Field[bool] = rx.field(False)
 
     current_user_email: rx.Field[str] = rx.field("")
@@ -182,6 +182,12 @@ class TeamState(TeamListState, UserSession):
         return [{"value": str(r.id), "label": r.name} for r in self.available_roles]
 
     @rx.var
+    def department_select_options(self) -> list[dict[str, str]]:
+        return [
+            {"value": str(d.id), "label": d.label} for d in self.available_departments
+        ]
+
+    @rx.var
     def employee_role_select_options(self) -> list[dict[str, str]]:
         """Return only roles assigned to the selected employee."""
         if not self.selected_employee:
@@ -204,17 +210,12 @@ class TeamState(TeamListState, UserSession):
         ]
 
     @rx.var
-    def unassigned_project_options(self) -> list[dict[str, str]]:
-        """Projects not yet assigned to the selected employee."""
+    def unassigned_project_options(self) -> list[dict[str, Any]]:
+        """Projects not yet assigned to the selected employee, grouped by state."""
         assigned_ids = {c.project_id for c in self.employee_capacities}
-        return [
-            NEW_PROJECT_OPTION,
-            *(
-                {"value": str(p.id), "label": f"{p.code} - {p.name_de}"}
-                for p in self.all_projects
-                if p.id not in assigned_ids
-            ),
-        ]
+        return grouped_project_options(
+            p for p in self.all_projects if p.id not in assigned_ids
+        )
 
     @rx.var
     def quick_create_active(self) -> bool:
@@ -244,7 +245,7 @@ class TeamState(TeamListState, UserSession):
         self.is_quick_creating = False
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def open_add_project_modal(self) -> AsyncGenerator[Any]:
         """Open the add-project-to-employee modal and load the project options."""
         self._reset_quick_create()
@@ -264,7 +265,11 @@ class TeamState(TeamListState, UserSession):
         # A stale selection would be excluded from the e-mail uniqueness check.
         self.selected_employee = None
         self.add_modal_open = True
-        return [EmployeeValidationState.initialize()]
+        default = default_department_id(self.available_departments)
+        # Reflex types handler calls as positional-only; kwargs are valid.
+        return [
+            EmployeeValidationState.initialize(default_department_id=default)  # ty: ignore[no-matching-overload]
+        ]
 
     @rx.event
     def close_add_modal(self) -> None:
@@ -317,9 +322,10 @@ class TeamState(TeamListState, UserSession):
         async with get_asyncdb_session() as session:
             entities = await role_repo.find_all_paginated(session)
             self.available_roles = [Role(**e.to_dict()) for e in entities]
+        self.available_departments = await load_departments()
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def load_employees(self) -> AsyncGenerator[Any]:
         """Load all employees from the database."""
         self.is_loading = True
@@ -337,7 +343,7 @@ class TeamState(TeamListState, UserSession):
             self.is_loading = False
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def select_employee(self, employee_id: int) -> AsyncGenerator[Any]:
         """Select an employee and open detail drawer."""
         error = ""
@@ -347,7 +353,9 @@ class TeamState(TeamListState, UserSession):
                 # Reflex types handler calls as positional-only; kwargs are valid.
                 yield EmployeeValidationState.initialize(  # ty: ignore[no-matching-overload]
                     employee=employee,
-                    default_role_ids=[str(r) for r in employee.role_ids],
+                    default_role_ids=[
+                        str(r) for r in employee.role_ids if r != employee.key_role_id
+                    ],
                 )
             else:
                 error = "Mitarbeiter nicht gefunden."
@@ -377,7 +385,7 @@ class TeamState(TeamListState, UserSession):
         return employee
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def select_employee_and_add_absence(
         self, employee_id: int
     ) -> AsyncGenerator[Any]:
@@ -390,28 +398,20 @@ class TeamState(TeamListState, UserSession):
                 yield
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def create_employee(self, form_data: dict) -> AsyncGenerator[Any]:
         """Create a new employee from form submission."""
         self.is_loading = True
         yield
         try:
-            emp_data = _employee_from_form(form_data)
+            emp_data = employee_from_form(form_data)
 
             async with get_asyncdb_session() as session:
-                entity = EmployeeEntity(
-                    first_name=emp_data.first_name,
-                    last_name=emp_data.last_name,
-                    email=emp_data.email,
-                    seniority=emp_data.seniority.value,
-                    job_title=emp_data.job_title,
-                    location=emp_data.location,
-                    manager_id=emp_data.manager_id,
-                    hours_per_week=emp_data.hours_per_week,
-                    internal_hours=emp_data.internal_hours,
-                )
+                entity = EmployeeEntity(**_employee_columns(emp_data))
                 await employee_repo.create(session, entity)
-                await employee_repo.set_roles(session, entity, emp_data.role_ids)
+                await employee_repo.set_roles(
+                    session, entity, emp_data.role_ids, emp_data.key_role_id
+                )
                 await session.commit()
 
             await self._load_employees()
@@ -429,7 +429,7 @@ class TeamState(TeamListState, UserSession):
             )
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def update_employee(self, form_data: dict) -> AsyncGenerator[Any]:
         """Update an existing employee from form submission."""
         try:
@@ -439,7 +439,7 @@ class TeamState(TeamListState, UserSession):
                 )
                 return
 
-            emp_data = _employee_from_form(form_data)
+            emp_data = employee_from_form(form_data)
             employee_id = self.selected_employee.id
             if emp_data.manager_id == employee_id:
                 yield rx.toast.error(
@@ -454,16 +454,11 @@ class TeamState(TeamListState, UserSession):
                         "Mitarbeiter nicht gefunden.", position="top-right"
                     )
                     return
-                entity.first_name = emp_data.first_name
-                entity.last_name = emp_data.last_name
-                entity.email = emp_data.email
-                entity.seniority = emp_data.seniority.value
-                entity.job_title = emp_data.job_title
-                entity.location = emp_data.location
-                entity.manager_id = emp_data.manager_id
-                entity.hours_per_week = emp_data.hours_per_week
-                entity.internal_hours = emp_data.internal_hours
-                await employee_repo.set_roles(session, entity, emp_data.role_ids)
+                for column, value in _employee_columns(emp_data).items():
+                    setattr(entity, column, value)
+                await employee_repo.set_roles(
+                    session, entity, emp_data.role_ids, emp_data.key_role_id
+                )
                 await employee_repo.update(session, entity)
 
             updated_employee = await self._fetch_employee(employee_id)
@@ -483,7 +478,7 @@ class TeamState(TeamListState, UserSession):
             )
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def delete_employee(self, employee_id: int) -> AsyncGenerator[Any]:
         """Delete an employee by ID."""
         self.is_loading = True
@@ -510,7 +505,7 @@ class TeamState(TeamListState, UserSession):
             )
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def create_absence(self, form_data: dict) -> AsyncGenerator[Any]:
         """Create a new absence for the selected employee."""
         _ = form_data  # Reflex requires this keyword arg for on_submit
@@ -581,7 +576,7 @@ class TeamState(TeamListState, UserSession):
             )
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def delete_absence(self, absence_id: int) -> AsyncGenerator[Any]:
         """Delete an absence by ID."""
         try:
@@ -616,7 +611,7 @@ class TeamState(TeamListState, UserSession):
             self.employee_capacities = [Capacity(**e.to_dict()) for e in entities]
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def assign_project_to_employee(self, form_data: dict) -> AsyncGenerator[Any]:
         """Assign a project to the selected employee."""
         if not self.selected_employee:
@@ -681,7 +676,7 @@ class TeamState(TeamListState, UserSession):
             )
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def quick_create_project(self) -> AsyncGenerator[Any]:
         """Create a project from the inline fields and select it."""
         self.is_quick_creating = True
@@ -712,7 +707,7 @@ class TeamState(TeamListState, UserSession):
         yield rx.toast.info(f"Projekt '{project.code}' angelegt.", position="top-right")
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def remove_project_from_employee(
         self, project_id: int
     ) -> AsyncGenerator[Any]:
@@ -758,8 +753,11 @@ class EmployeeValidationState(rx.State):
     email: rx.Field[str] = rx.field("")
     job_title: rx.Field[str] = rx.field("")
     location: rx.Field[str] = rx.field("")
+    department_id: rx.Field[str] = rx.field("")
     manager_id: rx.Field[str] = rx.field("")
     seniority: rx.Field[str] = rx.field("")
+    key_role_id: rx.Field[str] = rx.field("")
+    # Additional roles; the key role is kept separately.
     role_ids: rx.Field[list[str]] = rx.field(default_factory=list)
     hours_per_week: rx.Field[str] = rx.field("40.0")
     internal_hours: rx.Field[str] = rx.field("4")
@@ -767,7 +765,7 @@ class EmployeeValidationState(rx.State):
     first_name_error: rx.Field[str] = rx.field("")
     last_name_error: rx.Field[str] = rx.field("")
     email_error: rx.Field[str] = rx.field("")
-    role_ids_error: rx.Field[str] = rx.field("")
+    key_role_id_error: rx.Field[str] = rx.field("")
     hours_per_week_error: rx.Field[str] = rx.field("")
     internal_hours_error: rx.Field[str] = rx.field("")
 
@@ -776,6 +774,7 @@ class EmployeeValidationState(rx.State):
         self,
         employee: Employee | None = None,
         default_role_ids: list[str] | None = None,
+        default_department_id: str = "",
     ) -> None:
         """Reset validation state for add or edit mode."""
         if employee is None:
@@ -784,8 +783,10 @@ class EmployeeValidationState(rx.State):
             self.email = ""
             self.job_title = ""
             self.location = ""
+            self.department_id = default_department_id
             self.manager_id = ""
             self.seniority = "Advanced"
+            self.key_role_id = ""
             self.role_ids = []
             self.hours_per_week = "40.0"
             self.internal_hours = "4"
@@ -795,12 +796,16 @@ class EmployeeValidationState(rx.State):
             self.email = employee.email or ""
             self.job_title = employee.job_title or ""
             self.location = employee.location or ""
+            self.department_id = (
+                str(employee.department_id) if employee.department_id else ""
+            )
             self.manager_id = (
                 str(employee.manager_id)
                 if getattr(employee, "manager_id", None)
                 else ""
             )
             self.seniority = employee.seniority
+            self.key_role_id = str(employee.key_role_id) if employee.key_role_id else ""
             self.role_ids = default_role_ids or []
             self.hours_per_week = str(employee.hours_per_week)
             self.internal_hours = str(employee.internal_hours)
@@ -808,7 +813,7 @@ class EmployeeValidationState(rx.State):
         self.first_name_error = ""
         self.last_name_error = ""
         self.email_error = ""
-        self.role_ids_error = ""
+        self.key_role_id_error = ""
         self.hours_per_week_error = ""
         self.internal_hours_error = ""
 
@@ -838,6 +843,10 @@ class EmployeeValidationState(rx.State):
         self.location = value
 
     @rx.event
+    def set_department_id(self, value: str | None) -> None:
+        self.department_id = value or ""
+
+    @rx.event
     def set_manager_id(self, value: str | None) -> None:
         self.manager_id = value or ""
 
@@ -846,9 +855,15 @@ class EmployeeValidationState(rx.State):
         self.seniority = value
 
     @rx.event
+    def set_key_role_id(self, value: str | None) -> None:
+        self.key_role_id = value or ""
+        self.role_ids = [r for r in self.role_ids if r != self.key_role_id]
+        self.form_version += 1
+        self.validate_key_role_id()
+
+    @rx.event
     def set_role_ids(self, value: list[str]) -> None:
-        self.role_ids = value
-        self.validate_role_ids()
+        self.role_ids = [r for r in value if r != self.key_role_id]
 
     @rx.event
     def set_hours_per_week(self, value: str | float) -> None:
@@ -862,28 +877,23 @@ class EmployeeValidationState(rx.State):
 
     @rx.event
     def validate_first_name(self) -> None:
-        if not self.first_name or not self.first_name.strip():
-            self.first_name_error = "Vorname darf nicht leer sein."
-        else:
-            self.first_name_error = ""
+        self.first_name_error = (
+            "" if (self.first_name or "").strip() else "Vorname darf nicht leer sein."
+        )
 
     @rx.event
     def validate_last_name(self) -> None:
-        if not self.last_name or not self.last_name.strip():
-            self.last_name_error = "Nachname darf nicht leer sein."
-        else:
-            self.last_name_error = ""
+        self.last_name_error = (
+            "" if (self.last_name or "").strip() else "Nachname darf nicht leer sein."
+        )
 
     @rx.event
     def validate_email(self) -> None:
         email = self.email.strip() if self.email else ""
-        if email and "@" not in email:
-            self.email_error = "Bitte eine gültige E-Mail-Adresse eingeben."
-        else:
-            self.email_error = ""
+        self.email_error = _EMAIL_FORMAT_ERROR if email and "@" not in email else ""
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def validate_email_unique(self) -> None:
         """Check email format and uniqueness against the database."""
         email = self.email.strip() if self.email else ""
@@ -891,7 +901,7 @@ class EmployeeValidationState(rx.State):
             self.email_error = ""
             return
         if "@" not in email:
-            self.email_error = "Bitte eine gültige E-Mail-Adresse eingeben."
+            self.email_error = _EMAIL_FORMAT_ERROR
             return
         team_state = await self.get_state(TeamState)
         exclude_id = (
@@ -901,17 +911,13 @@ class EmployeeValidationState(rx.State):
             existing = await employee_repo.find_by_email(
                 session, email, exclude_id=exclude_id
             )
-        if existing:
-            self.email_error = "Diese E-Mail ist bereits vergeben."
-        else:
-            self.email_error = ""
+        self.email_error = "Diese E-Mail ist bereits vergeben." if existing else ""
 
     @rx.event
-    def validate_role_ids(self) -> None:
-        if not self.role_ids:
-            self.role_ids_error = "Rollen-Auswahl ist erforderlich."
-        else:
-            self.role_ids_error = ""
+    def validate_key_role_id(self) -> None:
+        self.key_role_id_error = (
+            "" if self.key_role_id else "Schlüsselrolle ist erforderlich."
+        )
 
     @rx.event
     def validate_hours_per_week(self) -> None:
@@ -949,7 +955,7 @@ class EmployeeValidationState(rx.State):
             self.first_name_error
             or self.last_name_error
             or self.email_error
-            or self.role_ids_error
+            or self.key_role_id_error
             or self.hours_per_week_error
             or self.internal_hours_error
         )
@@ -966,7 +972,7 @@ class EmployeeValidationState(rx.State):
         return bool(
             self.first_name.strip()
             and self.last_name.strip()
-            and self.role_ids
+            and self.key_role_id
             and hours_valid
             and not self.has_errors
         )

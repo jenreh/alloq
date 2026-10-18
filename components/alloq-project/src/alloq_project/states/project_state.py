@@ -6,10 +6,11 @@ from importlib import import_module
 from typing import Any
 
 import reflex as rx
+from alloq_commons.access import requires_editor, requires_viewer
 from alloq_commons.entities import ProjectEntity, ProjectStatusEntity
 from alloq_commons.entities.project import ProjectStateEnum
 from alloq_commons.entities.required_capacity import RequiredCapacityEntity
-from alloq_commons.entities.risk import RiskEntity, RiskMitigationStatus
+from alloq_commons.entities.risk import RiskEntity
 from alloq_commons.models.employee import Employee
 from alloq_commons.models.project import (
     Capacity,
@@ -20,7 +21,6 @@ from alloq_commons.models.project import (
     RequiredCapacity,
     RequiredCapacityCreate,
     Risk,
-    RiskMatrixCell,
 )
 from alloq_commons.models.role import Role
 from alloq_commons.models.view_mode import VIEW_MODE_TABLE, VIEW_MODES
@@ -43,40 +43,31 @@ from alloq_project.services.project_sorting import (
     sort_projects,
 )
 from alloq_project.states.project_list_state import ProjectListState
+from alloq_project.states.project_risk_draft_mixin import ProjectRiskDraftMixin
+from alloq_project.states.project_status_form_mixin import ProjectStatusFormMixin
+from alloq_project.states.project_validation_state import (
+    DEFAULT_PROJECT_COLOR,
+    ProjectValidationState,
+    _parse_localized_int,
+)
 from sqlalchemy.exc import IntegrityError
 
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_ui.global_states import LoadingState
-from appkit_user.authentication.decorators import requires_admin
 from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_PROJECT_COLOR = "#F7C948"
 _HEX_COLOR = re.compile(r"#[0-9A-Fa-f]{6}")
 _PROJECT_PAGE_SIZE = 200
 _EMPLOYEE_PAGE_SIZE = 200
-PROJECT_COLORS = [
-    "#F7C948",
-    "#7A9A80",
-    "#5B7FA3",
-    "#D07A55",
-    "#C49000",
-    "#8D6AA5",
-    "#5C9AA4",
-    "#B45F83",
-    "#6A961E",
-    "#3F6070",
-]
-
-
-def _parse_localized_int(value: float | str | None) -> int:
-    """Parse numeric input values that may contain German separators."""
-    if isinstance(value, int | float):
-        return int(value)
-    raw = str(value or 0).strip()
-    raw = raw.replace(".", "").replace(",", ".")
-    return int(float(raw)) if raw else 0
+_RISK_SCORE_FIELDS = frozenset({"impact", "probability"})
+_EDITABLE_RISK_FIELDS = _RISK_SCORE_FIELDS | {
+    "name",
+    "description",
+    "measures",
+    "mitigation_status",
+}
 
 
 def _project_error_message(exc: Exception, fallback: str) -> str:
@@ -93,26 +84,20 @@ def _newest_first(statuses: list[ProjectStatus]) -> list[ProjectStatus]:
     return sorted(statuses, key=lambda s: (s.status_date, s.id), reverse=True)
 
 
-_SCORE_LOW = 4
-_SCORE_MEDIUM = 9
-_SCORE_HIGH = 15
-_SCORE_VERY_HIGH = 20
+def _status_ev_fields(ev: EVSummary) -> dict[str, float]:
+    """EV snapshot columns shared by the status entity and read model."""
+    return {
+        "budget": ev.budget,
+        "earned_value": ev.earned_value,
+        "actual_cost": ev.actual_cost,
+        "eac_linear": ev.eac_linear,
+        "eac_additive": ev.eac_additive,
+    }
 
 
-def _risk_score_color(score: int) -> str:
-    """Return background color for a risk matrix cell based on score."""
-    if score <= _SCORE_LOW:
-        return "var(--alloq-risk-low)"
-    if score <= _SCORE_MEDIUM:
-        return "var(--alloq-risk-medium)"
-    if score <= _SCORE_HIGH:
-        return "var(--alloq-risk-high)"
-    if score <= _SCORE_VERY_HIGH:
-        return "var(--alloq-risk-very-high)"
-    return "var(--alloq-risk-critical)"
-
-
-class ProjectState(ProjectListState, UserSession):
+class ProjectState(
+    ProjectStatusFormMixin, ProjectRiskDraftMixin, ProjectListState, UserSession
+):
     """State for project management."""
 
     projects: rx.Field[list[Project]] = rx.field(default_factory=list)
@@ -136,32 +121,6 @@ class ProjectState(ProjectListState, UserSession):
     add_modal_open: rx.Field[bool] = rx.field(False)
     detail_drawer_open: rx.Field[bool] = rx.field(False)
     active_tab: rx.Field[str] = rx.field("status")
-
-    # Status form input state
-    status_date: rx.Field[str] = rx.field("")
-    status_progress: rx.Field[int] = rx.field(0)
-    status_budget_usage: rx.Field[int] = rx.field(0)
-    status_notes: rx.Field[str] = rx.field("")
-    status_form_version: rx.Field[int] = rx.field(0)
-
-    # Status edit draft state (0=none, positive=editing existing)
-    expanded_status_id: rx.Field[int] = rx.field(0)
-    status_draft_progress: rx.Field[int] = rx.field(0)
-    status_draft_budget_usage: rx.Field[int] = rx.field(0)
-    status_draft_notes: rx.Field[str] = rx.field("")
-    status_draft_date: rx.Field[str] = rx.field("")
-
-    # Risk draft state (0=none, -1=new unsaved, positive=editing existing)
-    expanded_risk_id: rx.Field[int] = rx.field(0)
-    risk_draft_name: rx.Field[str] = rx.field("")
-    risk_draft_description: rx.Field[str] = rx.field("")
-    risk_draft_measures: rx.Field[str] = rx.field("")
-    risk_draft_impact: rx.Field[int] = rx.field(3)
-    risk_draft_probability: rx.Field[int] = rx.field(3)
-    risk_draft_mitigation_status: rx.Field[str] = rx.field(
-        RiskMitigationStatus.OPEN.value
-    )
-    risk_draft_form_version: rx.Field[int] = rx.field(0)
 
     search_filter: rx.Field[str] = rx.field("")
     status_filter: rx.Field[str] = rx.field("all")
@@ -283,22 +242,9 @@ class ProjectState(ProjectListState, UserSession):
         self.capacities = []
         self.required_capacities = []
         self.active_tab = "status"
-        self.status_date = datetime.now(tz=UTC).date().isoformat()
-        self.status_progress = 0
-        self.status_budget_usage = 0
-        self.status_notes = ""
-        self.expanded_status_id = 0
-        self.status_draft_progress = 0
-        self.status_draft_budget_usage = 0
-        self.status_draft_notes = ""
-        self.status_draft_date = ""
-        self.expanded_risk_id = 0
-        self.risk_draft_name = ""
-        self.risk_draft_description = ""
-        self.risk_draft_measures = ""
-        self.risk_draft_impact = 3
-        self.risk_draft_probability = 3
-        self.risk_draft_mitigation_status = RiskMitigationStatus.OPEN.value
+        self._reset_status_form()
+        self._reset_status_draft()
+        self._reset_risk_draft()
 
     async def _load_projects(self) -> None:
         """Load projects from the database."""
@@ -400,7 +346,7 @@ class ProjectState(ProjectListState, UserSession):
             }
 
     @rx.event
-    @requires_admin
+    @requires_viewer
     async def load_projects(self) -> AsyncGenerator[Any]:
         """Load all projects and form reference data."""
         self.is_loading = True
@@ -414,7 +360,7 @@ class ProjectState(ProjectListState, UserSession):
             self.is_loading = False
 
     @rx.event
-    @requires_admin
+    @requires_viewer
     async def select_project(self, project_id: int) -> AsyncGenerator[Any]:
         """Select a project and load drawer details."""
         try:
@@ -482,7 +428,7 @@ class ProjectState(ProjectListState, UserSession):
         yield LoadingState.set_is_loading(False)
 
     @rx.event
-    @requires_admin
+    @requires_viewer
     async def select_project_with_tab(
         self, project_id: int, tab: str
     ) -> AsyncGenerator[Any]:
@@ -492,7 +438,7 @@ class ProjectState(ProjectListState, UserSession):
             yield event
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def create_project(self, form_data: dict) -> AsyncGenerator[Any]:
         """Create a project with required capacity rows."""
         try:
@@ -507,6 +453,8 @@ class ProjectState(ProjectListState, UserSession):
                     state=project_data.state,
                     budget=project_data.budget,
                     color=project_data.color,
+                    is_internal=project_data.is_internal,
+                    booking_number=project_data.booking_number,
                 )
 
                 if project_data.owner_ids:
@@ -553,7 +501,7 @@ class ProjectState(ProjectListState, UserSession):
             )
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def update_project(self, form_data: dict) -> AsyncGenerator[Any]:
         """Update the selected project with form data."""
         if not self.selected_project:
@@ -577,6 +525,8 @@ class ProjectState(ProjectListState, UserSession):
                 entity.state = project_data.state
                 entity.budget = project_data.budget
                 entity.color = project_data.color
+                entity.is_internal = project_data.is_internal
+                entity.booking_number = project_data.booking_number
 
                 entity.owners.clear()
                 for emp_id in project_data.owner_ids:
@@ -612,7 +562,7 @@ class ProjectState(ProjectListState, UserSession):
             )
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def delete_project(self, project_id: int) -> AsyncGenerator[Any]:
         """Delete a project by ID."""
         try:
@@ -667,6 +617,8 @@ class ProjectState(ProjectListState, UserSession):
             state=str(form_data.get("state", ProjectStateEnum.PLANNED.value)),
             budget=budget,
             color=color,
+            is_internal=form_data.get("is_internal") == "on",
+            booking_number=str(form_data.get("booking_number", "")).strip(),
             owner_ids=owner_ids,
             required_capacities=required_capacities,
         )
@@ -704,32 +656,6 @@ class ProjectState(ProjectListState, UserSession):
         """Switch the active drawer tab."""
         self.active_tab = tab
 
-    @rx.event
-    def set_status_progress(self, value: float | str) -> None:
-        """Update the status progress field."""
-        try:
-            self.status_progress = max(0, min(100, int(float(value or 0))))
-        except TypeError, ValueError:
-            self.status_progress = 0
-
-    @rx.event
-    def set_status_budget_usage(self, value: float | str) -> None:
-        """Update the status budget usage field."""
-        try:
-            self.status_budget_usage = max(0, min(100, int(float(value or 0))))
-        except TypeError, ValueError:
-            self.status_budget_usage = 0
-
-    @rx.event
-    def set_status_notes(self, value: str) -> None:
-        """Update the status notes field."""
-        self.status_notes = value or ""
-
-    @rx.event
-    def set_status_date(self, value: str) -> None:
-        """Update the status date field."""
-        self.status_date = value or ""
-
     async def _persist_ev_summary(self) -> None:
         """Compute EV summary from current and persist values to the project."""
         if not self.selected_project:
@@ -755,7 +681,7 @@ class ProjectState(ProjectListState, UserSession):
             )
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def add_project_status(self, form_version: int) -> AsyncGenerator[Any]:
         """Save current status form as a new history entry.
 
@@ -772,23 +698,21 @@ class ProjectState(ProjectListState, UserSession):
             return
         try:
             async with get_asyncdb_session() as session:
+                ev_fields = _status_ev_fields(
+                    EVForecastService.compute_status_ev(
+                        self.selected_project.budget,
+                        self.status_progress,
+                        self.status_budget_usage,
+                    )
+                )
                 entity = ProjectStatusEntity(
                     project_id=project_id,
                     status_date=status_date,
                     progress=self.status_progress,
                     budget_spent=self.status_budget_usage,
                     notes=self.status_notes or None,
+                    **ev_fields,
                 )
-                ev = EVForecastService.compute_status_ev(
-                    self.selected_project.budget,
-                    self.status_progress,
-                    self.status_budget_usage,
-                )
-                entity.budget = ev.budget
-                entity.earned_value = ev.earned_value
-                entity.actual_cost = ev.actual_cost
-                entity.eac_linear = ev.eac_linear
-                entity.eac_additive = ev.eac_additive
                 await status_repo.create(session, entity)
                 await session.commit()
                 await session.refresh(entity)
@@ -799,18 +723,11 @@ class ProjectState(ProjectListState, UserSession):
                     progress=self.status_progress,
                     budget_spent=self.status_budget_usage,
                     notes=self.status_notes,
-                    budget=ev.budget,
-                    earned_value=ev.earned_value,
-                    actual_cost=ev.actual_cost,
-                    eac_linear=ev.eac_linear,
-                    eac_additive=ev.eac_additive,
+                    **ev_fields,
                 )
             self.statuses = _newest_first([new_status, *self.statuses])
             await self._persist_ev_summary()
-            self.status_date = datetime.now(tz=UTC).date().isoformat()
-            self.status_progress = 0
-            self.status_budget_usage = 0
-            self.status_notes = ""
+            self._reset_status_form()
             self.status_form_version += 1
             yield rx.toast.info("Status gespeichert.", position="top-right")
         except Exception as exc:
@@ -821,53 +738,7 @@ class ProjectState(ProjectListState, UserSession):
             )
 
     @rx.event
-    def expand_status(self, status_id: int) -> None:
-        """Toggle the inline edit form for an existing status entry."""
-        if self.expanded_status_id == status_id:
-            self.expanded_status_id = 0
-            return
-        status = next((s for s in self.statuses if s.id == status_id), None)
-        if not status:
-            return
-        self.expanded_status_id = status_id
-        self.status_draft_progress = status.progress
-        self.status_draft_budget_usage = status.budget_spent
-        self.status_draft_notes = status.notes
-        self.status_draft_date = status.status_date
-
-    @rx.event
-    def collapse_status_edit(self) -> None:
-        """Close the status edit form without saving."""
-        self.expanded_status_id = 0
-
-    @rx.event
-    def set_status_draft_progress(self, value: float | str) -> None:
-        """Update status draft progress field."""
-        try:
-            self.status_draft_progress = max(0, min(100, int(float(value or 0))))
-        except TypeError, ValueError:
-            self.status_draft_progress = 0
-
-    @rx.event
-    def set_status_draft_budget_usage(self, value: float | str) -> None:
-        """Update status draft budget usage field."""
-        try:
-            self.status_draft_budget_usage = max(0, min(100, int(float(value or 0))))
-        except TypeError, ValueError:
-            self.status_draft_budget_usage = 0
-
-    @rx.event
-    def set_status_draft_notes(self, value: str) -> None:
-        """Update status draft notes field."""
-        self.status_draft_notes = value or ""
-
-    @rx.event
-    def set_status_draft_date(self, value: str) -> None:
-        """Update status draft date field."""
-        self.status_draft_date = value or ""
-
-    @rx.event
-    @requires_admin
+    @requires_editor
     async def save_status_draft(self) -> AsyncGenerator[Any]:
         """Persist edits to an existing status entry."""
         status_id = self.expanded_status_id
@@ -888,16 +759,15 @@ class ProjectState(ProjectListState, UserSession):
                 entity.progress = self.status_draft_progress
                 entity.budget_spent = self.status_draft_budget_usage
                 entity.notes = self.status_draft_notes or None
-                ev = EVForecastService.compute_status_ev(
-                    self.selected_project.budget if self.selected_project else 0,
-                    self.status_draft_progress,
-                    self.status_draft_budget_usage,
+                ev_fields = _status_ev_fields(
+                    EVForecastService.compute_status_ev(
+                        self.selected_project.budget if self.selected_project else 0,
+                        self.status_draft_progress,
+                        self.status_draft_budget_usage,
+                    )
                 )
-                entity.budget = ev.budget
-                entity.earned_value = ev.earned_value
-                entity.actual_cost = ev.actual_cost
-                entity.eac_linear = ev.eac_linear
-                entity.eac_additive = ev.eac_additive
+                for column, value in ev_fields.items():
+                    setattr(entity, column, value)
                 await session.commit()
             self.statuses = _newest_first(
                 [
@@ -908,11 +778,7 @@ class ProjectState(ProjectListState, UserSession):
                             "progress": self.status_draft_progress,
                             "budget_spent": self.status_draft_budget_usage,
                             "notes": self.status_draft_notes,
-                            "budget": ev.budget,
-                            "earned_value": ev.earned_value,
-                            "actual_cost": ev.actual_cost,
-                            "eac_linear": ev.eac_linear,
-                            "eac_additive": ev.eac_additive,
+                            **ev_fields,
                         }
                     )
                     if s.id == status_id
@@ -931,7 +797,7 @@ class ProjectState(ProjectListState, UserSession):
             )
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def delete_project_status(self, status_id: int) -> AsyncGenerator[Any]:
         """Delete a status history entry by ID."""
         if not any(s.id == status_id for s in self.statuses):
@@ -955,78 +821,7 @@ class ProjectState(ProjectListState, UserSession):
             )
 
     @rx.event
-    def add_project_risk(self) -> None:
-        """Open a draft form for a new risk without persisting yet."""
-        self.expanded_risk_id = -1
-        self.risk_draft_name = ""
-        self.risk_draft_description = ""
-        self.risk_draft_measures = ""
-        self.risk_draft_impact = 3
-        self.risk_draft_probability = 3
-        self.risk_draft_mitigation_status = RiskMitigationStatus.OPEN.value
-        self.risk_draft_form_version += 1
-
-    @rx.event
-    def expand_risk(self, risk_id: int) -> None:
-        """Toggle the inline edit form for an existing risk."""
-        if self.expanded_risk_id == risk_id:
-            self.expanded_risk_id = 0
-            return
-        risk = next((r for r in self.risks if r.id == risk_id), None)
-        if not risk:
-            return
-        self.expanded_risk_id = risk_id
-        self.risk_draft_name = risk.name
-        self.risk_draft_description = risk.description
-        self.risk_draft_measures = risk.measures
-        self.risk_draft_impact = risk.auswirkung_score
-        self.risk_draft_probability = risk.probability
-        self.risk_draft_mitigation_status = risk.mitigation_status
-        self.risk_draft_form_version += 1
-
-    @rx.event
-    def collapse_risk_edit(self) -> None:
-        """Close the risk edit form without saving."""
-        self.expanded_risk_id = 0
-
-    @rx.event
-    def set_risk_draft_name(self, value: str) -> None:
-        """Update risk draft name."""
-        self.risk_draft_name = value or ""
-
-    @rx.event
-    def set_risk_draft_description(self, value: str) -> None:
-        """Update risk draft description."""
-        self.risk_draft_description = value or ""
-
-    @rx.event
-    def set_risk_draft_measures(self, value: str) -> None:
-        """Update risk draft measures."""
-        self.risk_draft_measures = value or ""
-
-    @rx.event
-    def set_risk_draft_impact(self, value: str) -> None:
-        """Update risk draft impact score (1-5)."""
-        try:
-            self.risk_draft_impact = max(1, min(5, int(value or 3)))
-        except TypeError, ValueError:
-            self.risk_draft_impact = 3
-
-    @rx.event
-    def set_risk_draft_probability(self, value: str) -> None:
-        """Update risk draft probability (1-5)."""
-        try:
-            self.risk_draft_probability = max(1, min(5, int(value or 3)))
-        except TypeError, ValueError:
-            self.risk_draft_probability = 3
-
-    @rx.event
-    def set_risk_draft_mitigation_status(self, value: str) -> None:
-        """Update risk draft mitigation status."""
-        self.risk_draft_mitigation_status = value or RiskMitigationStatus.OPEN.value
-
-    @rx.event
-    @requires_admin
+    @requires_editor
     async def save_risk_draft(self) -> AsyncGenerator[Any]:
         """Persist the current risk draft (create new or update existing)."""
         if not self.selected_project:
@@ -1102,47 +897,30 @@ class ProjectState(ProjectListState, UserSession):
             )
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def update_project_risk(
         self, risk_id: int, field: str, value: str
     ) -> AsyncGenerator[Any]:
         """Update a single field on a risk."""
-        if not any(r.id == risk_id for r in self.risks):
+        if field not in _EDITABLE_RISK_FIELDS or not any(
+            r.id == risk_id for r in self.risks
+        ):
             return
         try:
-            if field in ("impact", "probability"):
-                value = str(max(1, min(5, int(float(value or 0)))))
+            new_value: int | str = (
+                max(1, min(5, int(float(value or 0))))
+                if field in _RISK_SCORE_FIELDS
+                else str(value or "")
+            )
             async with get_asyncdb_session() as session:
                 entity = await risk_repo.find_by_id(session, risk_id)
                 if not entity:
                     return
-                allowed = {
-                    "name",
-                    "description",
-                    "measures",
-                    "impact",
-                    "probability",
-                    "mitigation_status",
-                }
-                if field not in allowed:
-                    return
-                if field in ("impact", "probability"):
-                    setattr(entity, field, int(float(value or 0)))
-                else:
-                    setattr(entity, field, str(value or ""))
+                setattr(entity, field, new_value)
                 await session.commit()
 
             self.risks = [
-                Risk.model_validate(
-                    {
-                        **r.model_dump(),
-                        field: (
-                            int(float(value or 0))
-                            if field in ("impact", "probability")
-                            else str(value or "")
-                        ),
-                    }
-                )
+                Risk.model_validate({**r.model_dump(), field: new_value})
                 if r.id == risk_id
                 else r
                 for r in self.risks
@@ -1155,7 +933,7 @@ class ProjectState(ProjectListState, UserSession):
             )
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def delete_project_risk(self, risk_id: int) -> AsyncGenerator[Any]:
         """Delete a risk by ID and renumber remaining risks."""
         if not any(r.id == risk_id for r in self.risks):
@@ -1185,44 +963,6 @@ class ProjectState(ProjectListState, UserSession):
             )
 
     @rx.var
-    def sorted_risks(self) -> list[Risk]:
-        """Risks sorted by creation date descending (newest first)."""
-        return sorted(
-            self.risks,
-            key=lambda r: r.created or "",
-            reverse=True,
-        )
-
-    @rx.var
-    def risk_matrix_cells(self) -> list[RiskMatrixCell]:
-        """Return 25 cells for the 5x5 risk matrix (row-major, top to bottom)."""
-        cells = []
-        for w in range(5, 0, -1):
-            for a in range(1, 6):
-                score = w * a
-                risk_numbers = [
-                    r.number
-                    for r in self.risks
-                    if r.probability == w and r.auswirkung_score == a
-                ]
-                risk_names = [
-                    r.name
-                    for r in self.risks
-                    if r.probability == w and r.auswirkung_score == a
-                ]
-                cells.append(
-                    RiskMatrixCell(
-                        w=w,
-                        a=a,
-                        score=score,
-                        risk_numbers=risk_numbers,
-                        risk_names=risk_names,
-                        color=_risk_score_color(score),
-                    )
-                )
-        return cells
-
-    @rx.var
     def ev_chart_data(self) -> list[dict]:
         """Build EV chart data with PV, EV, AC and two forecast curves."""
         if not self.selected_project:
@@ -1241,210 +981,3 @@ class ProjectState(ProjectListState, UserSession):
         if not self.selected_project:
             return EVSummary()
         return EVForecastService.build_summary(self.selected_project, self.statuses)
-
-
-class ProjectValidationState(rx.State):
-    """Validation state for project add forms."""
-
-    form_version: rx.Field[int] = rx.field(0)
-    code: rx.Field[str] = rx.field("")
-    customer: rx.Field[str] = rx.field("")
-    name_de: rx.Field[str] = rx.field("")
-    start_date: rx.Field[str] = rx.field("")
-    end_date: rx.Field[str] = rx.field("")
-    state: rx.Field[str] = rx.field(ProjectStateEnum.PLANNED.value)
-    budget: rx.Field[int] = rx.field(0)
-    color: rx.Field[str] = rx.field(DEFAULT_PROJECT_COLOR)
-    owner_ids: rx.Field[list[str]] = rx.field(default_factory=list)
-    role_capacities: rx.Field[dict[str, int]] = rx.field(default_factory=dict)
-
-    code_error: rx.Field[str] = rx.field("")
-    customer_error: rx.Field[str] = rx.field("")
-    name_de_error: rx.Field[str] = rx.field("")
-    date_error: rx.Field[str] = rx.field("")
-    budget_error: rx.Field[str] = rx.field("")
-
-    @rx.event(background=True)
-    async def initialize(self, project: Project | None = None) -> None:
-        """Reset validation state for add mode or preload from a project."""
-        async with self:
-            if project is None:
-                self.code = ""
-                self.customer = ""
-                self.name_de = ""
-                self.start_date = ""
-                self.end_date = ""
-                self.state = ProjectStateEnum.PLANNED.value
-                self.budget = 0
-                self.color = DEFAULT_PROJECT_COLOR
-                self.owner_ids = []
-
-                # Get available roles to initialize capacities to 0
-                project_state = await self.get_state(ProjectState)
-                self.role_capacities = {
-                    str(role.id): 0 for role in project_state.available_roles
-                }
-            else:
-                self.code = project.code
-                self.customer = project.customer
-                self.name_de = project.name_de
-                self.start_date = (
-                    project.start_date.isoformat() if project.start_date else ""
-                )
-                self.end_date = project.end_date.isoformat() if project.end_date else ""
-                self.state = project.state
-                self.budget = project.budget
-                self.color = project.color
-                self.owner_ids = [str(oid) for oid in project.owner_ids]
-
-                project_state = await self.get_state(ProjectState)
-                role_caps = {str(role.id): 0 for role in project_state.available_roles}
-                role_caps.update(
-                    {
-                        str(c.role_id): c.person_days
-                        for c in getattr(project, "required_capacities", [])
-                    }
-                )
-                self.role_capacities = role_caps
-
-            self.code_error = ""
-            self.customer_error = ""
-            self.name_de_error = ""
-            self.date_error = ""
-            self.budget_error = ""
-            self.form_version += 1
-
-    @rx.event
-    def set_code(self, value: str) -> None:
-        self.code = value
-        self.validate_code()
-
-    @rx.event
-    def set_customer(self, value: str) -> None:
-        self.customer = value
-        self.validate_customer()
-
-    @rx.event
-    def set_name_de(self, value: str) -> None:
-        self.name_de = value
-        self.validate_name_de()
-
-    @rx.event
-    def set_start_date(self, value: str) -> None:
-        self.start_date = value or ""
-        self.validate_dates()
-
-    @rx.event
-    def set_end_date(self, value: str) -> None:
-        self.end_date = value or ""
-        self.validate_dates()
-
-    @rx.event
-    def set_state(self, value: str) -> None:
-        self.state = value or ProjectStateEnum.PLANNED.value
-
-    @rx.event
-    def set_budget(self, value: float | str) -> None:
-        try:
-            self.budget = _parse_localized_int(value)
-        except TypeError, ValueError:
-            self.budget = 0
-        self.validate_budget()
-
-    @rx.event
-    def set_color(self, value: str) -> None:
-        self.color = value
-
-    @rx.event
-    def set_owner_ids(self, value: list[str]) -> None:
-        self.owner_ids = value or []
-
-    @rx.event
-    def validate_code(self) -> None:
-        self.code_error = "" if self.code.strip() else "Projekt-Code ist erforderlich."
-
-    @rx.event
-    def validate_customer(self) -> None:
-        self.customer_error = "" if self.customer.strip() else "Kunde ist erforderlich."
-
-    @rx.event
-    def validate_name_de(self) -> None:
-        self.name_de_error = (
-            "" if self.name_de.strip() else "Name (DE) ist erforderlich."
-        )
-
-    @rx.event
-    def validate_dates(self) -> None:
-        if not self.start_date or not self.end_date:
-            self.date_error = "Start und Ende sind erforderlich."
-            return
-        try:
-            if date.fromisoformat(self.end_date[:10]) < date.fromisoformat(
-                self.start_date[:10]
-            ):
-                self.date_error = "Ende darf nicht vor Start liegen."
-            else:
-                self.date_error = ""
-        except ValueError:
-            self.date_error = "Bitte gültige Daten auswählen."
-
-    @rx.event
-    def validate_budget(self) -> None:
-        try:
-            budget = _parse_localized_int(self.budget)
-        except TypeError, ValueError:
-            self.budget_error = "Budget muss eine gültige Zahl sein."
-            return
-
-        if budget < 0:
-            self.budget_error = "Budget darf nicht negativ sein."
-        else:
-            self.budget_error = ""
-
-    @rx.var(cache=True)
-    def total_capacity(self) -> int:
-        return sum(self.role_capacities.values())
-
-    @rx.event
-    def set_role_capacity(self, role_id: str, value: float | str) -> None:
-        try:
-            self.role_capacities[role_id] = _parse_localized_int(value)
-        except TypeError, ValueError:
-            self.role_capacities[role_id] = 0
-
-    @rx.event
-    def has_errors(self) -> bool:
-        return bool(
-            self.code_error
-            or self.customer_error
-            or self.name_de_error
-            or self.date_error
-            or self.budget_error
-        )
-
-    @rx.var
-    def is_form_valid(self) -> bool:
-        """Check if required fields are complete and valid."""
-        try:
-            budget_valid = _parse_localized_int(self.budget) >= 0
-            dates_valid = bool(self.start_date and self.end_date)
-            if dates_valid:
-                dates_valid = date.fromisoformat(
-                    self.end_date[:10]
-                ) >= date.fromisoformat(self.start_date[:10])
-        except TypeError, ValueError:
-            budget_valid = False
-            dates_valid = False
-
-        return bool(
-            self.code.strip()
-            and self.customer.strip()
-            and self.name_de.strip()
-            and budget_valid
-            and dates_valid
-            and not self.has_errors()
-        )
-
-    @rx.var
-    def is_form_invalid(self) -> bool:
-        return not self.is_form_valid

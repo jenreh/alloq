@@ -128,7 +128,7 @@ Each employee's planned projects are sorted alphabetically by display name, igno
 The calendar button beside each employee's “+” opens absence entry. Saving updates
 the planning grid and keeps unsaved allocation edits.
 
-The **Abwesenheiten** tab next to **Heatmap** shows Gantt bars for employees with
+The **Abwesenheiten** tab next to **Projekte** shows Gantt bars for employees with
 absences overlapping the selected time range. It shares the planning filters,
 with exact dates on hover.
 

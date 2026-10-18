@@ -24,7 +24,7 @@ from reflex.vars import ArrayVar, ObjectVar
 import appkit_mantine as mn
 from appkit_ui.global_states import LoadingState
 
-TEMPLATE = "minmax(180px, 2fr) 86px 160px 96px minmax(90px, 1fr) 52px"
+TEMPLATE = "minmax(160px, 2fr) 124px 160px 96px minmax(90px, 1fr) 52px"
 COLUMNS: list[tuple[str, str, bool]] = [
     ("Projekt", "name", False),
     ("Status", "state", False),
@@ -104,6 +104,9 @@ def project_list() -> rx.Component:
         ),
         _group("Meine Projekte", ProjectState.mine_rows),
         _group("Weitere Projekte", ProjectState.other_rows),
+        _group("Geplant", ProjectState.planned_rows),
+        _group("Interne Projekte", ProjectState.internal_rows),
+        _group("Abgeschlossen", ProjectState.closed_rows),
         rx.cond(
             ProjectState.row_count == 0,
             empty_list("Keine Projekte mit diesem Filter."),

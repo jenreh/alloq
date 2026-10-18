@@ -1,4 +1,4 @@
-"""PlanningStore: admin guard, heatmap filters, refresh and save edge cases."""
+"""PlanningStore: admin guard, refresh and save edge cases."""
 
 import datetime as dt
 from collections.abc import Iterator
@@ -17,6 +17,7 @@ from alloq_commons.entities import (
 )
 from alloq_commons.models.project import Project
 from alloq_commons.repositories import capacity_allocation_repo
+from alloq_commons.roles import EMPLOYEE_ROLE
 from alloq_project.services.planning_builders import (
     absence_days_for_week,
     anchor_date,
@@ -32,12 +33,13 @@ _STATE = "alloq_project.states.planning_grid_state"
 
 
 class _FakeLogin:
-    def __init__(self, *, is_admin: bool) -> None:
+    def __init__(self, *, is_admin: bool, roles: list[str] | None = None) -> None:
         self.is_admin = is_admin
+        self.roles = roles or []
 
     @property
     async def authenticated_user(self) -> Any:
-        return SimpleNamespace(user_id=1, is_admin=self.is_admin)
+        return SimpleNamespace(user_id=1, is_admin=self.is_admin, roles=self.roles)
 
     async def redir(self) -> None:
         return None
@@ -129,20 +131,20 @@ class TestAdminGuard:
             await _drain(state.load())
         load.assert_not_called()
 
-
-class TestHeatmapRespectsFilters:
-    def test_employee_filter_limits_rows_and_average(self) -> None:
-        state = _store("Heatmap")
-        assert [e.real_id for e in state.employees] == [1, 2]
-        state.employee_filter = ["2"]
-        assert [e.real_id for e in state.employees] == [2]
-        # Only Bob (nothing planned) is averaged, not Alice's 5 PT week.
-        assert state.avg_heat[0].percent == state.employees[0].heat[0].percent
-
-    def test_role_filter(self) -> None:
-        state = _store("Heatmap")
-        state.role_filter = ["3"]
-        assert [e.real_id for e in state.employees] == [1]
+    @pytest.mark.asyncio
+    async def test_employee_can_load_but_not_save(self) -> None:
+        state = PlanningStore()
+        employee = _FakeLogin(is_admin=False, roles=[EMPLOYEE_ROLE.name])
+        with (
+            patch.object(PlanningStore, "get_state", AsyncMock(return_value=employee)),
+            patch.object(PlanningStore, "_load_entities", AsyncMock()) as load,
+            patch.object(PlanningStore, "_populate", AsyncMock()),
+            patch(f"{_STATE}.capacity_allocation_repo.batch_upsert") as upsert,
+        ):
+            await _drain(state.load())
+            await _drain(state.save_grid())
+        load.assert_awaited_once()
+        upsert.assert_not_called()
 
 
 class TestLoadErrors:

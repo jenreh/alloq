@@ -8,6 +8,7 @@ from typing import Any, Final, cast
 
 import reflex as rx
 from alloq_commons import theme
+from alloq_commons.access import editor_only, viewer_only
 from alloq_commons.components.formatters import de_number
 from alloq_commons.components.toolbar import DRAG, SIDEBAR_TOGGLE_SCRIPT, icon_button
 from alloq_commons.desktop import is_desktop
@@ -24,22 +25,30 @@ from appkit_user.authentication.components.components import requires_admin
 from appkit_user.authentication.states import LoginState
 
 from app.components.sidebar_state import SidebarState
+from app.configuration import configure
 from app.desktop.login_state import DesktopLoginState
 
 PROJECTS_ROUTE: Final = "/projects"
 TEAM_ROUTE: Final = "/team"
 
+PLAN_ROUTE: Final = "/plan"
+
 PLANNING_ITEMS: Final[list[tuple[str, str, str]]] = [
     ("/dashboard", "Übersicht", "layout-dashboard"),
-    ("/plan", "Ressourcenplanung", "calendar-range"),
+    (PLAN_ROUTE, "Ressourcenplanung", "calendar-range"),
     (PROJECTS_ROUTE, "Projekte", "folder-kanban"),
     (TEAM_ROUTE, "Team", "users"),
 ]
 ADMIN_ITEMS: Final[list[tuple[str, str, str]]] = [
     ("/admin/users", "Benutzer", "user-cog"),
     ("/admin/roles", "Rollen", "shield"),
+    ("/admin/daily-rates", "Tagessätze", "euro"),
+    ("/admin/departments", "Abteilungen", "building-2"),
     ("/admin/holidays", "Feiertage", "calendar-days"),
 ]
+VIEWER_ROUTES: Final = frozenset({PLAN_ROUTE, PROJECTS_ROUTE})
+"""Pages the employee role may read; the other planning pages need edit rights
+(admin or project manager)."""
 _COUNTS: Final[dict[str, Any]] = {
     PROJECTS_ROUTE: SidebarState.project_count,
     TEAM_ROUTE: SidebarState.employee_count,
@@ -64,11 +73,6 @@ SIGN_OUT: Final = DesktopLoginState.sign_out if is_desktop() else LoginState.log
 account and its DB connections."""
 NO_HOVER: Final = {"color": theme.SIDEBAR_TEXT}
 """Source lists don't recolor on hover; rx.link would turn the text blue."""
-SIDEBAR_CSS: Final = (
-    f".aq-nav-item:hover{{background:{theme.SIDEBAR_HOVER};}}"
-    f".aq-nav-item[aria-current=page]{{background:{theme.SIDEBAR_SELECTED};"
-    "font-weight:500;}"
-)
 
 
 def is_route_active(url: str) -> rx.Var[bool]:
@@ -162,6 +166,12 @@ def _nav_item(route: str, label: str, icon: str) -> rx.Component:
     )
 
 
+def _guarded_nav_item(route: str, label: str, icon: str) -> rx.Component:
+    """Nav item shown only to users who may open its page."""
+    guard = viewer_only if route in VIEWER_ROUTES else editor_only
+    return guard(_nav_item(route, label, icon))
+
+
 def _capacity_item(role: ObjectVar) -> rx.Component:
     return mn.group(
         mn.box(
@@ -224,6 +234,13 @@ def _capacity_section() -> rx.Component:
     )
 
 
+def _admin_section() -> rx.Component:
+    """Administration needs the admin switch; project managers do not see it."""
+    return requires_admin(
+        _section("Administration", *(_nav_item(*item) for item in ADMIN_ITEMS))
+    )
+
+
 def _user_button() -> rx.Component:
     """Avatar, name and email of the signed-in user; opens the user menu."""
     return mn.group(
@@ -242,6 +259,18 @@ def _user_button() -> rx.Component:
         class_name="aq-nav-item",
         style={"borderRadius": "8px", "cursor": "default"},
         custom_attrs={"role": "button", "aria-label": "Benutzermenü"},
+    )
+
+
+def _version() -> rx.Component:
+    """Release number of the running app, from the app configuration."""
+    return mn.text(
+        f"Version {configure().app.version}",
+        fz="xs",
+        c=theme.SIDEBAR_MUTED,
+        px=10,
+        pb=4,
+        style=theme.NUMERIC,
     )
 
 
@@ -286,17 +315,18 @@ def _user_menu() -> rx.Component:
 def sidebar() -> rx.Component:
     """The app sidebar; shared by every page."""
     return mn.box(
-        rx.el.style(SIDEBAR_CSS),
-        requires_admin(mn.box(display="none", on_mount=SidebarState.load)),
-        requires_admin(mn.box(display="none", on_mount=RoleCapacityState.load)),
+        editor_only(mn.box(display="none", on_mount=SidebarState.load)),
+        editor_only(mn.box(display="none", on_mount=RoleCapacityState.load)),
         _window_row(),
         _brand(),
         mn.box(
-            _section("Planung", *(_nav_item(*item) for item in PLANNING_ITEMS)),
-            requires_admin(_capacity_section()),
-            requires_admin(
-                _section("Administration", *(_nav_item(*item) for item in ADMIN_ITEMS))
+            viewer_only(
+                _section(
+                    "Planung", *(_guarded_nav_item(*item) for item in PLANNING_ITEMS)
+                )
             ),
+            editor_only(_capacity_section()),
+            _admin_section(),
             custom_attrs={"role": "navigation", "aria-label": "Navigation"},
             style={
                 "display": "flex",
@@ -308,6 +338,7 @@ def sidebar() -> rx.Component:
             },
         ),
         mn.box(
+            _version(),
             _user_menu(),
             pt=8,
             style={"borderTop": f"0.5px solid {theme.SIDEBAR_LINE}"},

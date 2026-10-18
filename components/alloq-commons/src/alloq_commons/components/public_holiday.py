@@ -40,7 +40,7 @@ def holiday_form_fields(
                 description="Bezeichnung des Feiertags (z.B. Ostermontag).",
                 default_value=holiday.name if is_edit_mode else "",
                 required=True,
-                max_length=255,
+                custom_attrs={"maxLength": 255},
             ),
             mn.date_picker_input(
                 name="date",

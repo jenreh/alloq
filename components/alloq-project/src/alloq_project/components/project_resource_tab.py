@@ -1,7 +1,9 @@
 import reflex as rx
+from alloq_commons.access import editor_only
 from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.formatters import de_number, format_date_de
 from alloq_commons.components.forms import section
+from alloq_commons.role_colors import ROLE_BADGE_TEXT_COLOR, role_color_var
 from alloq_project.states.project_resource_state import (
     MAX_DAYS_PER_WEEK,
     MIN_DAYS_PER_WEEK,
@@ -47,7 +49,13 @@ def _period_row(period: ObjectVar) -> rx.Component:
             truncate=True,
             style={"flex": "1", "minWidth": "0"},
         ),
-        mn.badge(period.role_name, variant="light", color="teal", radius="sm"),
+        mn.badge(
+            period.role_name,
+            variant="filled",
+            color=role_color_var(period.role_name),
+            c=ROLE_BADGE_TEXT_COLOR,
+            radius="sm",
+        ),
         mn.text(
             format_date_de(period.start) + " \u2013 " + format_date_de(period.end),
             size="xs",
@@ -67,23 +75,25 @@ def _period_row(period: ObjectVar) -> rx.Component:
             suffix=" PT",
             style={"fontSize": "0.75rem", "width": "4rem", "textAlign": "right"},
         ),
-        mn.tooltip(
-            mn.action_icon(
-                rx.icon("square-pen", size=14),
-                variant="subtle",
-                size="sm",
-                on_click=ProjectResourceState.edit_period(period.key),
+        editor_only(
+            mn.tooltip(
+                mn.action_icon(
+                    rx.icon("square-pen", size=14),
+                    variant="subtle",
+                    size="sm",
+                    on_click=ProjectResourceState.edit_period(period.key),
+                ),
+                label="Zeitraum bearbeiten",
             ),
-            label="Zeitraum bearbeiten",
-        ),
-        delete_dialog(
-            title="Zeitraum löschen",
-            content=period.employee_name + " (" + period.role_name + ")",
-            on_click=ProjectResourceState.delete_period(period.key),
-            icon_button=True,
-            color="red",
-            size="sm",
-            variant="subtle",
+            delete_dialog(
+                title="Zeitraum löschen",
+                content=period.employee_name + " (" + period.role_name + ")",
+                on_click=ProjectResourceState.delete_period(period.key),
+                icon_button=True,
+                color="red",
+                size="sm",
+                variant="subtle",
+            ),
         ),
         w="100%",
         gap="sm",
@@ -267,7 +277,7 @@ def ressourcen_tab() -> rx.Component:
             mn.center(mn.loader(size="sm"), py="xl"),
             mn.stack(
                 _planned_section(),
-                _plan_section(),
+                editor_only(_plan_section()),
                 gap="md",
                 w="100%",
             ),

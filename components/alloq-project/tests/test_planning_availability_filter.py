@@ -61,21 +61,15 @@ def test_disabled_by_default_and_can_be_switched_off(planning: PlanningStore) ->
     assert [employee.real_id for employee in planning.filtered_employees] == [1, 2, 3]
 
 
-@pytest.mark.parametrize("view_mode", ["Grid", "Heatmap"])
-def test_only_capacity_above_three_person_days(
-    planning: PlanningStore, view_mode: str
-) -> None:
-    planning.view_mode = view_mode
+def test_only_capacity_above_three_person_days(planning: PlanningStore) -> None:
+    planning.view_mode = "Grid"
     assert [employee.available_days for employee in planning.employee_blocks] == [
         4.0,
         0.0,
         0.0,
     ]
     planning.set_available_only(True)
-    rows = planning.filtered_employees if view_mode == "Grid" else planning.employees
-    assert [employee.real_id for employee in rows] == [1]
-    if view_mode == "Heatmap":
-        assert planning.avg_heat == rows[0].heat
+    assert [employee.real_id for employee in planning.filtered_employees] == [1]
 
 
 @pytest.mark.parametrize("remaining_days", [0.0, 2.99, 3.0, 3.01, 4.0])
@@ -170,15 +164,16 @@ def test_overbooked_weeks_do_not_cancel_available_capacity(
     assert planning.filtered_employees[0].available_days == 4.0
 
 
-def test_absence_view_uses_availability_filter(planning: PlanningStore) -> None:
+def test_absence_view_ignores_availability_filter(planning: PlanningStore) -> None:
+    """The absence view hides the switch, so it must not filter there either."""
     for employee in planning.available_employees:
         employee.absences = [
             Absence(start_date=date(2026, 10, 6), end_date=date(2026, 10, 6))
         ]
     planning.view_mode = "Abwesenheiten"
-    assert len(planning.absence_gantt_rows) == 3
+    assert len(planning.absence_gantt.rows) == 3
     planning.set_available_only(True)
-    assert [row.real_id for row in planning.absence_gantt_rows] == [1]
+    assert len(planning.absence_gantt.rows) == 3
 
 
 def test_project_view_filters_resources_and_recomputes_totals(

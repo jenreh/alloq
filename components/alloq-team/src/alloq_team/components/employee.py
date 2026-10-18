@@ -55,7 +55,7 @@ def employee_form_fields(is_edit: bool = False) -> rx.Component:
                 on_blur=EmployeeValidationState.set_first_name,
                 error=EmployeeValidationState.first_name_error,
                 required=True,
-                max_length=255,
+                custom_attrs={"maxLength": 255},
                 left_section=rx.icon("user", size=16),
             ),
             mn.text_input(
@@ -65,7 +65,7 @@ def employee_form_fields(is_edit: bool = False) -> rx.Component:
                 on_blur=EmployeeValidationState.set_last_name,
                 error=EmployeeValidationState.last_name_error,
                 required=True,
-                max_length=255,
+                custom_attrs={"maxLength": 255},
                 left_section=rx.icon("user", size=16),
             ),
             mn.text_input(
@@ -76,7 +76,7 @@ def employee_form_fields(is_edit: bool = False) -> rx.Component:
                 on_blur=EmployeeValidationState.validate_email_unique,
                 error=EmployeeValidationState.email_error,
                 required=False,
-                max_length=255,
+                custom_attrs={"maxLength": 255},
                 left_section=rx.icon("mail", size=16),
             ),
             mn.text_input(
@@ -85,7 +85,7 @@ def employee_form_fields(is_edit: bool = False) -> rx.Component:
                 default_value=EmployeeValidationState.job_title,
                 on_blur=EmployeeValidationState.set_job_title,
                 required=False,
-                max_length=255,
+                custom_attrs={"maxLength": 255},
                 left_section=rx.icon("briefcase", size=16),
             ),
             mn.text_input(
@@ -94,8 +94,19 @@ def employee_form_fields(is_edit: bool = False) -> rx.Component:
                 default_value=EmployeeValidationState.location,
                 on_blur=EmployeeValidationState.set_location,
                 required=False,
-                max_length=255,
+                custom_attrs={"maxLength": 255},
                 left_section=rx.icon("map-pin", size=16),
+            ),
+            mn.select(
+                name="department_id",
+                label="Abteilung",
+                data=TeamState.department_select_options,
+                default_value=EmployeeValidationState.department_id,
+                on_change=EmployeeValidationState.set_department_id,
+                required=False,
+                clearable=True,
+                searchable=True,
+                left_section=rx.icon("building-2", size=16),
             ),
             mn.select(
                 name="manager_id",
@@ -120,14 +131,26 @@ def employee_form_fields(is_edit: bool = False) -> rx.Component:
                 clearable=False,
                 searchable=False,
             ),
+            mn.select(
+                name="key_role_id",
+                label="Schlüsselrolle",
+                description="Hauptexpertise der Person",
+                data=TeamState.role_select_options,
+                default_value=EmployeeValidationState.key_role_id,
+                on_change=EmployeeValidationState.set_key_role_id,
+                error=EmployeeValidationState.key_role_id_error,
+                required=True,
+                searchable=True,
+                clearable=False,
+            ),
             mn.multi_select(
                 name="role_ids",
-                label="Rollen",
+                label="Weitere Rollen",
+                description="Rollen, in denen die Person zusätzlich unterstützen kann",
                 data=TeamState.role_select_options,
                 default_value=EmployeeValidationState.role_ids.to(list[str]),
                 on_change=EmployeeValidationState.set_role_ids,
-                error=EmployeeValidationState.role_ids_error,
-                required=True,
+                required=False,
                 searchable=True,
                 clearable=True,
             ),
@@ -212,11 +235,15 @@ def add_employee_modal() -> rx.Component:
 
 def absence_modal(
     on_submit: EventType = TeamState.create_absence,
+    employee_field: rx.Component | None = None,
 ) -> rx.Component:
-    """Modal for adding an absence period."""
+    """Modal for adding an absence period, optionally choosing the employee."""
     return mn.modal(
         modal_form_layout(
             content=mn.flex(
+                section(employee_field)
+                if employee_field is not None
+                else rx.fragment(),
                 section(
                     _AbsenceDatePickerInput.create(
                         label="Zeitraum",

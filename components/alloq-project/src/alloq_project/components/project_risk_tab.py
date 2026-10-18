@@ -1,4 +1,5 @@
 import reflex as rx
+from alloq_commons.access import editor_only
 from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.forms import section
 from alloq_commons.entities.risk import (
@@ -326,17 +327,19 @@ def _risk_row(risk: ObjectVar[Risk]) -> rx.Component:
                 ),
                 on_click=rx.stop_propagation,
             ),
-            rx.box(
-                delete_dialog(
-                    title="Risiko löschen",
-                    content=risk.name,
-                    on_click=ProjectState.delete_project_risk(risk.id),  # ty: ignore[invalid-argument-type]
-                    icon_button=True,
-                    variant="subtle",
-                    color="red",
-                    size="sm",
+            editor_only(
+                rx.box(
+                    delete_dialog(
+                        title="Risiko löschen",
+                        content=risk.name,
+                        on_click=ProjectState.delete_project_risk(risk.id),  # ty: ignore[invalid-argument-type]
+                        icon_button=True,
+                        variant="subtle",
+                        color="red",
+                        size="sm",
+                    ),
+                    on_click=rx.stop_propagation,
                 ),
-                on_click=rx.stop_propagation,
             ),
             w="100%",
             align="center",
@@ -407,13 +410,15 @@ def _risk_list() -> rx.Component:
                     size="sm",
                 ),
                 mn.box(style={"flex": "1"}),
-                mn.button(
-                    "Risiko hinzufügen",
-                    left_section=rx.icon("plus", size=14),
-                    variant="filled",
-                    size="xs",
-                    gap="4px",
-                    on_click=ProjectState.add_project_risk,
+                editor_only(
+                    mn.button(
+                        "Risiko hinzufügen",
+                        left_section=rx.icon("plus", size=14),
+                        variant="filled",
+                        size="xs",
+                        gap="4px",
+                        on_click=ProjectState.add_project_risk,
+                    ),
                 ),
                 gap="xs",
                 align="center",

@@ -9,7 +9,7 @@ reflex:
   frontend_path: /alloq
 
 app:
-  version: 2.0.2
+  version: 2.0.3
   name: Alloq
   logging: logging.prod.yaml
   environment: production
@@ -41,9 +41,9 @@ app:
     server_port: 0
 
     oauth_providers:
-      - provider: "github"
-        client_id: secret:common-oauth-github-client-id
-        client_secret: secret:common-oauth-github-client-secret
+      # - provider: "github"
+      #   client_id: secret:common-oauth-github-client-id
+      #   client_secret: secret:common-oauth-github-client-secret
       - provider: "azure"
         client_id: secret:common-oauth-azure-client-id
         client_secret: secret:common-oauth-azure-client-secret

@@ -9,6 +9,7 @@ from alloq_commons.components.role import (
     add_role_button,
     add_role_modal,
     edit_role_modal,
+    role_form_fields,
     roles_table,
 )
 from alloq_commons.entities.role import RoleEntity
@@ -773,3 +774,9 @@ class TestRoleComponents:
     def test_add_role_button_returns_component(self) -> None:
         result = add_role_button()
         assert isinstance(result, rx.Component)
+
+    def test_form_inputs_limit_length_in_browser(self) -> None:
+        rendered = str(role_form_fields())
+        assert "maxLength:255" in rendered
+        assert "maxLength:3" in rendered
+        assert '["maxLength"]' not in rendered

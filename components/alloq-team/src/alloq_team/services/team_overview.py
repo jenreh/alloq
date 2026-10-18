@@ -142,7 +142,7 @@ def _to_overview(
 ) -> TeamOverview:
     return TeamOverview(
         employee_id=series.employee_id,
-        load_percent=series.current_week_percent,
+        load_percent=series.avg_percent,
         absent_now=series.current_week_is_absent,
         free_days=round(series.free_hours_next_4w / HOURS_PER_DAY, 1),
         weeks=[

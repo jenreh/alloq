@@ -6,6 +6,7 @@ from datetime import date
 from typing import Any
 
 import reflex as rx
+from alloq_commons.access import requires_editor, requires_viewer
 from alloq_commons.models.employee import Employee
 from alloq_commons.models.project import (
     CapacityAllocation,
@@ -34,7 +35,6 @@ from alloq_project.services.resource_planning import (
 from alloq_project.states.project_state import ProjectState
 
 from appkit_commons.database.session import get_asyncdb_session
-from appkit_user.authentication.decorators import requires_admin
 
 log = logging.getLogger(__name__)
 
@@ -198,7 +198,7 @@ class ProjectResourceState(rx.State):
     # ------------------------------------------------------------------
 
     @rx.event
-    @requires_admin
+    @requires_viewer
     async def load_selected(self) -> AsyncGenerator[Any]:
         """Load resource data for the project selected in the drawer."""
         project_state = await self.get_state(ProjectState)
@@ -287,7 +287,7 @@ class ProjectResourceState(rx.State):
     # ------------------------------------------------------------------
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def assign(self, employee_id: int) -> AsyncGenerator[Any]:
         """Plan the employee with the current form values (replaces in range)."""
         if self.form_error:
@@ -343,7 +343,7 @@ class ProjectResourceState(rx.State):
             self.is_saving = False
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def delete_period(self, key: str) -> AsyncGenerator[Any]:
         """Delete one planned period."""
         period = self._period(key)

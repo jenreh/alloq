@@ -7,9 +7,9 @@ from alloq_commons.components.modal_layout import (
     modal_form_layout,
 )
 from alloq_commons.models.role import Role
-from alloq_project.states.project_state import (
+from alloq_project.states.project_state import ProjectState
+from alloq_project.states.project_validation_state import (
     PROJECT_COLORS,
-    ProjectState,
     ProjectValidationState,
 )
 from reflex.event import EventType
@@ -31,7 +31,7 @@ def project_form_fields() -> rx.Component:
                 on_blur=ProjectValidationState.set_name_de,
                 error=ProjectValidationState.name_de_error,
                 required=True,
-                max_length=255,
+                custom_attrs={"maxLength": 255},
             ),
             mn.text_input(
                 name="code",
@@ -41,7 +41,6 @@ def project_form_fields() -> rx.Component:
                 on_blur=ProjectValidationState.set_code,
                 error=ProjectValidationState.code_error,
                 required=True,
-                max_length=5,
                 custom_attrs={"maxLength": 5},
                 w="10rem",
             ),
@@ -51,8 +50,16 @@ def project_form_fields() -> rx.Component:
                 placeholder="z.B. Muster AG",
                 default_value=ProjectValidationState.customer,
                 on_blur=ProjectValidationState.set_customer,
-                error=ProjectValidationState.customer_error,
-                max_length=255,
+                custom_attrs={"maxLength": 255},
+            ),
+            mn.text_input(
+                name="booking_number",
+                label="Buchungsnummer",
+                placeholder="z.B. 4711-0815",
+                default_value=ProjectValidationState.booking_number,
+                on_blur=ProjectValidationState.set_booking_number,
+                custom_attrs={"maxLength": 50},
+                w="14rem",
             ),
             mn.multi_select(
                 name="owner_ids",
@@ -64,6 +71,12 @@ def project_form_fields() -> rx.Component:
                 searchable=True,
                 placeholder="Owner(s) auswählen",
             ),
+            mn.switch(
+                name="is_internal",
+                label="Internes Projekt",
+                description="Wird in der Projektliste unter Interne Projekte geführt.",
+                default_checked=ProjectValidationState.is_internal,
+            ),
         ),
         section(
             mn.simple_grid(
@@ -71,12 +84,11 @@ def project_form_fields() -> rx.Component:
                     name="budget",
                     label="Budget",
                     default_value=ProjectValidationState.budget,
-                    on_change=ProjectValidationState.set_budget,
+                    on_blur=ProjectValidationState.set_budget,
                     error=ProjectValidationState.budget_error,
                     min=0,
                     step=10000,
-                    decimal_scale=0,
-                    fixed_decimal_scale=True,
+                    decimal_scale=2,
                     required=True,
                     thousand_separator=".",
                     decimal_separator=",",
@@ -210,7 +222,7 @@ def _required_capacity_input(role: ObjectVar[Role]) -> rx.Component:
                     role.id.to_string()
                 ].to(float),
                 # ty cannot infer the lambda's parameter from the event spec.
-                on_change=lambda v: ProjectValidationState.set_role_capacity(  # ty: ignore[invalid-argument-type]
+                on_blur=lambda v: ProjectValidationState.set_role_capacity(  # ty: ignore[invalid-argument-type]
                     role.id.to_string(), v
                 ),
                 min=0,

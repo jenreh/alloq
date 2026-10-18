@@ -2,7 +2,7 @@
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import UTC, date, datetime
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from alloq_commons.models.employee import Employee
 from alloq_commons.models.project import Project, ProjectStatus, Risk
+from alloq_commons.roles import EMPLOYEE_ROLE
 from alloq_project.states.project_state import (
     _EMPLOYEE_PAGE_SIZE,
     ProjectState,
@@ -184,9 +185,11 @@ class _FakeLogin:
         return None
 
 
-def _login_as(state: Any, *, is_admin: bool = True) -> None:
+def _login_as(
+    state: Any, *, is_admin: bool = True, roles: list[str] | None = None
+) -> None:
     """Route the state's get_state(LoginState) to a fake (non-)admin user."""
-    login = _FakeLogin(SimpleNamespace(user_id=1, is_admin=is_admin))
+    login = _FakeLogin(SimpleNamespace(user_id=1, is_admin=is_admin, roles=roles or []))
 
     async def _get_state(_cls: type) -> Any:
         return login
@@ -226,14 +229,24 @@ class TestParseLocalizedInt:
     """Tests for German-formatted number parsing."""
 
     def test_numbers_are_not_treated_as_formatted_strings(self) -> None:
-        assert _parse_localized_int(12.5) == 12
+        assert _parse_localized_int(12.4) == 12
+        assert _parse_localized_int(12.5) == 13
         assert _parse_localized_int(30000.0) == 30000
         assert _parse_localized_int(30000) == 30000
 
     def test_german_formatted_strings(self) -> None:
         assert _parse_localized_int("30.000") == 30000
-        assert _parse_localized_int("1.234,56") == 1234
         assert _parse_localized_int("") == 0
+
+    def test_decimals_round_half_up(self) -> None:
+        assert _parse_localized_int("1123,12") == 1123
+        assert _parse_localized_int("1.234,56") == 1235
+        assert _parse_localized_int("2,5") == 3
+        assert _parse_localized_int("1.122,49") == 1122
+
+    def test_invalid_string_raises_value_error(self) -> None:
+        with pytest.raises(ValueError, match="abc"):
+            _parse_localized_int("abc")
 
 
 class TestProjectStateAuthorization:
@@ -277,6 +290,23 @@ class TestProjectStateAuthorization:
             await _drain(state.load_projects())
 
         repo.find_all_with_stats.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_employee_can_load_but_not_delete_projects(self) -> None:
+        state = ProjectState()
+        _login_as(state, is_admin=False, roles=[EMPLOYEE_ROLE.name])
+
+        with (
+            patch.object(ProjectState, "_load_projects", AsyncMock()) as load,
+            patch.object(ProjectState, "_load_reference_data", AsyncMock()),
+            patch(f"{MODULE}.project_repo") as repo,
+        ):
+            repo.delete_by_id = AsyncMock(return_value=True)
+            await _drain(state.load_projects())
+            await _drain(state.delete_project(1))
+
+        load.assert_awaited_once()
+        repo.delete_by_id.assert_not_awaited()
 
 
 class TestProjectStateHandlers:
@@ -327,6 +357,68 @@ class TestProjectStateHandlers:
         repo.find_by_id.assert_not_awaited()
         assert state.projects[0].state == "Geplant"
         assert _has_text(events, "Berechtigung")
+
+    def test_editing_start_keeps_end_date(self) -> None:
+        state = _drawer_state()
+        state.projects[0] = state.projects[0].model_copy(
+            update={"start_date": date(2026, 1, 7), "end_date": date(2026, 8, 31)}
+        )
+
+        state.set_inspected_date_draft(1, "start", "2025-01-01")
+
+        assert state.date_draft_end == "2026-08-31"
+
+    def test_start_after_end_moves_end_to_start(self) -> None:
+        state = _drawer_state()
+        state.projects[0] = state.projects[0].model_copy(
+            update={"start_date": date(2026, 1, 7), "end_date": date(2026, 8, 31)}
+        )
+
+        state.set_inspected_date_draft(1, "start", "2026-09-15")
+
+        assert state.date_draft_end == "2026-09-15"
+
+    def test_today_button_sets_draft_to_today(self) -> None:
+        state = _drawer_state()
+
+        state.set_inspected_date_today(1, "start")
+
+        assert state.date_draft_start == datetime.now(tz=UTC).date().isoformat()
+
+    @pytest.mark.asyncio
+    async def test_save_inspected_dates_saves_on_blur(self) -> None:
+        state = _drawer_state()
+        _login_as(state)
+        entity = SimpleNamespace(start_date=None, end_date=None)
+        session = AsyncMock()
+        state.set_inspected_date_draft(1, "start", "2026-01-07")
+        state.set_inspected_date_draft(1, "end", "2026-08-31")
+
+        with (
+            patch(f"{LIST_MODULE}.get_asyncdb_session", _mock_session_ctx(session)),
+            patch(f"{LIST_MODULE}.project_repo") as repo,
+        ):
+            repo.find_by_id = AsyncMock(return_value=entity)
+            events = await _drain(state.save_inspected_dates(1))
+
+        session.commit.assert_awaited_once()
+        assert entity.start_date == date(2026, 1, 7)
+        assert state.projects[0].end_date == date(2026, 8, 31)
+        assert _has_text(events, "Zeitraum gespeichert")
+
+    @pytest.mark.asyncio
+    async def test_save_inspected_dates_rejects_end_before_start(self) -> None:
+        state = _drawer_state()
+        _login_as(state)
+        state.set_inspected_date_draft(1, "start", "2026-08-31")
+        state.set_inspected_date_draft(1, "end", "2026-01-07")
+
+        with patch(f"{LIST_MODULE}.project_repo") as repo:
+            repo.find_by_id = AsyncMock()
+            events = await _drain(state.save_inspected_dates(1))
+
+        repo.find_by_id.assert_not_awaited()
+        assert _has_text(events, "nicht vor dem Start")
 
     @pytest.mark.asyncio
     async def test_delete_status_of_other_project_is_ignored(self) -> None:
@@ -584,3 +676,29 @@ class TestProjectStateHandlers:
         assert state._project_create_from_form(form).color == "#F7C948"
         form["color"] = "#5B7FA3"
         assert state._project_create_from_form(form).color == "#5B7FA3"
+
+    def test_form_internal_switch_maps_to_flag(self) -> None:
+        state = ProjectState()
+        form = {
+            "code": "P1",
+            "name_de": "N",
+            "start_date": "2026-01-01",
+            "end_date": "2026-12-31",
+        }
+
+        assert state._project_create_from_form(form).is_internal is False
+        form["is_internal"] = "on"
+        assert state._project_create_from_form(form).is_internal is True
+
+    def test_form_booking_number_is_trimmed(self) -> None:
+        state = ProjectState()
+        form = {
+            "code": "P1",
+            "name_de": "N",
+            "start_date": "2026-01-01",
+            "end_date": "2026-12-31",
+        }
+
+        assert state._project_create_from_form(form).booking_number == ""
+        form["booking_number"] = "  4711-0815 "
+        assert state._project_create_from_form(form).booking_number == "4711-0815"

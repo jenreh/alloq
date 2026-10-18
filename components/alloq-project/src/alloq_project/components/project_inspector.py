@@ -2,6 +2,7 @@
 
 import reflex as rx
 from alloq_commons import theme
+from alloq_commons.access import CAN_EDIT, editor_only
 from alloq_commons.components.formatters import de_number
 from alloq_commons.components.list_view import (
     badge,
@@ -14,7 +15,8 @@ from alloq_commons.components.list_view import (
 )
 from alloq_commons.components.toolbar import icon_button
 from alloq_commons.models.project import Project, TeamMemberBadge
-from alloq_project.components.project_parts import period, project_tile
+from alloq_project.components.project_parts import project_tile
+from alloq_project.states.planning_grid_state import PlanningStore
 from alloq_project.states.project_state import ProjectState
 from reflex.vars import ObjectVar
 
@@ -54,10 +56,15 @@ def _heading(project: ObjectVar[Project]) -> rx.Component:
 
 def _actions() -> rx.Component:
     return mn.group(
-        plain_button("Bearbeiten", _open("daten"), flex="1"),
-        plain_button("Status erfassen", _open("status"), flex="1"),
+        editor_only(
+            plain_button("Bearbeiten", _open("daten"), flex="1"),
+            plain_button("Status erfassen", _open("status"), flex="1"),
+            fallback=plain_button("Details", _open("status"), flex="1"),
+        ),
         icon_button(
-            "calendar-range", "In der Ressourcenplanung öffnen", rx.redirect("/plan")
+            "calendar-range",
+            "In der Ressourcenplanung öffnen",
+            PlanningStore.open_project(_selected().id),  # ty: ignore[invalid-argument-type]
         ),
         gap=8,
         wrap="nowrap",
@@ -78,7 +85,7 @@ def _progress(label: str, value: rx.Var[int], color: str) -> rx.Component:
 
 def _member(member: ObjectVar[TeamMemberBadge]) -> rx.Component:
     return mn.group(
-        tile(member.initials, theme.TEXT_TERTIARY, round_=True),
+        tile(member.initials, member.color, round_=True),
         mn.text(member.name, fz="12.5px", truncate="end", flex="1", miw=0),
         mn.text(
             de_number(
@@ -142,6 +149,75 @@ def _risks(project: ObjectVar[Project]) -> rx.Component:
     )
 
 
+def _pt(value: rx.Var) -> rx.Component:
+    return de_number(value=value, decimal_scale=0, suffix=" PT")
+
+
+def _booking_number(project: ObjectVar[Project]) -> rx.Component:
+    return rx.cond(
+        project.booking_number != "",
+        mn.group(
+            mn.text(
+                project.booking_number,
+                fz="inherit",
+                lh="inherit",
+                style=theme.NUMERIC,
+                truncate="end",
+                miw=0,
+            ),
+            mn.action_icon(
+                rx.icon("copy", size=13, stroke_width=1.8),
+                variant="subtle",
+                color="gray",
+                size=20,
+                aria_label="Buchungsnummer kopieren",
+                title="Buchungsnummer kopieren",
+                on_click=[
+                    rx.set_clipboard(project.booking_number),
+                    rx.toast.success("Buchungsnummer kopiert", position="top-right"),
+                ],
+            ),
+            gap=4,
+            wrap="nowrap",
+        ),
+        mn.text("–", fz="inherit", lh="inherit", c=theme.TEXT_MUTED),
+    )
+
+
+def _date_input(project: ObjectVar[Project], field: str) -> rx.Component:
+    return mn.date_input(
+        value=(
+            ProjectState.inspected_start_date
+            if field == "start"
+            else ProjectState.inspected_end_date
+        ),
+        on_change=lambda value: ProjectState.set_inspected_date_draft(
+            project.id, field, value
+        ),
+        on_blur=ProjectState.save_inspected_dates(project.id),
+        right_section=editor_only(
+            mn.action_icon(
+                rx.icon("calendar-check", size=14, stroke_width=1.8),
+                variant="subtle",
+                color="gray",
+                size=22,
+                aria_label="Heute",
+                title="Heute",
+                on_click=[
+                    ProjectState.set_inspected_date_today(project.id, field),
+                    ProjectState.save_inspected_dates(project.id),
+                ],
+            )
+        ),
+        disabled=~CAN_EDIT,
+        right_section_pointer_events="all",
+        clearable=False,
+        locale="de",
+        value_format="DD.MM.YYYY",
+        size="xs",
+    )
+
+
 def _details(project: ObjectVar[Project]) -> rx.Component:
     return mn.stack(
         _heading(project),
@@ -157,15 +233,19 @@ def _details(project: ObjectVar[Project]) -> rx.Component:
                         on_change=ProjectState.update_inspected_project_state(
                             project.id
                         ),
+                        disabled=~CAN_EDIT,
                         clearable=False,
                         size="xs",
                     ),
                 ),
                 ("Kunde", project.customer),
                 ("Kürzel", project.code),
-                ("Zeitraum", period(project)),
+                ("Buchungsnr.", _booking_number(project)),
+                ("Start", _date_input(project, "start")),
+                ("Ende", _date_input(project, "end")),
                 ("Budget", de_number(value=project.budget, suffix=" €")),
-                ("Bedarf", de_number(value=project.total_pt, suffix=" PT")),
+                ("Bedarf", _pt(project.total_pt)),
+                ("Geplant", _pt(project.planned_pt)),
             ),
         ),
         inspector_section(

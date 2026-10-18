@@ -81,6 +81,14 @@ class TestProjectEntity:
         assert result["current_spent"] == 30
         assert result["customer"] == "Muster AG"
         assert result["required_capacities"][0]["role_name"] == "AI Architect"
+        assert result["is_internal"] is False
+
+        entity.is_internal = True
+        assert entity.to_dict()["is_internal"] is True
+        assert result["booking_number"] == ""
+
+        entity.booking_number = "4711-0815"
+        assert entity.to_dict()["booking_number"] == "4711-0815"
 
 
 class TestProjectModels:

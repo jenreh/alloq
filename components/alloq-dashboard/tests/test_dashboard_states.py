@@ -9,6 +9,7 @@ from typing import Any, cast
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from alloq_commons.roles import EMPLOYEE_ROLE, PROJECT_MANAGER_ROLE
 from alloq_dashboard.models import ProjectsOverviewKpi, RiskKpi
 from alloq_dashboard.states.dashboard_states import (
     CACHE_TTL_SECONDS,
@@ -30,6 +31,8 @@ from appkit_user.authentication.backend.models import User
 _LOADER = "alloq_dashboard.states.dashboard_states.aggregation.load_projects_overview"
 _ADMIN = User(user_id=1, name="Admin", is_admin=True)
 _MEMBER = User(user_id=2, name="Member", is_admin=False)
+_EMPLOYEE = User(user_id=3, name="Employee", roles=[EMPLOYEE_ROLE.name])
+_MANAGER = User(user_id=4, name="Manager", roles=[PROJECT_MANAGER_ROLE.name])
 
 
 def _load_fn(state_cls: type) -> Callable[..., Coroutine[Any, Any, None]]:
@@ -136,7 +139,7 @@ async def test_projects_overview_load_records_error() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("user", [_MEMBER, None])
+@pytest.mark.parametrize("user", [_MEMBER, _EMPLOYEE, None])
 async def test_card_load_rejects_non_admin(user: User | None) -> None:
     state = ProjectsOverviewState()
     loader = AsyncMock(return_value=ProjectsOverviewKpi(total=7))
@@ -145,6 +148,16 @@ async def test_card_load_rejects_non_admin(user: User | None) -> None:
     loader.assert_not_called()
     assert state.data.total == 0
     assert state.last_loaded == ""
+
+
+@pytest.mark.asyncio
+async def test_card_load_runs_for_project_manager() -> None:
+    state = ProjectsOverviewState()
+    loader = AsyncMock(return_value=ProjectsOverviewKpi(total=7))
+    with _login_as(ProjectsOverviewState, _MANAGER), patch(_LOADER, new=loader):
+        await _load_fn(ProjectsOverviewState)(state, force=True)
+    loader.assert_awaited_once()
+    assert state.data.total == 7
 
 
 @pytest.mark.asyncio

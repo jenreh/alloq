@@ -8,7 +8,9 @@ from typing import Any
 
 from alloq_commons.models.employee import Employee
 from alloq_commons.models.project import Project
+from alloq_commons.role_colors import role_color
 from alloq_commons.services.utilization import (
+    FREE_DAYS_PRECISION,
     UtilizationAllocationInput,
     UtilizationService,
 )
@@ -17,7 +19,7 @@ from alloq_project.states.planning_models import (
     WEEKS_BEFORE_CURRENT,
     EmployeeBlock,
     GesamtCell,
-    HeatCell,
+    GridCell,
     MonthSpan,
     ProjectBlock,
     ProjectGesamtCell,
@@ -26,6 +28,7 @@ from alloq_project.states.planning_models import (
 )
 
 WORK_DAYS_PER_WEEK: int = 5
+WEEKDAYS = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
 
 
 def anchor_date() -> dt.date:
@@ -86,14 +89,6 @@ GERMAN_MONTHS = [
     "Dez",
 ]
 
-ROLE_PALETTE: dict[str, str] = {
-    "PM": "var(--mantine-color-violet-1)",
-    "AIA": "var(--mantine-color-orange-1)",
-    "DS": "var(--mantine-color-blue-1)",
-    "AIE": "var(--mantine-color-teal-1)",
-    "RE": "var(--mantine-color-pink-1)",
-}
-
 ROLE_FULL: dict[str, str] = {
     "PM": "Project Manager",
     "AIA": "AI Architect",
@@ -120,8 +115,12 @@ class CapAssignment:
 # === Pure helpers ===
 
 
-def project_heat_bucket(allocated: float) -> str:
-    return UtilizationService.project_heat_bucket(allocated)
+def week_title(week_no: int, start: dt.date, holidays: list[dt.date]) -> str:
+    """Tooltip of a week header cell, e.g. 'KW 52 · ab Mo 21.12.2026'."""
+    title = f"KW {week_no} · ab {WEEKDAYS[start.weekday()]} {start:%d.%m.%Y}"
+    if holidays:
+        title += " · Feiertag " + ", ".join(f"{d:%d.%m.}" for d in holidays)
+    return title
 
 
 def build_weeks(
@@ -136,13 +135,23 @@ def build_weeks(
         work_days = UtilizationService.work_days_for_week(
             d, holidays, workload_percent=100, base_work_days=float(WORK_DAYS_PER_WEEK)
         )
+        month_label = f"{GERMAN_MONTHS[d.month - 1]} {d.year % 100}"
+        week_holidays = sorted(
+            day
+            for day in (d + dt.timedelta(days=i) for i in range(WORK_DAYS_PER_WEEK))
+            if day in holidays
+        )
         weeks.append(
             WeekColumn(
                 key=f"{d.year}_{d.month:02d}_{d.day:02d}",
                 label=f"{d.day}.{d.month}.",
                 week_no=d.isocalendar().week,
-                month_label=f"{GERMAN_MONTHS[d.month - 1]} {d.year % 100}",
+                month_label=month_label,
                 work_days=work_days,
+                is_month_start=bool(weeks) and weeks[-1].month_label != month_label,
+                is_short=work_days < WORK_DAYS_PER_WEEK,
+                title=week_title(d.isocalendar().week, d, week_holidays),
+                holiday_days=[(day - d).days for day in week_holidays],
             )
         )
     spans: list[MonthSpan] = []
@@ -300,42 +309,76 @@ def scaled_work_days(week: WeekColumn, workload_percent: int) -> float:
     return UtilizationService.apply_workload(week.work_days, workload_percent)
 
 
+def mark_repeats(cells: list[GridCell]) -> list[GridCell]:
+    """Flag non-zero cells that repeat the previous week's value."""
+    previous = 0.0
+    for cell in cells:
+        value = round(cell.value, FREE_DAYS_PRECISION)
+        cell.is_repeat = value > 0 and value == previous
+        previous = value
+    return cells
+
+
+def mark_defaults(cells: list[GridCell], default: float) -> list[GridCell]:
+    """Flag cells holding the usual value so only deviations are shown."""
+    usual = round(default, FREE_DAYS_PRECISION)
+    for cell in cells:
+        cell.is_default = round(cell.value, FREE_DAYS_PRECISION) == usual
+    return cells
+
+
+def gesamt_state(free_days: float) -> str:
+    """Visual state of a Gesamt cell: overbooked, fully booked or free."""
+    free_days = round(free_days, FREE_DAYS_PRECISION)
+    if free_days < 0:
+        return "over"
+    if free_days == 0:
+        return "zero"
+    return "free"
+
+
+MINUS = "\N{MINUS SIGN}"
+
+
+def _de(value: float, *, signed: bool = False) -> str:
+    text = f"{abs(value):.2f}".replace(".", ",")
+    return f"{MINUS}{text}" if signed and value < 0 else text
+
+
+def gesamt_breakdown(
+    work: float, used: float, internal: float, absence: float, free: float
+) -> str:
+    """Tooltip text explaining how a week's free days are computed."""
+    return (
+        f"Arbeitstage {_de(work)} {MINUS} Projekte {_de(used)}"
+        f" {MINUS} Intern {_de(internal)} {MINUS} Abwesenheit {_de(absence)}"
+        f" = {_de(free, signed=True)} PT frei"
+    )
+
+
 def compute_gesamt(weeks: list[WeekColumn], block: EmployeeBlock) -> list[GesamtCell]:
     cells: list[GesamtCell] = []
     for idx, week in enumerate(weeks):
         used = sum(p.cells[idx].value for p in block.projects)
         absence = block.absence.cells[idx].value if block.absence.cells else 0.0
         internal = block.internal.cells[idx].value if block.internal.cells else 0.0
+        work = scaled_work_days(week, block.workload_percent)
         result = UtilizationService.compute_employee_gesamt(
             used_days=used,
             absence_days=absence,
             internal_days=internal,
-            work_days=scaled_work_days(week, block.workload_percent),
+            work_days=work,
         )
         cells.append(
-            GesamtCell(week_key=week.key, value=result.free_days, bucket=result.bucket)
-        )
-    return cells
-
-
-def compute_heat(weeks: list[WeekColumn], block: EmployeeBlock) -> list[HeatCell]:
-    cells: list[HeatCell] = []
-    for idx, week in enumerate(weeks):
-        used = sum(p.cells[idx].value for p in block.projects)
-        absence = block.absence.cells[idx].value if block.absence.cells else 0.0
-        internal = block.internal.cells[idx].value if block.internal.cells else 0.0
-        result = UtilizationService.compute_employee_heat(
-            used_days=used,
-            absence_days=absence,
-            internal_days=internal,
-            work_days=scaled_work_days(week, block.workload_percent),
-        )
-        cells.append(
-            HeatCell(
+            GesamtCell(
                 week_key=week.key,
-                percent=result.percent,
-                is_absent=result.is_absent,
+                value=result.free_days,
                 bucket=result.bucket,
+                state=gesamt_state(result.free_days),
+                has_absence=result.has_absence,
+                breakdown=gesamt_breakdown(
+                    work, used, internal, absence, result.free_days
+                ),
             )
         )
     return cells
@@ -356,31 +399,6 @@ def compute_project_gesamt(
     return cells
 
 
-def compute_project_heat(
-    weeks: list[WeekColumn], block: ProjectBlock
-) -> list[HeatCell]:
-    cells: list[HeatCell] = []
-    n = len(block.employees)
-    for idx, week in enumerate(weeks):
-        allocated = sum(
-            e.cells[idx].value for e in block.employees if idx < len(e.cells)
-        )
-        result = UtilizationService.compute_project_heat(
-            allocated_days=allocated,
-            num_employees=n,
-            work_days=week.work_days,
-        )
-        cells.append(
-            HeatCell(
-                week_key=week.key,
-                percent=result.percent,
-                is_absent=False,
-                bucket=result.bucket,
-            )
-        )
-    return cells
-
-
 def employee_summary(block: EmployeeBlock, from_key: str) -> tuple[float, float]:
     """Planned and available person-days from ``from_key`` onward.
 
@@ -397,6 +415,25 @@ def employee_summary(block: EmployeeBlock, from_key: str) -> tuple[float, float]
         max(cell.value, 0.0) for cell in block.gesamt if cell.week_key >= from_key
     )
     return round(planned, 2), round(available, 2)
+
+
+def without_internal_projects(blocks: list[EmployeeBlock]) -> list[EmployeeBlock]:
+    """Copies of the blocks without internal project rows; totals stay as is."""
+    return [
+        block.model_copy(
+            update={"projects": [p for p in block.projects if not p.is_internal]}
+        )
+        for block in blocks
+    ]
+
+
+def without_idle_projects(blocks: list[ProjectBlock]) -> list[ProjectBlock]:
+    """Drop projects without any planned effort in the visible range."""
+    return [
+        block
+        for block in blocks
+        if any(cell.value > 0 for row in block.employees for cell in row.cells)
+    ]
 
 
 def filter_project_blocks(
@@ -424,7 +461,6 @@ def filter_project_blocks(
                 continue
             filtered = block.model_copy(update={"employees": employees})
             filtered.gesamt = compute_project_gesamt(weeks, filtered)
-            filtered.heat = compute_project_heat(weeks, filtered)
             filtered.planned_days, filtered.role_totals = project_summary(
                 filtered, from_key
             )
@@ -494,9 +530,7 @@ def build_employee_meta(
             {
                 "code": _abbrev_for(rn),
                 "full": rn,
-                "color": ROLE_PALETTE.get(
-                    _abbrev_for(rn), "var(--mantine-color-gray-2)"
-                ),
+                "color": role_color(rn),
             }
             for rn in emp.role_names
         ]
@@ -510,11 +544,10 @@ def build_employee_meta(
                 "first_name": emp.first_name or "",
                 "last_name": emp.last_name or "",
                 "initials": (f"{emp.first_name[:1]}{emp.last_name[:1]}".upper() or "?"),
+                "avatar_color": emp.avatar_color,
                 "job_title": emp.job_title or "",
                 "role_short": primary_short,
-                "role_color": ROLE_PALETTE.get(
-                    primary_short, "var(--mantine-color-gray-2)"
-                ),
+                "role_color": role_color(primary),
                 "role_full": primary or ROLE_FULL.get(primary_short, primary_short),
                 "role_badges": role_badges,
                 "role_ids": list(emp.role_ids) if emp.role_ids else [],
@@ -542,6 +575,7 @@ def build_project_meta(
             "name": p.name_de or "—",
             "color": p.color or "var(--mantine-color-gray-5)",
             "state": getattr(p, "state", ""),
+            "is_internal": bool(getattr(p, "is_internal", False)),
             "employee_ids": [],
         }
         proj_meta.append(entry)

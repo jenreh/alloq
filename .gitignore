@@ -131,3 +131,7 @@ frontend.zip
 requirements.txt
 .task/checksum/desktop-requirements
 frontend.zip
+*.db-shm
+*.db-wal
+*.sqlite3-shm
+*.sqlite3-wal

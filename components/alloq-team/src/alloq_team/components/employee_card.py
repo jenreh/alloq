@@ -3,6 +3,7 @@ from alloq_commons import theme
 from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.formatters import format_date_de
 from alloq_commons.models.employee import Employee
+from alloq_commons.role_colors import ROLE_BADGE_TEXT_COLOR, role_color_var
 from alloq_team.states.team_state import TeamState
 from reflex.vars import ArrayVar, ObjectVar
 
@@ -81,7 +82,8 @@ def _employee_initials(employee: ObjectVar[Employee]) -> rx.Component:
     """Avatar with initials."""
     return mn.avatar(
         name=f"{employee.first_name} {employee.last_name}",
-        color="var(--alloq-accent-strong)",
+        color=employee.avatar_color,
+        variant="filled",
         size="md",
         radius="xl",
     )
@@ -96,14 +98,12 @@ def _role_tags(employee: ObjectVar[Employee]) -> rx.Component:
                 employee.role_names,
                 lambda r: mn.badge(
                     r,
-                    variant="light",
+                    variant="filled",
                     size="sm",
                     radius="sm",
-                    style={
-                        "textTransform": "none",
-                        "fontWeight": "normal",
-                        "backgroundColor": "var(--alloq-tag-bg)",
-                    },
+                    color=role_color_var(r),
+                    c=ROLE_BADGE_TEXT_COLOR,
+                    fw="normal",
                 ),
             ),
             gap="3px",

@@ -1,0 +1,55 @@
+{
+  "skill_name": "alloq-implementation",
+  "evals": [
+    {
+      "id": 1,
+      "eval_name": "department-cost-center-field",
+      "prompt": "Add an optional cost center (Kostenstelle) to departments. It should be editable in the add/edit dialog and show up as a column in the departments table. Max 20 characters.",
+      "expected_output": "Field added to DepartmentEntity + to_dict, Department and DepartmentCreate models, form parsing and update handler in department_states.py, form field and table column in components/department.py with German labels; hand-written Alembic migration using batch_alter_table with real downgrade, revision added to KNOWN_REVISIONS; tests in components/alloq-commons/tests/test_departments.py.",
+      "files": [],
+      "assertions": [
+        "Entity: cost_center column on DepartmentEntity and key in to_dict()",
+        "Models: cost_center on Department and DepartmentCreate with max_length=20",
+        "Migration: new hand-written alembic/versions/YYYY_MM_DD_*.py using batch_alter_table, downgrade drops the column",
+        "Desktop: new revision prepended to KNOWN_REVISIONS in app/desktop/schema.py",
+        "UI: German label 'Kostenstelle' in form and table of components/department.py",
+        "Tests: cost_center tests added to components/alloq-commons/tests/test_departments.py",
+        "Gates: ruff check clean and test_departments + test_handler_authorization pass",
+        "UI: new input sets a real browser length limit (custom_attrs maxLength or maxlength, not max_length=)",
+        "Scope: no unrequested behaviour changes (search filter and existing inputs untouched)"
+      ]
+    },
+    {
+      "id": 2,
+      "eval_name": "department-ui-only-toggle",
+      "prompt": "On the departments admin page, add a toggle in the toolbar that shows only departments without any employees. Keep it simple.",
+      "expected_output": "Employee counts loaded through a repository or loader inside a guarded handler (not inside the UI-only toggle); toggle handler registered in UI_ONLY_HANDLERS['DepartmentState'] in tests/test_handler_authorization.py; filter as @rx.var computed var; German toggle label; tests for the filter and toggle in test_departments.py; guard test green.",
+      "files": [],
+      "assertions": [
+        "Auth: new toggle handler listed in UI_ONLY_HANDLERS['DepartmentState'] in tests/test_handler_authorization.py",
+        "Auth: employee counts are loaded in a @requires_admin handler or loader, not in the toggle",
+        "Layer: employee counting done in a repository method or loader function, not inline SQL in the toggle",
+        "State: filter applied in an @rx.var computed var (filtered_departments or new var)",
+        "UI: German label for the toggle in components/department.py",
+        "Tests: toggle/filter tests added to components/alloq-commons/tests/test_departments.py",
+        "Gates: ruff check clean and test_departments + test_handler_authorization pass"
+      ]
+    },
+    {
+      "id": 3,
+      "eval_name": "dashboard-risk-score-clamp-bug",
+      "prompt": "Bug: in the dashboard risk drill-down, a risk with probability 5 and impact 8 shows a score of 40, but the project risk tab shows 25 for the same risk. Fix it so the dashboard uses the same score as everywhere else.",
+      "expected_output": "Regression test first in components/alloq-dashboard/tests/test_aggregation.py; fix in alloq_dashboard/services/aggregation.py (load_risks score and severity) that reuses the existing clamping (MIN/MAX_RISK_IMPACT or Risk.compute_scores) instead of a new copied formula; minimal diff in the over-limit file, no refactor; no new handlers.",
+      "files": [],
+      "assertions": [
+        "Test: regression test in components/alloq-dashboard/tests/test_aggregation.py covering impact > 5",
+        "Fix: score in load_risks uses the clamped impact",
+        "Fix: severity uses the clamped impact too",
+        "Reuse: clamp comes from existing constants/helpers (MIN/MAX_RISK_IMPACT or Risk model), no new copied literals 1/5",
+        "Minimal diff: aggregation.py grows by at most 15 net lines and no refactor",
+        "No new event handlers and no allowlist edits",
+        "Gates: ruff check clean and dashboard aggregation tests pass"
+      ]
+    }
+  ]
+}

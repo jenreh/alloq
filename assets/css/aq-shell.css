@@ -1,0 +1,200 @@
+/* App shell: sidebar, pane, toolbar. The 767px breakpoint matches NARROW_PX in shell.py. */
+
+.aq-window {
+    display: flex;
+    height: 100dvh;
+    overflow: hidden;
+}
+
+.aq-sidebar {
+    width: 244px;
+    flex-shrink: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px 10px 12px;
+    box-sizing: border-box;
+    transition: width .22s ease, padding .22s ease, opacity .18s ease;
+}
+
+html[data-sidebar-collapsed] .aq-sidebar {
+    width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    opacity: 0;
+}
+
+.aq-pane {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 0;
+    background: var(--aq-surface);
+    box-shadow: var(--aq-pane-shadow);
+    transition: margin .22s ease;
+}
+
+html[data-sidebar-collapsed] .aq-pane {
+    margin-left: 0;
+}
+
+.aq-toolbar {
+    height: 56px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 14px 0 22px;
+    box-shadow: inset 0 -1px 0 var(--aq-border);
+    background: var(--aq-surface);
+}
+
+.aq-toolbar-title {
+    min-width: 0;
+    flex-shrink: 1;
+}
+
+.aq-toolbar-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    min-width: 0;
+}
+
+.aq-toolbar-actions {
+    flex-shrink: 0;
+}
+
+.aq-sidebar-reveal {
+    display: none;
+    margin-left: -8px;
+}
+
+html[data-sidebar-collapsed] .aq-sidebar-reveal {
+    display: flex;
+}
+
+html[data-native][data-sidebar-collapsed] .aq-toolbar {
+    padding-left: 84px;
+}
+
+.aq-scopebar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 8px 22px;
+    border-bottom: 1px solid var(--aq-border);
+    background: var(--aq-surface);
+    flex-shrink: 0;
+}
+
+.aq-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    background: var(--aq-background);
+}
+
+.aq-body[data-padded] {
+    padding: 22px 24px 28px;
+}
+
+.aq-body[data-flush] {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.aq-body[data-flush]>* {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.aq-segmented {
+    background: var(--aq-segmented);
+}
+
+.aq-segmented .mantine-SegmentedControl-label {
+    padding-inline: 12px;
+}
+
+.aq-icon-btn {
+    color: var(--aq-text-muted);
+}
+
+.aq-icon-btn[data-active=true] {
+    background: var(--aq-accent-soft);
+    color: var(--aq-accent);
+}
+
+.aq-backdrop {
+    display: none;
+}
+
+@media (max-width: 767px) {
+    .aq-sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        z-index: 300;
+        width: 244px !important;
+        padding: 16px 10px 12px !important;
+        opacity: 1 !important;
+        background: var(--aq-window-background);
+        transform: translateX(-100%);
+        transition: transform .22s ease;
+        box-shadow: 0 0 40px rgba(0,0,0,.2);
+    }
+    html[data-sidebar-open] .aq-sidebar {
+        transform: none;
+    }
+    html[data-sidebar-open] .aq-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 299;
+        background: rgba(0,0,0,.2);
+    }
+    .aq-pane {
+        margin: 0 !important;
+    }
+    .aq-sidebar-reveal {
+        display: flex;
+    }
+    .aq-toolbar {
+        height: auto;
+        min-height: 52px;
+        flex-wrap: wrap;
+        padding: 8px 12px;
+    }
+    .aq-toolbar-center {
+        order: 3;
+        flex-basis: 100%;
+        justify-content: flex-start;
+        overflow-x: auto;
+    }
+    .aq-body[data-padded] {
+        padding: 16px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .aq-sidebar, .aq-pane {
+        transition: none !important;
+    }
+}
+
+.aq-nav-item:hover {
+    background: var(--aq-sidebar-hover);
+}
+
+.aq-nav-item[aria-current=page] {
+    background: var(--aq-sidebar-selected);
+    font-weight: 500;
+}

@@ -291,6 +291,11 @@ FONT_FAMILY = (
 FONT_MONO = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace"
 RADIUS = "14px"
 SHADOW = "0 1px 2px rgba(0, 0, 0, 0.03)"
+# Mantine stacks modals and drawers at 200 and popovers at 300, so dropdowns
+# inside a dialog stay usable. Popovers anchored on a page sit below the modal
+# layer: a dialog opened from such a popover must cover it.
+MODAL_Z_INDEX = 200
+PAGE_POPOVER_Z_INDEX = 150
 
 CARD = {
     "backgroundColor": SURFACE,

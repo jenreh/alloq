@@ -14,92 +14,12 @@ from reflex.event import EventType
 import appkit_mantine as mn
 from alloq_commons import theme
 
-INSPECTOR_WIDTH_PX = 320
-
-LIST_CSS = (
-    ".aq-split{display:flex;flex:1;min-height:0;}"
-    f".aq-split-main{{flex:1;min-width:0;overflow:auto;background:{theme.SURFACE};}}"
-    f".aq-inspector{{width:{INSPECTOR_WIDTH_PX}px;flex-shrink:0;overflow:auto;"
-    f"border-left:1px solid {theme.BORDER};background:{theme.BACKGROUND};"
-    "padding:20px;display:flex;flex-direction:column;gap:18px;}"
-    ".aq-thead,.aq-tr{display:grid;align-items:center;column-gap:12px;"
-    "padding:0 22px;}"
-    ".aq-thead{box-sizing:border-box;height:30px;position:sticky;top:0;z-index:30;"
-    f"background:{theme.SURFACE};border-bottom:1px solid {theme.BORDER};"
-    f"font-size:11.5px;color:{theme.TEXT_MUTED};}}"
-    ".aq-thead [data-sort]{cursor:default;user-select:none;}"
-    f".aq-thead [data-sorted=true]{{color:{theme.TEXT};font-weight:500;}}"
-    f'.aq-thead [data-sort="total_pt"]{{color:{theme.TEXT};font-weight:600;}}'
-    ".aq-tfoot{display:grid;align-items:center;column-gap:12px;padding:0 22px;"
-    "min-width:640px;min-height:46px;position:sticky;bottom:0;z-index:2;"
-    "container-type:scroll-state;"
-    f"background:{theme.SURFACE};border-top:1px solid {theme.BORDER};"
-    "font-weight:600;}"
-    ".aq-tfoot .aq-num{font-size:inherit;}"
-    f".aq-tfoot::after{{content:'';position:absolute;left:0;right:0;"
-    f"bottom:0;border-bottom:1px solid {theme.BORDER};pointer-events:none;}}"
-    "@container scroll-state(stuck: bottom){.aq-tfoot::after{display:none;}}"
-    f".aq-tr{{min-height:46px;border-bottom:1px solid {theme.SEPARATOR};"
-    f"background:{theme.SURFACE};cursor:default;width:100%;text-align:left;"
-    f"border-left:0;border-right:0;border-top:0;font:inherit;color:{theme.TEXT};}}"
-    f".aq-tr:hover{{background:{theme.HOVER};}}"
-    f".aq-tr[aria-selected=true]{{background:{theme.ACCENT_SOFT};}}"
-    f".aq-tr:focus-visible{{outline:2px solid {theme.ACCENT};outline-offset:-2px;}}"
-    ".aq-group{display:flex;align-items:center;gap:8px;height:30px;"
-    f"padding:0 22px;background:{theme.SURFACE_MUTED};"
-    f"border-bottom:1px solid {theme.BORDER};font-size:11.5px;font-weight:600;"
-    f"color:{theme.TEXT_MUTED};}}"
-    ".aq-right{text-align:right;justify-self:end;}"
-    ".aq-cell-main{display:flex;align-items:center;gap:10px;min-width:0;}"
-    ".aq-cell-name{font-weight:500;font-size:13px;white-space:nowrap;"
-    "overflow:hidden;text-overflow:ellipsis;}"
-    f".aq-cell-sub{{font-size:11.5px;color:{theme.TEXT_MUTED};white-space:nowrap;"
-    "overflow:hidden;text-overflow:ellipsis;}"
-    ".aq-num{font-variant-numeric:tabular-nums;font-size:12.5px;white-space:nowrap;}"
-    f".aq-meter{{height:5px;border-radius:3px;background:{theme.token('meter-track')};"
-    "overflow:hidden;flex:1;}"
-    ".aq-meter>div{height:100%;border-radius:3px;}"
-    ".aq-insp-title{font-size:11.5px;font-weight:600;color:" + theme.TEXT_MUTED + ";}"
-    ".aq-kv{display:grid;grid-template-columns:110px 1fr;row-gap:8px;"
-    "column-gap:8px;font-size:12.5px;margin:0;align-items:center;}"
-    f".aq-kv dt{{color:{theme.TEXT_MUTED};margin:0;}}"
-    ".aq-kv dd{margin:0;font-variant-numeric:tabular-nums;min-width:0;"
-    "overflow-wrap:anywhere;}"
-    ".aq-badge{display:inline-flex;align-items:center;gap:5px;height:20px;"
-    "padding:0 8px;border-radius:10px;font-size:11.5px;font-weight:500;"
-    "white-space:nowrap;}"
-    ".aq-badge::before{content:'';width:6px;height:6px;border-radius:50%;"
-    "background:currentColor;}"
-    + "".join(
-        f".aq-badge[data-tone={tone}]{{background:{theme.token(tone + '-soft')};"
-        f"color:{theme.token(tone)};}}"
-        for tone in ("positive", "negative", "warning", "info")
-    )
-    + f".aq-badge[data-tone=neutral]{{background:{theme.token('tag')};"
-    f"color:{theme.token('tag-text')};}}"
-    f".aq-tag{{display:inline-flex;align-items:center;height:18px;padding:0 6px;"
-    f"border-radius:5px;background:{theme.token('tag')};"
-    f"color:{theme.token('tag-text')};font-size:10.5px;font-weight:600;"
-    "letter-spacing:.02em;white-space:nowrap;}"
-    ".aq-tile{width:28px;height:28px;border-radius:7px;display:grid;"
-    "place-items:center;color:#fff;font-size:11px;font-weight:650;flex-shrink:0;}"
-    ".aq-tile[data-size=lg]{width:44px;height:44px;border-radius:11px;"
-    "font-size:15px;}"
-    "@media (max-width: 1100px){.aq-inspector{width:280px;}}"
-    "@media (max-width: 820px){.aq-split{flex-direction:column;overflow:auto;}"
-    ".aq-split-main{overflow:visible;flex:none;}"
-    ".aq-inspector{width:auto;border-left:0;"
-    f"border-top:1px solid {theme.BORDER};overflow:visible;}}"
-    ".aq-thead,.aq-tr{min-width:640px;}}"
-)
-
 
 def split_view(
     main: rx.Component, inspector: rx.Component, *, show_inspector: Any = True
 ) -> rx.Component:
     """List on the left, inspector on the right."""
     return mn.box(
-        rx.el.style(LIST_CSS),
         mn.box(main, class_name="aq-split-main"),
         rx.cond(show_inspector, inspector, rx.fragment()),
         class_name="aq-split",
@@ -226,8 +146,11 @@ def tile(
     return rx.el.span(
         text,
         class_name="aq-tile",
-        custom_attrs={"data-size": "lg" if large else "md"},
-        style={"background": color, **({"borderRadius": "50%"} if round_ else {})},
+        custom_attrs={
+            "data-size": "lg" if large else "md",
+            **({"data-shape": "round"} if round_ else {}),
+        },
+        style={"background": color},
     )
 
 

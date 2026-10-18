@@ -10,6 +10,8 @@ from alloq_project.components.project_risk_tab import risiken_tab
 from alloq_project.components.project_status_tab import status_tab
 from alloq_project.states.project_state import ProjectState
 
+_BOUND = r'{event}:\(\(_e\) => \(addEvents\(\[\(ReflexEvent\("[^"]*\.'
+
 
 def _handler_payload(rendered: str, handler: str) -> str:
     """The compiled event payload following a ReflexEvent for *handler*."""
@@ -24,16 +26,52 @@ def _contains_text(rendered: str, text: str) -> bool:
 
 
 class TestProjectForm:
-    def test_number_inputs_send_raw_value_not_dom_target(self) -> None:
+    def test_inputs_sync_on_blur_not_on_change(self) -> None:
         rendered = str(project_form_fields())
 
-        for handler in ("set_budget", "set_role_capacity"):
-            assert "target" not in _handler_payload(rendered, handler)
+        for handler in (
+            "set_name_de",
+            "set_code",
+            "set_customer",
+            "set_budget",
+            "set_role_capacity",
+        ):
+            assert re.search(_BOUND.format(event="onBlur") + handler, rendered)
+            assert not re.search(_BOUND.format(event="onChange") + handler, rendered)
+
+    def test_budget_allows_two_decimals(self) -> None:
+        rendered = str(project_form_fields())
+
+        assert re.search(r"decimalScale:\s*2", rendered)
+
+    def test_customer_has_no_error_binding(self) -> None:
+        rendered = str(project_form_fields())
+
+        assert "customer_error" not in rendered
 
     def test_budget_decimal_scale_is_a_prop_not_css(self) -> None:
         rendered = str(project_form_fields())
 
         assert '["decimalScale"]' not in rendered
+
+    def test_text_inputs_limit_length_in_browser(self) -> None:
+        rendered = str(project_form_fields())
+
+        for limit in (255, 5, 50):
+            assert f"maxLength:{limit}" in rendered
+        assert '["maxLength"]' not in rendered
+
+    def test_has_internal_project_switch(self) -> None:
+        rendered = str(project_form_fields())
+
+        assert _contains_text(rendered, "Internes Projekt")
+        assert _contains_text(rendered, "is_internal")
+
+    def test_has_booking_number_input_synced_on_blur(self) -> None:
+        rendered = str(project_form_fields())
+
+        assert _contains_text(rendered, "booking_number")
+        assert re.search(_BOUND.format(event="onBlur") + "set_booking_number", rendered)
 
 
 class TestProjectCard:

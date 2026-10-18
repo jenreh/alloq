@@ -32,7 +32,7 @@ COLUMNS: list[tuple[str, str, bool]] = [
     ("Name", "name", False),
     ("Rolle", "role", False),
     ("h/W", "hours", True),
-    ("Auslastung diese Woche", "load_percent", False),
+    ("Auslastung 8 W.", "load_percent", False),
     ("Frei 8 W.", "free_days", True),
     ("Projekte", "project_count", True),
 ]
@@ -62,7 +62,8 @@ def _row(row: ObjectVar[TeamDetail]) -> rx.Component:
                 suffix=" PT",
                 decimal_scale=1,
                 fixed_decimal_scale=True,
-            )
+            ),
+            fontWeight="600",
         ),
         number(row.project_count),
         template=TEMPLATE,
@@ -99,7 +100,8 @@ def _total_row() -> rx.Component:
                 suffix=" PT",
                 decimal_scale=1,
                 fixed_decimal_scale=True,
-            )
+            ),
+            fontWeight="600",
         ),
         rx.fragment(),
         class_name="aq-tfoot",

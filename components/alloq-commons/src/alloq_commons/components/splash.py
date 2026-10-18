@@ -17,17 +17,6 @@ from alloq_commons.components.toolbar import DRAG
 FADE_MS = 450
 ICON_PX = 88
 Z_INDEX = 2147483647
-VISIBLE = 'body:has(.aq-splash[aria-hidden="false"])'
-
-CSS = (
-    f"{VISIBLE} [data-sonner-toaster],"
-    f'{VISIBLE} [title^="Connection Error"]{{display:none !important;}}'
-    "@keyframes aq-splash-bar{0%{transform:translateX(-100%);}"
-    "100%{transform:translateX(250%);}}"
-    "@media (prefers-reduced-motion: reduce){"
-    ".aq-splash,.aq-splash *{transition:none !important;"
-    "animation:none !important;}}"
-)
 
 
 class SplashState(rx.State):
@@ -72,7 +61,6 @@ def splash() -> rx.Component:
     hidden = SplashState.ready
     attrs: dict[str, Any] = {**DRAG, "aria-hidden": rx.cond(hidden, "true", "false")}
     return mn.box(
-        rx.el.style(CSS),
         rx.image(
             src=rx.asset("img/alloq_icon.svg"),
             alt="",

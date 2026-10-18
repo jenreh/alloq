@@ -1,5 +1,7 @@
 import reflex as rx
+from alloq_commons.access import editor_only
 from alloq_commons.components.toolbar import icon_button, primary_button
+from alloq_project.states.planning_absence_state import PlanningAbsenceState
 from alloq_project.states.planning_grid_state import PlanningStore
 from alloq_project.states.project_plan_state import ProjectPlanState
 
@@ -32,6 +34,21 @@ def planning_toolbar() -> list[rx.Component]:
             ),
             rx.fragment(),
         ),
+        rx.cond(
+            (PlanningStore.view_mode == "Grid")
+            | (PlanningStore.view_mode == "Projekte"),
+            icon_button(
+                rx.cond(PlanningStore.is_compact, "unfold-vertical", "fold-vertical"),
+                rx.cond(
+                    PlanningStore.is_compact,
+                    "Kompakte Zeilen – klicken für normale Höhe",
+                    "Normale Zeilen – klicken für kompakte Höhe",
+                ),
+                PlanningStore.toggle_grid_density,
+                active=PlanningStore.is_compact,
+            ),
+            rx.fragment(),
+        ),
         icon_button(
             "folder-kanban",
             rx.cond(
@@ -52,14 +69,24 @@ def planning_toolbar() -> list[rx.Component]:
             PlanningStore.toggle_employee_scope,
             active=PlanningStore.employee_scope,
         ),
-        _separator(),
-        icon_button(
-            "save",
-            "Änderungen speichern (⌘S)",
-            PlanningStore.save_grid,
-            active=PlanningStore.has_dirty,
-            disabled=~PlanningStore.has_dirty | PlanningStore.is_saving,
-            loading=PlanningStore.is_saving,
+        editor_only(
+            _separator(),
+            icon_button(
+                "save",
+                "Änderungen speichern (⌘S)",
+                PlanningStore.save_grid,
+                active=PlanningStore.has_dirty,
+                disabled=~PlanningStore.has_dirty | PlanningStore.is_saving,
+                loading=PlanningStore.is_saving,
+            ),
+            rx.cond(
+                PlanningStore.view_mode == "Abwesenheiten",
+                primary_button(
+                    "Abwesenheit eintragen",
+                    "plus",
+                    PlanningAbsenceState.open_new_absence,
+                ),
+                primary_button("Projekt planen", "plus", ProjectPlanState.open_modal),
+            ),
         ),
-        primary_button("Projekt planen", "plus", ProjectPlanState.open_modal),
     ]

@@ -23,6 +23,8 @@ from app.components.sidebar import sidebar
 from app.configuration import configure
 from app.desktop.entra import EntraSignIn, install_db_auth
 from app.desktop.login_state import get_sign_in
+from app.pages.daily_rates import create_daily_rates_page
+from app.pages.departments import create_departments_page
 from app.pages.holidays import create_holidays_page
 from app.pages.login import create_login_page
 from app.pages.profile import create_profile_page
@@ -55,6 +57,8 @@ create_password_reset_request_page(**auth_page_logos())
 create_password_reset_confirm_page(**auth_page_logos())
 create_users_page(sidebar())
 create_roles_page(sidebar())
+create_daily_rates_page(sidebar())
+create_departments_page(sidebar())
 create_holidays_page(sidebar())
 create_team_overview_page(sidebar())
 create_projects_overview_page(sidebar())

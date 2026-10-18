@@ -578,6 +578,8 @@ class TestProjectValidationInitialize:
         await _initialize_fn()(state)
 
         assert (state.code, state.code_error) == ("", "")
+        assert state.is_internal is False
+        assert state.booking_number == ""
         assert state.role_capacities == {"1": 0, "2": 0}
         assert state.form_version == 1
 
@@ -595,11 +597,15 @@ class TestProjectValidationInitialize:
             start_date=date(2026, 1, 1),
             end_date=date(2026, 6, 30),
             budget=500,
+            is_internal=True,
+            booking_number="4711-0815",
             owner_ids=[5],
             required_capacities=[RequiredCapacity(role_id=2, person_days=8)],
         )
 
         await _initialize_fn()(state, project)
+        assert state.is_internal is True
+        assert state.booking_number == "4711-0815"
 
         assert (state.code, state.customer, state.budget) == ("P1", "Acme", 500)
         assert (state.start_date, state.end_date) == ("2026-01-01", "2026-06-30")
@@ -612,22 +618,28 @@ class TestProjectValidationSetters:
         state = ProjectValidationState()
 
         state.set_code(" ")
-        state.set_customer("")
         state.set_name_de("")
         assert state.code_error == "Projekt-Code ist erforderlich."
-        assert state.customer_error == "Kunde ist erforderlich."
         assert state.name_de_error == "Name (DE) ist erforderlich."
         assert state.has_errors() is True
         assert state.is_form_invalid is True
 
         state.set_code("P")
-        state.set_customer("C")
         state.set_name_de("N")
-        assert (state.code_error, state.customer_error, state.name_de_error) == (
-            "",
-            "",
-            "",
-        )
+        assert (state.code_error, state.name_de_error) == ("", "")
+
+    def test_customer_is_optional(self) -> None:
+        state = ProjectValidationState()
+        state.set_code("P")
+        state.set_name_de("N")
+        state.set_start_date("2026-01-01")
+        state.set_end_date("2026-02-01")
+
+        state.set_customer("")
+
+        assert state.customer == ""
+        assert state.has_errors() is False
+        assert state.is_form_valid is True
 
     def test_date_setters_validate(self) -> None:
         state = ProjectValidationState()
@@ -644,6 +656,8 @@ class TestProjectValidationSetters:
 
         state.set_budget("12.500")
         assert (state.budget, state.budget_error) == (12500, "")
+        state.set_budget("1.123,50")
+        assert state.budget == 1124
         state.set_budget("abc")
         assert state.budget == 0
         state.set_budget(-3)

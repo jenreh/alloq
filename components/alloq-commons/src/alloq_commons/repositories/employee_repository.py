@@ -53,8 +53,15 @@ class EmployeeRepository(BaseRepository[EmployeeEntity, AsyncSession]):
         session: AsyncSession,
         entity: EmployeeEntity,
         role_ids: list[int],
+        key_role_id: int | None = None,
     ) -> None:
-        """Set roles for an employee by role IDs."""
+        """Set roles for an employee by role IDs.
+
+        The key role is always part of the assigned roles.
+        """
+        if key_role_id is not None and key_role_id not in role_ids:
+            role_ids = [key_role_id, *role_ids]
+        entity.key_role_id = key_role_id
         result = await session.execute(
             select(RoleEntity).where(RoleEntity.id.in_(role_ids))
         )

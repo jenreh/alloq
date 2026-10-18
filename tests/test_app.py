@@ -1,6 +1,7 @@
 """Tests for app.app module."""
 
 from collections.abc import Sequence
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from reflex_base.registry import RegistrationContext
@@ -13,6 +14,7 @@ from appkit_user.authentication.session_filter import SessionFilter
 from app import app as app_module
 from app.app import add_https_middleware, auth_page_logos
 from app.configuration import AppConfig
+from app.styles import base_stylesheets
 
 
 def _config_with_proxies(proxies: set[str] | None) -> MagicMock:
@@ -114,3 +116,10 @@ class TestAuthPageLogos:
 
         assert logos["logo"].startswith("/img/appkit_logo.svg")
         assert logos["logo_dark"].startswith("/img/appkit_logo_dark.svg")
+
+
+def test_layout_stylesheets_are_registered_and_exist() -> None:
+    for name in ("aq-shell.css", "aq-list.css", "aq-splash.css"):
+        assert f"css/{name}" in base_stylesheets
+    for sheet in base_stylesheets:
+        assert (Path("assets") / sheet).is_file()
