@@ -16,7 +16,10 @@ repos:
     hooks:
       - id: check-yaml
       - id: end-of-file-fixer
+        # Rendered by archify; its receipt hashes the exact bytes.
+        exclude: '^doc/database/schema\.html$'
       - id: trailing-whitespace
+        exclude: '^doc/database/schema\.html$'
       - id: check-ast
       - id: check-added-large-files
         args: ["--maxkb=2048"]
