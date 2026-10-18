@@ -64,7 +64,7 @@ def margin_settings() -> rx.Component:
     return mn.box(
         mn.group(
             mn.number_input(
-                label=f"{MIN_MARGIN_LABEL} ({SALES_LABEL})",
+                label=f"{MIN_MARGIN_LABEL} (Empf. VK)",
                 default_value=DailyRateState.min_margin,
                 on_change=DailyRateState.set_min_margin_draft,
                 **_PERCENT_INPUT,
