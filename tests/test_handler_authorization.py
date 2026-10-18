@@ -31,7 +31,13 @@ OWN_PACKAGES = frozenset({*PACKAGES, "app"})
 
 # Administration needs the admin switch; project managers may not run these.
 ADMIN_STATES = frozenset(
-    {"DepartmentState", "RoleState", "HolidayState", "DatabaseAccessState"}
+    {
+        "DailyRateState",
+        "DepartmentState",
+        "RoleState",
+        "HolidayState",
+        "DatabaseAccessState",
+    }
 )
 # Planning states are open to project managers, so they use @requires_editor.
 EDITOR_PACKAGES = frozenset({"alloq_dashboard", "alloq_project", "alloq_team"})
@@ -83,6 +89,9 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
             "open_edit_modal",
             "set_search_filter",
         }
+    ),
+    "DailyRateState": frozenset(
+        {"set_margin_draft", "set_min_margin_draft", "set_search_filter"}
     ),
     "DepartmentState": frozenset(
         {

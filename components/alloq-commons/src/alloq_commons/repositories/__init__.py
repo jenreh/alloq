@@ -14,6 +14,10 @@ from alloq_commons.repositories.capacity_repository import (
     CapacityRepository,
     capacity_repo,
 )
+from alloq_commons.repositories.daily_rate_repository import (
+    DailyRateRepository,
+    daily_rate_repo,
+)
 from alloq_commons.repositories.department_repository import (
     DepartmentRepository,
     department_repo,
@@ -41,6 +45,7 @@ __all__ = [
     "AbsenceRepository",
     "CapacityAllocationRepository",
     "CapacityRepository",
+    "DailyRateRepository",
     "DepartmentRepository",
     "EmployeeRepository",
     "ProjectRepository",
@@ -52,6 +57,7 @@ __all__ = [
     "absence_repo",
     "capacity_allocation_repo",
     "capacity_repo",
+    "daily_rate_repo",
     "department_repo",
     "employee_repo",
     "project_repo",

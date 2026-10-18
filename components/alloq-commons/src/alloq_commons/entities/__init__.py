@@ -1,6 +1,7 @@
 from alloq_commons.entities.absence import AbsenceEntity
 from alloq_commons.entities.capacity import CapacityEntity
 from alloq_commons.entities.capacity_allocation import CapacityAllocationEntity
+from alloq_commons.entities.daily_rate import DailyRateEntity, DailyRateSettingsEntity
 from alloq_commons.entities.department import DepartmentEntity
 from alloq_commons.entities.employee import EmployeeEntity, SeniorityLevel
 from alloq_commons.entities.project import ProjectEntity
@@ -20,6 +21,8 @@ __all__ = [
     "AbsenceEntity",
     "CapacityAllocationEntity",
     "CapacityEntity",
+    "DailyRateEntity",
+    "DailyRateSettingsEntity",
     "DepartmentEntity",
     "EmployeeEntity",
     "ProjectEntity",

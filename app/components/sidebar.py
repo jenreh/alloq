@@ -25,6 +25,7 @@ from appkit_user.authentication.components.components import requires_admin
 from appkit_user.authentication.states import LoginState
 
 from app.components.sidebar_state import SidebarState
+from app.configuration import configure
 from app.desktop.login_state import DesktopLoginState
 
 PROJECTS_ROUTE: Final = "/projects"
@@ -41,6 +42,7 @@ PLANNING_ITEMS: Final[list[tuple[str, str, str]]] = [
 ADMIN_ITEMS: Final[list[tuple[str, str, str]]] = [
     ("/admin/users", "Benutzer", "user-cog"),
     ("/admin/roles", "Rollen", "shield"),
+    ("/admin/daily-rates", "Tagessätze", "euro"),
     ("/admin/departments", "Abteilungen", "building-2"),
     ("/admin/holidays", "Feiertage", "calendar-days"),
 ]
@@ -260,6 +262,18 @@ def _user_button() -> rx.Component:
     )
 
 
+def _version() -> rx.Component:
+    """Release number of the running app, from the app configuration."""
+    return mn.text(
+        f"Version {configure().app.version}",
+        fz="xs",
+        c=theme.SIDEBAR_MUTED,
+        px=10,
+        pb=4,
+        style=theme.NUMERIC,
+    )
+
+
 def _color_mode_item(label: str, icon: str, mode: LiteralColorMode) -> rx.Component:
     """Appearance choice with a check mark on the active one."""
     return mn.menu.item(
@@ -324,6 +338,7 @@ def sidebar() -> rx.Component:
             },
         ),
         mn.box(
+            _version(),
             _user_menu(),
             pt=8,
             style={"borderTop": f"0.5px solid {theme.SIDEBAR_LINE}"},

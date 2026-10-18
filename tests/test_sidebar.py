@@ -19,10 +19,12 @@ from app.components.sidebar import (
     _brand,
     _guarded_nav_item,
     _user_menu,
+    _version,
     is_route_active,
     sidebar,
 )
 from app.components.sidebar_state import SidebarState
+from app.configuration import configure
 
 MODULE = "app.components.sidebar_state"
 
@@ -119,6 +121,17 @@ class TestSidebarComponent:
         assert "Dunkel" in rendered
         assert "Hell" in rendered
         assert "System" in rendered
+
+    def test_version_shows_configured_release(self) -> None:
+        version = configure().app.version
+        rendered = str(_version())
+        assert f"Version {version}" in rendered
+        assert '"xs"' in rendered
+
+    def test_sidebar_shows_version_above_user_menu(self) -> None:
+        rendered = str(sidebar())
+        version_at = rendered.index(f"Version {configure().app.version}")
+        assert version_at < rendered.index("Benutzermen")
 
     def test_renders_navigation_entries(self) -> None:
         rendered = str(sidebar())
