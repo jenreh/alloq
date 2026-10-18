@@ -139,7 +139,6 @@ Full rules in **python-coding** skill. Key:
 - [ ] No file > 1000 lines
 - [ ] Clean architecture, no code smells, used python-clean-code principles
 - [ ] Migrations reviewed & documented
-- [ ] Schema change (entity, table, column, FK) → `doc/database/schema.erd.json` updated and `doc/database/schema.html` re-rendered (see `doc/database/README.md`; `tests/test_schema_doc.py` enforces it)
 - [ ] Documentation & README.md updated
 - [ ] Memory updated (decisions, patterns, error→fix, learnings)
 

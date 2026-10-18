@@ -21,13 +21,9 @@ see quickly what a complete change looks like.
    `with op.batch_alter_table("<table>") as batch_op: batch_op.add_column(...)`,
    `downgrade()` drops it. `down_revision` is the current head; prepend the new
    revision to `KNOWN_REVISIONS` in `app/desktop/schema.py`.
-8. Schema doc: add the column to `doc/database/schema.erd.json` and re-render
-   `doc/database/schema.html` as `doc/database/README.md` describes (give the
-   render a fresh `--out-dir`; a reused one makes it fail);
-   `uv run pytest tests/test_schema_doc.py -q` prints what it expects.
-9. Desktop app reads with the same entities, so no extra desktop code is needed
+8. Desktop app reads with the same entities, so no extra desktop code is needed
    unless `app/desktop/` code lists columns explicitly (grep for the table name).
-10. Tests: `to_dict` key, write model limits, handler stores the value, component
+9. Tests: `to_dict` key, write model limits, handler stores the value, component
    renders the field.
 
 ## New entity

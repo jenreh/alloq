@@ -12,7 +12,6 @@
         "Models: cost_center on Department and DepartmentCreate with max_length=20",
         "Migration: new hand-written alembic/versions/YYYY_MM_DD_*.py using batch_alter_table, downgrade drops the column",
         "Desktop: new revision prepended to KNOWN_REVISIONS in app/desktop/schema.py",
-        "Schema doc: doc/database/schema.erd.json updated with cost_center",
         "UI: German label 'Kostenstelle' in form and table of components/department.py",
         "Tests: cost_center tests added to components/alloq-commons/tests/test_departments.py",
         "Gates: ruff check clean and test_departments + test_handler_authorization pass",

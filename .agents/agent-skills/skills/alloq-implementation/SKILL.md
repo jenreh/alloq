@@ -174,8 +174,6 @@ Recipes and snippets: `references/testing.md`.
 - [ ] New migration is hand-written, uses `op.batch_alter_table` for column changes,
       has a real `downgrade()`, and its revision is added to `KNOWN_REVISIONS` in
       `app/desktop/schema.py`
-- [ ] Schema change → `doc/database/schema.erd.json` updated and `schema.html`
-      re-rendered (`doc/database/README.md`); `tests/test_schema_doc.py` green
 - [ ] No touched file grew past 1000 lines; files already over it did not grow
       without reason (see `references/pitfalls.md`)
 - [ ] German UI text, theme tokens, no `print`, no f-strings in logs
