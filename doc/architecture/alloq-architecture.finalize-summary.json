@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "/Users/jens/Workspace/work/alloq/doc/architecture/alloq-architecture.json",
+    "sha256": "eb8708b78419a00eed2a74a8942de2d496bc2105293313945f702408df3a19ce",
+    "bytes": 9182
+  },
+  "artifact": {
+    "path": "/Users/jens/Workspace/work/alloq/doc/architecture/alloq-architecture.html",
+    "sha256": "cac3e73a9d4711fcdbb0e467e12888e3334d93760263704fde00cad4282fc666",
+    "bytes": 840921
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/Users/jens/Workspace/work/alloq/doc/architecture/alloq-architecture.finalize.json",
+    "summaryReceipt": "/Users/jens/Workspace/work/alloq/doc/architecture/alloq-architecture.finalize-summary.json",
+    "browserCheckReceipt": "/Users/jens/Workspace/work/alloq/doc/architecture/alloq-architecture.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.1.0",
+    "availableVersion": "3.1.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-18T12:59:22.578Z",
+    "source": "network",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 2145
+}

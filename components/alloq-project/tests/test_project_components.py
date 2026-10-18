@@ -60,11 +60,11 @@ class TestProjectForm:
         assert _contains_text(rendered, "Internes Projekt")
         assert _contains_text(rendered, "is_internal")
 
-    def test_has_cats_number_input_synced_on_blur(self) -> None:
+    def test_has_booking_number_input_synced_on_blur(self) -> None:
         rendered = str(project_form_fields())
 
-        assert _contains_text(rendered, "cats_number")
-        assert re.search(_BOUND.format(event="onBlur") + "set_cats_number", rendered)
+        assert _contains_text(rendered, "booking_number")
+        assert re.search(_BOUND.format(event="onBlur") + "set_booking_number", rendered)
 
 
 class TestProjectCard:

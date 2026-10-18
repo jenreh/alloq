@@ -14,6 +14,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol, Self
 
 import reflex as rx
+from alloq_commons.access import can_edit, requires_editor
 
 from alloq_dashboard.models import (
     BudgetBurnKpi,
@@ -25,7 +26,6 @@ from alloq_dashboard.models import (
     UtilizationKpi,
 )
 from alloq_dashboard.services import aggregation
-from appkit_user.authentication.decorators import requires_admin
 from appkit_user.authentication.states import LoginState, UserSession
 
 logger = logging.getLogger(__name__)
@@ -48,15 +48,15 @@ def _is_fresh(last_loaded: str) -> bool:
     return datetime.now(tz=UTC) - ts < timedelta(seconds=CACHE_TTL_SECONDS)
 
 
-async def _is_admin(state: Any, action: str) -> bool:
-    """Server-side admin check for background handlers.
+async def _can_edit(state: Any, action: str) -> bool:
+    """Server-side admin/project manager check for background handlers.
 
     Must be called inside ``async with state`` — a background StateProxy only
     allows ``get_state`` while it holds the lock.
     """
     login_state = await state.get_state(LoginState)
     user = await login_state.authenticated_user
-    if user is not None and user.is_admin:
+    if user is not None and can_edit(user):
         return True
     logger.warning(
         "Denied dashboard load '%s' for user_id=%s",
@@ -81,7 +81,7 @@ class _CardLoadHost(Protocol):
 
 
 class _CardLoadMixin:
-    """Shared TTL-cached, admin-guarded load lifecycle for card substates.
+    """Shared TTL-cached, edit-rights-guarded load lifecycle for card substates.
 
     Plain Python mixin (not a Reflex state), so it adds no substate; each card
     declares its own ``data``/``is_loading``/``last_loaded``/``error_message``
@@ -97,7 +97,7 @@ class _CardLoadMixin:
     ) -> None:
         """Run ``loader``; a sequence number discards superseded results."""
         async with self:
-            if not await _is_admin(self, action):
+            if not await _can_edit(self, action):
                 return
             if not force and _is_fresh(self.last_loaded):
                 return
@@ -143,7 +143,7 @@ class DashboardState(UserSession):
         self.drill_down = ""
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def load_all(self) -> list[Any]:
         """Trigger parallel background loads on every card substate."""
         return [

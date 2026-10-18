@@ -6,12 +6,12 @@ from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 import reflex as rx
+from alloq_commons.access import requires_editor
 from alloq_commons.entities.project import ProjectStateEnum
 from alloq_commons.models.project import Project
 from alloq_commons.repositories import project_repo
 
 from appkit_commons.database.session import get_asyncdb_session
-from appkit_user.authentication.decorators import requires_admin
 
 logger = logging.getLogger(__name__)
 
@@ -209,7 +209,7 @@ class ProjectListState(rx.State, mixin=True):
             )
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def update_inspected_project_state(
         self, project_id: int, value: str | None
     ) -> AsyncGenerator[Any]:
@@ -259,7 +259,7 @@ class ProjectListState(rx.State, mixin=True):
         self.set_inspected_date_draft(project_id, field, _today().isoformat())
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def save_inspected_dates(self, project_id: int) -> AsyncGenerator[Any]:
         """Persist the project period edited in the inspector."""
         if self.date_draft_id != project_id:

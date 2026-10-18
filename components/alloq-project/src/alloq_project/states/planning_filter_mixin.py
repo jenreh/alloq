@@ -9,6 +9,12 @@ import reflex as rx
 PROJECT_VIEW = "Projekte"
 GRID_VIEW = "Grid"
 EMPLOYEE_PARAM = "employee"
+SAVED_ON = "1"
+
+
+def saved_flag(value: bool) -> str:
+    """Browser storage only holds strings; an empty string means off."""
+    return SAVED_ON if value else ""
 
 
 class PlanningFilterMixin(rx.State, mixin=True):
@@ -29,6 +35,11 @@ class PlanningFilterMixin(rx.State, mixin=True):
     hide_internal: rx.Field[bool] = rx.field(False)
     project_scope: rx.Field[bool] = rx.field(False)
     employee_scope: rx.Field[bool] = rx.field(False)
+    # Browser copies of the scope toggles, restored by `load` in a new session.
+    saved_project_scope: str = rx.LocalStorage("", name="alloq_planning_project_scope")
+    saved_employee_scope: str = rx.LocalStorage(
+        "", name="alloq_planning_employee_scope"
+    )
 
     @rx.event
     def set_project_filter(self, value: list[str]) -> None:
@@ -79,12 +90,21 @@ class PlanningFilterMixin(rx.State, mixin=True):
         self.hide_internal = False
         self.project_scope = False
         self.employee_scope = False
+        self.saved_project_scope = self.saved_employee_scope = ""
+
+    def _restore_saved_scopes(self) -> None:
+        """Turn on the scopes saved in the browser once the employee is known."""
+        if self.current_employee_id is None:
+            return
+        self.project_scope = self.saved_project_scope == SAVED_ON
+        self.employee_scope = self.saved_employee_scope == SAVED_ON
 
     @rx.event
     def toggle_project_scope(self) -> Any:
         if not self.project_scope and self.current_employee_id is None:
             return self._notify_no_employee()
         self.project_scope = not self.project_scope
+        self.saved_project_scope = saved_flag(self.project_scope)
         return None
 
     @rx.event
@@ -92,6 +112,7 @@ class PlanningFilterMixin(rx.State, mixin=True):
         if not self.employee_scope and self.current_employee_id is None:
             return self._notify_no_employee()
         self.employee_scope = not self.employee_scope
+        self.saved_employee_scope = saved_flag(self.employee_scope)
         return None
 
     @staticmethod

@@ -1,4 +1,5 @@
 import reflex as rx
+from alloq_commons.access import CAN_EDIT, editor_only
 from alloq_commons.components.modal_layout import DRAWER_CLASS, MODAL_CLASS
 from alloq_commons.models.project import Project
 from alloq_commons.models.view_mode import VIEW_MODE_GRID
@@ -46,6 +47,10 @@ def add_project_modal() -> rx.Component:
     )
 
 
+READ_ONLY_FIELDSET = {"display": "contents"}
+"""Keeps the drawer layout: the tabs stay direct children of the flex column."""
+
+
 def project_detail_drawer() -> rx.Component:
     """Right-side drawer with Status, Ressourcen, Risiken, Daten tabs."""
     return mn.drawer(
@@ -75,29 +80,36 @@ def project_detail_drawer() -> rx.Component:
                 width="100%",
                 flex_shrink="0",
             ),
-            rx.match(
-                ProjectState.active_tab,
-                (
-                    "daten",
-                    form_layout(
-                        content=mn.flex(
-                            project_form_fields(),
-                            mn.space(height="1.5rem"),
-                            direction="column",
-                            width="100%",
-                            key=ProjectValidationState.form_version.to(str),
+            # A disabled fieldset turns every input and button read-only.
+            rx.el.fieldset(
+                rx.match(
+                    ProjectState.active_tab,
+                    (
+                        "daten",
+                        form_layout(
+                            content=mn.flex(
+                                project_form_fields(),
+                                mn.space(height="1.5rem"),
+                                direction="column",
+                                width="100%",
+                                key=ProjectValidationState.form_version.to(str),
+                            ),
+                            footer=editor_only(
+                                form_footer(
+                                    "Projekt aktualisieren",
+                                    ProjectState.close_detail_drawer,
+                                    disabled=ProjectValidationState.is_form_invalid,
+                                )
+                            ),
+                            on_submit=ProjectState.update_project,
                         ),
-                        footer=form_footer(
-                            "Projekt aktualisieren",
-                            ProjectState.close_detail_drawer,
-                            disabled=ProjectValidationState.is_form_invalid,
-                        ),
-                        on_submit=ProjectState.update_project,
                     ),
+                    ("status", status_tab()),
+                    ("ressourcen", ressourcen_tab()),
+                    risiken_tab(),
                 ),
-                ("status", status_tab()),
-                ("ressourcen", ressourcen_tab()),
-                risiken_tab(),
+                disabled=~CAN_EDIT,
+                style=READ_ONLY_FIELDSET,
             ),
             direction="column",
             gap="md",

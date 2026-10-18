@@ -15,11 +15,11 @@ from alloq_commons.entities import (
     RoleEntity,
 )
 from alloq_commons.repositories import capacity_allocation_repo
-from alloq_project.states.project_plan_state import (
-    ProjectPlanState,
-    _distribute_with_avail,
-    _weeks_between,
+from alloq_project.services.plan_distribution import (
+    distribute_with_avail,
+    weeks_between,
 )
+from alloq_project.states.project_plan_state import ProjectPlanState
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from appkit_user.authentication.states import LoginState
@@ -34,7 +34,7 @@ class _FakeLogin:
 
     @property
     async def authenticated_user(self) -> Any:
-        return SimpleNamespace(user_id=1, is_admin=self.is_admin)
+        return SimpleNamespace(user_id=1, is_admin=self.is_admin, roles=[])
 
     async def redir(self) -> None:
         return None
@@ -96,18 +96,18 @@ async def _failing_session() -> AsyncIterator[Any]:
 class TestWeeksBetween:
     def test_counts_monday_anchored_weeks(self) -> None:
         # Wed -> Tue of the next week touches two calendar weeks.
-        assert _weeks_between(dt.date(2026, 1, 7), dt.date(2026, 1, 13)) == 2
+        assert weeks_between(dt.date(2026, 1, 7), dt.date(2026, 1, 13)) == 2
 
     def test_same_week(self) -> None:
-        assert _weeks_between(MON, MON + dt.timedelta(days=4)) == 1
+        assert weeks_between(MON, MON + dt.timedelta(days=4)) == 1
 
     def test_end_before_start(self) -> None:
-        assert _weeks_between(MON, MON - dt.timedelta(days=1)) == 0
+        assert weeks_between(MON, MON - dt.timedelta(days=1)) == 0
 
 
 class TestRampDown:
     def test_tail_tapers_without_spike(self) -> None:
-        assert _distribute_with_avail(15, 6, 0, 2, [5.0] * 6) == [
+        assert distribute_with_avail(15, 6, 0, 2, [5.0] * 6) == [
             5.0,
             5.0,
             3.33,
@@ -117,19 +117,19 @@ class TestRampDown:
         ]
 
     def test_pt_is_kept_when_no_room_to_extend(self) -> None:
-        result = _distribute_with_avail(20, 4, 0, 2, [5.0] * 4)
+        result = distribute_with_avail(20, 4, 0, 2, [5.0] * 4)
         assert sum(result) == pytest.approx(20.0)
 
     @pytest.mark.parametrize("total", [3, 7.5, 12, 18, 24])
     def test_conserves_pt_and_tail_is_non_increasing(self, total: float) -> None:
-        result = _distribute_with_avail(total, 8, 1, 3, [5.0] * 8)
+        result = distribute_with_avail(total, 8, 1, 3, [5.0] * 8)
         assert sum(result) == pytest.approx(total, abs=0.03)
         used = [v for v in result[1:] if v > 0]  # after the 1 ramp-up week
         tail = used[-3:]
         assert tail == sorted(tail, reverse=True)
 
     def test_skips_blocked_weeks(self) -> None:
-        result = _distribute_with_avail(8, 5, 0, 1, [5.0, 0.0, 5.0, 5.0, 5.0])
+        result = distribute_with_avail(8, 5, 0, 1, [5.0, 0.0, 5.0, 5.0, 5.0])
         assert result[1] == 0.0
         assert sum(result) == pytest.approx(8.0)
 

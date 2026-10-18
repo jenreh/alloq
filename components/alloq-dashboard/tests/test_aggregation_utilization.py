@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pytest
 from alloq_commons.entities.project import ProjectStateEnum
-from alloq_dashboard.services import aggregation
+from alloq_dashboard.services import aggregation, aggregation_rows
 
 _MOD = "alloq_dashboard.services.aggregation"
 # Wednesday, far outside the historic planning anchor window (2026-04-27 + 13w).
@@ -26,7 +26,7 @@ def _employee(
     eid: int,
     *,
     role_ids: tuple[int, ...] = (1,),
-    absences: tuple[aggregation._AbsenceRow, ...] = (),
+    absences: tuple[aggregation_rows._AbsenceRow, ...] = (),
     hours_per_week: float = 40.0,
 ) -> aggregation._EmployeeRow:
     return aggregation._EmployeeRow(
@@ -126,7 +126,7 @@ async def test_load_utilization_current_week_follows_today() -> None:
         _employee(
             4,
             absences=(
-                aggregation._AbsenceRow(
+                aggregation_rows._AbsenceRow(
                     start_date=_MONDAY, end_date=_MONDAY + timedelta(days=4)
                 ),
             ),

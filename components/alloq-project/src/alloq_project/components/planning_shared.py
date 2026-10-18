@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import reflex as rx
+from alloq_commons.access import CAN_EDIT
 from alloq_commons.components.excel_grid import excel_grid, grid_cell_attrs
 from alloq_commons.components.formatters import de_number
 from alloq_commons.components.list_view import sticky_block_header
@@ -519,6 +520,7 @@ def planning_excel_grid(*children: rx.Component, grid_id: str) -> rx.Component:
         on_commit=PlanningStore.apply_cell_changes,
         on_reject=PlanningStore.notify_rejected,
         on_save=PlanningStore.save_grid,
+        read_only=~CAN_EDIT,
         style={**GRID_ROOT_STYLE, **grid_density_vars()},
     )
 

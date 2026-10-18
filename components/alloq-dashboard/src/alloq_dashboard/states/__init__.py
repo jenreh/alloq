@@ -12,10 +12,12 @@ from alloq_dashboard.states.dashboard_states import (
     UnderUtilizationState,
     UtilizationState,
 )
+from alloq_dashboard.states.portfolio_state import PortfolioState
 
 __all__ = [
     "BudgetBurnState",
     "DashboardState",
+    "PortfolioState",
     "ProjectHealthState",
     "ProjectState",
     "ProjectsOverviewState",

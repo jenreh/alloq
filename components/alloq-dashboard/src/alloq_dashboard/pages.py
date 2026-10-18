@@ -1,17 +1,17 @@
 from typing import cast
 
 import reflex as rx
+from alloq_commons.access import editor_only, no_access
 from alloq_commons.components.shell import app_page
 from alloq_commons.components.toolbar import window_toolbar
 from alloq_commons.roles import ALL_ROLES
 from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
-from alloq_dashboard.components.dashboard_grid import dashboard_grid
-from alloq_dashboard.components.drill_down_drawer import drill_down_drawer
-from alloq_dashboard.states import DashboardState
+from alloq_dashboard.components.dashboard_grid import dashboard_grid, scope_control
+from alloq_dashboard.components.portfolio_drawer import portfolio_drawer
+from alloq_dashboard.states import PortfolioState
 from appkit_user.authentication.backend.models import User
-from appkit_user.authentication.components.components import requires_admin
 from appkit_user.authentication.states import UserSession
 from appkit_user.user_management.states.user_states import UserState
 
@@ -38,22 +38,22 @@ def create_dashboard_page(
         route=route,
         title=title,
         sidebar=sidebar,
-        toolbar=window_toolbar("Übersicht", _greeting()),
-        admin_only=True,
+        toolbar=window_toolbar("Übersicht", _greeting(), center=scope_control()),
         on_load=[
             UserState.set_available_roles(ALL_ROLES),
-            DashboardState.load_all,
+            PortfolioState.load,
         ],
     )
     def _dashboard_page() -> rx.Component:
-        return requires_admin(
+        return editor_only(
             mn.stack(
                 dashboard_grid(),
-                drill_down_drawer(),
+                portfolio_drawer(),
                 width="100%",
                 max_width="1360px",
                 gap="lg",
             ),
+            fallback=no_access(),
         )
 
     return _dashboard_page

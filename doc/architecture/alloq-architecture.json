@@ -1,0 +1,229 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Alloq System Architecture",
+    "output": "doc/architecture/alloq-architecture.html",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/jenreh/alloq.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "02021a32066421cdf6c1f41a170a3a5f03121db3"
+    }
+  },
+  "components": [
+    {
+      "id": "user",
+      "type": "external",
+      "label": "Planners & admins",
+      "sublabel": "web browser",
+      "pos": [40, 240],
+      "size": [120, 60],
+      "sources": [
+        { "path": "Dockerfile", "line": 40, "end_line": 62, "label": "single port :8080" }
+      ]
+    },
+    {
+      "id": "tauri",
+      "type": "frontend",
+      "label": "Tauri desktop shell",
+      "sublabel": "main.rs · embedded CPython",
+      "tag": "desktop build",
+      "pos": [310, 40],
+      "size": [170, 60],
+      "sources": [
+        { "path": "tauri/src-tauri/src/main.rs", "line": 162, "end_line": 175, "label": "spawn_backend" },
+        { "path": "rxconfig.py", "line": 74, "end_line": 82, "label": "DesktopPlugin embedded" }
+      ]
+    },
+    {
+      "id": "app",
+      "type": "backend",
+      "label": "Reflex app",
+      "sublabel": "app/app.py · routes, admin pages",
+      "pos": [310, 230],
+      "size": [190, 80],
+      "sources": [
+        { "path": "app/app.py", "line": 53, "end_line": 65, "label": "page registration" },
+        { "path": "app/app.py", "line": 68, "end_line": 84, "label": "rx.App + middleware" },
+        { "path": "app/configuration.py", "line": 27, "end_line": 40, "label": "YAML config" }
+      ]
+    },
+    {
+      "id": "project",
+      "type": "backend",
+      "label": "alloq-project",
+      "sublabel": "planning grid · projects",
+      "pos": [640, 150],
+      "size": [150, 60],
+      "sources": [
+        { "path": "components/alloq-project/src/alloq_project/pages.py", "line": 25, "end_line": 78, "label": "planning + projects pages" },
+        { "path": "components/alloq-project/src/alloq_project/states/planning_grid_state.py", "line": 559, "end_line": 560, "label": "repo access" }
+      ]
+    },
+    {
+      "id": "team",
+      "type": "backend",
+      "label": "alloq-team",
+      "sublabel": "employees · absences",
+      "pos": [640, 240],
+      "size": [150, 60],
+      "sources": [
+        { "path": "components/alloq-team/src/alloq_team/pages.py", "line": 11, "end_line": 32, "label": "team page (admin)" },
+        { "path": "components/alloq-team/src/alloq_team/states/team_state.py", "line": 282, "end_line": 290, "label": "repo access" }
+      ]
+    },
+    {
+      "id": "dashboard",
+      "type": "backend",
+      "label": "alloq-dashboard",
+      "sublabel": "KPIs · aggregation",
+      "pos": [640, 330],
+      "size": [150, 60],
+      "sources": [
+        { "path": "components/alloq-dashboard/src/alloq_dashboard/pages.py", "line": 31, "end_line": 46, "label": "dashboard page (admin)" },
+        { "path": "components/alloq-dashboard/src/alloq_dashboard/services/aggregation.py", "line": 478, "end_line": 481, "label": "read-only load" }
+      ]
+    },
+    {
+      "id": "commons",
+      "type": "backend",
+      "label": "alloq-commons",
+      "sublabel": "repositories · entities",
+      "tag": "UtilizationService",
+      "pos": [910, 240],
+      "size": [170, 60],
+      "sources": [
+        { "path": "components/alloq-commons/src/alloq_commons/repositories/project_repository.py", "line": 1, "end_line": 28, "label": "BaseRepository on AsyncSession" },
+        { "path": "components/alloq-commons/src/alloq_commons/services/utilization.py", "line": 127, "end_line": 130, "label": "UtilizationService" }
+      ]
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "PostgreSQL 15",
+      "sublabel": "Azure Flexible Server",
+      "pos": [1200, 240],
+      "size": [150, 60],
+      "sources": [
+        { "path": "configuration/config.yaml", "line": 22, "end_line": 31, "label": "database config" },
+        { "path": "docker-compose.yml", "line": 51, "end_line": 62, "label": "local db service" },
+        { "path": "doc/desktop.md", "line": 54, "end_line": 60, "label": "Azure Flexible Server" }
+      ]
+    },
+    {
+      "id": "alembic",
+      "type": "backend",
+      "label": "Alembic migrations",
+      "sublabel": "start.sh before app start",
+      "pos": [1190, 40],
+      "size": [170, 60],
+      "sources": [
+        { "path": "start.sh", "line": 6, "end_line": 10, "label": "upgrade head, then reflex" },
+        { "path": "alembic/env.py", "line": 34, "end_line": 41, "label": "same DB config" }
+      ]
+    },
+    {
+      "id": "auth",
+      "type": "security",
+      "label": "appkit-user auth",
+      "sublabel": "session guard · OAuth login",
+      "pos": [310, 480],
+      "size": [190, 60],
+      "sources": [
+        { "path": "app/app.py", "line": 73, "end_line": 84, "label": "add_session_guard" },
+        { "path": "configuration/config.yaml", "line": 33, "end_line": 50, "label": "session + OAuth providers" }
+      ]
+    },
+    {
+      "id": "entra",
+      "type": "external",
+      "label": "Microsoft Entra ID",
+      "sublabel": "OAuth 2.0 / MSAL",
+      "pos": [640, 480],
+      "size": [150, 60],
+      "sources": [
+        { "path": "configuration/config.yaml", "line": 47, "end_line": 50, "label": "azure provider" },
+        { "path": "app/desktop/entra.py", "line": 206, "end_line": 216, "label": "interactive PKCE" }
+      ]
+    },
+    {
+      "id": "desktop_auth",
+      "type": "security",
+      "label": "Desktop Entra sign-in",
+      "sublabel": "app/desktop/entra.py",
+      "tag": "desktop only",
+      "pos": [910, 480],
+      "size": [170, 60],
+      "sources": [
+        { "path": "app/app.py", "line": 36, "end_line": 38, "label": "install_db_auth" },
+        { "path": "app/desktop/entra.py", "line": 248, "end_line": 271, "label": "token per connection" },
+        { "path": "app/desktop/schema.py", "line": 30, "end_line": 40, "label": "schema version check" }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Reflex backend process · Docker :8080 or embedded in Tauri",
+      "wraps": ["app", "project", "team", "dashboard", "commons"]
+    }
+  ],
+  "connections": [
+    { "id": "user-app", "from": "user", "to": "app", "label": "HTTPS / WS", "variant": "emphasis" },
+    { "id": "tauri-app", "from": "tauri", "to": "app", "label": "webview :18442" },
+    { "id": "app-project", "from": "app", "to": "project", "label": "/plan, /projects" },
+    { "id": "app-team", "from": "app", "to": "team", "label": "/team" },
+    { "id": "app-dashboard", "from": "app", "to": "dashboard", "label": "/dashboard" },
+    { "id": "project-commons", "from": "project", "to": "commons", "label": "read/write" },
+    { "id": "team-commons", "from": "team", "to": "commons", "label": "read/write" },
+    { "id": "dashboard-commons", "from": "dashboard", "to": "commons", "label": "read-only" },
+    { "id": "commons-db", "from": "commons", "to": "db", "label": "async SQL", "variant": "emphasis" },
+    { "id": "alembic-db", "from": "alembic", "to": "db", "label": "upgrade head", "variant": "dashed" },
+    { "id": "app-auth", "from": "app", "to": "auth", "label": "session guard", "variant": "security" },
+    { "id": "auth-entra", "from": "auth", "to": "entra", "label": "OAuth (azure)", "variant": "security" },
+    { "id": "desktop-entra", "from": "desktop_auth", "to": "entra", "label": "MSAL + PKCE", "variant": "security" },
+    { "id": "desktop-db", "from": "desktop_auth", "to": "db", "label": "token as DB password", "variant": "security", "fromSide": "right", "toSide": "bottom" }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Layering",
+      "items": [
+        "Each feature package: pages → Reflex states → services → alloq-commons repositories",
+        "Repositories extend appkit-commons BaseRepository on an AsyncSession",
+        "UI uses appkit_mantine plus a custom ExcelGrid JSX component",
+        "components/* are uv workspace packages with their own tests"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Web runtime",
+      "items": [
+        "Docker image runs start.sh: alembic upgrade head, then reflex run --single-port :8080",
+        "configuration/config.yaml + PROFILES overlays; secret: refs resolved by SECRET_PROVIDER",
+        "ForceHTTPSMiddleware honors X-Forwarded-Proto from trusted proxies"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Desktop runtime",
+      "items": [
+        "Tauri starts the same Reflex backend in-process on 127.0.0.1:18442",
+        "No bundled secrets: each user signs in with Entra and connects with their own token",
+        "Sign-in stops if alembic_version differs from app/desktop/schema.py; migrations run only on the server"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Access control",
+      "items": [
+        "Dashboard and team pages are admin-only",
+        "Sessions time out after 25 min; Azure OAuth on, GitHub commented out",
+        "Desktop DB role <db>_app is granted per user from the users page"
+      ]
+    }
+  ]
+}

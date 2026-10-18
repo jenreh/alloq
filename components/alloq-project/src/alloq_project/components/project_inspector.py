@@ -2,6 +2,7 @@
 
 import reflex as rx
 from alloq_commons import theme
+from alloq_commons.access import CAN_EDIT, editor_only
 from alloq_commons.components.formatters import de_number
 from alloq_commons.components.list_view import (
     badge,
@@ -55,8 +56,11 @@ def _heading(project: ObjectVar[Project]) -> rx.Component:
 
 def _actions() -> rx.Component:
     return mn.group(
-        plain_button("Bearbeiten", _open("daten"), flex="1"),
-        plain_button("Status erfassen", _open("status"), flex="1"),
+        editor_only(
+            plain_button("Bearbeiten", _open("daten"), flex="1"),
+            plain_button("Status erfassen", _open("status"), flex="1"),
+            fallback=plain_button("Details", _open("status"), flex="1"),
+        ),
         icon_button(
             "calendar-range",
             "In der Ressourcenplanung öffnen",
@@ -149,12 +153,12 @@ def _pt(value: rx.Var) -> rx.Component:
     return de_number(value=value, decimal_scale=0, suffix=" PT")
 
 
-def _cats_number(project: ObjectVar[Project]) -> rx.Component:
+def _booking_number(project: ObjectVar[Project]) -> rx.Component:
     return rx.cond(
-        project.cats_number != "",
+        project.booking_number != "",
         mn.group(
             mn.text(
-                project.cats_number,
+                project.booking_number,
                 fz="inherit",
                 lh="inherit",
                 style=theme.NUMERIC,
@@ -169,7 +173,7 @@ def _cats_number(project: ObjectVar[Project]) -> rx.Component:
                 aria_label="Buchungsnummer kopieren",
                 title="Buchungsnummer kopieren",
                 on_click=[
-                    rx.set_clipboard(project.cats_number),
+                    rx.set_clipboard(project.booking_number),
                     rx.toast.success("Buchungsnummer kopiert", position="top-right"),
                 ],
             ),
@@ -191,18 +195,21 @@ def _date_input(project: ObjectVar[Project], field: str) -> rx.Component:
             project.id, field, value
         ),
         on_blur=ProjectState.save_inspected_dates(project.id),
-        right_section=mn.action_icon(
-            rx.icon("calendar-check", size=14, stroke_width=1.8),
-            variant="subtle",
-            color="gray",
-            size=22,
-            aria_label="Heute",
-            title="Heute",
-            on_click=[
-                ProjectState.set_inspected_date_today(project.id, field),
-                ProjectState.save_inspected_dates(project.id),
-            ],
+        right_section=editor_only(
+            mn.action_icon(
+                rx.icon("calendar-check", size=14, stroke_width=1.8),
+                variant="subtle",
+                color="gray",
+                size=22,
+                aria_label="Heute",
+                title="Heute",
+                on_click=[
+                    ProjectState.set_inspected_date_today(project.id, field),
+                    ProjectState.save_inspected_dates(project.id),
+                ],
+            )
         ),
+        disabled=~CAN_EDIT,
         right_section_pointer_events="all",
         clearable=False,
         locale="de",
@@ -226,13 +233,14 @@ def _details(project: ObjectVar[Project]) -> rx.Component:
                         on_change=ProjectState.update_inspected_project_state(
                             project.id
                         ),
+                        disabled=~CAN_EDIT,
                         clearable=False,
                         size="xs",
                     ),
                 ),
                 ("Kunde", project.customer),
                 ("Kürzel", project.code),
-                ("CATS-Nr.", _cats_number(project)),
+                ("Buchungsnr.", _booking_number(project)),
                 ("Start", _date_input(project, "start")),
                 ("Ende", _date_input(project, "end")),
                 ("Budget", de_number(value=project.budget, suffix=" €")),

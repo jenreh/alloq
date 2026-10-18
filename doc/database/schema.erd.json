@@ -1,0 +1,1252 @@
+{
+  "schema_version": 1,
+  "diagram_type": "erd",
+  "meta": {
+    "title": "alloq database schema",
+    "subtitle": "All tables on Base.metadata (alloq_commons + appkit_user), PostgreSQL types",
+    "locale": "en",
+    "output": "doc/database/schema.html",
+    "quality_profile": "standard",
+    "views": [
+      {
+        "id": "projects_view",
+        "label": "Projects",
+        "focus": [
+          "projects",
+          "project_statuses",
+          "risks",
+          "project_owners"
+        ],
+        "note": "projects is the hub; status history, risks and owners hang off it and are deleted with it."
+      },
+      {
+        "id": "staffing_view",
+        "label": "Staffing and planning",
+        "focus": [
+          "required_capacities",
+          "capacities",
+          "capacity_allocations",
+          "projects",
+          "employees",
+          "roles"
+        ],
+        "note": "Demand per role, assignment per employee and role, and weekly person days per employee."
+      },
+      {
+        "id": "people_view",
+        "label": "People",
+        "focus": [
+          "employees",
+          "departments",
+          "roles",
+          "employee_roles",
+          "absences"
+        ],
+        "note": "Employees belong to one department, have one key role, and can fill many roles."
+      },
+      {
+        "id": "auth_view",
+        "label": "Authentication",
+        "focus": [
+          "auth_users",
+          "auth_sessions",
+          "auth_oauth_accounts",
+          "auth_oauth_states",
+          "auth_password_history",
+          "auth_password_reset_tokens",
+          "auth_password_reset_requests"
+        ],
+        "note": "Tables owned by the appkit_user package; no foreign key reaches the planning tables."
+      }
+    ]
+  },
+  "layout": {
+    "mode": "grid",
+    "gapX": 80,
+    "gapY": 36,
+    "entityW": 260
+  },
+  "entities": [
+    {
+      "id": "project_statuses",
+      "label": "project_statuses",
+      "tag": "projects",
+      "row": 0,
+      "col": 0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "integer",
+          "key": "pk"
+        },
+        {
+          "name": "project_id",
+          "type": "integer",
+          "key": "fk",
+          "references": "projects.id"
+        },
+        {
+          "name": "status_date",
+          "type": "date"
+        },
+        {
+          "name": "progress",
+          "type": "integer"
+        },
+        {
+          "name": "budget_spent",
+          "type": "integer"
+        },
+        {
+          "name": "notes",
+          "type": "varchar(2000) null"
+        },
+        {
+          "name": "budget",
+          "type": "float null"
+        },
+        {
+          "name": "earned_value",
+          "type": "float null"
+        },
+        {
+          "name": "actual_cost",
+          "type": "float null"
+        },
+        {
+          "name": "eac_linear",
+          "type": "float null"
+        },
+        {
+          "name": "eac_additive",
+          "type": "float null"
+        },
+        {
+          "name": "created",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated",
+          "type": "timestamptz"
+        }
+      ]
+    },
+    {
+      "id": "projects",
+      "label": "projects",
+      "tag": "projects",
+      "row": 1,
+      "col": 0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "integer",
+          "key": "pk"
+        },
+        {
+          "name": "code",
+          "type": "varchar(50)",
+          "key": "uk"
+        },
+        {
+          "name": "customer",
+          "type": "varchar(255) null"
+        },
+        {
+          "name": "name_de",
+          "type": "varchar(255)"
+        },
+        {
+          "name": "start_date",
+          "type": "date"
+        },
+        {
+          "name": "end_date",
+          "type": "date"
+        },
+        {
+          "name": "state",
+          "type": "varchar(20)"
+        },
+        {
+          "name": "budget",
+          "type": "integer"
+        },
+        {
+          "name": "color",
+          "type": "varchar(7)"
+        },
+        {
+          "name": "is_internal",
+          "type": "boolean"
+        },
+        {
+          "name": "booking_number",
+          "type": "varchar(50) null"
+        },
+        {
+          "name": "ev_earned_value",
+          "type": "float null"
+        },
+        {
+          "name": "ev_actual_cost",
+          "type": "float null"
+        },
+        {
+          "name": "ev_eac_linear",
+          "type": "float null"
+        },
+        {
+          "name": "ev_eac_additive",
+          "type": "float null"
+        },
+        {
+          "name": "created",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated",
+          "type": "timestamptz"
+        }
+      ]
+    },
+    {
+      "id": "risks",
+      "label": "risks",
+      "tag": "projects",
+      "row": 2,
+      "col": 0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "integer",
+          "key": "pk"
+        },
+        {
+          "name": "project_id",
+          "type": "integer",
+          "key": "fk",
+          "references": "projects.id"
+        },
+        {
+          "name": "name",
+          "type": "varchar(255)"
+        },
+        {
+          "name": "description",
+          "type": "varchar(2000) null"
+        },
+        {
+          "name": "probability",
+          "type": "integer"
+        },
+        {
+          "name": "impact",
+          "type": "integer"
+        },
+        {
+          "name": "mitigation_status",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "measures",
+          "type": "varchar(2000) null"
+        },
+        {
+          "name": "created",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated",
+          "type": "timestamptz"
+        }
+      ]
+    },
+    {
+      "id": "project_owners",
+      "label": "project_owners",
+      "tag": "projects",
+      "row": 3,
+      "col": 0,
+      "attributes": [
+        {
+          "name": "project_id",
+          "type": "integer",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "projects.id"
+        },
+        {
+          "name": "employee_id",
+          "type": "integer",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "employees.id"
+        }
+      ]
+    },
+    {
+      "id": "required_capacities",
+      "label": "required_capacities",
+      "tag": "staffing",
+      "row": 0,
+      "col": 1,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "integer",
+          "key": "pk"
+        },
+        {
+          "name": "project_id",
+          "type": "integer",
+          "key": "fk",
+          "references": "projects.id"
+        },
+        {
+          "name": "role_id",
+          "type": "integer",
+          "key": "fk",
+          "references": "roles.id"
+        },
+        {
+          "name": "person_days",
+          "type": "integer"
+        },
+        {
+          "name": "created",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated",
+          "type": "timestamptz"
+        }
+      ]
+    },
+    {
+      "id": "capacities",
+      "label": "capacities",
+      "tag": "staffing",
+      "row": 1,
+      "col": 1,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "integer",
+          "key": "pk"
+        },
+        {
+          "name": "project_id",
+          "type": "integer",
+          "key": "fk",
+          "references": "projects.id"
+        },
+        {
+          "name": "employee_id",
+          "type": "integer",
+          "key": "fk",
+          "references": "employees.id"
+        },
+        {
+          "name": "role_id",
+          "type": "integer",
+          "key": "fk",
+          "references": "roles.id"
+        },
+        {
+          "name": "start_date",
+          "type": "date"
+        },
+        {
+          "name": "end_date",
+          "type": "date"
+        },
+        {
+          "name": "hours_per_week",
+          "type": "float"
+        },
+        {
+          "name": "created",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated",
+          "type": "timestamptz"
+        }
+      ]
+    },
+    {
+      "id": "capacity_allocations",
+      "label": "capacity_allocations",
+      "tag": "staffing",
+      "row": 2,
+      "col": 1,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "integer",
+          "key": "pk"
+        },
+        {
+          "name": "project_id",
+          "type": "integer",
+          "key": "fk",
+          "references": "projects.id"
+        },
+        {
+          "name": "employee_id",
+          "type": "integer",
+          "key": "fk",
+          "references": "employees.id"
+        },
+        {
+          "name": "role_id",
+          "type": "integer",
+          "key": "fk",
+          "references": "roles.id"
+        },
+        {
+          "name": "week_start",
+          "type": "date"
+        },
+        {
+          "name": "person_days",
+          "type": "float"
+        },
+        {
+          "name": "created",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated",
+          "type": "timestamptz"
+        }
+      ]
+    },
+    {
+      "id": "departments",
+      "label": "departments",
+      "tag": "people",
+      "row": 0,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "integer",
+          "key": "pk"
+        },
+        {
+          "name": "name",
+          "type": "varchar(255)",
+          "key": "uk"
+        },
+        {
+          "name": "abbreviation",
+          "type": "varchar(10)",
+          "key": "uk"
+        },
+        {
+          "name": "created",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated",
+          "type": "timestamptz"
+        }
+      ]
+    },
+    {
+      "id": "employees",
+      "label": "employees",
+      "tag": "people",
+      "row": 1,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "integer",
+          "key": "pk"
+        },
+        {
+          "name": "first_name",
+          "type": "varchar(255)"
+        },
+        {
+          "name": "last_name",
+          "type": "varchar(255)"
+        },
+        {
+          "name": "seniority",
+          "type": "varchar(50)"
+        },
+        {
+          "name": "job_title",
+          "type": "varchar(255) null"
+        },
+        {
+          "name": "email",
+          "type": "varchar(255) null",
+          "key": "uk"
+        },
+        {
+          "name": "location",
+          "type": "varchar(255) null"
+        },
+        {
+          "name": "department_id",
+          "type": "integer null",
+          "key": "fk",
+          "references": "departments.id"
+        },
+        {
+          "name": "hours_per_week",
+          "type": "float"
+        },
+        {
+          "name": "internal_hours",
+          "type": "integer"
+        },
+        {
+          "name": "manager_id",
+          "type": "integer null",
+          "key": "fk",
+          "references": "employees.id"
+        },
+        {
+          "name": "key_role_id",
+          "type": "integer null",
+          "key": "fk",
+          "references": "roles.id"
+        },
+        {
+          "name": "created",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated",
+          "type": "timestamptz"
+        }
+      ]
+    },
+    {
+      "id": "absences",
+      "label": "absences",
+      "tag": "people",
+      "row": 2,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "integer",
+          "key": "pk"
+        },
+        {
+          "name": "employee_id",
+          "type": "integer",
+          "key": "fk",
+          "references": "employees.id"
+        },
+        {
+          "name": "start_date",
+          "type": "date"
+        },
+        {
+          "name": "end_date",
+          "type": "date"
+        },
+        {
+          "name": "created",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated",
+          "type": "timestamptz"
+        }
+      ]
+    },
+    {
+      "id": "employee_roles",
+      "label": "employee_roles",
+      "tag": "people",
+      "row": 3,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "employee_id",
+          "type": "integer",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "employees.id"
+        },
+        {
+          "name": "role_id",
+          "type": "integer",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "roles.id"
+        }
+      ]
+    },
+    {
+      "id": "roles",
+      "label": "roles",
+      "tag": "people",
+      "row": 4,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "integer",
+          "key": "pk"
+        },
+        {
+          "name": "name",
+          "type": "varchar(255)",
+          "key": "uk"
+        },
+        {
+          "name": "abbreviation",
+          "type": "varchar(3)"
+        },
+        {
+          "name": "description",
+          "type": "varchar(1000) null"
+        },
+        {
+          "name": "ramp_up",
+          "type": "boolean"
+        },
+        {
+          "name": "ramp_down",
+          "type": "boolean"
+        },
+        {
+          "name": "created",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated",
+          "type": "timestamptz"
+        }
+      ]
+    },
+    {
+      "id": "auth_users",
+      "label": "auth_users",
+      "tag": "auth · login",
+      "row": 0,
+      "col": 3,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "integer",
+          "key": "pk"
+        },
+        {
+          "name": "email",
+          "type": "varchar(200)",
+          "key": "uk"
+        },
+        {
+          "name": "name",
+          "type": "varchar(200) null"
+        },
+        {
+          "name": "avatar_url",
+          "type": "varchar(500) null"
+        },
+        {
+          "name": "_password",
+          "type": "varchar(200) null"
+        },
+        {
+          "name": "is_verified",
+          "type": "boolean"
+        },
+        {
+          "name": "is_admin",
+          "type": "boolean"
+        },
+        {
+          "name": "is_active",
+          "type": "boolean"
+        },
+        {
+          "name": "needs_password_reset",
+          "type": "boolean"
+        },
+        {
+          "name": "roles",
+          "type": "varchar[]"
+        },
+        {
+          "name": "last_login",
+          "type": "timestamptz"
+        },
+        {
+          "name": "created",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated",
+          "type": "timestamptz"
+        }
+      ]
+    },
+    {
+      "id": "auth_sessions",
+      "label": "auth_sessions",
+      "tag": "auth · login",
+      "row": 1,
+      "col": 3,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "integer",
+          "key": "pk"
+        },
+        {
+          "name": "user_id",
+          "type": "integer",
+          "key": "fk",
+          "references": "auth_users.id"
+        },
+        {
+          "name": "session_id",
+          "type": "varchar(200)",
+          "key": "uk"
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "created",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated",
+          "type": "timestamptz"
+        }
+      ]
+    },
+    {
+      "id": "auth_oauth_accounts",
+      "label": "auth_oauth_accounts",
+      "tag": "auth · login",
+      "row": 2,
+      "col": 3,
+      "width": 290,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "integer",
+          "key": "pk"
+        },
+        {
+          "name": "user_id",
+          "type": "integer",
+          "key": "fk",
+          "references": "auth_users.id"
+        },
+        {
+          "name": "provider",
+          "type": "varchar(50)"
+        },
+        {
+          "name": "account_id",
+          "type": "varchar(100)"
+        },
+        {
+          "name": "account_email",
+          "type": "varchar(200)"
+        },
+        {
+          "name": "access_token",
+          "type": "encrypted varchar"
+        },
+        {
+          "name": "refresh_token",
+          "type": "encrypted varchar null"
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamptz null"
+        },
+        {
+          "name": "token_type",
+          "type": "varchar(20)"
+        },
+        {
+          "name": "scope",
+          "type": "varchar(500) null"
+        },
+        {
+          "name": "created",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated",
+          "type": "timestamptz"
+        }
+      ]
+    },
+    {
+      "id": "auth_oauth_states",
+      "label": "auth_oauth_states",
+      "tag": "auth · login",
+      "row": 3,
+      "col": 3,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "integer",
+          "key": "pk"
+        },
+        {
+          "name": "user_id",
+          "type": "integer null",
+          "key": "fk",
+          "references": "auth_users.id"
+        },
+        {
+          "name": "session_id",
+          "type": "varchar(200)"
+        },
+        {
+          "name": "state",
+          "type": "varchar(200)"
+        },
+        {
+          "name": "provider",
+          "type": "varchar(50)"
+        },
+        {
+          "name": "code_verifier",
+          "type": "varchar(200) null"
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "created",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated",
+          "type": "timestamptz"
+        }
+      ]
+    },
+    {
+      "id": "auth_password_history",
+      "label": "auth_password_history",
+      "tag": "auth · password",
+      "row": 0,
+      "col": 4,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "integer",
+          "key": "pk"
+        },
+        {
+          "name": "user_id",
+          "type": "integer",
+          "key": "fk",
+          "references": "auth_users.id"
+        },
+        {
+          "name": "password_hash",
+          "type": "varchar(200)"
+        },
+        {
+          "name": "changed_at",
+          "type": "timestamp"
+        },
+        {
+          "name": "change_reason",
+          "type": "varchar(50) null"
+        },
+        {
+          "name": "created",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated",
+          "type": "timestamptz"
+        }
+      ]
+    },
+    {
+      "id": "auth_password_reset_tokens",
+      "label": "auth_password_reset_tokens",
+      "tag": "auth · password",
+      "row": 1,
+      "col": 4,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "integer",
+          "key": "pk"
+        },
+        {
+          "name": "user_id",
+          "type": "integer",
+          "key": "fk",
+          "references": "auth_users.id"
+        },
+        {
+          "name": "token",
+          "type": "varchar(64)",
+          "key": "uk"
+        },
+        {
+          "name": "email",
+          "type": "varchar(200) null"
+        },
+        {
+          "name": "reset_type",
+          "type": "varchar(50)"
+        },
+        {
+          "name": "is_used",
+          "type": "boolean"
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamp"
+        },
+        {
+          "name": "created",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated",
+          "type": "timestamptz"
+        }
+      ]
+    },
+    {
+      "id": "auth_password_reset_requests",
+      "label": "auth_password_reset_requests",
+      "tag": "auth · password",
+      "row": 2,
+      "col": 4,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "integer",
+          "key": "pk"
+        },
+        {
+          "name": "email",
+          "type": "varchar(200)"
+        },
+        {
+          "name": "ip_address",
+          "type": "varchar(45) null"
+        },
+        {
+          "name": "created",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated",
+          "type": "timestamptz"
+        }
+      ]
+    },
+    {
+      "id": "public_holidays",
+      "label": "public_holidays",
+      "tag": "calendar",
+      "row": 3,
+      "col": 4,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "integer",
+          "key": "pk"
+        },
+        {
+          "name": "name",
+          "type": "varchar(255)"
+        },
+        {
+          "name": "date",
+          "type": "date"
+        },
+        {
+          "name": "is_recurring",
+          "type": "boolean"
+        },
+        {
+          "name": "state_code",
+          "type": "varchar(10)"
+        },
+        {
+          "name": "created",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated",
+          "type": "timestamptz"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "auth_oauth_accounts__user_id",
+      "from": "auth_oauth_accounts",
+      "to": "auth_users",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "label": "cascade"
+    },
+    {
+      "id": "auth_oauth_states__user_id",
+      "from": "auth_oauth_states",
+      "to": "auth_users",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "label": "set null",
+      "toOptional": true
+    },
+    {
+      "id": "auth_password_history__user_id",
+      "from": "auth_password_history",
+      "to": "auth_users",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "label": "cascade"
+    },
+    {
+      "id": "auth_password_reset_tokens__user_id",
+      "from": "auth_password_reset_tokens",
+      "to": "auth_users",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "label": "cascade"
+    },
+    {
+      "id": "auth_sessions__user_id",
+      "from": "auth_sessions",
+      "to": "auth_users",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "label": "cascade"
+    },
+    {
+      "id": "employees__department_id",
+      "from": "employees",
+      "to": "departments",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "label": "set null",
+      "toOptional": true
+    },
+    {
+      "id": "employees__key_role_id",
+      "from": "employees",
+      "to": "roles",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "label": "set null",
+      "toOptional": true
+    },
+    {
+      "id": "project_statuses__project_id",
+      "from": "project_statuses",
+      "to": "projects",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "label": "cascade"
+    },
+    {
+      "id": "required_capacities__project_id",
+      "from": "required_capacities",
+      "to": "projects",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "label": "cascade"
+    },
+    {
+      "id": "required_capacities__role_id",
+      "from": "required_capacities",
+      "to": "roles",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "label": "restrict"
+    },
+    {
+      "id": "risks__project_id",
+      "from": "risks",
+      "to": "projects",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "label": "cascade"
+    },
+    {
+      "id": "absences__employee_id",
+      "from": "absences",
+      "to": "employees",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "label": "cascade"
+    },
+    {
+      "id": "capacities__employee_id",
+      "from": "capacities",
+      "to": "employees",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "label": "cascade"
+    },
+    {
+      "id": "capacities__project_id",
+      "from": "capacities",
+      "to": "projects",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "label": "cascade"
+    },
+    {
+      "id": "capacities__role_id",
+      "from": "capacities",
+      "to": "roles",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "label": "restrict"
+    },
+    {
+      "id": "capacity_allocations__employee_id",
+      "from": "capacity_allocations",
+      "to": "employees",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "label": "cascade"
+    },
+    {
+      "id": "capacity_allocations__project_id",
+      "from": "capacity_allocations",
+      "to": "projects",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "label": "cascade"
+    },
+    {
+      "id": "capacity_allocations__role_id",
+      "from": "capacity_allocations",
+      "to": "roles",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "label": "restrict"
+    },
+    {
+      "id": "employee_roles__employee_id",
+      "from": "employee_roles",
+      "to": "employees",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "label": "cascade"
+    },
+    {
+      "id": "employee_roles__role_id",
+      "from": "employee_roles",
+      "to": "roles",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "label": "cascade"
+    },
+    {
+      "id": "project_owners__employee_id",
+      "from": "project_owners",
+      "to": "employees",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "label": "cascade"
+    },
+    {
+      "id": "project_owners__project_id",
+      "from": "project_owners",
+      "to": "projects",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "label": "cascade"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Conventions",
+      "items": [
+        "Types are PostgreSQL; a trailing null marks a nullable column, all others are NOT NULL.",
+        "id, created and updated come from the appkit Entity base class.",
+        "Relationship labels give the ON DELETE action of the foreign key.",
+        "employee_roles and project_owners are pure join tables with a composite primary key.",
+        "employees.manager_id points back at employees.id (on delete set null); self-references are not drawn."
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Composite unique and check constraints",
+      "items": [
+        "capacities: unique (project_id, employee_id, role_id); end_date >= start_date.",
+        "capacity_allocations: unique (project_id, employee_id, role_id, week_start); person_days >= 0.",
+        "required_capacities: person_days >= 0.",
+        "projects and absences: end_date >= start_date.",
+        "project_statuses: progress and budget_spent between 0 and 100.",
+        "auth_oauth_accounts: unique (provider, account_id); auth_password_history: unique (user_id, password_hash)."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Not created by Alembic",
+      "items": [
+        "auth_password_history, auth_password_reset_tokens and auth_password_reset_requests are mapped by appkit_user.",
+        "No migration in alembic/versions creates them, so a migrated database lacks these three tables."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Keeping this in sync",
+      "items": [
+        "Source: doc/database/schema.erd.json. tests/test_schema_doc.py compares it with Base.metadata.",
+        "After a model or migration change, update the JSON and re-render this page."
+      ]
+    }
+  ]
+}

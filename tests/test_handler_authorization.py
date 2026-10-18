@@ -1,10 +1,13 @@
-"""Guard: every alloq event handler that can reach the database is admin-only.
+"""Guard: every alloq event handler that can reach the database is guarded.
 
-Pages use ``admin_only=True``, which only affects rendering. Event handlers run
-over the websocket regardless, so each handler that reads or writes business
-data must enforce admin rights server-side (``@requires_admin``, or an inline
-check for background handlers). Handlers that only change UI state are listed
-explicitly in ``UI_ONLY_HANDLERS``; they must not reach the database.
+Page guards only affect rendering. Event handlers run over the websocket
+regardless, so each handler that reads or writes business data must enforce
+rights server-side: ``@requires_admin`` for the administration states,
+``@requires_editor`` (admins and project managers) for the planning packages,
+or an inline check for background handlers. Handlers that only change UI state
+are listed explicitly in ``UI_ONLY_HANDLERS``; they must not reach the
+database. Read-only loads of the projects and planning pages are also open to
+the employee role (``@requires_viewer``); they are listed in ``VIEWER_HANDLERS``.
 """
 
 import importlib
@@ -16,6 +19,7 @@ from typing import Any
 
 import pytest
 import reflex as rx
+from alloq_commons.access import ACCESS_LEVEL_ATTR
 
 PACKAGES = ("alloq_commons", "alloq_dashboard", "alloq_project", "alloq_team")
 EXTRA_MODULES = (
@@ -25,11 +29,19 @@ EXTRA_MODULES = (
 )
 OWN_PACKAGES = frozenset({*PACKAGES, "app"})
 
+# Administration needs the admin switch; project managers may not run these.
+ADMIN_STATES = frozenset(
+    {"DepartmentState", "RoleState", "HolidayState", "DatabaseAccessState"}
+)
+# Planning states are open to project managers, so they use @requires_editor.
+EDITOR_PACKAGES = frozenset({"alloq_dashboard", "alloq_project", "alloq_team"})
+EDITOR_STATES = frozenset({"SidebarState"})
+
 # Reflex adds ``setvar`` to every state; it only sets a declared var.
 REFLEX_BUILTINS = frozenset({"setvar"})
 
-# Background handlers cannot use @requires_admin (``get_state`` needs the state
-# lock), so they check admin rights inside ``async with self``.
+# Background handlers cannot use a guard decorator (``get_state`` needs the
+# state lock), so they check edit rights inside ``async with self``.
 INLINE_ADMIN_CHECK: dict[str, frozenset[str]] = {
     state: frozenset({"load"})
     for state in (
@@ -48,6 +60,15 @@ INLINE_ADMIN_CHECK: dict[str, frozenset[str]] = {
 # reaches the database, the alloq account decides who gets a session.
 PRE_AUTH_HANDLERS: dict[str, frozenset[str]] = {
     "DesktopLoginState": frozenset({"sign_in_with_microsoft", "sign_out"}),
+}
+
+# Loads that only read; the employee role may run them (``@requires_viewer``).
+VIEWER_HANDLERS: dict[str, frozenset[str]] = {
+    "ProjectState": frozenset(
+        {"load_projects", "select_project", "select_project_with_tab"}
+    ),
+    "ProjectResourceState": frozenset({"load_selected"}),
+    "PlanningStore": frozenset({"load", "refresh", "reload_with_time_range"}),
 }
 
 UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
@@ -165,7 +186,7 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
             "has_errors",
             "initialize",
             "set_budget",
-            "set_cats_number",
+            "set_booking_number",
             "set_code",
             "set_color",
             "set_customer",
@@ -249,6 +270,7 @@ DB_MARKERS = (
     "create_quick_project",
 )
 _SELF_CALL = re.compile(r"self\.(\w+)\(")
+WRITE_MARKERS = re.compile(r"\.(?:commit|add|delete|merge|create|update|save)\w*\(")
 
 
 def _import_all() -> None:
@@ -292,14 +314,34 @@ def _wrapper_chain(fn: Callable[..., Any]) -> Iterator[Callable[..., Any]]:
         current = getattr(current, "__wrapped__", None)
 
 
-def _is_requires_admin(fn: Callable[..., Any]) -> bool:
+def _is_decorated_by(fn: Callable[..., Any], decorator: str) -> bool:
     # functools.wraps copies __qualname__, but not the wrapper's code object.
     return any(
         getattr(getattr(f, "__code__", None), "co_qualname", "").startswith(
-            "requires_admin."
+            f"{decorator}."
         )
         for f in _wrapper_chain(fn)
     )
+
+
+def _access_level(fn: Callable[..., Any], level: str) -> bool:
+    return any(getattr(f, ACCESS_LEVEL_ATTR, None) == level for f in _wrapper_chain(fn))
+
+
+def _is_requires_admin(fn: Callable[..., Any]) -> bool:
+    return _is_decorated_by(fn, "requires_admin")
+
+
+def _is_requires_editor(fn: Callable[..., Any]) -> bool:
+    return _access_level(fn, "editor")
+
+
+def _is_requires_viewer(fn: Callable[..., Any]) -> bool:
+    return _access_level(fn, "viewer")
+
+
+def _is_guarded(fn: Callable[..., Any]) -> bool:
+    return _is_requires_admin(fn) or _is_requires_editor(fn)
 
 
 def _db_markers(
@@ -333,15 +375,68 @@ def test_every_handler_is_admin_guarded_or_ui_only() -> None:
         f"{state_name}.{name}"
         for state_name, state in STATES.items()
         for name, handler in _handlers(state).items()
-        if not _is_requires_admin(handler.fn)
+        if not _is_guarded(handler.fn)
+        and not (
+            _is_requires_viewer(handler.fn)
+            and name in VIEWER_HANDLERS.get(state_name, frozenset())
+        )
         and name not in INLINE_ADMIN_CHECK.get(state_name, frozenset())
         and name not in UI_ONLY_HANDLERS.get(state_name, frozenset())
         and name not in PRE_AUTH_HANDLERS.get(state_name, frozenset())
     )
     assert unguarded == [], (
-        "Guard these handlers with @requires_admin, or add them to "
-        "UI_ONLY_HANDLERS if they only change UI state"
+        "Guard these handlers with @requires_editor (@requires_admin in the "
+        "administration), or add them to UI_ONLY_HANDLERS if they only change "
+        "UI state"
     )
+
+
+def _is_editor_state(state_name: str, state: type[rx.State]) -> bool:
+    return (
+        state.__module__.split(".")[0] in EDITOR_PACKAGES or state_name in EDITOR_STATES
+    )
+
+
+def test_planning_handlers_are_open_to_project_managers() -> None:
+    admin_guarded = sorted(
+        f"{state_name}.{name}"
+        for state_name, state in STATES.items()
+        if _is_editor_state(state_name, state)
+        for name, handler in _handlers(state).items()
+        if _is_requires_admin(handler.fn)
+    )
+    assert admin_guarded == [], "Use @requires_editor outside the administration"
+
+
+def test_administration_handlers_stay_admin_only() -> None:
+    assert ADMIN_STATES <= set(STATES)
+    opened = sorted(
+        f"{state_name}.{name}"
+        for state_name in ADMIN_STATES
+        for name, handler in _handlers(STATES[state_name]).items()
+        if _is_requires_editor(handler.fn) or _is_requires_viewer(handler.fn)
+    )
+    assert opened == []
+
+
+def test_viewer_handlers_are_exactly_the_allowlist() -> None:
+    viewer_guarded = {
+        (state_name, name)
+        for state_name, state in STATES.items()
+        for name, handler in _handlers(state).items()
+        if _is_requires_viewer(handler.fn)
+    }
+    allowed = {(s, n) for s, names in VIEWER_HANDLERS.items() for n in names}
+    assert viewer_guarded == allowed
+
+
+@pytest.mark.parametrize(
+    ("state_name", "name"),
+    sorted((s, n) for s, names in VIEWER_HANDLERS.items() for n in names),
+)
+def test_viewer_handler_does_not_write(state_name: str, name: str) -> None:
+    source = inspect.getsource(inspect.unwrap(_handlers(STATES[state_name])[name].fn))
+    assert not WRITE_MARKERS.findall(source)
 
 
 def test_allowlists_have_no_stale_entries() -> None:
@@ -352,7 +447,7 @@ def test_allowlists_have_no_stale_entries() -> None:
             stale += [
                 f"{state_name}.{name}"
                 for name in names
-                if name not in handlers or _is_requires_admin(handlers[name].fn)
+                if name not in handlers or _is_guarded(handlers[name].fn)
             ]
     assert stale == []
 
@@ -370,7 +465,7 @@ def test_ui_only_handler_does_not_reach_database(state_name: str, name: str) -> 
     ("state_name", "name"),
     sorted((s, n) for s, names in INLINE_ADMIN_CHECK.items() for n in names),
 )
-def test_background_handlers_check_admin_inside_state_lock(
+def test_background_handlers_check_edit_rights_inside_state_lock(
     state_name: str, name: str
 ) -> None:
     state = STATES[state_name]
@@ -379,18 +474,19 @@ def test_background_handlers_check_admin_inside_state_lock(
     assert "self._run_card_load(" in inspect.getsource(inspect.unwrap(handler.fn))
     runner = inspect.getsource(inspect.getattr_static(state, "_run_card_load"))
     lock = runner.index("async with self:")
-    check = runner.index("await _is_admin(self")
+    check = runner.index("await _can_edit(self")
     load = runner.index("await loader()")
     assert lock < check < load
 
 
-def test_requires_admin_is_not_used_on_background_handlers() -> None:
+def test_guards_are_not_used_on_background_handlers() -> None:
     # A background StateProxy only allows get_state while holding the lock,
-    # which @requires_admin does not take.
+    # which the guard decorators do not take.
     offenders = sorted(
         f"{state_name}.{name}"
         for state_name, state in STATES.items()
         for name, handler in _handlers(state).items()
-        if handler.is_background and _is_requires_admin(handler.fn)
+        if handler.is_background
+        and (_is_guarded(handler.fn) or _is_requires_viewer(handler.fn))
     )
     assert offenders == []

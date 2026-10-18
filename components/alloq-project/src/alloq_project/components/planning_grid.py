@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import reflex as rx
+from alloq_commons.access import editor_only
 from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.excel_grid import grid_row_attrs
 from alloq_commons.components.formatters import de_number, match_str
@@ -163,35 +164,37 @@ def _employee_header_row(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
 
 def _employee_info_cell(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
     return block_header_info_cell(
-        mn.group(
-            mn.tooltip(
-                mn.action_icon(
-                    rx.icon("plus", size=14, stroke_width=2),
-                    variant="subtle",
-                    color="gray",
-                    size="xs",
-                    aria_label="Projekt zuweisen",
-                    on_click=PlanningStore.open_add_project_for_employee(  # ty: ignore[invalid-argument-type]
-                        emp.id,
+        editor_only(
+            mn.group(
+                mn.tooltip(
+                    mn.action_icon(
+                        rx.icon("plus", size=14, stroke_width=2),
+                        variant="subtle",
+                        color="gray",
+                        size="xs",
+                        aria_label="Projekt zuweisen",
+                        on_click=PlanningStore.open_add_project_for_employee(  # ty: ignore[invalid-argument-type]
+                            emp.id,
+                        ),
                     ),
+                    label="Projekt zuweisen",
                 ),
-                label="Projekt zuweisen",
-            ),
-            mn.tooltip(
-                mn.action_icon(
-                    rx.icon("calendar-plus", size=14, stroke_width=2),
-                    variant="subtle",
-                    color="gray",
-                    size="xs",
-                    aria_label="Abwesenheit eintragen",
-                    on_click=TeamState.select_employee_and_add_absence(  # ty: ignore[invalid-argument-type]
-                        emp.real_id,
+                mn.tooltip(
+                    mn.action_icon(
+                        rx.icon("calendar-plus", size=14, stroke_width=2),
+                        variant="subtle",
+                        color="gray",
+                        size="xs",
+                        aria_label="Abwesenheit eintragen",
+                        on_click=TeamState.select_employee_and_add_absence(  # ty: ignore[invalid-argument-type]
+                            emp.real_id,
+                        ),
                     ),
+                    label="Abwesenheit eintragen",
                 ),
-                label="Abwesenheit eintragen",
+                gap="xs",
+                wrap="nowrap",
             ),
-            gap="xs",
-            wrap="nowrap",
         ),
         background=EMP_HEADER_BG,
         end=[
@@ -234,23 +237,25 @@ def _project_label_cell(project: ObjectVar[ProjectAllocationRow]) -> rx.Componen
                 ),
                 rx.fragment(),
             ),
-            mn.box(
-                mn.tooltip(
-                    delete_dialog(
-                        title="Projektzuweisung entfernen",
-                        content=f"{project.code} — {project.name}",
-                        on_click=PlanningStore.remove_project_from_employee_grid(  # ty: ignore[invalid-argument-type]
-                            project.emp_id, project.real_project_id
+            editor_only(
+                mn.box(
+                    mn.tooltip(
+                        delete_dialog(
+                            title="Projektzuweisung entfernen",
+                            content=f"{project.code} — {project.name}",
+                            on_click=PlanningStore.remove_project_from_employee_grid(  # ty: ignore[invalid-argument-type]
+                                project.emp_id, project.real_project_id
+                            ),
+                            icon_button=True,
+                            color="red",
+                            size="xs",
+                            variant="subtle",
                         ),
-                        icon_button=True,
-                        color="red",
-                        size="xs",
-                        variant="subtle",
+                        label="Projekt entfernen",
                     ),
-                    label="Projekt entfernen",
+                    class_name=ROW_DELETE_CLASS,
+                    display="flex",
                 ),
-                class_name=ROW_DELETE_CLASS,
-                display="flex",
             ),
             gap="sm",
             align="center",

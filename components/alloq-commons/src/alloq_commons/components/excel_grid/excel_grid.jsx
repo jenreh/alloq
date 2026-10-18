@@ -144,6 +144,7 @@ export function ExcelGrid({
   decimalSeparator = ",",
   invalidMessage = "Ungültige Zahl",
   saving = false,
+  readOnly = false,
   leaveTitle = "Ungespeicherte Änderungen",
   leaveMessage = "Es gibt ungespeicherte Änderungen. Möchtest du die Seite wirklich verlassen?",
   leaveStayLabel = "Bleiben",
@@ -301,6 +302,7 @@ export function ExcelGrid({
 
   const applyChanges = useCallback(
     (changes, { record = true } = {}) => {
+      if (readOnly) return;
       const batch = G.withBefore(changes, getValue);
       if (!batch.length) return;
       const pending = pendingRef.current;
@@ -317,7 +319,7 @@ export function ExcelGrid({
         redoRef.current = [];
       }
     },
-    [getValue, onCommit],
+    [getValue, onCommit, readOnly],
   );
 
   const history = useCallback(
@@ -341,7 +343,7 @@ export function ExcelGrid({
   const startEdit = useCallback(
     (mode, initial) => {
       const cur = current();
-      if (!cur) return;
+      if (!cur || readOnly) return;
       const key = G.keyAt(cur.lay, cur.focus);
       const el = cur.lay.els.get(key);
       const root = rootRef.current;
@@ -360,7 +362,7 @@ export function ExcelGrid({
       setEditor({ key, value, mode, invalid: false, box });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [current, getValue, decimals, decimalSeparator],
+    [current, getValue, decimals, decimalSeparator, readOnly],
   );
 
   useLayoutEffect(() => {
@@ -544,7 +546,7 @@ export function ExcelGrid({
 
   /** Selection rect when the pointer is on the fill handle, else null. */
   const handleHit = (e) => {
-    if (editor || !sel.focusKey) return null;
+    if (readOnly || editor || !sel.focusKey) return null;
     const cur = current();
     const el = cur && cur.lay.els.get(G.keyAt(cur.lay, { r: cur.rect.r1, c: cur.rect.c1 }));
     if (!el) return null;
@@ -632,7 +634,7 @@ export function ExcelGrid({
   // --- render -------------------------------------------------------------
 
   void layoutVersion; // re-render selection CSS after DOM changes
-  const css = id ? selectionCss(id, layout(), sel, { handle: !editor, fill: fill?.target }) : "";
+  const css = id ? selectionCss(id, layout(), sel, { handle: !editor && !readOnly, fill: fill?.target }) : "";
 
   return (
     <div

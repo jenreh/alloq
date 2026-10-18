@@ -7,9 +7,9 @@ from alloq_commons.components.modal_layout import (
     modal_form_layout,
 )
 from alloq_commons.models.role import Role
-from alloq_project.states.project_state import (
+from alloq_project.states.project_state import ProjectState
+from alloq_project.states.project_validation_state import (
     PROJECT_COLORS,
-    ProjectState,
     ProjectValidationState,
 )
 from reflex.event import EventType
@@ -54,11 +54,11 @@ def project_form_fields() -> rx.Component:
                 max_length=255,
             ),
             mn.text_input(
-                name="cats_number",
-                label="CATS-Buchungsnr.",
+                name="booking_number",
+                label="Buchungsnummer",
                 placeholder="z.B. 4711-0815",
-                default_value=ProjectValidationState.cats_number,
-                on_blur=ProjectValidationState.set_cats_number,
+                default_value=ProjectValidationState.booking_number,
+                on_blur=ProjectValidationState.set_booking_number,
                 max_length=50,
                 w="14rem",
             ),

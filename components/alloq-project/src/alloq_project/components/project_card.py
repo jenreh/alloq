@@ -1,4 +1,5 @@
 import reflex as rx
+from alloq_commons.access import editor_only
 from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.formatters import (
     de_number,
@@ -112,18 +113,20 @@ def project_card(project: ObjectVar[Project]) -> rx.Component:
                                         "fontWeight": "700",
                                     },
                                 ),
-                                mn.box(
-                                    delete_dialog(
-                                        title="Projekt löschen",
-                                        content=project.name_de,
-                                        on_click=ProjectState.delete_project(  # ty: ignore[invalid-argument-type]
-                                            project.id
+                                editor_only(
+                                    mn.box(
+                                        delete_dialog(
+                                            title="Projekt löschen",
+                                            content=project.name_de,
+                                            on_click=ProjectState.delete_project(  # ty: ignore[invalid-argument-type]
+                                                project.id
+                                            ),
+                                            icon_button=True,
+                                            color="red",
+                                            variant="subtle",
                                         ),
-                                        icon_button=True,
-                                        color="red",
-                                        variant="subtle",
+                                        on_click=rx.stop_propagation,
                                     ),
-                                    on_click=rx.stop_propagation,
                                 ),
                                 gap="xs",
                                 align="center",

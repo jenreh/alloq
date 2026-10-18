@@ -234,6 +234,211 @@ class RiskKpi(BaseModel):
     trend: list[TrendPoint] = []
 
 
+class PortfolioRoleLine(BaseModel):
+    """One role of a project on the resource-critical path."""
+
+    role_id: int = 0
+    role_name: str = ""
+    required_days: float = 0.0
+    remaining_days: float = 0.0
+    planned_days: float = 0.0
+    gap_days: float = 0.0
+    buffer_weeks: int | None = None
+    buffer_label: str = ""
+    buffer_tone: str = ""
+    covered: bool = True
+    carriers: list[str] = []
+    person_id: int = 0
+    person_label: str = ""
+    tone: str = ""
+    reason: str = ""
+
+
+class PortfolioProject(BaseModel):
+    """A project in scope with health, buffer and its weakest link."""
+
+    id: int = 0
+    code: str = ""
+    name: str = ""
+    state: str = ""
+    end_label: str = ""
+    progress: int = 0
+    elapsed_percent: int = 0
+    budget: int = 0
+    eac: float = 0.0
+    eac_delta_percent: float = 0.0
+    health: str = ""
+    has_buffer: bool = False
+    buffer_weeks: int = 0
+    buffer_label: str = ""
+    buffer_tone: str = ""
+    weakest: PortfolioRoleLine = PortfolioRoleLine()
+    roles: list[PortfolioRoleLine] = []
+
+
+class PortfolioBubble(BaseModel):
+    """Plot position of an active project: time elapsed vs. progress."""
+
+    project_id: int = 0
+    code: str = ""
+    health: str = ""
+    negative_buffer: bool = False
+    left: str = "0"
+    top: str = "0"
+    size: str = "16px"
+    label_left: str = "0"
+    label_top: str = "0"
+    tooltip: str = ""
+
+
+class RiskMatrixCell(BaseModel):
+    """Open risks with one probability and impact."""
+
+    key: str = ""
+    probability: int = 0
+    impact: int = 0
+    score: int = 0
+    band: str = "r1"
+    count: int = 0
+
+
+class RiskMatrixRow(BaseModel):
+    """One probability row of the 5x5 risk matrix (impact 1..5)."""
+
+    probability: int = 0
+    cells: list[RiskMatrixCell] = []
+
+
+class RoleDemand(BaseModel):
+    """Available, planned and needed person-days of a role over the horizon."""
+
+    role_id: int = 0
+    role_name: str = ""
+    employee_count: int = 0
+    available_days: float = 0.0
+    planned_days: float = 0.0
+    need_days: float = 0.0
+    gap_days: float = 0.0
+    plan_width: str = "0%"
+    over_width: str = "0%"
+    need_left: str = "0%"
+    overbooked: bool = False
+
+
+class RoleWeek(BaseModel):
+    """Available, planned and free days of a role in one week."""
+
+    label: str = ""
+    available_days: float = 0.0
+    planned_days: float = 0.0
+    free_days: float = 0.0
+    tone: str = ""
+
+
+class RolePerson(BaseModel):
+    """A person holding a role, with days planned in it over the horizon."""
+
+    employee_id: int = 0
+    name: str = ""
+    planned_days: float = 0.0
+    avg_percent: int = 0
+    tone: str = ""
+
+
+class RoleGapProject(BaseModel):
+    """A project with unplanned demand for a role."""
+
+    project_id: int = 0
+    code: str = ""
+    name: str = ""
+    gap_days: float = 0.0
+    buffer_label: str = ""
+    buffer_tone: str = ""
+
+
+class RoleDetail(BaseModel):
+    """Drawer content of one role over the 13-week horizon."""
+
+    role_id: int = 0
+    role_name: str = ""
+    employee_count: int = 0
+    available_days: float = 0.0
+    planned_days: float = 0.0
+    free_days: float = 0.0
+    weeks: list[RoleWeek] = []
+    people: list[RolePerson] = []
+    gap_projects: list[RoleGapProject] = []
+
+
+class PersonWeek(BaseModel):
+    """Utilization of a person in one week."""
+
+    label: str = ""
+    booked_days: float = 0.0
+    available_days: float = 0.0
+    percent: int = 0
+    absent: bool = False
+    tone: str = ""
+    bar_width: str = "0%"
+
+
+class PersonAbsence(BaseModel):
+    """An absence inside the horizon, with its work days."""
+
+    label: str = ""
+    days: int = 0
+
+
+class PersonBooking(BaseModel):
+    """Days a person is booked on a project in one role over the horizon."""
+
+    project_id: int = 0
+    code: str = ""
+    name: str = ""
+    role_id: int = 0
+    role_name: str = ""
+    days: float = 0.0
+    in_scope: bool = False
+
+
+class PersonDetail(BaseModel):
+    """Drawer content of one person over the 13-week horizon."""
+
+    employee_id: int = 0
+    name: str = ""
+    roles_label: str = ""
+    avg_percent: int = 0
+    tone: str = ""
+    absent_days: int = 0
+    weeks: list[PersonWeek] = []
+    absences: list[PersonAbsence] = []
+    bookings: list[PersonBooking] = []
+
+
+class PortfolioKpi(BaseModel):
+    """Payload of the portfolio overview (dashboard variant C)."""
+
+    scope: str = "department"
+    notice: str = ""
+    department_employee_count: int = 0
+    team_employee_count: int = 0
+    projects: list[PortfolioProject] = []
+    bubbles: list[PortfolioBubble] = []
+    not_plotted_label: str = ""
+    matrix: list[RiskMatrixRow] = []
+    risks: list[RiskItem] = []
+    risk_open_total: int = 0
+    risk_high: int = 0
+    risk_medium: int = 0
+    risk_low: int = 0
+    chains: list[PortfolioProject] = []
+    comfortable_label: str = ""
+    roles: list[RoleDemand] = []
+    gap_total: float = 0.0
+    role_details: list[RoleDetail] = []
+    person_details: list[PersonDetail] = []
+
+
 ProjectsOverviewKpi.model_rebuild()
 ProjectHealthKpi.model_rebuild()
 TopRiskProject.model_rebuild()

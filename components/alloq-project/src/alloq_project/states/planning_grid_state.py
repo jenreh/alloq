@@ -17,6 +17,7 @@ from collections.abc import AsyncGenerator
 from typing import Any
 
 import reflex as rx
+from alloq_commons.access import requires_editor, requires_viewer
 from alloq_commons.entities import CapacityEntity, RoleEntity
 from alloq_commons.models.employee import Employee
 from alloq_commons.models.project import Project
@@ -72,7 +73,9 @@ from alloq_project.states.planning_display_mixin import PlanningDisplayState
 from alloq_project.states.planning_filter_mixin import (
     GRID_VIEW,
     PROJECT_VIEW,
+    SAVED_ON,
     PlanningFilterMixin,
+    saved_flag,
 )
 from alloq_project.states.planning_models import (
     LABEL_COL_PX,
@@ -94,7 +97,6 @@ from alloq_project.states.planning_models import (
 from sqlalchemy import select
 
 from appkit_commons.database.session import get_asyncdb_session
-from appkit_user.authentication.decorators import requires_admin
 from appkit_user.authentication.states import UserSession
 
 log = logging.getLogger(__name__)
@@ -159,6 +161,8 @@ class PlanningStore(
 
     collapsed_employees: rx.Field[list[str]] = rx.field(default_factory=list)
     collapsed_projects: rx.Field[list[str]] = rx.field(default_factory=list)
+    # Browser copy of "collapse all", applied again whenever the grid loads.
+    saved_sections_collapsed: str = rx.LocalStorage("", name="alloq_planning_collapsed")
 
     add_project_emp_id: rx.Field[str] = rx.field("")
     add_project_options: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
@@ -553,6 +557,8 @@ class PlanningStore(
         self.cells = {**cells, **visible}
         self.hidden_edits = hidden
         self.dirty_keys = dirty_keys_for(self.cells, self.saved_cells)
+        if self.saved_sections_collapsed == SAVED_ON:
+            self._collapse_all_sections()
         self.is_loaded = True
 
     async def _load_entities(self) -> None:
@@ -586,13 +592,14 @@ class PlanningStore(
         )
 
     @rx.event
-    @requires_admin
+    @requires_viewer
     async def load(self) -> AsyncGenerator[Any]:
         """Load entity caches and populate the grid for the current time range."""
         self.is_loading = True
         yield self._focus_employee_from_url()
         try:
             await self._load_entities()
+            self._restore_saved_scopes()
             await self._populate(self._range_weeks())
         except Exception as exc:  # noqa: BLE001
             log.error("Failed to load planning data: %s", exc)
@@ -604,14 +611,14 @@ class PlanningStore(
         yield
 
     @rx.event
-    @requires_admin
+    @requires_viewer
     async def refresh(self) -> None:
         """Reload entities and allocations, keeping unsaved grid edits."""
         await self._load_entities()
         await self._populate(self._range_weeks(), keep_edits=True)
 
     @rx.event
-    @requires_admin
+    @requires_viewer
     async def reload_with_time_range(self, time_range: str) -> Any:
         """Reload for another range, carrying unsaved edits over."""
         await self._populate(self._range_weeks(time_range), keep_edits=True)
@@ -668,6 +675,7 @@ class PlanningStore(
             ]
         else:
             self.collapsed_employees = [*self.collapsed_employees, emp_id]
+        self._save_sections_collapsed()
 
     @rx.event
     def toggle_project(self, project_id: str) -> None:
@@ -677,6 +685,7 @@ class PlanningStore(
             ]
         else:
             self.collapsed_projects = [*self.collapsed_projects, project_id]
+        self._save_sections_collapsed()
 
     @rx.var
     def all_sections_collapsed(self) -> bool:
@@ -693,15 +702,21 @@ class PlanningStore(
         if self.all_sections_collapsed:
             self.collapsed_employees = []
             self.collapsed_projects = []
-            return
+        else:
+            self._collapse_all_sections()
+        self._save_sections_collapsed()
 
+    def _collapse_all_sections(self) -> None:
         self.collapsed_employees = [employee["id"] for employee in self.employee_meta]
         self.collapsed_projects = [project["id"] for project in self.project_meta]
+
+    def _save_sections_collapsed(self) -> None:
+        self.saved_sections_collapsed = saved_flag(self.all_sections_collapsed)
 
     # === Save ===
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def save_grid(self) -> AsyncGenerator[Any]:
         if self.is_saving:
             return
@@ -807,7 +822,7 @@ class PlanningStore(
         self._reset_quick_create()
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def quick_create_project(self) -> AsyncGenerator[Any]:
         """Create a project from the inline fields and select it."""
         self.is_quick_creating = True
@@ -841,7 +856,7 @@ class PlanningStore(
         )
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def add_project_to_employee_grid(
         self, form_data: dict
     ) -> AsyncGenerator[Any]:
@@ -910,7 +925,7 @@ class PlanningStore(
         }
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def remove_project_from_employee_grid(
         self, emp_id: str, project_id: int
     ) -> AsyncGenerator[Any]:

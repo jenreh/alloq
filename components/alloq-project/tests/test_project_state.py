@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from alloq_commons.models.employee import Employee
 from alloq_commons.models.project import Project, ProjectStatus, Risk
+from alloq_commons.roles import EMPLOYEE_ROLE
 from alloq_project.states.project_state import (
     _EMPLOYEE_PAGE_SIZE,
     ProjectState,
@@ -184,9 +185,11 @@ class _FakeLogin:
         return None
 
 
-def _login_as(state: Any, *, is_admin: bool = True) -> None:
+def _login_as(
+    state: Any, *, is_admin: bool = True, roles: list[str] | None = None
+) -> None:
     """Route the state's get_state(LoginState) to a fake (non-)admin user."""
-    login = _FakeLogin(SimpleNamespace(user_id=1, is_admin=is_admin))
+    login = _FakeLogin(SimpleNamespace(user_id=1, is_admin=is_admin, roles=roles or []))
 
     async def _get_state(_cls: type) -> Any:
         return login
@@ -287,6 +290,23 @@ class TestProjectStateAuthorization:
             await _drain(state.load_projects())
 
         repo.find_all_with_stats.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_employee_can_load_but_not_delete_projects(self) -> None:
+        state = ProjectState()
+        _login_as(state, is_admin=False, roles=[EMPLOYEE_ROLE.name])
+
+        with (
+            patch.object(ProjectState, "_load_projects", AsyncMock()) as load,
+            patch.object(ProjectState, "_load_reference_data", AsyncMock()),
+            patch(f"{MODULE}.project_repo") as repo,
+        ):
+            repo.delete_by_id = AsyncMock(return_value=True)
+            await _drain(state.load_projects())
+            await _drain(state.delete_project(1))
+
+        load.assert_awaited_once()
+        repo.delete_by_id.assert_not_awaited()
 
 
 class TestProjectStateHandlers:
@@ -670,7 +690,7 @@ class TestProjectStateHandlers:
         form["is_internal"] = "on"
         assert state._project_create_from_form(form).is_internal is True
 
-    def test_form_cats_number_is_trimmed(self) -> None:
+    def test_form_booking_number_is_trimmed(self) -> None:
         state = ProjectState()
         form = {
             "code": "P1",
@@ -679,6 +699,6 @@ class TestProjectStateHandlers:
             "end_date": "2026-12-31",
         }
 
-        assert state._project_create_from_form(form).cats_number == ""
-        form["cats_number"] = "  4711-0815 "
-        assert state._project_create_from_form(form).cats_number == "4711-0815"
+        assert state._project_create_from_form(form).booking_number == ""
+        form["booking_number"] = "  4711-0815 "
+        assert state._project_create_from_form(form).booking_number == "4711-0815"

@@ -1,6 +1,7 @@
 """Absence timeline: day-precise bars, week coverage and upcoming absences."""
 
 import reflex as rx
+from alloq_commons.access import CAN_EDIT, editor_only
 from alloq_commons.components.dialogs import delete_dialog
 from alloq_project.components.planning_shared import (
     GRID_WRAPPER_STYLE,
@@ -71,6 +72,7 @@ class _AbsenceLane(rx.Component):
     min_day: rx.Var[int]
     start_iso: rx.Var[str]
     holidays: rx.Var[list[int]]
+    disabled: rx.Var[bool]
     on_select_range: rx.EventHandler[lambda start, end: [start, end]]
 
 
@@ -274,15 +276,17 @@ def _bar_details(
                 ),
                 gap=2,
             ),
-            delete_dialog(
-                "Abwesenheit löschen",
-                f"die Abwesenheit von {row.name} ({bar.period})",
-                PlanningAbsenceState.delete_absence(bar.absence_id),  # ty: ignore[invalid-argument-type]
-                icon_button=True,
-                variant="subtle",
-                color="red",
-                size="md",
-                custom_attrs={"aria-label": "Abwesenheit löschen"},
+            editor_only(
+                delete_dialog(
+                    "Abwesenheit löschen",
+                    f"die Abwesenheit von {row.name} ({bar.period})",
+                    PlanningAbsenceState.delete_absence(bar.absence_id),  # ty: ignore[invalid-argument-type]
+                    icon_button=True,
+                    variant="subtle",
+                    color="red",
+                    size="md",
+                    custom_attrs={"aria-label": "Abwesenheit löschen"},
+                )
             ),
             justify="space-between",
             align="flex-start",
@@ -446,6 +450,7 @@ def _row(row: ObjectVar[AbsenceGanttRow]) -> rx.Component:
             min_day=GANTT.min_day,
             start_iso=GANTT.horizon_start,
             holidays=GANTT.holiday_days,
+            disabled=~CAN_EDIT,
             on_select_range=lambda start, end: PlanningAbsenceState.start_absence(
                 row.real_id, start, end
             ),

@@ -7,12 +7,20 @@ PROJECT_MANAGER_ROLE = Role(
     id=1,
     name="project_manager",
     label="Projektmanager",
-    description="Berechtigung für den Projektmanager",
+    description="Voller Zugriff auf Planung, Projekte und Team, ohne Administration",
+)
+
+EMPLOYEE_ROLE = Role(
+    id=2,
+    name="employee",
+    label="Mitarbeiter",
+    description="Lesezugriff auf Projekte und Ressourcenplanung",
 )
 
 
 ALL_ROLES: list[Role] = [
     PROJECT_MANAGER_ROLE,
+    EMPLOYEE_ROLE,
 ]
 
 DEPARTMENT_ROLE_GROUP = "Abteilungen"

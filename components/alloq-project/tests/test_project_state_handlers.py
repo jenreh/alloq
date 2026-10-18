@@ -579,7 +579,7 @@ class TestProjectValidationInitialize:
 
         assert (state.code, state.code_error) == ("", "")
         assert state.is_internal is False
-        assert state.cats_number == ""
+        assert state.booking_number == ""
         assert state.role_capacities == {"1": 0, "2": 0}
         assert state.form_version == 1
 
@@ -598,14 +598,14 @@ class TestProjectValidationInitialize:
             end_date=date(2026, 6, 30),
             budget=500,
             is_internal=True,
-            cats_number="4711-0815",
+            booking_number="4711-0815",
             owner_ids=[5],
             required_capacities=[RequiredCapacity(role_id=2, person_days=8)],
         )
 
         await _initialize_fn()(state, project)
         assert state.is_internal is True
-        assert state.cats_number == "4711-0815"
+        assert state.booking_number == "4711-0815"
 
         assert (state.code, state.customer, state.budget) == ("P1", "Acme", 500)
         assert (state.start_date, state.end_date) == ("2026-01-01", "2026-06-30")

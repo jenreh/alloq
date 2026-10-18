@@ -1,4 +1,5 @@
 import reflex as rx
+from alloq_commons.access import no_access, viewer_only
 from alloq_commons.components.shell import app_page
 from alloq_commons.components.toolbar import scope_bar, window_toolbar
 
@@ -19,7 +20,6 @@ from alloq_project.components.project_plan_modal import project_plan_modal
 from alloq_project.components.project_toolbar import project_filter, project_toolbar
 from alloq_project.states.planning_grid_state import PlanningStore
 from alloq_project.states.project_state import ProjectState
-from appkit_user.authentication.components.components import requires_admin
 
 
 def create_planning_page(
@@ -50,11 +50,10 @@ def create_planning_page(
             )
         ),
         padded=False,
-        admin_only=True,
         on_load=PlanningStore.load,
     )
     def _planning_page() -> rx.Component:
-        return requires_admin(
+        return viewer_only(
             mn.box(
                 rx.match(
                     PlanningStore.view_mode,
@@ -66,6 +65,7 @@ def create_planning_page(
                 project_plan_modal(),
                 class_name="aq-planning-body",
             ),
+            fallback=no_access(),
         )
 
     return _planning_page
@@ -88,10 +88,9 @@ def create_projects_overview_page(
             actions=project_toolbar(),
         ),
         padded=False,
-        admin_only=True,
         on_load=[ProjectState.load_projects],
     )
     def _projects_overview_page() -> rx.Component:
-        return requires_admin(project_overview())
+        return viewer_only(project_overview(), fallback=no_access())
 
     return _projects_overview_page

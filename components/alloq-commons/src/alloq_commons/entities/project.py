@@ -76,7 +76,7 @@ class ProjectEntity(Entity, Base):
     is_internal: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
-    cats_number: Mapped[str | None] = mapped_column(
+    booking_number: Mapped[str | None] = mapped_column(
         String(50), nullable=True, default=""
     )
     ev_earned_value: Mapped[float | None] = mapped_column(
@@ -143,7 +143,7 @@ class ProjectEntity(Entity, Base):
             "budget": self.budget,
             "color": self.color,
             "is_internal": bool(self.is_internal),
-            "cats_number": self.cats_number or "",
+            "booking_number": self.booking_number or "",
             "owner_ids": [owner.id for owner in self.owners] if self.owners else [],
             "current_progress": latest_status.progress if latest_status else 0,
             "current_spent": latest_status.budget_spent if latest_status else 0,

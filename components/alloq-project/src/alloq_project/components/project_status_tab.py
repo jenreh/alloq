@@ -1,4 +1,5 @@
 import reflex as rx
+from alloq_commons.access import editor_only
 from alloq_commons.components import de_number
 from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.formatters import format_date_de
@@ -251,17 +252,19 @@ def _history_row(status: ObjectVar) -> rx.Component:
                 ),
                 on_click=rx.stop_propagation,
             ),
-            rx.box(
-                delete_dialog(
-                    title="Status löschen",
-                    content="Status vom " + format_date_de(status.status_date),
-                    on_click=ProjectState.delete_project_status(status.id),
-                    icon_button=True,
-                    variant="subtle",
-                    color="red",
-                    size="sm",
+            editor_only(
+                rx.box(
+                    delete_dialog(
+                        title="Status löschen",
+                        content="Status vom " + format_date_de(status.status_date),
+                        on_click=ProjectState.delete_project_status(status.id),
+                        icon_button=True,
+                        variant="subtle",
+                        color="red",
+                        size="sm",
+                    ),
+                    on_click=rx.stop_propagation,
                 ),
-                on_click=rx.stop_propagation,
             ),
             w="100%",
             align="center",
@@ -395,7 +398,7 @@ def status_tab() -> rx.Component:
                 w="100%",
             ),
         ),
-        _status_form(),
+        editor_only(_status_form()),
         _status_history(),
         mn.space(h="2rem"),
         gap="md",

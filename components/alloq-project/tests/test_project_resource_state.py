@@ -53,7 +53,7 @@ async def _patch_states(
     """Log in as (non-)admin and route get_state(ProjectState) to a mock."""
 
     async def _user() -> Any:
-        return SimpleNamespace(user_id=1, is_admin=is_admin)
+        return SimpleNamespace(user_id=1, is_admin=is_admin, roles=[])
 
     async def _get_state(cls: type) -> Any:
         if cls is ProjectState:

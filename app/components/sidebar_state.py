@@ -6,13 +6,13 @@ from collections.abc import AsyncGenerator
 from typing import Any
 
 import reflex as rx
+from alloq_commons.access import requires_editor
 from alloq_commons.entities.employee import EmployeeEntity
 from alloq_commons.entities.project import ProjectEntity, ProjectStateEnum
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_commons.database.session import get_asyncdb_session
-from appkit_user.authentication.decorators import requires_admin
 from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ class SidebarState(UserSession):
     _loaded_at: float = 0.0
 
     @rx.event
-    @requires_admin
+    @requires_editor
     async def load(self) -> AsyncGenerator[Any]:
         if time.monotonic() - self._loaded_at < REFRESH_SECONDS:
             return

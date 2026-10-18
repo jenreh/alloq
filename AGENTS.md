@@ -12,6 +12,7 @@
 8. No `--autogenerate` for Alembic migrations; write manually.
 9. No `cat` to create files; use tools.
 10. Log default: `logger.debug`. Important events: `logger.info`. Issues only: `logger.warning/error`. **No `print`.**
+11. **Load `alloq-implementation` before any implementation task** (feature, fix, refactor, migration, tests); it maps Alloq's layers, guards and test recipes.
 
 > Prefer *local* changes over cross-module refactors.
 
@@ -138,6 +139,7 @@ Full rules in **python-coding** skill. Key:
 - [ ] No file > 1000 lines
 - [ ] Clean architecture, no code smells, used python-clean-code principles
 - [ ] Migrations reviewed & documented
+- [ ] Schema change (entity, table, column, FK) → `doc/database/schema.erd.json` updated and `doc/database/schema.html` re-rendered (see `doc/database/README.md`; `tests/test_schema_doc.py` enforces it)
 - [ ] Documentation & README.md updated
 - [ ] Memory updated (decisions, patterns, error→fix, learnings)
 
@@ -147,6 +149,7 @@ Full rules in **python-coding** skill. Key:
 
 | Skill | Purpose |
 | --- | --- |
+| `alloq-implementation` | **Load first for every code change.** Alloq layers, handler authorization, test recipes, definition of done |
 | `python-coding` | Python 3.14 style, logging, type annotations, design patterns, testing |
 | `python-clean-code` | Enforce Clean Code Developer (CCD) architecture and software quality principles |
 | `code-cleanup` | Refactor and simplify Python files modified in the current session if they get complex/big |

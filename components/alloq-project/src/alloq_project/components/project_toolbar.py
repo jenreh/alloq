@@ -1,4 +1,5 @@
 import reflex as rx
+from alloq_commons.access import editor_only
 from alloq_commons.components.toolbar import (
     icon_button,
     primary_button,
@@ -30,5 +31,7 @@ def project_toolbar() -> list[rx.Component]:
             ProjectState.toggle_inspector,
             active=ProjectState.show_inspector,
         ),
-        primary_button("Projekt anlegen", "plus", ProjectState.open_add_modal),
+        editor_only(
+            primary_button("Projekt anlegen", "plus", ProjectState.open_add_modal)
+        ),
     ]

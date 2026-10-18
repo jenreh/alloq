@@ -7,13 +7,17 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from alloq_commons.roles import PROJECT_MANAGER_ROLE
 from alloq_dashboard.states import RoleCapacityState
 
 from app.components import sidebar_state
 from app.components.sidebar import (
     ADMIN_ITEMS,
     PLANNING_ITEMS,
+    VIEWER_ROUTES,
+    _admin_section,
     _brand,
+    _guarded_nav_item,
     _user_menu,
     is_route_active,
     sidebar,
@@ -35,12 +39,12 @@ class _FakeLogin:
         return None
 
 
-USER = SimpleNamespace(user_id=1, is_admin=True, email="ada@example.com")
+USER = SimpleNamespace(user_id=1, is_admin=True, roles=[], email="ada@example.com")
 
 
-def _state(*, is_admin: bool = True) -> SidebarState:
+def _state(*, is_admin: bool = True, roles: list[str] | None = None) -> SidebarState:
     state = SidebarState()
-    user = SimpleNamespace(**{**vars(USER), "is_admin": is_admin})
+    user = SimpleNamespace(**{**vars(USER), "is_admin": is_admin, "roles": roles or []})
     object.__setattr__(state, "get_state", AsyncMock(return_value=_FakeLogin(user)))
     return state
 
@@ -90,6 +94,13 @@ class TestSidebarStateLoad:
         state.invalidate()
         assert state._loaded_at == 0.0
 
+    async def test_project_manager_loads_counts(self) -> None:
+        state = _state(is_admin=False, roles=[PROJECT_MANAGER_ROLE.name])
+        ctx, _session_mock = _session([3, 2])
+        with patch(f"{MODULE}.get_asyncdb_session", ctx):
+            await _run(state)
+        assert state.project_count == 3
+
     async def test_non_admin_is_refused(self) -> None:
         state = _state(is_admin=False)
         ctx, session = _session([])
@@ -123,6 +134,23 @@ class TestSidebarComponent:
         assert "aq-sidebar" in rendered
         assert "data-tauri-drag-region" in rendered
         assert "LucidePanelLeftClose" in rendered
+
+    def test_employees_see_only_planning_and_projects(self) -> None:
+        assert {"/plan", "/projects"} == VIEWER_ROUTES
+        for route, label, icon in PLANNING_ITEMS:
+            rendered = str(_guarded_nav_item(route, label, icon))
+            assert ('"employee"' in rendered) is (route in VIEWER_ROUTES)
+            assert "is_admin" in rendered
+
+    def test_project_managers_see_every_planning_page(self) -> None:
+        for route, label, icon in PLANNING_ITEMS:
+            rendered = str(_guarded_nav_item(route, label, icon))
+            assert f'"{PROJECT_MANAGER_ROLE.name}"' in rendered
+
+    def test_administration_stays_admin_only(self) -> None:
+        rendered = str(_admin_section())
+        assert "is_admin" in rendered
+        assert PROJECT_MANAGER_ROLE.name not in rendered
 
     def test_index_route_matches_both_paths(self) -> None:
         rendered = str(is_route_active("/"))

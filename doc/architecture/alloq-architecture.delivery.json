@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "d7b805ac-5974-4658-ba66-5c9722ebe28b",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/jens/Workspace/work/alloq/doc/architecture/alloq-architecture.json",
+  "output": "/Users/jens/Workspace/work/alloq/doc/architecture/alloq-architecture.html",
+  "specification": {
+    "sha256": "eb8708b78419a00eed2a74a8942de2d496bc2105293313945f702408df3a19ce",
+    "bytes": 9182
+  },
+  "artifact": {
+    "sha256": "cac3e73a9d4711fcdbb0e467e12888e3334d93760263704fde00cad4282fc666",
+    "bytes": 840921
+  }
+}

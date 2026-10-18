@@ -499,3 +499,86 @@ class TestRemoveProject:
         ):
             events = await _drain(state.remove_project_from_employee_grid("emp-1", 1))
         assert len(events) == 1
+
+
+class TestBrowserPersistedToolbar:
+    """Collapse-all and the scope toggles survive a new browser session."""
+
+    def test_scope_toggles_are_written_to_browser_storage(self) -> None:
+        state = _store()
+        state.current_employee_id = 9
+        state.toggle_project_scope()
+        state.toggle_employee_scope()
+        assert (state.saved_project_scope, state.saved_employee_scope) == ("1", "1")
+        state.toggle_project_scope()
+        state.toggle_employee_scope()
+        assert (state.saved_project_scope, state.saved_employee_scope) == ("", "")
+
+    def test_refused_scope_is_not_saved(self) -> None:
+        state = _store()
+        state.toggle_project_scope()
+        assert state.saved_project_scope == ""
+
+    @pytest.mark.asyncio
+    async def test_load_restores_saved_scopes(self) -> None:
+        state = PlanningStore()
+        state.saved_project_scope = state.saved_employee_scope = "1"
+
+        async def _entities() -> None:
+            state.current_employee_id = 9
+
+        with (
+            patch.object(PlanningStore, "_load_entities", AsyncMock(wraps=_entities)),
+            patch.object(PlanningStore, "_populate", AsyncMock()),
+        ):
+            await _drain(state.load())
+        assert (state.project_scope, state.employee_scope) == (True, True)
+
+    @pytest.mark.asyncio
+    async def test_load_ignores_saved_scopes_without_employee(self) -> None:
+        state = PlanningStore()
+        state.saved_project_scope = state.saved_employee_scope = "1"
+        with (
+            patch.object(PlanningStore, "_load_entities", AsyncMock()),
+            patch.object(PlanningStore, "_populate", AsyncMock()),
+        ):
+            await _drain(state.load())
+        assert (state.project_scope, state.employee_scope) == (False, False)
+
+    def test_clearing_filters_clears_saved_scopes(self) -> None:
+        state = _store()
+        state.saved_project_scope = state.saved_employee_scope = "1"
+        state.open_project(1)
+        assert (state.saved_project_scope, state.saved_employee_scope) == ("", "")
+
+    def test_toggle_all_sections_is_saved(self) -> None:
+        state = _store()
+        state.toggle_all_sections()
+        assert state.saved_sections_collapsed == "1"
+        state.toggle_all_sections()
+        assert state.saved_sections_collapsed == ""
+
+    def test_expanding_one_section_clears_saved_collapse(self) -> None:
+        state = _store()
+        state.toggle_all_sections()
+        state.toggle_employee("emp-1")
+        assert state.saved_sections_collapsed == ""
+        state.toggle_employee("emp-1")
+        assert state.saved_sections_collapsed == "1"
+
+    @pytest.mark.asyncio
+    async def test_populate_collapses_all_when_saved(self) -> None:
+        state = PlanningStore()
+        state.saved_sections_collapsed = "1"
+        state.available_employees = [Employee(id=1)]
+        state.available_projects = [Project(id=1)]
+        with (
+            patch.object(
+                PlanningStore, "_fetch_holidays", AsyncMock(return_value=set())
+            ),
+            patch.object(
+                PlanningStore, "_fetch_data", AsyncMock(return_value=([], []))
+            ),
+        ):
+            await state._populate(2)
+        assert state.all_sections_collapsed is True
