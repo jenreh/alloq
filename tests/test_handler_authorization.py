@@ -208,6 +208,8 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
             "close_add_project_for_employee",
             "notify_rejected",
             "open_add_project_for_employee",
+            "open_project",
+            "set_absence_show_all",
             "set_add_project_selected",
             "set_available_only",
             "set_employee_filter",
