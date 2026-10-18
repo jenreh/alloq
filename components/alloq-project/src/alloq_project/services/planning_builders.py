@@ -28,6 +28,7 @@ from alloq_project.states.planning_models import (
 )
 
 WORK_DAYS_PER_WEEK: int = 5
+WEEKDAYS = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
 
 
 def anchor_date() -> dt.date:
@@ -114,6 +115,14 @@ class CapAssignment:
 # === Pure helpers ===
 
 
+def week_title(week_no: int, start: dt.date, holidays: list[dt.date]) -> str:
+    """Tooltip of a week header cell, e.g. 'KW 52 · ab Mo 21.12.2026'."""
+    title = f"KW {week_no} · ab {WEEKDAYS[start.weekday()]} {start:%d.%m.%Y}"
+    if holidays:
+        title += " · Feiertag " + ", ".join(f"{d:%d.%m.}" for d in holidays)
+    return title
+
+
 def build_weeks(
     num_weeks: int,
     holiday_dates: set[dt.date] | None = None,
@@ -127,6 +136,11 @@ def build_weeks(
             d, holidays, workload_percent=100, base_work_days=float(WORK_DAYS_PER_WEEK)
         )
         month_label = f"{GERMAN_MONTHS[d.month - 1]} {d.year % 100}"
+        week_holidays = sorted(
+            day
+            for day in (d + dt.timedelta(days=i) for i in range(WORK_DAYS_PER_WEEK))
+            if day in holidays
+        )
         weeks.append(
             WeekColumn(
                 key=f"{d.year}_{d.month:02d}_{d.day:02d}",
@@ -136,6 +150,8 @@ def build_weeks(
                 work_days=work_days,
                 is_month_start=bool(weeks) and weeks[-1].month_label != month_label,
                 is_short=work_days < WORK_DAYS_PER_WEEK,
+                title=week_title(d.isocalendar().week, d, week_holidays),
+                holiday_days=[(day - d).days for day in week_holidays],
             )
         )
     spans: list[MonthSpan] = []

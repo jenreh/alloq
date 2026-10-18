@@ -223,6 +223,13 @@ def test_inspector_shows_team_member_planned_capacity() -> None:
     assert "update_inspected_project_state" in rendered
 
 
+def test_inspector_copies_cats_number_to_clipboard() -> None:
+    rendered = str(project_inspector())
+    assert "cats_number" in rendered
+    assert "clipboard" in rendered
+    assert "LucideCopy" in rendered
+
+
 class TestRendering:
     def test_list_has_groups_header_and_rows(self) -> None:
         rendered = str(project_list())

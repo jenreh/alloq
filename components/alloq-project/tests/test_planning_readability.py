@@ -3,13 +3,15 @@
 import datetime as dt
 
 from alloq_project.components.planning_grid import (
+    ABSENCE_HATCH,
+    _absence_value_cell,
     _employee_header_row,
     _gesamt_value_cell,
     _internal_row,
 )
 from alloq_project.components.planning_shared import (
+    HOLIDAY_IMAGE,
     editable_value_cell,
-    work_days_cell,
 )
 from alloq_project.services.planning_builders import (
     MINUS,
@@ -19,11 +21,13 @@ from alloq_project.services.planning_builders import (
     gesamt_state,
     mark_defaults,
     mark_repeats,
+    week_title,
 )
 from alloq_project.states.planning_display_mixin import (
     COMPACT,
     NORMAL,
     PlanningDisplayState,
+    holiday_bands,
 )
 from alloq_project.states.planning_grid_state import PlanningStore
 from alloq_project.states.planning_models import (
@@ -71,6 +75,19 @@ def test_build_weeks_marks_weeks_shortened_by_holidays() -> None:
     assert weeks[0].work_days == 4.0
     assert weeks[0].is_short is True
     assert weeks[1].is_short is False
+    assert weeks[0].title == week_title(weeks[0].week_no, anchor_date(), [holiday])
+    assert "Feiertag" not in weeks[1].title
+    assert weeks[0].holiday_days == [2]
+    assert weeks[1].holiday_days == []
+
+
+def test_week_title_names_start_day_and_holidays() -> None:
+    monday = dt.date(2026, 12, 21)
+
+    assert week_title(52, monday, []) == "KW 52 · ab Mo 21.12.2026"
+    assert week_title(52, monday, [dt.date(2026, 12, 24), dt.date(2026, 12, 25)]) == (
+        "KW 52 · ab Mo 21.12.2026 · Feiertag 24.12., 25.12."
+    )
 
 
 # === mark_repeats / mark_defaults ===
@@ -187,6 +204,27 @@ def test_month_start_keys_list_the_first_week_of_new_months() -> None:
     assert state.month_start_keys == ["b"]
 
 
+def test_holiday_bands_draw_one_plain_band_per_day() -> None:
+    assert holiday_bands([3]) == (
+        "linear-gradient(to right, transparent 42.8571%, "
+        "var(--aq-holiday) 42.8571% 57.1429%, transparent 57.1429%)"
+    )
+    assert holiday_bands([3, 4]).count("linear-gradient") == 2
+    assert holiday_bands([]) == ""
+
+
+def test_holiday_backgrounds_cover_only_weeks_with_holidays() -> None:
+    state = PlanningStore()
+    state.weeks = [
+        _week("a"),
+        WeekColumn(
+            key="b", label="b", month_label="Dez 26", work_days=3, holiday_days=[3, 4]
+        ),
+    ]
+
+    assert state.holiday_backgrounds == {"b": holiday_bands([3, 4])}
+
+
 def test_display_mixin_is_mixed_into_the_store() -> None:
     assert issubclass(PlanningStore, PlanningDisplayState)
 
@@ -202,6 +240,22 @@ def test_repeated_values_render_muted() -> None:
     assert '["justifyContent"] : "flex-end"' in rendered
 
 
+def test_week_cells_draw_holidays_as_their_background() -> None:
+    for rendered in (
+        str(editable_value_cell(ObjectVar("cell", GridCell))),
+        str(_gesamt_value_cell(ObjectVar("cell", GesamtCell))),
+    ):
+        assert "holiday_backgrounds" in rendered
+        assert '["--aq-holidays"]' in rendered
+        assert f'["backgroundImage"] : "{HOLIDAY_IMAGE}"' in rendered
+
+
+def test_absence_cell_keeps_its_hatch_above_the_holidays() -> None:
+    rendered = str(_absence_value_cell(ObjectVar("cell", GridCell)))
+
+    assert f"{ABSENCE_HATCH}, {HOLIDAY_IMAGE}" in rendered
+
+
 def test_gesamt_cell_tints_overbooking_and_never_uses_blue() -> None:
     rendered = str(_gesamt_value_cell(ObjectVar("cell", GesamtCell)))
 
@@ -210,12 +264,6 @@ def test_gesamt_cell_tints_overbooking_and_never_uses_blue() -> None:
     assert "blue" not in rendered
     assert '["breakdown"]' in rendered
     assert '["has_absence"]' in rendered
-
-
-def test_work_days_header_shows_only_short_weeks() -> None:
-    rendered = str(work_days_cell(ObjectVar("week", WeekColumn)))
-
-    assert '["is_short"]' in rendered
 
 
 def test_internal_row_hides_the_usual_value() -> None:

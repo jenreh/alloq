@@ -669,3 +669,16 @@ class TestProjectStateHandlers:
         assert state._project_create_from_form(form).is_internal is False
         form["is_internal"] = "on"
         assert state._project_create_from_form(form).is_internal is True
+
+    def test_form_cats_number_is_trimmed(self) -> None:
+        state = ProjectState()
+        form = {
+            "code": "P1",
+            "name_de": "N",
+            "start_date": "2026-01-01",
+            "end_date": "2026-12-31",
+        }
+
+        assert state._project_create_from_form(form).cats_number == ""
+        form["cats_number"] = "  4711-0815 "
+        assert state._project_create_from_form(form).cats_number == "4711-0815"

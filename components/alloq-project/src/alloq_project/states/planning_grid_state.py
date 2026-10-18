@@ -70,6 +70,7 @@ from alloq_project.services.planning_builders import (
 from alloq_project.states.planning_absence_view_mixin import PlanningAbsenceViewMixin
 from alloq_project.states.planning_display_mixin import PlanningDisplayState
 from alloq_project.states.planning_filter_mixin import (
+    GRID_VIEW,
     PROJECT_VIEW,
     PlanningFilterMixin,
 )
@@ -112,8 +113,6 @@ __all__ = [
     "ProjectGesamtCell",
     "WeekColumn",
 ]
-
-GRID_VIEW = "Grid"
 
 
 class PlanningStore(
@@ -591,7 +590,7 @@ class PlanningStore(
     async def load(self) -> AsyncGenerator[Any]:
         """Load entity caches and populate the grid for the current time range."""
         self.is_loading = True
-        yield
+        yield self._focus_employee_from_url()
         try:
             await self._load_entities()
             await self._populate(self._range_weeks())

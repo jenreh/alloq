@@ -514,6 +514,7 @@ class ProjectState(ProjectListState, UserSession):
                     budget=project_data.budget,
                     color=project_data.color,
                     is_internal=project_data.is_internal,
+                    cats_number=project_data.cats_number,
                 )
 
                 if project_data.owner_ids:
@@ -585,6 +586,7 @@ class ProjectState(ProjectListState, UserSession):
                 entity.budget = project_data.budget
                 entity.color = project_data.color
                 entity.is_internal = project_data.is_internal
+                entity.cats_number = project_data.cats_number
 
                 entity.owners.clear()
                 for emp_id in project_data.owner_ids:
@@ -676,6 +678,7 @@ class ProjectState(ProjectListState, UserSession):
             budget=budget,
             color=color,
             is_internal=form_data.get("is_internal") == "on",
+            cats_number=str(form_data.get("cats_number", "")).strip(),
             owner_ids=owner_ids,
             required_capacities=required_capacities,
         )
@@ -1265,6 +1268,7 @@ class ProjectValidationState(rx.State):
     budget: rx.Field[int] = rx.field(0)
     color: rx.Field[str] = rx.field(DEFAULT_PROJECT_COLOR)
     is_internal: rx.Field[bool] = rx.field(False)
+    cats_number: rx.Field[str] = rx.field("")
     owner_ids: rx.Field[list[str]] = rx.field(default_factory=list)
     role_capacities: rx.Field[dict[str, int]] = rx.field(default_factory=dict)
 
@@ -1287,6 +1291,7 @@ class ProjectValidationState(rx.State):
                 self.budget = 0
                 self.color = DEFAULT_PROJECT_COLOR
                 self.is_internal = False
+                self.cats_number = ""
                 self.owner_ids = []
 
                 # Get available roles to initialize capacities to 0
@@ -1306,6 +1311,7 @@ class ProjectValidationState(rx.State):
                 self.budget = project.budget
                 self.color = project.color
                 self.is_internal = project.is_internal
+                self.cats_number = project.cats_number
                 self.owner_ids = [str(oid) for oid in project.owner_ids]
 
                 project_state = await self.get_state(ProjectState)
@@ -1332,6 +1338,10 @@ class ProjectValidationState(rx.State):
     @rx.event
     def set_customer(self, value: str) -> None:
         self.customer = value
+
+    @rx.event
+    def set_cats_number(self, value: str) -> None:
+        self.cats_number = value
 
     @rx.event
     def set_name_de(self, value: str) -> None:

@@ -5,6 +5,7 @@ from alloq_commons import theme
 from alloq_commons.components.shell import app_page
 from alloq_commons.components.toolbar import window_toolbar
 from alloq_commons.desktop import is_desktop
+from alloq_commons.state.department_states import DepartmentState
 
 import appkit_mantine as mn
 from appkit_user.authentication.components.components import requires_admin
@@ -19,7 +20,6 @@ from appkit_user.user_management.states.user_states import UserState
 
 from app.components.db_access_button import database_access_button
 from app.desktop.db_access_state import DatabaseAccessState
-from app.roles import ALL_ROLES
 
 
 def user_toolbar() -> list[rx.Component]:
@@ -51,7 +51,7 @@ def create_users_page(
         ),
         admin_only=True,
         on_load=[
-            UserState.set_available_roles(ALL_ROLES),
+            DepartmentState.load_user_roles,
             UserState.load_users,
             DatabaseAccessState.load,
         ],

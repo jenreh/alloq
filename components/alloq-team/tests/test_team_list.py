@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from alloq_commons.models.department import Department
 from alloq_commons.models.employee import Absence, Employee
 from alloq_commons.role_colors import role_avatar_color
 from alloq_team.components.employee_table import (
@@ -121,6 +122,7 @@ class TestDetail:
             first_name="Ada",
             last_name="Lovelace",
             job_title="Engineer",
+            department=Department(id=3, name="Informationstechnik", abbreviation="IT"),
             key_role_id=7,
             role_names=["Dev", "Ops"],
             absences=[Absence(start_date=MONDAY, end_date=date(2026, 10, 16))],
@@ -132,12 +134,14 @@ class TestDetail:
         assert detail.subtitle == "Engineer"
         assert detail.role == "Dev"
         assert detail.roles == "Dev, Ops"
+        assert detail.department == "Informationstechnik (IT)"
         assert detail.absences == ["12.10.2026 – 16.10.2026"]
         assert detail.load_tone == "positive"
 
     def test_to_detail_without_overview(self) -> None:
         detail = to_detail(_employee(1), None)
         assert detail.load_percent == 0
+        assert detail.department == ""
         assert detail.weeks == []
 
 

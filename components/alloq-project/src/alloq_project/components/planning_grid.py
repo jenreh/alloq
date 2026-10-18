@@ -17,13 +17,16 @@ from alloq_commons.components.modal_layout import (
 from alloq_commons.role_colors import ROLE_BADGE_TEXT_COLOR
 from alloq_project.components.planning_shared import (
     CELL_BASE,
+    EDIT_HINT,
     EMP_HEADER_BG,
+    HOLIDAY_IMAGE,
     LABEL_CELL_BASE,
     ROW_LABEL_FONT_SIZE,
     STICKY_BLOCK_HEADER,
     STICKY_LEFT_BODY,
     STICKY_LEFT_EMP_HEADER,
     STICKY_LEFT_GESAMT,
+    VIEW_COLUMN_STYLE,
     block_header_info_cell,
     current_week_bg,
     editable_value_cell,
@@ -32,9 +35,12 @@ from alloq_project.components.planning_shared import (
     format_gesamt,
     grid_row,
     header_block,
+    legend_footer,
+    legend_item,
     planning_excel_grid,
     summary_stat,
     week_cell_style,
+    week_legend_items,
 )
 from alloq_project.states.planning_absence_state import PlanningAbsenceState
 from alloq_project.states.planning_grid_state import (
@@ -79,6 +85,7 @@ ROW_DELETE_ON_HOVER = {
 
 
 FREE_COLOR = "light-dark(var(--mantine-color-green-7), var(--mantine-color-green-3))"
+OVERBOOKED_LABEL = "Überbucht"
 
 
 def _gesamt_color(state: rx.Var[str]) -> rx.Var[str]:
@@ -284,7 +291,9 @@ def _absence_value_cell(cell: ObjectVar[GridCell]) -> rx.Component:
             **CELL_BASE,
             **week_cell_style(cell.week_key),
             "color": "var(--alloq-text-muted)",
-            "backgroundImage": rx.cond(has_absence, ABSENCE_HATCH, "none"),
+            "backgroundImage": rx.cond(
+                has_absence, f"{ABSENCE_HATCH}, {HOLIDAY_IMAGE}", HOLIDAY_IMAGE
+            ),
         },
     )
 
@@ -473,6 +482,36 @@ def _add_project_modal() -> rx.Component:
 
 
 # ---------------------------------------------------------------------------
+# Legend
+# ---------------------------------------------------------------------------
+
+
+def _footer() -> rx.Component:
+    return legend_footer(
+        *week_legend_items(),
+        legend_item(
+            {
+                "width": "18px",
+                "height": "14px",
+                "borderRadius": "3px",
+                "backgroundColor": GESAMT_OVER_BG,
+            },
+            OVERBOOKED_LABEL,
+        ),
+        legend_item(
+            {
+                "width": "18px",
+                "height": "14px",
+                "backgroundImage": ABSENCE_HATCH,
+                "boxShadow": "inset 0 0 0 1px var(--aq-border)",
+            },
+            "Abwesenheit",
+        ),
+        hint=EDIT_HINT,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Main component
 # ---------------------------------------------------------------------------
 
@@ -483,12 +522,20 @@ def planning_grid() -> rx.Component:
         absence_modal(on_submit=PlanningAbsenceState.create_absence),
         rx.cond(
             PlanningStore.is_loaded,
-            planning_excel_grid(
-                header_block(),
-                mn.box(
-                    rx.foreach(PlanningStore.filtered_employees, _employee_block),
+            mn.box(
+                planning_excel_grid(
+                    header_block(
+                        "Mitarbeiter",
+                        PlanningStore.filtered_employees.length().to_string()
+                        + " Personen",
+                    ),
+                    mn.box(
+                        rx.foreach(PlanningStore.filtered_employees, _employee_block),
+                    ),
+                    grid_id="planning-grid-root",
                 ),
-                grid_id="planning-grid-root",
+                _footer(),
+                style=VIEW_COLUMN_STYLE,
             ),
             mn.center(
                 rx.hstack(

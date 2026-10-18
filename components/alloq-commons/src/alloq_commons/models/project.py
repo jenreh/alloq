@@ -222,6 +222,7 @@ class Project(BaseModel):
     budget: int = 0
     color: str = "#FFD43B"
     is_internal: bool = False
+    cats_number: str = ""
     owner_ids: list[int] = []
     current_progress: int = 0
     current_spent: int = 0
@@ -263,6 +264,7 @@ class ProjectCreate(BaseModel):
     budget: int = Field(..., ge=0)
     color: str = Field(default="#FFD43B", max_length=7)
     is_internal: bool = False
+    cats_number: str = Field(default="", max_length=50)
     owner_ids: list[int] = []
     required_capacities: list[RequiredCapacityCreate] = []
 

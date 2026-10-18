@@ -4,6 +4,7 @@ from typing import Any
 from pydantic import BaseModel, Field, model_validator
 
 from alloq_commons.entities.employee import SeniorityLevel
+from alloq_commons.models.department import Department
 from alloq_commons.role_colors import role_avatar_color
 
 STANDARD_WEEKLY_HOURS = 40.0
@@ -46,6 +47,8 @@ class Employee(BaseModel):
     seniority: str = ""
     job_title: str | None = None
     location: str | None = None
+    department_id: int | None = None
+    department: Department | None = None
     manager_id: int | None = None
     key_role_id: int | None = None
     role_ids: list[int] = []
@@ -75,6 +78,7 @@ class EmployeeCreate(BaseModel):
     seniority: SeniorityLevel
     job_title: str | None = Field(default=None, max_length=255)
     location: str | None = Field(default=None, max_length=255)
+    department_id: int | None = None
     manager_id: int | None = None
     key_role_id: int | None = None
     role_ids: list[int]
@@ -91,6 +95,7 @@ class EmployeeUpdate(BaseModel):
     seniority: SeniorityLevel
     job_title: str | None = Field(default=None, max_length=255)
     location: str | None = Field(default=None, max_length=255)
+    department_id: int | None = None
     manager_id: int | None = None
     key_role_id: int | None = None
     role_ids: list[int]

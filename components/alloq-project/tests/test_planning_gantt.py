@@ -216,10 +216,8 @@ def test_coverage_ignores_weekends_and_holidays(planning: PlanningStore) -> None
     assert view.bottleneck_label == ""
 
 
-def test_totals_next_absence_and_upcoming(planning: PlanningStore) -> None:
+def test_row_totals_next_absence_and_upcoming(planning: PlanningStore) -> None:
     view = _view(planning)
-    assert view.total_days == 4
-    assert view.total_label == "4 Arbeitstage abwesend"
     assert [row.total_days for row in view.rows] == [1, 3]
     assert [row.next_label for row in view.rows] == ["ab 30.09.", "ab 06.10."]
     assert [item.relative for item in view.upcoming] == ["morgen", "in 7 Tagen"]

@@ -29,11 +29,22 @@ WEEK_COL_WIDTH = f"{WEEK_COL_PX}px"
 ROW_HEIGHT = "var(--aq-grid-row, 32px)"
 BLOCK_GAP = "var(--aq-grid-gap, 8px)"
 ROW_LABEL_FONT_SIZE = "var(--aq-grid-label-fs)"
-HEADER_ROW_HEIGHT = "30px"
-MONTH_HEADER_BG = "light-dark(var(--mantine-color-blue-0), var(--mantine-color-blue-9))"
+MONTH_ROW_HEIGHT = "28px"
+WEEK_ROW_HEIGHT = "36px"
+HEADER_ROW_LINE = "1px solid var(--alloq-border)"
+HEADER_BOTTOM_LINE = "2px solid var(--alloq-border-strong)"
+NUMERIC = {"fontVariantNumeric": "tabular-nums", "whiteSpace": "nowrap"}
 
 CURRENT_WEEK_BG = "var(--aq-now)"
-SHORT_WEEK_BG = "light-dark(rgba(245, 189, 61, 0.3), rgba(245, 189, 61, 0.2))"
+HOLIDAY_BG = "light-dark(rgba(214, 140, 0, 0.16), rgba(227, 174, 82, 0.2))"
+HOLIDAY_IMAGE = "var(--aq-holidays, none)"
+"""Holiday day bands of a week cell; ``--aq-holidays`` is set per cell."""
+HOLIDAY_DOT = {
+    "width": "5px",
+    "height": "5px",
+    "borderRadius": "50%",
+    "backgroundColor": "var(--aq-warning)",
+}
 MONTH_START_BORDER = "1px solid var(--alloq-border-strong)"
 REPEAT_COLOR = "var(--alloq-text-muted)"
 
@@ -49,6 +60,15 @@ GRID_WRAPPER_STYLE = {
     "width": "100%",
 }
 """Fills the content pane below the scope bar and scrolls both ways."""
+
+VIEW_COLUMN_STYLE = {
+    "display": "flex",
+    "flexDirection": "column",
+    "flex": "1",
+    "minHeight": "0",
+    "width": "100%",
+}
+"""Stacks a scrolling view above its legend footer."""
 
 ROW_STYLE_BASE = {
     "display": "grid",
@@ -83,13 +103,6 @@ STICKY_LEFT_BODY = {
     "backgroundColor": "var(--alloq-surface-solid)",
 }
 
-STICKY_LEFT_HEADER_TOP = {
-    "position": "sticky",
-    "left": "0",
-    "zIndex": "50",
-    "backgroundColor": MONTH_HEADER_BG,
-}
-
 STICKY_LEFT_HEADER = {
     "position": "sticky",
     "left": "0",
@@ -111,7 +124,7 @@ STICKY_LEFT_EMP_HEADER = {
     "backgroundColor": "var(--alloq-surface-hover)",
 }
 
-STICKY_BLOCK_HEADER = sticky_block_header("90px")
+STICKY_BLOCK_HEADER = sticky_block_header("64px")
 
 HEADER_BLOCK_STYLE = {
     "position": "sticky",
@@ -139,9 +152,14 @@ def current_week_bg(
 def week_cell_style(
     week_key: rx.Var[str], fallback: str = "transparent"
 ) -> dict[str, rx.Var[str]]:
-    """Current-week background and month separator for a week column cell."""
+    """Current-week background, holiday bands and month separator of a week cell.
+
+    The bands are the cell's background, so the cell editor covers them.
+    """
     return {
         "backgroundColor": current_week_bg(week_key, fallback),
+        "--aq-holidays": PlanningStore.holiday_backgrounds[week_key],
+        "backgroundImage": HOLIDAY_IMAGE,
         "borderLeft": rx.cond(
             PlanningStore.month_start_keys.contains(week_key),
             MONTH_START_BORDER,
@@ -160,6 +178,7 @@ def grid_density_vars() -> dict[str, rx.Var[str]]:
             compact, "var(--aq-grid-fs)", "var(--mantine-font-size-sm)"
         ),
         "--aq-grid-gap": rx.cond(compact, "4px", "8px"),
+        "--aq-holiday": HOLIDAY_BG,
     }
 
 
@@ -288,108 +307,192 @@ def block_header_info_cell(
 
 
 # ---------------------------------------------------------------------------
+# Legend footer
+# ---------------------------------------------------------------------------
+
+DIRTY_DOT_COLOR = "var(--mantine-color-orange-6)"
+EDIT_HINT = "Tippen zum Bearbeiten · ⌘S speichert"
+CELL_SWATCH = {
+    "width": "18px",
+    "height": "14px",
+    "borderRadius": "3px",
+    "boxShadow": "inset 0 0 0 1px var(--aq-border)",
+}
+
+
+def legend_item(swatch: dict | rx.Component, label: str) -> rx.Component:
+    """Small sample (a styled box or any component) followed by its label."""
+    sample = (
+        swatch
+        if isinstance(swatch, rx.Component)
+        else mn.box(style={"width": "18px", "height": "10px", **swatch})
+    )
+    return mn.group(
+        sample,
+        mn.text(label, fz="12px", c="var(--aq-text-muted)"),
+        gap=6,
+        wrap="nowrap",
+    )
+
+
+def legend_footer(*items: rx.Component, hint: str) -> rx.Component:
+    """Bottom row below a planning view: legend items left, hint right."""
+    return mn.box(
+        mn.group(
+            *items,
+            mn.text(hint, fz="12px", c="var(--aq-text-tertiary)", ml="auto"),
+            gap="md",
+        ),
+        px=16,
+        py=10,
+        style={"borderTop": "1px solid var(--aq-separator)", "flexShrink": "0"},
+    )
+
+
+def week_legend_items() -> list[rx.Component]:
+    """Legend items for the week cells shared by the team and project view."""
+    return [
+        legend_item(
+            {**CELL_SWATCH, "backgroundColor": CURRENT_WEEK_BG}, "Aktuelle Woche"
+        ),
+        legend_item({**CELL_SWATCH, "backgroundColor": HOLIDAY_BG}, "Feiertag"),
+        legend_item(
+            mn.text("1,00", fz="11px", c=REPEAT_COLOR, style={"lineHeight": "1"}),
+            "Wie Vorwoche",
+        ),
+        legend_item(
+            {
+                "width": "6px",
+                "height": "6px",
+                "borderRadius": "50%",
+                "backgroundColor": DIRTY_DOT_COLOR,
+            },
+            "Ungespeichert",
+        ),
+    ]
+
+
+# ---------------------------------------------------------------------------
 # Shared header components
 # ---------------------------------------------------------------------------
+
+
+def month_head(
+    label: rx.Var[str], separator: rx.Var[str] | str, style: dict
+) -> rx.Component:
+    """Month label of the timeline header, shared by all planning views."""
+    return mn.box(
+        mn.text(label, fz="12px", fw="650", truncate=True),
+        style={
+            "boxSizing": "border-box",
+            "display": "flex",
+            "alignItems": "center",
+            "padding": "0 10px",
+            "borderLeft": separator,
+            **style,
+        },
+    )
+
+
+def week_head(
+    *,
+    kw: rx.Var[int],
+    label: rx.Var[str],
+    title: rx.Var[str],
+    is_current: rx.Var[bool],
+    is_month_start: rx.Var[bool],
+    has_holiday: rx.Var[bool],
+    style: dict,
+) -> rx.Component:
+    """Week cell of the timeline header (KW, start date, holiday dot)."""
+    return mn.box(
+        mn.text(
+            "KW ",
+            kw,
+            fz="11px",
+            fw="650",
+            c=rx.cond(is_current, "var(--aq-warning)", "var(--aq-text)"),
+            style=NUMERIC,
+        ),
+        mn.group(
+            mn.text(label, fz="10.5px", c="var(--aq-text-muted)", style=NUMERIC),
+            rx.cond(has_holiday, mn.box(style=HOLIDAY_DOT)),
+            gap=3,
+            wrap="nowrap",
+        ),
+        custom_attrs={"title": title},
+        style={
+            "display": "flex",
+            "flexDirection": "column",
+            "alignItems": "center",
+            "justifyContent": "center",
+            "gap": "1px",
+            "boxSizing": "border-box",
+            "borderLeft": rx.cond(
+                is_month_start, MONTH_START_BORDER, "1px solid var(--aq-separator)"
+            ),
+            "backgroundColor": rx.cond(is_current, CURRENT_WEEK_BG, "transparent"),
+            **style,
+        },
+    )
 
 
 def month_cell(
     month: ObjectVar[MonthSpan], index: NumberVar | None = None
 ) -> rx.Component:
-    """Header cell spanning one month; later months get a separator line."""
-    return mn.box(
-        mn.text(month.label, fz="11px", fw="700", c="var(--alloq-text)"),
-        style={
-            **CELL_BASE,
+    """Grid header cell spanning one month; later months get a separator line."""
+    return month_head(
+        month.label,
+        "none" if index is None else rx.cond(index > 0, MONTH_START_BORDER, "none"),
+        {
             "gridColumn": "span " + month.span.to_string(),
             "position": "relative",
             "zIndex": "0",
-            "backgroundColor": MONTH_HEADER_BG,
-            "fontWeight": "500",
-            "justifyContent": "flex-start",
-            "paddingLeft": "12px",
-            "minHeight": HEADER_ROW_HEIGHT,
-            "borderLeft": (
-                "none"
-                if index is None
-                else rx.cond(index > 0, MONTH_START_BORDER, "none")
-            ),
         },
     )
 
 
 def week_label_cell(week: ObjectVar[WeekColumn]) -> rx.Component:
-    """Header cell for a week, right-aligned above the numbers."""
-    return mn.box(
-        mn.text(week.label, fz="11px", c="var(--alloq-text-muted)", fw="500"),
-        style={
-            **CELL_BASE,
-            **week_cell_style(week.key, "var(--alloq-surface-muted)"),
-            "position": "relative",
-            "zIndex": "0",
-            "minHeight": HEADER_ROW_HEIGHT,
-            "fontWeight": "500",
-        },
+    """Grid header cell for a week, like the absence timeline."""
+    return week_head(
+        kw=week.week_no,
+        label=week.label,
+        title=week.title,
+        is_current=week.key == PlanningStore.current_week_key,
+        is_month_start=week.is_month_start,
+        has_holiday=week.is_short,
+        style={"position": "relative", "zIndex": "0"},
     )
 
 
-def work_days_cell(week: ObjectVar[WeekColumn]) -> rx.Component:
-    """Header cell showing work days, only for weeks shortened by holidays."""
+def label_th(text: rx.Var[str] | str) -> rx.Component:
+    """Sticky label header cell."""
     return mn.box(
-        rx.cond(week.is_short, format_de(week.work_days), rx.fragment()),
-        style={
-            **CELL_BASE,
-            **week_cell_style(week.key, "var(--alloq-surface-muted)"),
-            "position": "relative",
-            "zIndex": "0",
-            "minHeight": HEADER_ROW_HEIGHT,
-            "backgroundColor": rx.cond(
-                week.is_short,
-                SHORT_WEEK_BG,
-                current_week_bg(week.key, "var(--alloq-surface-muted)"),
-            ),
-            "fontWeight": "600",
-            "fontSize": "11px",
-            "borderBottom": "2px solid var(--alloq-border-strong)",
-        },
-    )
-
-
-def label_th(
-    text: str, *, accent: bool = False, last: bool = False, hint: str = ""
-) -> rx.Component:
-    """Sticky label header cell with an optional muted hint."""
-    sticky = STICKY_LEFT_HEADER_TOP if accent else STICKY_LEFT_HEADER
-    extra = {"borderBottom": "2px solid var(--alloq-border-strong)"} if last else {}
-    hint_text = [mn.text(hint, size="xs", c="var(--alloq-text-muted)")] if hint else []
-    return mn.box(
-        mn.text(text, size="xs", fw="700", c="var(--alloq-text)"),
-        *hint_text,
+        mn.text(text, fz="12.5px", fw="650", c="var(--alloq-text)"),
         style={
             **LABEL_CELL_BASE,
-            **sticky,
-            **extra,
-            "gap": "6px",
-            "minHeight": HEADER_ROW_HEIGHT,
+            **STICKY_LEFT_HEADER,
+            "borderBottom": "none",
+            "minHeight": "0",
         },
     )
 
 
-def header_block() -> rx.Component:
-    """Three-row header: months, weeks, work days."""
+def header_block(title: str, count: rx.Var[str]) -> rx.Component:
+    """Two-row timeline header (months, weeks) as in the absence view."""
     return mn.box(
         grid_row(
-            label_th("Monat", accent=True),
+            label_th(title),
             rx.foreach(PlanningStore.month_spans, month_cell),
+            style={"height": MONTH_ROW_HEIGHT, "borderBottom": HEADER_ROW_LINE},
         ),
         grid_row(
-            label_th("Woche"),
+            label_th(count),
             rx.foreach(PlanningStore.weeks, week_label_cell),
+            style={"height": WEEK_ROW_HEIGHT, "borderBottom": HEADER_BOTTOM_LINE},
         ),
-        grid_row(
-            label_th("Arbeitstage (brutto)", last=True, hint="leer = volle Woche"),
-            rx.foreach(PlanningStore.weeks, work_days_cell),
-        ),
-        style=HEADER_BLOCK_STYLE,
+        # As wide as the rows, so the background reaches the last week.
+        style={**HEADER_BLOCK_STYLE, "width": PlanningStore.table_width},
         custom_attrs={"data-grid-header": "true"},
     )
 
@@ -434,7 +537,7 @@ def editable_value_cell(cell: ObjectVar[GridCell]) -> rx.Component:
                     "width": "5px",
                     "height": "5px",
                     "borderRadius": "50%",
-                    "backgroundColor": "var(--mantine-color-orange-6)",
+                    "backgroundColor": DIRTY_DOT_COLOR,
                 },
             ),
             rx.fragment(),

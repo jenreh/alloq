@@ -11,6 +11,7 @@ from datetime import date, timedelta
 
 from alloq_commons.models.employee import Employee
 
+from alloq_project.services.planning_builders import WEEKDAYS, week_title
 from alloq_project.states.planning_models import (
     WEEK_COL_PX,
     AbsenceGanttBar,
@@ -34,7 +35,6 @@ GANTT_MIN_ROW_PX = 52
 INSIDE_LABEL_MIN_PX = 84
 UPCOMING_LIMIT = 6
 SOON_DAYS = 14
-WEEKDAYS = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
 
 
 @dataclass(frozen=True)
@@ -184,9 +184,6 @@ def _weeks(weeks: list[WeekColumn], horizon: _Horizon) -> list[GanttWeek]:
             if start <= d < start + timedelta(days=DAYS_PER_WEEK)
             and d.weekday() < SATURDAY
         )
-        title = f"KW {week.week_no} · ab {_long_day(start)}"
-        if holidays:
-            title += " · Feiertag " + ", ".join(_day(d) for d in holidays)
         out.append(
             GanttWeek(
                 key=week.key,
@@ -195,7 +192,7 @@ def _weeks(weeks: list[WeekColumn], horizon: _Horizon) -> list[GanttWeek]:
                 has_holiday=bool(holidays),
                 is_current=start <= horizon.today < start + timedelta(days=7),
                 is_month_start=week.is_month_start,
-                title=title,
+                title=week_title(week.week_no, start, holidays),
             )
         )
     return out
@@ -517,7 +514,6 @@ def build_absence_gantt(
         for d in horizon.holidays
         if start <= d < horizon.end and d.weekday() < SATURDAY
     )
-    total = sum(row.total_days for row in rows)
     bottleneck, bottleneck_title = _bottleneck(coverage, stats)
     days_total = (horizon.end - start).days
     today_index = (horizon.today - start).days
@@ -547,12 +543,6 @@ def build_absence_gantt(
         width_px=len(weeks) * WEEK_COL_PX,
         horizon_start=start.isoformat(),
         team_size=len(collected),
-        total_days=total,
-        total_label=(
-            f"{_work_days_text(total)} abwesend"
-            if total
-            else "Keine Abwesenheiten im Zeitraum"
-        ),
         bottleneck_label=bottleneck,
         bottleneck_title=bottleneck_title,
     )

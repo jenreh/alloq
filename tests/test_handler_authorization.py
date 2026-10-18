@@ -63,6 +63,14 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
             "set_search_filter",
         }
     ),
+    "DepartmentState": frozenset(
+        {
+            "close_add_modal",
+            "close_edit_modal",
+            "open_add_modal",
+            "set_search_filter",
+        }
+    ),
     "HolidayState": frozenset(
         {
             "close_add_modal",
@@ -97,6 +105,7 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
     "EmployeeValidationState": frozenset(
         {
             "initialize",
+            "set_department_id",
             "set_email",
             "set_first_name",
             "set_hours_per_week",
@@ -156,6 +165,7 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
             "has_errors",
             "initialize",
             "set_budget",
+            "set_cats_number",
             "set_code",
             "set_color",
             "set_customer",

@@ -21,6 +21,7 @@ from alloq_project.states.planning_models import (
     GridCell,
     ProjectBlock,
 )
+from reflex.istate.data import ReflexURL, RouterData
 
 
 class TestComputeProjectGesamt:
@@ -363,6 +364,40 @@ class TestPlanningStoreProjectView:
         )
         assert [p.code for p in state.filtered_projects] == ["B"]
         assert "/plan" in str(result)
+
+    def test_employee_param_shows_only_that_employee(self) -> None:
+        state = self._two_project_store()
+        state.project_filter = ["1"]
+        state.role_filter = ["9"]
+        state.available_only = True
+        state.hide_internal = True
+        state.project_scope = True
+        state.employee_scope = True
+        state.router = RouterData(url=ReflexURL("http://host/plan?employee=2"))
+
+        result = state._focus_employee_from_url()
+
+        assert state.view_mode == "Grid"
+        assert state.employee_filter == ["2"]
+        assert (state.project_filter, state.role_filter) == ([], [])
+        assert not any(
+            (
+                state.available_only,
+                state.hide_internal,
+                state.project_scope,
+                state.employee_scope,
+            )
+        )
+        assert "replaceState" in str(result)
+
+    def test_without_employee_param_filters_stay(self) -> None:
+        state = self._two_project_store()
+        state.project_filter = ["1"]
+        state.router = RouterData(url=ReflexURL("http://host/plan?employee=x"))
+
+        assert state._focus_employee_from_url() is None
+        assert state.view_mode == "Projekte"
+        assert state.project_filter == ["1"]
 
     def test_filtered_projects_empty_outside_project_view(self) -> None:
         state = self._two_project_store()

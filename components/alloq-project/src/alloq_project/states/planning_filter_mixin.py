@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Any
 import reflex as rx
 
 PROJECT_VIEW = "Projekte"
+GRID_VIEW = "Grid"
+EMPLOYEE_PARAM = "employee"
 
 
 class PlanningFilterMixin(rx.State, mixin=True):
@@ -51,15 +53,32 @@ class PlanningFilterMixin(rx.State, mixin=True):
     @rx.event
     def open_project(self, project_id: int) -> Any:
         """Open the project view filtered to one project, clearing other filters."""
+        self._clear_filters()
         self.view_mode = PROJECT_VIEW
         self.project_filter = [str(project_id)]
+        return rx.redirect("/plan")
+
+    def _focus_employee_from_url(self) -> Any:
+        """Show only the employee named in `?employee=`, clearing other filters."""
+        employee_id = self.router.url.query_parameters.get(EMPLOYEE_PARAM, "")
+        if not employee_id.isdigit():
+            return None
+        self._clear_filters()
+        self.view_mode = GRID_VIEW
+        self.employee_filter = [employee_id]
+        # Drop the param so a later reload keeps the user's own filters.
+        return rx.call_script(
+            "window.history.replaceState(null, '', window.location.pathname)"
+        )
+
+    def _clear_filters(self) -> None:
+        self.project_filter = []
         self.role_filter = []
         self.employee_filter = []
         self.available_only = False
         self.hide_internal = False
         self.project_scope = False
         self.employee_scope = False
-        return rx.redirect("/plan")
 
     @rx.event
     def toggle_project_scope(self) -> Any:

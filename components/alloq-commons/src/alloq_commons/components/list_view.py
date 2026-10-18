@@ -61,7 +61,7 @@ LIST_CSS = (
     ".aq-meter>div{height:100%;border-radius:3px;}"
     ".aq-insp-title{font-size:11.5px;font-weight:600;color:" + theme.TEXT_MUTED + ";}"
     ".aq-kv{display:grid;grid-template-columns:110px 1fr;row-gap:8px;"
-    "column-gap:8px;font-size:12.5px;margin:0;align-items:center;}"
+    "column-gap:8px;font-size:12.5px;margin:0;align-items:start;}"
     f".aq-kv dt{{color:{theme.TEXT_MUTED};margin:0;}}"
     ".aq-kv dd{margin:0;font-variant-numeric:tabular-nums;min-width:0;"
     "overflow-wrap:anywhere;}"

@@ -16,12 +16,15 @@ from alloq_commons.models.project import (
     RiskUpdate,
 )
 from alloq_commons.models.public_holiday import PublicHoliday, PublicHolidayCreate
+from alloq_commons.models.department import Department, DepartmentCreate
 from alloq_commons.models.role import Role, RoleCreate
 
 __all__ = [
     "Capacity",
     "CapacityCreate",
     "CapacityUpdate",
+    "Department",
+    "DepartmentCreate",
     "Project",
     "ProjectCreate",
     "ProjectStatus",

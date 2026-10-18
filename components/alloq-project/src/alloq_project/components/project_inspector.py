@@ -149,6 +149,37 @@ def _pt(value: rx.Var) -> rx.Component:
     return de_number(value=value, decimal_scale=0, suffix=" PT")
 
 
+def _cats_number(project: ObjectVar[Project]) -> rx.Component:
+    return rx.cond(
+        project.cats_number != "",
+        mn.group(
+            mn.text(
+                project.cats_number,
+                fz="inherit",
+                lh="inherit",
+                style=theme.NUMERIC,
+                truncate="end",
+                miw=0,
+            ),
+            mn.action_icon(
+                rx.icon("copy", size=13, stroke_width=1.8),
+                variant="subtle",
+                color="gray",
+                size=20,
+                aria_label="Buchungsnummer kopieren",
+                title="Buchungsnummer kopieren",
+                on_click=[
+                    rx.set_clipboard(project.cats_number),
+                    rx.toast.success("Buchungsnummer kopiert", position="top-right"),
+                ],
+            ),
+            gap=4,
+            wrap="nowrap",
+        ),
+        mn.text("–", fz="inherit", lh="inherit", c=theme.TEXT_MUTED),
+    )
+
+
 def _date_input(project: ObjectVar[Project], field: str) -> rx.Component:
     return mn.date_input(
         value=(
@@ -201,6 +232,7 @@ def _details(project: ObjectVar[Project]) -> rx.Component:
                 ),
                 ("Kunde", project.customer),
                 ("Kürzel", project.code),
+                ("CATS-Nr.", _cats_number(project)),
                 ("Start", _date_input(project, "start")),
                 ("Ende", _date_input(project, "end")),
                 ("Budget", de_number(value=project.budget, suffix=" €")),

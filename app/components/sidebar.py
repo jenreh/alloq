@@ -38,6 +38,7 @@ PLANNING_ITEMS: Final[list[tuple[str, str, str]]] = [
 ADMIN_ITEMS: Final[list[tuple[str, str, str]]] = [
     ("/admin/users", "Benutzer", "user-cog"),
     ("/admin/roles", "Rollen", "shield"),
+    ("/admin/departments", "Abteilungen", "building-2"),
     ("/admin/holidays", "Feiertage", "calendar-days"),
 ]
 _COUNTS: Final[dict[str, Any]] = {

@@ -160,15 +160,6 @@ def absence_filter_row() -> rx.Component:
             color="blue",
             size="xs",
         ),
-        mn.badge(
-            gantt.total_label,
-            variant="light",
-            color="gray",
-            radius="xl",
-            size="lg",
-            tt="none",
-            fw=500,
-        ),
         rx.cond(
             gantt.bottleneck_label != "",
             mn.tooltip(

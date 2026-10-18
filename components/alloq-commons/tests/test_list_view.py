@@ -8,7 +8,7 @@ def test_css_defines_tones_and_responsive_inspector() -> None:
     for tone in ("positive", "negative", "warning", "info", "neutral"):
         assert f"data-tone={tone}" in list_view.LIST_CSS
     assert "@media (max-width: 820px)" in list_view.LIST_CSS
-    assert "font-size:12.5px;margin:0;align-items:center;" in list_view.LIST_CSS
+    assert "font-size:12.5px;margin:0;align-items:start;" in list_view.LIST_CSS
     assert list_view.LIST_CSS.count("{") == list_view.LIST_CSS.count("}")
 
 

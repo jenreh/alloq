@@ -167,7 +167,7 @@ def _actions(row: ObjectVar[TeamDetail]) -> rx.Component:
         icon_button(
             "calendar-range",
             "In der Ressourcenplanung öffnen",
-            rx.redirect("/plan"),
+            rx.redirect("/plan?employee=" + row.id.to(str)),
         ),
         gap=8,
         wrap="nowrap",
@@ -183,6 +183,7 @@ def _details(row: ObjectVar[TeamDetail]) -> rx.Component:
             key_values(
                 ("Rollen", rx.cond(row.roles != "", row.roles, "–")),
                 ("Standort", rx.cond(row.location != "", row.location, "–")),
+                ("Abteilung", rx.cond(row.department != "", row.department, "–")),
                 ("Wochenstunden", row.hours.to(str) + " h"),
                 ("Stellenanteil", row.workload_percent.to(str) + " %"),
                 ("Frei (8 Wochen)", row.free_days.to(str) + " PT"),

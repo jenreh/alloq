@@ -29,6 +29,8 @@ class WeekColumn(BaseModel):
     work_days: float
     is_month_start: bool = False
     is_short: bool = False
+    title: str = ""
+    holiday_days: list[int] = []
 
 
 class MonthSpan(BaseModel):
@@ -120,8 +122,6 @@ class AbsenceGanttView(BaseModel):
     width_px: int = 0
     horizon_start: str = ""
     team_size: int = 0
-    total_days: int = 0
-    total_label: str = ""
     bottleneck_label: str = ""
     bottleneck_title: str = ""
 

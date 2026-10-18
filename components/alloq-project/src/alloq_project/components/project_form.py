@@ -53,6 +53,15 @@ def project_form_fields() -> rx.Component:
                 on_blur=ProjectValidationState.set_customer,
                 max_length=255,
             ),
+            mn.text_input(
+                name="cats_number",
+                label="CATS-Buchungsnr.",
+                placeholder="z.B. 4711-0815",
+                default_value=ProjectValidationState.cats_number,
+                on_blur=ProjectValidationState.set_cats_number,
+                max_length=50,
+                w="14rem",
+            ),
             mn.multi_select(
                 name="owner_ids",
                 label="Projekt-Owner",

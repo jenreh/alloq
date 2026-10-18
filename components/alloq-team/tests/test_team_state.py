@@ -9,8 +9,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from alloq_commons.entities.absence import AbsenceEntity
 from alloq_commons.entities.employee import EmployeeEntity
+from alloq_commons.models.department import Department
 from alloq_commons.models.employee import Employee
 from alloq_commons.models.project import Project
+from alloq_team.states.employee_form import default_department_id
 from alloq_team.states.team_state import EmployeeValidationState, TeamState
 
 from appkit_user.authentication.states import LoginState
@@ -112,6 +114,7 @@ def _form(**overrides: Any) -> dict[str, Any]:
         "seniority": "Senior",
         "job_title": "",
         "location": "",
+        "department_id": "",
         "manager_id": "",
         "key_role_id": "1",
         "role_ids": "",
@@ -428,6 +431,18 @@ class TestCreateEmployee:
         assert "erstellt" in _toasts(items)
         created = repos["employee_repo"].create.await_args.args[1]
         assert created.internal_hours == 0
+        assert created.department_id is None
+
+    async def test_stores_selected_department(
+        self, repos: dict[str, AsyncMock]
+    ) -> None:
+        state = TeamState()
+        repos["employee_repo"].find_all_paginated = AsyncMock(return_value=[])
+        with _as_user(state):
+            await _run(state.create_employee, _form(department_id="3"))
+
+        created = repos["employee_repo"].create.await_args.args[1]
+        assert created.department_id == 3
 
     async def test_loads_employees_with_explicit_limit(
         self, repos: dict[str, AsyncMock]
@@ -464,6 +479,81 @@ class TestUpdateEmployee:
 
         assert "aktualisiert" in _toasts(items)
         assert entity.internal_hours == 0
+
+    async def test_changes_department(self, repos: dict[str, AsyncMock]) -> None:
+        state = TeamState()
+        state.selected_employee = Employee(id=7, first_name="A", last_name="B")
+        entity = _employee_entity()
+        entity.department_id = 3
+        repos["employee_repo"].find_by_id = AsyncMock(return_value=entity)
+        with _as_user(state):
+            await _run(state.update_employee, _form(department_id="4"))
+
+        assert entity.department_id == 4
+
+    async def test_clearing_department_removes_it(
+        self, repos: dict[str, AsyncMock]
+    ) -> None:
+        state = TeamState()
+        state.selected_employee = Employee(id=7, first_name="A", last_name="B")
+        entity = _employee_entity()
+        entity.department_id = 3
+        repos["employee_repo"].find_by_id = AsyncMock(return_value=entity)
+        with _as_user(state):
+            await _run(state.update_employee, _form(department_id=None))
+
+        assert entity.department_id is None
+
+
+class TestEmployeeFormDepartment:
+    def test_edit_prefills_department(self) -> None:
+        state = EmployeeValidationState()
+        state.initialize(Employee(id=7, department_id=3))
+        assert state.department_id == "3"
+
+    def test_add_uses_given_default(self) -> None:
+        state = EmployeeValidationState()
+        state.department_id = "9"
+        state.initialize(default_department_id="3")
+        assert state.department_id == "3"
+
+    def test_add_without_default_is_empty(self) -> None:
+        state = EmployeeValidationState()
+        state.department_id = "9"
+        state.initialize()
+        assert state.department_id == ""
+
+    def test_single_department_is_default(self) -> None:
+        assert default_department_id([Department(id=3)]) == "3"
+
+    @pytest.mark.parametrize("count", [0, 2])
+    def test_no_default_unless_exactly_one(self, count: int) -> None:
+        departments = [Department(id=i) for i in range(1, count + 1)]
+        assert default_department_id(departments) == ""
+
+    def test_select_options_show_name_and_abbreviation(self) -> None:
+        state = TeamState()
+        state.available_departments = [
+            Department(id=3, name="Informationstechnik", abbreviation="IT")
+        ]
+        assert state.department_select_options == [
+            {"value": "3", "label": "Informationstechnik (IT)"}
+        ]
+
+    async def test_load_employees_loads_departments(
+        self, repos: dict[str, AsyncMock]
+    ) -> None:
+        state = TeamState()
+        repos["employee_repo"].find_all_paginated = AsyncMock(return_value=[])
+        repos["role_repo"].find_all_paginated = AsyncMock(return_value=[])
+        departments = [Department(id=3, name="IT", abbreviation="IT")]
+        with (
+            _as_user(state),
+            patch(f"{MODULE}.load_departments", AsyncMock(return_value=departments)),
+        ):
+            await _run(state.load_employees)
+
+        assert state.available_departments == departments
 
 
 class TestEmployeeSelectOptions:

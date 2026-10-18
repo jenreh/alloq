@@ -98,6 +98,17 @@ def employee_form_fields(is_edit: bool = False) -> rx.Component:
                 left_section=rx.icon("map-pin", size=16),
             ),
             mn.select(
+                name="department_id",
+                label="Abteilung",
+                data=TeamState.department_select_options,
+                default_value=EmployeeValidationState.department_id,
+                on_change=EmployeeValidationState.set_department_id,
+                required=False,
+                clearable=True,
+                searchable=True,
+                left_section=rx.icon("building-2", size=16),
+            ),
+            mn.select(
                 name="manager_id",
                 label="Vorgesetzter",
                 data=TeamState.employee_select_options,

@@ -85,6 +85,10 @@ class TestProjectEntity:
 
         entity.is_internal = True
         assert entity.to_dict()["is_internal"] is True
+        assert result["cats_number"] == ""
+
+        entity.cats_number = "4711-0815"
+        assert entity.to_dict()["cats_number"] == "4711-0815"
 
 
 class TestProjectModels:

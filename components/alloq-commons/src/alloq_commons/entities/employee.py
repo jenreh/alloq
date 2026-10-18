@@ -49,6 +49,9 @@ class EmployeeEntity(Entity, Base):
     job_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     location: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    department_id: Mapped[int | None] = mapped_column(
+        ForeignKey("departments.id", ondelete="SET NULL"), nullable=True
+    )
     hours_per_week: Mapped[float] = mapped_column(Float, nullable=False, default=40.0)
     internal_hours: Mapped[int] = mapped_column(Integer, nullable=False, default=4)
     manager_id: Mapped[int | None] = mapped_column(
@@ -61,6 +64,7 @@ class EmployeeEntity(Entity, Base):
 
     # All roles the employee can fill, including the key role.
     roles = relationship("RoleEntity", secondary=employee_roles, lazy="selectin")
+    department = relationship("DepartmentEntity", lazy="selectin")
     absences = relationship(
         "AbsenceEntity", lazy="selectin", cascade="all, delete-orphan"
     )
@@ -99,6 +103,8 @@ class EmployeeEntity(Entity, Base):
             "seniority": self.seniority,
             "job_title": self.job_title,
             "location": self.location,
+            "department_id": self.department_id,
+            "department": self.department.to_dict() if self.department else None,
             "manager_id": self.manager_id,
             "key_role_id": self.key_role_id,
             "role_ids": [r.id for r in roles],

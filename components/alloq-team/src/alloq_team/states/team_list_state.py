@@ -45,6 +45,7 @@ class TeamRow(BaseModel):
 
 class TeamDetail(TeamRow):
     location: str = ""
+    department: str = ""
     roles: str = ""
     workload_percent: int = 100
     weeks: list[TeamWeek] = []
@@ -103,6 +104,7 @@ def to_detail(employee: Employee, overview: TeamOverview | None) -> TeamDetail:
         roles=", ".join(employee.role_names),
         hours=employee.hours_per_week,
         location=employee.location or "",
+        department=employee.department.label if employee.department else "",
         workload_percent=employee.workload_percent,
         load_percent=overview.load_percent if overview else 0,
         load_tone=load_tone(overview),

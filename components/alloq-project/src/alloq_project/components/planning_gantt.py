@@ -4,7 +4,13 @@ import reflex as rx
 from alloq_commons.components.dialogs import delete_dialog
 from alloq_project.components.planning_shared import (
     GRID_WRAPPER_STYLE,
+    HOLIDAY_BG,
     MONTH_START_BORDER,
+    VIEW_COLUMN_STYLE,
+    legend_footer,
+    legend_item,
+    month_head,
+    week_head,
 )
 from alloq_project.services.planning_gantt import (
     DAYS_PER_WEEK,
@@ -39,11 +45,6 @@ DAY_PX = WEEK_COL_PX / DAYS_PER_WEEK
 BAR_BG = "var(--mantine-color-blue-6)"
 SELECTED_RING = "0 0 0 2px var(--aq-surface), 0 0 0 4px var(--aq-accent)"
 WEEKEND_BG = "light-dark(rgba(0, 0, 0, 0.025), rgba(255, 255, 255, 0.03))"
-HOLIDAY_HATCH = (
-    "repeating-linear-gradient(135deg, "
-    "light-dark(rgba(135, 88, 0, 0.28), rgba(227, 174, 82, 0.35)) 0 2px, "
-    "transparent 2px 4px)"
-)
 # Week line on the left edge of each week, like the week header cells.
 LANE_BG = (
     "repeating-linear-gradient(to right, "
@@ -113,52 +114,22 @@ def _sticky(side: str, background: str, **extra: str) -> dict:
 
 
 def _month(month: ObjectVar[MonthSpan], index: NumberVar) -> rx.Component:
-    return mn.box(
-        mn.text(month.label, fz="12px", fw="650", truncate=True),
-        style={
-            "width": _px(month.span * WEEK_COL_PX),
-            "boxSizing": "border-box",
-            "display": "flex",
-            "alignItems": "center",
-            "padding": "0 10px",
-            "borderLeft": rx.cond(index > 0, MONTH_START_BORDER, "none"),
-        },
+    return month_head(
+        month.label,
+        rx.cond(index > 0, MONTH_START_BORDER, "none"),
+        {"width": _px(month.span * WEEK_COL_PX)},
     )
 
 
 def _week(week: ObjectVar[GanttWeek]) -> rx.Component:
-    return mn.box(
-        mn.text(
-            "KW ",
-            week.kw,
-            fz="11px",
-            fw="650",
-            c=rx.cond(week.is_current, "var(--aq-warning)", "var(--aq-text)"),
-            style=NUMERIC,
-        ),
-        mn.group(
-            mn.text(week.label, fz="10.5px", c="var(--aq-text-muted)", style=NUMERIC),
-            rx.cond(
-                week.has_holiday,
-                mn.box(w=5, h=5, bg="var(--aq-warning)", style={"borderRadius": "50%"}),
-            ),
-            gap=3,
-            wrap="nowrap",
-        ),
-        custom_attrs={"title": week.title},
-        style={
-            "width": WEEK_PX,
-            "display": "flex",
-            "flexDirection": "column",
-            "alignItems": "center",
-            "justifyContent": "center",
-            "gap": "1px",
-            "boxSizing": "border-box",
-            "borderLeft": rx.cond(
-                week.is_month_start, MONTH_START_BORDER, "1px solid var(--aq-separator)"
-            ),
-            "backgroundColor": rx.cond(week.is_current, "var(--aq-now)", "transparent"),
-        },
+    return week_head(
+        kw=week.kw,
+        label=week.label,
+        title=week.title,
+        is_current=week.is_current,
+        is_month_start=week.is_month_start,
+        has_holiday=week.has_holiday,
+        style={"width": WEEK_PX},
     )
 
 
@@ -238,7 +209,7 @@ def _holiday(mark: ObjectVar[GanttMark]) -> rx.Component:
             "bottom": "0",
             "left": _px(mark.left_px),
             "width": f"{DAY_PX:.3f}px",
-            "backgroundImage": HOLIDAY_HATCH,
+            "backgroundColor": HOLIDAY_BG,
         },
     )
 
@@ -536,27 +507,18 @@ def _timeline() -> rx.Component:
 # === Footer ===
 
 
-def _legend_item(swatch: dict, label: str) -> rx.Component:
-    return mn.group(
-        mn.box(style={"width": "18px", "height": "10px", **swatch}),
-        mn.text(label, fz="12px", c="var(--aq-text-muted)"),
-        gap=6,
-        wrap="nowrap",
-    )
-
-
-def _legend() -> rx.Component:
-    return mn.group(
-        _legend_item({"backgroundColor": BAR_BG, "borderRadius": "3px"}, "Abwesenheit"),
-        _legend_item(
+def _footer() -> rx.Component:
+    return legend_footer(
+        legend_item({"backgroundColor": BAR_BG, "borderRadius": "3px"}, "Abwesenheit"),
+        legend_item(
             {"border": "1.5px dashed var(--aq-accent)", "borderRadius": "3px"},
             "Neu (ziehen)",
         ),
-        _legend_item(
-            {"width": "10px", "height": "14px", "backgroundImage": HOLIDAY_HATCH},
+        legend_item(
+            {"width": "10px", "height": "14px", "backgroundColor": HOLIDAY_BG},
             "Feiertag",
         ),
-        _legend_item(
+        legend_item(
             {
                 "width": "10px",
                 "height": "14px",
@@ -565,12 +527,11 @@ def _legend() -> rx.Component:
             },
             "Wochenende",
         ),
-        _legend_item(
+        legend_item(
             {"width": "2px", "height": "14px", "backgroundColor": "var(--aq-negative)"},
             "Heute",
         ),
-        mn.text(HINT, fz="12px", c="var(--aq-text-tertiary)", ml="auto"),
-        gap="lg",
+        hint=HINT,
     )
 
 
@@ -722,15 +683,6 @@ def _upcoming_section() -> rx.Component:
     )
 
 
-def _footer() -> rx.Component:
-    return mn.box(
-        _legend(),
-        px=16,
-        py=10,
-        style={"borderTop": "1px solid var(--aq-separator)", "flexShrink": "0"},
-    )
-
-
 def _employee_field() -> rx.Component:
     return mn.select(
         label="Mitarbeiter",
@@ -759,13 +711,7 @@ def planning_gantt() -> rx.Component:
                 on_submit=PlanningAbsenceState.create_absence,
                 employee_field=_employee_field(),
             ),
-            style={
-                "display": "flex",
-                "flexDirection": "column",
-                "flex": "1",
-                "minHeight": "0",
-                "width": "100%",
-            },
+            style=VIEW_COLUMN_STYLE,
         ),
         mn.center(
             mn.group(rx.spinner(size="3"), mn.text("Lade Abwesenheiten...", size="sm")),
