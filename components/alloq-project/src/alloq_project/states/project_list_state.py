@@ -51,12 +51,12 @@ def _is_closed(project: Project) -> bool:
     return project.state == ProjectStateEnum.COMPLETED
 
 
-def _is_internal(project: Project) -> bool:
-    return project.is_internal and not _is_closed(project)
-
-
 def _is_planned(project: Project) -> bool:
-    return not project.is_internal and project.state == ProjectStateEnum.PLANNED
+    return project.state == ProjectStateEnum.PLANNED
+
+
+def _is_internal(project: Project) -> bool:
+    return project.is_internal and not (_is_closed(project) or _is_planned(project))
 
 
 def _is_regular(project: Project) -> bool:

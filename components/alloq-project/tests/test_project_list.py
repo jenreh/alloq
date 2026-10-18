@@ -99,7 +99,9 @@ class TestFilter:
         assert state.other_rows == []
         assert _ids(state.planned_rows) == [2]
 
-    def test_internal_projects_get_their_own_group(self) -> None:
+    def test_internal_projects_get_their_own_group_unless_planned(
+        self,
+    ) -> None:
         state = _state()
         state.projects = [
             *state.projects,
@@ -116,8 +118,8 @@ class TestFilter:
         ]
         assert _ids(state.mine_rows) == [1]
         assert _ids(state.other_rows) == [4, 3]
-        assert _ids(state.planned_rows) == [2]
-        assert _ids(state.internal_rows) == [6, 5, 7]
+        assert _ids(state.planned_rows) == [2, 5]
+        assert _ids(state.internal_rows) == [6, 7]
         assert state.row_count == 7
 
         state.set_list_filter("Meine")
