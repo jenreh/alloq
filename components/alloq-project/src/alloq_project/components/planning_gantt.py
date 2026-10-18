@@ -1,6 +1,7 @@
 """Absence timeline: day-precise bars, week coverage and upcoming absences."""
 
 import reflex as rx
+from alloq_commons import theme
 from alloq_commons.access import CAN_EDIT, editor_only
 from alloq_commons.components.dialogs import delete_dialog
 from alloq_project.components.planning_shared import (
@@ -375,6 +376,7 @@ def _bar(
             radius="lg",
             with_arrow=True,
             keep_mounted=True,
+            z_index=theme.PAGE_POPOVER_Z_INDEX,
         ),
         rx.cond(
             bar.inside,

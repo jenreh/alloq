@@ -6,7 +6,11 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from alloq_commons.components.department import departments_table, departments_toolbar
+from alloq_commons.components.department import (
+    department_form_fields,
+    departments_table,
+    departments_toolbar,
+)
 from alloq_commons.entities import DepartmentEntity, EmployeeEntity
 from alloq_commons.models import Department, DepartmentCreate
 from alloq_commons.roles import (
@@ -239,3 +243,9 @@ class TestDepartmentComponents:
 
     def test_toolbar_has_search_and_add(self) -> None:
         assert len(departments_toolbar()) == 2
+
+    def test_form_inputs_limit_length_in_browser(self) -> None:
+        rendered = str(department_form_fields())
+        assert "maxLength:255" in rendered
+        assert "maxLength:10" in rendered
+        assert '["maxLength"]' not in rendered

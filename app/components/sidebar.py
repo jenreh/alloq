@@ -71,11 +71,6 @@ SIGN_OUT: Final = DesktopLoginState.sign_out if is_desktop() else LoginState.log
 account and its DB connections."""
 NO_HOVER: Final = {"color": theme.SIDEBAR_TEXT}
 """Source lists don't recolor on hover; rx.link would turn the text blue."""
-SIDEBAR_CSS: Final = (
-    f".aq-nav-item:hover{{background:{theme.SIDEBAR_HOVER};}}"
-    f".aq-nav-item[aria-current=page]{{background:{theme.SIDEBAR_SELECTED};"
-    "font-weight:500;}"
-)
 
 
 def is_route_active(url: str) -> rx.Var[bool]:
@@ -306,7 +301,6 @@ def _user_menu() -> rx.Component:
 def sidebar() -> rx.Component:
     """The app sidebar; shared by every page."""
     return mn.box(
-        rx.el.style(SIDEBAR_CSS),
         editor_only(mn.box(display="none", on_mount=SidebarState.load)),
         editor_only(mn.box(display="none", on_mount=RoleCapacityState.load)),
         _window_row(),

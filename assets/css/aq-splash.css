@@ -1,0 +1,21 @@
+/* Splash overlay; dynamic styles stay inline in splash.py. */
+
+body:has(.aq-splash[aria-hidden="false"]) [data-sonner-toaster], body:has(.aq-splash[aria-hidden="false"]) [title^="Connection Error"] {
+    display: none !important;
+}
+
+@keyframes aq-splash-bar {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(250%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .aq-splash, .aq-splash * {
+        transition: none !important;
+        animation: none !important;
+    }
+}

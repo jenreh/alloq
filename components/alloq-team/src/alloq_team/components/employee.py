@@ -55,7 +55,7 @@ def employee_form_fields(is_edit: bool = False) -> rx.Component:
                 on_blur=EmployeeValidationState.set_first_name,
                 error=EmployeeValidationState.first_name_error,
                 required=True,
-                max_length=255,
+                custom_attrs={"maxLength": 255},
                 left_section=rx.icon("user", size=16),
             ),
             mn.text_input(
@@ -65,7 +65,7 @@ def employee_form_fields(is_edit: bool = False) -> rx.Component:
                 on_blur=EmployeeValidationState.set_last_name,
                 error=EmployeeValidationState.last_name_error,
                 required=True,
-                max_length=255,
+                custom_attrs={"maxLength": 255},
                 left_section=rx.icon("user", size=16),
             ),
             mn.text_input(
@@ -76,7 +76,7 @@ def employee_form_fields(is_edit: bool = False) -> rx.Component:
                 on_blur=EmployeeValidationState.validate_email_unique,
                 error=EmployeeValidationState.email_error,
                 required=False,
-                max_length=255,
+                custom_attrs={"maxLength": 255},
                 left_section=rx.icon("mail", size=16),
             ),
             mn.text_input(
@@ -85,7 +85,7 @@ def employee_form_fields(is_edit: bool = False) -> rx.Component:
                 default_value=EmployeeValidationState.job_title,
                 on_blur=EmployeeValidationState.set_job_title,
                 required=False,
-                max_length=255,
+                custom_attrs={"maxLength": 255},
                 left_section=rx.icon("briefcase", size=16),
             ),
             mn.text_input(
@@ -94,7 +94,7 @@ def employee_form_fields(is_edit: bool = False) -> rx.Component:
                 default_value=EmployeeValidationState.location,
                 on_blur=EmployeeValidationState.set_location,
                 required=False,
-                max_length=255,
+                custom_attrs={"maxLength": 255},
                 left_section=rx.icon("map-pin", size=16),
             ),
             mn.select(

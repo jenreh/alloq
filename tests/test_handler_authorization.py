@@ -236,6 +236,7 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
     "PlanningStore": frozenset(
         {
             "apply_cell_changes",
+            "apply_view_settings",
             "close_add_project_for_employee",
             "notify_rejected",
             "open_add_project_for_employee",

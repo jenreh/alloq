@@ -54,6 +54,13 @@ class TestProjectForm:
 
         assert '["decimalScale"]' not in rendered
 
+    def test_text_inputs_limit_length_in_browser(self) -> None:
+        rendered = str(project_form_fields())
+
+        for limit in (255, 5, 50):
+            assert f"maxLength:{limit}" in rendered
+        assert '["maxLength"]' not in rendered
+
     def test_has_internal_project_switch(self) -> None:
         rendered = str(project_form_fields())
 

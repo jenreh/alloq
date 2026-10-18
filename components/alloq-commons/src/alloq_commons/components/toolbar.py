@@ -14,7 +14,6 @@ from reflex.event import EventType
 import appkit_mantine as mn
 from alloq_commons import theme
 
-TOOLBAR_HEIGHT_PX = 56
 DRAG: dict[str, Any] = {"data-tauri-drag-region": ""}
 """Marks an element as window title bar (Tauri drags the window from it)."""
 

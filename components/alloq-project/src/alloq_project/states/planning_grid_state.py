@@ -68,14 +68,22 @@ from alloq_project.services.planning_builders import (
     without_idle_projects,
     without_internal_projects,
 )
+from alloq_project.services.planning_view_settings import (
+    READ_SCRIPT,
+    ViewSettings,
+    parse_view_settings,
+    view_settings_script,
+)
 from alloq_project.states.planning_absence_view_mixin import PlanningAbsenceViewMixin
-from alloq_project.states.planning_display_mixin import PlanningDisplayState
+from alloq_project.states.planning_display_mixin import (
+    COMPACT,
+    NORMAL,
+    PlanningDisplayState,
+)
 from alloq_project.states.planning_filter_mixin import (
     GRID_VIEW,
     PROJECT_VIEW,
-    SAVED_ON,
     PlanningFilterMixin,
-    saved_flag,
 )
 from alloq_project.states.planning_models import (
     LABEL_COL_PX,
@@ -118,7 +126,10 @@ __all__ = [
 
 
 class PlanningStore(
-    PlanningDisplayState, PlanningFilterMixin, PlanningAbsenceViewMixin, UserSession
+    PlanningDisplayState,
+    PlanningFilterMixin,
+    PlanningAbsenceViewMixin,
+    UserSession,
 ):
     """Shared planning entities, allocations, filters and derived views."""
 
@@ -162,7 +173,11 @@ class PlanningStore(
     collapsed_employees: rx.Field[list[str]] = rx.field(default_factory=list)
     collapsed_projects: rx.Field[list[str]] = rx.field(default_factory=list)
     # Browser copy of "collapse all", applied again whenever the grid loads.
-    saved_sections_collapsed: str = rx.LocalStorage("", name="alloq_planning_collapsed")
+    # "Collapse all" as stored in the browser; applied again on every populate.
+    _collapse_saved: bool = False
+    # Set when filters were cleared on purpose; the next settings read keeps
+    # the scopes off instead of restoring them.
+    _filters_focused: bool = False
 
     add_project_emp_id: rx.Field[str] = rx.field("")
     add_project_options: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
@@ -557,7 +572,7 @@ class PlanningStore(
         self.cells = {**cells, **visible}
         self.hidden_edits = hidden
         self.dirty_keys = dirty_keys_for(self.cells, self.saved_cells)
-        if self.saved_sections_collapsed == SAVED_ON:
+        if self._collapse_saved:
             self._collapse_all_sections()
         self.is_loaded = True
 
@@ -599,7 +614,6 @@ class PlanningStore(
         yield self._focus_employee_from_url()
         try:
             await self._load_entities()
-            self._restore_saved_scopes()
             await self._populate(self._range_weeks())
         except Exception as exc:  # noqa: BLE001
             log.error("Failed to load planning data: %s", exc)
@@ -608,7 +622,7 @@ class PlanningStore(
             )
         finally:
             self.is_loading = False
-        yield
+        yield rx.call_script(READ_SCRIPT, callback=PlanningStore.apply_view_settings)
 
     @rx.event
     @requires_viewer
@@ -668,24 +682,24 @@ class PlanningStore(
     # === Collapse ===
 
     @rx.event
-    def toggle_employee(self, emp_id: str) -> None:
+    def toggle_employee(self, emp_id: str) -> Any:
         if emp_id in self.collapsed_employees:
             self.collapsed_employees = [
                 e for e in self.collapsed_employees if e != emp_id
             ]
         else:
             self.collapsed_employees = [*self.collapsed_employees, emp_id]
-        self._save_sections_collapsed()
+        return self._sync_collapse_saved()
 
     @rx.event
-    def toggle_project(self, project_id: str) -> None:
+    def toggle_project(self, project_id: str) -> Any:
         if project_id in self.collapsed_projects:
             self.collapsed_projects = [
                 p for p in self.collapsed_projects if p != project_id
             ]
         else:
             self.collapsed_projects = [*self.collapsed_projects, project_id]
-        self._save_sections_collapsed()
+        return self._sync_collapse_saved()
 
     @rx.var
     def all_sections_collapsed(self) -> bool:
@@ -698,20 +712,51 @@ class PlanningStore(
         )
 
     @rx.event
-    def toggle_all_sections(self) -> None:
+    def toggle_all_sections(self) -> Any:
         if self.all_sections_collapsed:
             self.collapsed_employees = []
             self.collapsed_projects = []
         else:
             self._collapse_all_sections()
-        self._save_sections_collapsed()
+        return self._sync_collapse_saved()
 
     def _collapse_all_sections(self) -> None:
         self.collapsed_employees = [employee["id"] for employee in self.employee_meta]
         self.collapsed_projects = [project["id"] for project in self.project_meta]
 
-    def _save_sections_collapsed(self) -> None:
-        self.saved_sections_collapsed = saved_flag(self.all_sections_collapsed)
+    def _sync_collapse_saved(self) -> Any:
+        """Store "collapse all" when it changed; single sections are not stored."""
+        if self.all_sections_collapsed == self._collapse_saved:
+            return None
+        self._collapse_saved = self.all_sections_collapsed
+        return self._store_view_settings()
+
+    # === Browser-stored toolbar settings ===
+
+    def _store_view_settings(self) -> Any:
+        settings = ViewSettings(
+            compact=self.grid_density == COMPACT,
+            collapsed=self._collapse_saved,
+            project_scope=self.project_scope,
+            employee_scope=self.employee_scope,
+        )
+        return rx.call_script(view_settings_script(settings))
+
+    @rx.event
+    def apply_view_settings(self, raw: str) -> Any:
+        """Apply the toolbar settings the browser stored (callback of `load`)."""
+        settings = parse_view_settings(raw)
+        self.grid_density = COMPACT if settings.compact else NORMAL
+        self._collapse_saved = settings.collapsed
+        if settings.collapsed:
+            self._collapse_all_sections()
+        if self._filters_focused:
+            self._filters_focused = False
+            return self._store_view_settings()
+        if self.current_employee_id is not None:
+            self.project_scope = settings.project_scope
+            self.employee_scope = settings.employee_scope
+        return None
 
     # === Save ===
 

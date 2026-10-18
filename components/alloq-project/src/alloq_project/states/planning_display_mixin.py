@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import reflex as rx
 from alloq_project.states.planning_models import (
@@ -37,17 +37,20 @@ class PlanningDisplayState(rx.State, mixin=True):
     """Row density and column layout of the planning grids.
 
     A mixin rather than a substate: the grid components read these vars next to
-    `PlanningStore` vars, and the density must survive reloads per browser.
+    `PlanningStore` vars. The density is kept per browser by `PlanningStore`.
     """
 
     if TYPE_CHECKING:  # Provided by PlanningStore.
         weeks: list[WeekColumn]
 
-    grid_density: str = rx.LocalStorage(NORMAL, name="alloq_planning_density")
+        def _store_view_settings(self) -> Any: ...
+
+    grid_density: rx.Field[str] = rx.field(NORMAL)
 
     @rx.event
-    def toggle_grid_density(self) -> None:
+    def toggle_grid_density(self) -> Any:
         self.grid_density = NORMAL if self.grid_density == COMPACT else COMPACT
+        return self._store_view_settings()
 
     @rx.var(cache=True)
     def is_compact(self) -> bool:

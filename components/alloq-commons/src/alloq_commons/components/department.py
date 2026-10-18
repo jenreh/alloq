@@ -30,7 +30,7 @@ def department_form_fields(
             description="Eindeutiger Name der Abteilung.",
             default_value=department.name if is_edit_mode else "",  # type: ignore[union-attr]
             required=True,
-            max_length=255,
+            custom_attrs={"maxLength": 255},
             left_section=rx.icon("building-2", size=16),
         ),
         mn.text_input(
@@ -39,7 +39,7 @@ def department_form_fields(
             description="Eindeutiges Kürzel (max. 10 Zeichen), z.B. IT.",
             default_value=department.abbreviation if is_edit_mode else "",  # type: ignore[union-attr]
             required=True,
-            max_length=10,
+            custom_attrs={"maxLength": 10},
         ),
     )
 

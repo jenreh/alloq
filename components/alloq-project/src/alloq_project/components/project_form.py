@@ -31,7 +31,7 @@ def project_form_fields() -> rx.Component:
                 on_blur=ProjectValidationState.set_name_de,
                 error=ProjectValidationState.name_de_error,
                 required=True,
-                max_length=255,
+                custom_attrs={"maxLength": 255},
             ),
             mn.text_input(
                 name="code",
@@ -41,7 +41,6 @@ def project_form_fields() -> rx.Component:
                 on_blur=ProjectValidationState.set_code,
                 error=ProjectValidationState.code_error,
                 required=True,
-                max_length=5,
                 custom_attrs={"maxLength": 5},
                 w="10rem",
             ),
@@ -51,7 +50,7 @@ def project_form_fields() -> rx.Component:
                 placeholder="z.B. Muster AG",
                 default_value=ProjectValidationState.customer,
                 on_blur=ProjectValidationState.set_customer,
-                max_length=255,
+                custom_attrs={"maxLength": 255},
             ),
             mn.text_input(
                 name="booking_number",
@@ -59,7 +58,7 @@ def project_form_fields() -> rx.Component:
                 placeholder="z.B. 4711-0815",
                 default_value=ProjectValidationState.booking_number,
                 on_blur=ProjectValidationState.set_booking_number,
-                max_length=50,
+                custom_attrs={"maxLength": 50},
                 w="14rem",
             ),
             mn.multi_select(

@@ -1,5 +1,7 @@
 """Rendering checks for the planning grid."""
 
+from alloq_commons import theme
+from alloq_project.components.planning_gantt import _bar
 from alloq_project.components.planning_gantt import _header as gantt_header
 from alloq_project.components.planning_grid import (
     GESAMT_OVER_BG,
@@ -34,6 +36,8 @@ from alloq_project.components.planning_shared import (
     week_label_cell,
 )
 from alloq_project.states.planning_models import (
+    AbsenceGanttBar,
+    AbsenceGanttRow,
     EmployeeAllocationRow,
     EmployeeBlock,
     GesamtCell,
@@ -190,3 +194,15 @@ def test_row_labels_follow_the_grid_density_font_size() -> None:
         str(_employee_label_cell(employee)),
     ):
         assert f'size:"{ROW_LABEL_FONT_SIZE}"' in rendered
+
+
+def test_absence_popover_stays_below_dialogs_it_opens() -> None:
+    rendered = str(
+        _bar(
+            ObjectVar("row", AbsenceGanttRow),
+            ObjectVar("bar", AbsenceGanttBar),
+        )
+    )
+
+    assert theme.PAGE_POPOVER_Z_INDEX < theme.MODAL_Z_INDEX
+    assert f"zIndex:{theme.PAGE_POPOVER_Z_INDEX}" in rendered.replace(" ", "")

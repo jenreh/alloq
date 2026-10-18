@@ -8,6 +8,9 @@ base_stylesheets = [
     "css/react-zoom.css",
     "css/appkit.css",
     "css/alloq-theme.css",
+    "css/aq-shell.css",
+    "css/aq-list.css",
+    "css/aq-splash.css",
 ]
 
 base_style: ComponentStyle = {

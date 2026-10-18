@@ -37,7 +37,7 @@ def role_form_fields(role: ObjectVar[Role] | None = None) -> rx.Component:
                 description="Eindeutiger Name der Rolle (max. 255 Zeichen).",
                 default_value=role.name if is_edit_mode else "",
                 required=True,
-                max_length=255,
+                custom_attrs={"maxLength": 255},
                 left_section=rx.icon("shield", size=16),
             ),
             mn.text_input(
@@ -46,7 +46,7 @@ def role_form_fields(role: ObjectVar[Role] | None = None) -> rx.Component:
                 description="Kurzform der Rolle (max. 3 Zeichen).",
                 default_value=role.abbreviation if is_edit_mode else "",
                 required=False,
-                max_length=3,
+                custom_attrs={"maxLength": 3},
             ),
             mn.textarea(
                 name="description",

@@ -1,9 +1,10 @@
 """Tests for client-driven cell editing in PlanningStore."""
 
 import datetime as dt
+import json
 import math
 from collections.abc import Iterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, PropertyMock, patch
@@ -19,6 +20,7 @@ from alloq_project.services.planning_builders import (
     employee_id_by_email,
     parse_cell_changes,
 )
+from alloq_project.services.planning_view_settings import ViewSettings
 from alloq_project.states.planning_grid_state import PlanningStore
 
 
@@ -361,8 +363,10 @@ class TestSettersAndLabels:
     def test_active_scope_can_always_be_turned_off(self) -> None:
         state = _store()
         state.project_scope = state.employee_scope = True
-        assert state.toggle_project_scope() is None
-        assert state.toggle_employee_scope() is None
+        with _stored_settings() as stored:
+            state.toggle_project_scope()
+            state.toggle_employee_scope()
+        assert len(stored) == 2
         assert (state.project_scope, state.employee_scope) == (False, False)
 
     def test_notify_rejected_ignores_zero(self) -> None:
@@ -501,75 +505,99 @@ class TestRemoveProject:
         assert len(events) == 1
 
 
-class TestBrowserPersistedToolbar:
-    """Collapse-all and the scope toggles survive a new browser session."""
+@contextmanager
+def _stored_settings() -> Iterator[list[ViewSettings]]:
+    """Collect the settings handlers write to the browser."""
+    stored: list[ViewSettings] = []
 
-    def test_scope_toggles_are_written_to_browser_storage(self) -> None:
+    def _record(settings: ViewSettings) -> str:
+        stored.append(settings)
+        return ""
+
+    with patch(f"{_STATE}.view_settings_script", side_effect=_record):
+        yield stored
+
+
+class TestBrowserStoredToolbar:
+    """Toolbar toggles are stored in the browser and restored by `load`."""
+
+    def test_toggles_store_all_settings(self) -> None:
         state = _store()
         state.current_employee_id = 9
-        state.toggle_project_scope()
-        state.toggle_employee_scope()
-        assert (state.saved_project_scope, state.saved_employee_scope) == ("1", "1")
-        state.toggle_project_scope()
-        state.toggle_employee_scope()
-        assert (state.saved_project_scope, state.saved_employee_scope) == ("", "")
+        with _stored_settings() as stored:
+            state.toggle_grid_density()
+            state.toggle_project_scope()
+            state.toggle_employee_scope()
+            state.toggle_all_sections()
+        assert stored[-1] == ViewSettings(
+            compact=True, collapsed=True, project_scope=True, employee_scope=True
+        )
+        assert len(stored) == 4
 
-    def test_refused_scope_is_not_saved(self) -> None:
+    def test_refused_scope_stores_nothing(self) -> None:
         state = _store()
-        state.toggle_project_scope()
-        assert state.saved_project_scope == ""
+        with _stored_settings() as stored:
+            state.toggle_project_scope()
+        assert stored == []
+
+    def test_single_sections_store_only_a_changed_collapse(self) -> None:
+        state = _store()
+        with _stored_settings() as stored:
+            state.toggle_all_sections()
+            state.toggle_employee("emp-1")
+            assert state.toggle_project("proj-1") is None
+            state.toggle_project("proj-1")
+            state.toggle_employee("emp-1")
+        assert [s.collapsed for s in stored] == [True, False, True]
 
     @pytest.mark.asyncio
-    async def test_load_restores_saved_scopes(self) -> None:
+    async def test_load_reads_the_browser_settings(self) -> None:
         state = PlanningStore()
-        state.saved_project_scope = state.saved_employee_scope = "1"
-
-        async def _entities() -> None:
-            state.current_employee_id = 9
-
-        with (
-            patch.object(PlanningStore, "_load_entities", AsyncMock(wraps=_entities)),
-            patch.object(PlanningStore, "_populate", AsyncMock()),
-        ):
-            await _drain(state.load())
-        assert (state.project_scope, state.employee_scope) == (True, True)
-
-    @pytest.mark.asyncio
-    async def test_load_ignores_saved_scopes_without_employee(self) -> None:
-        state = PlanningStore()
-        state.saved_project_scope = state.saved_employee_scope = "1"
         with (
             patch.object(PlanningStore, "_load_entities", AsyncMock()),
             patch.object(PlanningStore, "_populate", AsyncMock()),
         ):
-            await _drain(state.load())
-        assert (state.project_scope, state.employee_scope) == (False, False)
+            events = await _drain(state.load())
+        assert "alloq_planning_view" in str(events[-1])
+        assert "apply_view_settings" in str(events[-1])
 
-    def test_clearing_filters_clears_saved_scopes(self) -> None:
+    def test_apply_restores_settings(self) -> None:
         state = _store()
-        state.saved_project_scope = state.saved_employee_scope = "1"
+        state.current_employee_id = 9
+        raw = json.dumps(
+            {
+                "compact": True,
+                "collapsed": True,
+                "project_scope": True,
+                "employee_scope": True,
+            }
+        )
+        assert state.apply_view_settings(raw) is None
+        assert state.grid_density == "kompakt"
+        assert state.all_sections_collapsed is True
+        assert (state.project_scope, state.employee_scope) == (True, True)
+
+    def test_apply_keeps_scopes_off_without_employee(self) -> None:
+        state = _store()
+        state.apply_view_settings(json.dumps({"project_scope": True}))
+        assert state.project_scope is False
+
+    def test_apply_after_cleared_filters_stores_scopes_off(self) -> None:
+        state = _store()
+        state.current_employee_id = 9
         state.open_project(1)
-        assert (state.saved_project_scope, state.saved_employee_scope) == ("", "")
-
-    def test_toggle_all_sections_is_saved(self) -> None:
-        state = _store()
-        state.toggle_all_sections()
-        assert state.saved_sections_collapsed == "1"
-        state.toggle_all_sections()
-        assert state.saved_sections_collapsed == ""
-
-    def test_expanding_one_section_clears_saved_collapse(self) -> None:
-        state = _store()
-        state.toggle_all_sections()
-        state.toggle_employee("emp-1")
-        assert state.saved_sections_collapsed == ""
-        state.toggle_employee("emp-1")
-        assert state.saved_sections_collapsed == "1"
+        raw = json.dumps({"compact": True, "project_scope": True})
+        with _stored_settings() as stored:
+            state.apply_view_settings(raw)
+        assert state.project_scope is False
+        assert stored == [ViewSettings(compact=True)]
+        assert state.apply_view_settings(raw) is None
+        assert state.project_scope is True
 
     @pytest.mark.asyncio
-    async def test_populate_collapses_all_when_saved(self) -> None:
+    async def test_populate_collapses_all_when_stored(self) -> None:
         state = PlanningStore()
-        state.saved_sections_collapsed = "1"
+        state.apply_view_settings(json.dumps({"collapsed": True}))
         state.available_employees = [Employee(id=1)]
         state.available_projects = [Project(id=1)]
         with (
