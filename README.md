@@ -210,12 +210,6 @@ Employee cards with roles, seniority levels, and absence periods.
 
 ![Team Overview](docs/images/people.png)
 
-### Administration
-
-User management with activation, verification, and role assignment.
-
-![Administration](docs/images/admin.png)
-
 ## Deployment
 
 For desktop access with Entra ID, follow the [Azure setup](docs/architecture/desktop.md#setup-in-azure-done-once)
