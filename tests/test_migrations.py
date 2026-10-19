@@ -199,6 +199,37 @@ def test_revision_chain(fix: ModuleType) -> None:
     assert fix.down_revision == seed.revision
 
 
+def test_department_highlight_migration_defaults_existing_rows_to_false() -> None:
+    migration = _load("2026_10_19_department_highlight.py")
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    departments = sa.Table(
+        "departments",
+        metadata,
+        sa.Column("id", sa.Integer, primary_key=True),
+        sa.Column("name", sa.String, nullable=False),
+    )
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        conn.execute(departments.insert().values(name="IT"))
+        _run(migration, "upgrade", conn)
+        assert (
+            conn.execute(sa.text("SELECT highlighted FROM departments")).scalar() == 0
+        )
+        conn.execute(sa.text("INSERT INTO departments (name) VALUES ('HR')"))
+        assert (
+            conn.execute(
+                sa.text("SELECT highlighted FROM departments WHERE name = 'HR'")
+            ).scalar()
+            == 0
+        )
+        _run(migration, "downgrade", conn)
+        columns = {
+            column["name"] for column in sa.inspect(conn).get_columns("departments")
+        }
+        assert "highlighted" not in columns
+
+
 # ---------------------------------------------------------------------------
 # dd55ee66ff77 — absences date range CHECK + unique capacity assignment
 # ---------------------------------------------------------------------------

@@ -23,6 +23,7 @@ def _department_from_form(form_data: dict) -> DepartmentCreate:
     return DepartmentCreate(
         name=form_data.get("name", "").strip(),
         abbreviation=form_data.get("abbreviation", "").strip(),
+        highlighted=form_data.get("highlighted") == "on",
     )
 
 
@@ -111,7 +112,11 @@ class DepartmentState(rx.State):
             async with get_asyncdb_session() as session:
                 await department_repo.create(
                     session,
-                    DepartmentEntity(name=data.name, abbreviation=data.abbreviation),
+                    DepartmentEntity(
+                        name=data.name,
+                        abbreviation=data.abbreviation,
+                        highlighted=data.highlighted,
+                    ),
                 )
         except ValidationError:
             yield rx.toast.error("Name und Kürzel angeben.", position="top-right")
@@ -148,6 +153,7 @@ class DepartmentState(rx.State):
                 if entity:
                     entity.name = data.name
                     entity.abbreviation = data.abbreviation
+                    entity.highlighted = data.highlighted
                     await department_repo.update(session, entity)
         except ValidationError:
             yield rx.toast.error("Name und Kürzel angeben.", position="top-right")

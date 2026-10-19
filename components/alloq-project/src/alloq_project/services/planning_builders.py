@@ -522,6 +522,13 @@ def build_employee_meta(
     emp_meta: list[dict[str, Any]] = []
     absence_map: dict[str, list[float]] = {}
     for emp in available_employees:
+        department = getattr(emp, "department", None)
+        department_highlighted = getattr(department, "highlighted", False)
+        department_name = getattr(department, "name", "")
+        if not isinstance(department_highlighted, bool):
+            department_highlighted = False
+        if not isinstance(department_name, str):
+            department_name = ""
         eid = f"emp-{emp.id}"
         absence_map[eid] = [
             absence_days_for_week(emp.absences, ws) for ws in week_starts
@@ -546,6 +553,7 @@ def build_employee_meta(
                 "initials": (f"{emp.first_name[:1]}{emp.last_name[:1]}".upper() or "?"),
                 "avatar_color": emp.avatar_color,
                 "job_title": emp.job_title or "",
+                "department_highlighted": department_highlighted,
                 "role_short": primary_short,
                 "role_color": role_color(primary),
                 "role_full": primary or ROLE_FULL.get(primary_short, primary_short),

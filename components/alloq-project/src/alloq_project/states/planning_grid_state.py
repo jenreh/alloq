@@ -75,6 +75,7 @@ from alloq_project.services.planning_view_settings import (
     view_settings_script,
 )
 from alloq_project.states.planning_absence_view_mixin import PlanningAbsenceViewMixin
+from alloq_project.states.planning_department_mixin import PlanningDepartmentMixin
 from alloq_project.states.planning_display_mixin import (
     COMPACT,
     NORMAL,
@@ -127,6 +128,7 @@ __all__ = [
 
 class PlanningStore(
     PlanningDisplayState,
+    PlanningDepartmentMixin,
     PlanningFilterMixin,
     PlanningAbsenceViewMixin,
     UserSession,
@@ -323,6 +325,7 @@ class PlanningStore(
                 initials=emp["initials"],
                 avatar_color=emp.get("avatar_color", ""),
                 job_title=emp.get("job_title", ""),
+                department_highlighted=emp.get("department_highlighted", False),
                 role=emp.get("role_short", ""),
                 role_color=emp.get("role_color", ""),
                 role_full=emp.get("role_full", ""),
@@ -435,6 +438,7 @@ class PlanningStore(
         return sorted(
             blocks,
             key=lambda employee: (
+                not employee.department_highlighted,
                 employee.last_name.casefold(),
                 employee.first_name.casefold(),
             ),

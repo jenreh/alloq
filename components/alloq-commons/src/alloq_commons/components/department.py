@@ -41,6 +41,12 @@ def department_form_fields(
             required=True,
             custom_attrs={"maxLength": 10},
         ),
+        mn.switch(
+            name="highlighted",
+            label="Abteilung hervorheben",
+            description="Mitarbeiter erscheinen in den hervorgehobenen Bereichen.",
+            default_checked=department.highlighted if is_edit_mode else False,  # type: ignore[union-attr]
+        ),
     )
 
 
@@ -107,6 +113,13 @@ def departments_table_row(department: ObjectVar[Department]) -> rx.Component:
             mn.text(department.abbreviation, size="sm", c="dimmed"),
         ),
         mn.table.td(
+            mn.text(
+                rx.cond(department.highlighted, "Hervorgehoben", "–"),
+                size="sm",
+                c=rx.cond(department.highlighted, "blue", "dimmed"),
+            ),
+        ),
+        mn.table.td(
             mn.group(
                 rx.icon_button(
                     rx.icon("square-pen", size=16),
@@ -143,7 +156,7 @@ def _loading_row() -> rx.Component:
                 justify="center",
                 spacing="3",
             ),
-            col_span=3,
+            col_span=4,
             style={"textAlign": "center"},
         ),
     )
@@ -159,6 +172,7 @@ def departments_table() -> rx.Component:
                 mn.table.tr(
                     mn.table.th(mn.text("Name", size="sm", fw="700")),
                     mn.table.th(mn.text("Kürzel", size="sm", fw="700")),
+                    mn.table.th(mn.text("Hervorhebung", size="sm", fw="700")),
                     mn.table.th(mn.text("", size="sm")),
                     style=sticky_header_style,
                 ),

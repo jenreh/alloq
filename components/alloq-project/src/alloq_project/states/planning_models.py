@@ -183,6 +183,7 @@ class EmployeeBlock(BaseModel):
     initials: str
     avatar_color: str = ""
     job_title: str = ""
+    department_highlighted: bool = False
     role: str
     role_color: str
     role_full: str = ""

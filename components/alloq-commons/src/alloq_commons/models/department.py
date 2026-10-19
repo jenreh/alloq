@@ -9,6 +9,7 @@ class Department(BaseModel):
     id: int = 0
     name: str = ""
     abbreviation: str = ""
+    highlighted: bool = False
     created: datetime | None = None
     updated: datetime | None = None
 
@@ -23,3 +24,4 @@ class DepartmentCreate(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=255)
     abbreviation: str = Field(..., min_length=1, max_length=10)
+    highlighted: bool = False

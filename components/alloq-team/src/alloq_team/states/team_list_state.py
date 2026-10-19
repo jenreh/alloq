@@ -46,6 +46,7 @@ class TeamRow(BaseModel):
 class TeamDetail(TeamRow):
     location: str = ""
     department: str = ""
+    department_highlighted: bool = False
     roles: str = ""
     workload_percent: int = 100
     weeks: list[TeamWeek] = []
@@ -114,6 +115,9 @@ def to_detail(employee: Employee, overview: TeamOverview | None) -> TeamDetail:
         weeks=overview.weeks if overview else [],
         assignments=overview.assignments if overview else [],
         absences=_absence_text(employee),
+        department_highlighted=bool(
+            employee.department and employee.department.highlighted
+        ),
     )
 
 
@@ -136,6 +140,8 @@ class TeamListState(rx.State, mixin=True):
         employees: list[Employee]
         my_employees: list[Employee]
         other_employees: list[Employee]
+        filtered_employees: list[Employee]
+        current_employee_id: int | None
 
     list_filter: str = FILTER_ALL
     inspected_id: int = 0
@@ -189,27 +195,96 @@ class TeamListState(rx.State, mixin=True):
         filtered = [r for r in rows if _matches(r, self.overviews, self.list_filter)]
         return sort_team_rows(filtered, self.sort_column, self.sort_desc)
 
+    def _unhighlighted_details(self, employees: list[Employee]) -> list[TeamDetail]:
+        rows = [to_detail(e, self.overviews.get(e.id)) for e in employees]
+        filtered = [
+            row
+            for row in rows
+            if _matches(row, self.overviews, self.list_filter)
+            and not row.department_highlighted
+        ]
+        return sort_team_rows(filtered, self.sort_column, self.sort_desc)
+
     @rx.var
     def mine_rows(self) -> list[TeamDetail]:
-        return self._details(self.my_employees)
+        return [
+            row
+            for row in self._details(self.my_employees)
+            if row.department_highlighted
+        ]
 
     @rx.var
     def other_rows(self) -> list[TeamDetail]:
         if self.list_filter == FILTER_MINE:
             return []
-        return self._details(self.other_employees)
+        return [
+            row
+            for row in self._details(self.other_employees)
+            if row.department_highlighted
+        ]
+
+    @rx.var
+    def unhighlighted_rows(self) -> list[TeamDetail]:
+        employees = (
+            self.my_employees
+            if self.list_filter == FILTER_MINE
+            else self.filtered_employees
+        )
+        return self._unhighlighted_details(employees)
+
+    @rx.var
+    def highlighted_my_employees(self) -> list[Employee]:
+        return [
+            employee
+            for employee in self.my_employees
+            if employee.department and employee.department.highlighted
+        ]
+
+    @rx.var
+    def highlighted_other_employees(self) -> list[Employee]:
+        return [
+            employee
+            for employee in self.other_employees
+            if employee.department and employee.department.highlighted
+        ]
+
+    @rx.var
+    def unhighlighted_employees(self) -> list[Employee]:
+        employees = self.filtered_employees
+        if self.current_employee_id:
+            employees = (
+                [
+                    employee
+                    for employee in employees
+                    if employee.manager_id == self.current_employee_id
+                ]
+                if self.list_filter == FILTER_MINE
+                else [
+                    employee
+                    for employee in employees
+                    if employee.manager_id != self.current_employee_id
+                ]
+            )
+        return [
+            employee
+            for employee in employees
+            if employee.department is None or not employee.department.highlighted
+        ]
 
     @rx.var
     def row_count(self) -> int:
-        return len(self.mine_rows) + len(self.other_rows)
+        return len(self.mine_rows) + len(self.other_rows) + len(self.unhighlighted_rows)
 
     @rx.var
     def visible_total_free_days(self) -> float:
-        return sum(row.free_days for row in (*self.mine_rows, *self.other_rows))
+        return sum(
+            row.free_days
+            for row in (*self.mine_rows, *self.other_rows, *self.unhighlighted_rows)
+        )
 
     @rx.var
     def inspected(self) -> TeamDetail | None:
-        rows = [*self.mine_rows, *self.other_rows]
+        rows = [*self.mine_rows, *self.other_rows, *self.unhighlighted_rows]
         return next((r for r in rows if r.id == self.inspected_id), None) or (
             rows[0] if rows else None
         )

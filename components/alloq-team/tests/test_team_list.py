@@ -153,12 +153,34 @@ def _state() -> TeamState:
         _employee(2),
         _employee(3),
     ]
+    for employee in state.employees:
+        employee.department = Department(
+            id=1, name="Hervorgehoben", abbreviation="H", highlighted=True
+        )
     state.overviews = {
         1: TeamOverview(employee_id=1, load_percent=120),
         2: TeamOverview(employee_id=2, load_percent=20, free_days=10),
         3: TeamOverview(employee_id=3, load_percent=100),
     }
     return state
+
+
+def test_unhighlighted_department_employees_have_a_separate_compartment() -> None:
+    state = _state()
+    state.employees[0].department = Department(
+        id=1, name="Hervorgehoben", abbreviation="H", highlighted=True
+    )
+    state.employees[1].department = Department(
+        id=2, name="Weitere", abbreviation="W", highlighted=False
+    )
+    state.employees[2].department = Department(
+        id=1, name="Hervorgehoben", abbreviation="H", highlighted=True
+    )
+
+    assert [row.id for row in state.mine_rows] == [1]
+    assert [row.id for row in state.other_rows] == [3]
+    assert [row.id for row in state.unhighlighted_rows] == [2]
+    assert state.row_count == 3
 
 
 class TestTeamListState:

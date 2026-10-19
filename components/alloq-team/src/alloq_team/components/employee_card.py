@@ -327,13 +327,23 @@ def employee_grid() -> rx.Component:
             py="xl",
         ),
         rx.cond(
-            (TeamState.my_employees.length() == 0)
-            & (TeamState.other_employees.length() == 0),
+            (TeamState.highlighted_my_employees.length() == 0)
+            & (TeamState.highlighted_other_employees.length() == 0)
+            & (TeamState.unhighlighted_employees.length() == 0),
             _no_employees_state(),
             mn.stack(
-                _employee_section("Meine Mitarbeiter", TeamState.my_employees, "my"),
                 _employee_section(
-                    "Weitere Mitarbeiter", TeamState.other_employees, "other"
+                    "Meine Mitarbeiter", TeamState.highlighted_my_employees, "my"
+                ),
+                _employee_section(
+                    "Weitere Mitarbeiter",
+                    TeamState.highlighted_other_employees,
+                    "other",
+                ),
+                _employee_section(
+                    "weitere Abteilungen",
+                    TeamState.unhighlighted_employees,
+                    "unhighlighted",
                 ),
                 gap="xl",
             ),

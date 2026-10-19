@@ -414,6 +414,35 @@ def _employee_block(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
             rx.fragment(),
         ),
         empty_grid_row(),
+        style={"opacity": rx.cond(emp.department_highlighted, "1", "0.58")},
+    )
+
+
+def _employee_section_header(title: str, collapsed: rx.Var[bool]) -> rx.Component:
+    return grid_row(
+        mn.group(
+            mn.action_icon(
+                rx.cond(
+                    collapsed,
+                    rx.icon("chevron-right", size=16, stroke_width=2),
+                    rx.icon("chevron-down", size=16, stroke_width=2),
+                ),
+                variant="subtle",
+                color="gray",
+                size="sm",
+                aria_label="Weitere Abteilungen ein- oder ausklappen",
+                on_click=PlanningStore.toggle_unhighlighted,
+            ),
+            mn.text(title, size="xs", fw="700", c="var(--alloq-text-muted)"),
+            style={"gridColumn": "1 / -1"},
+            gap="sm",
+            align="center",
+        ),
+        style={
+            "height": "30px",
+            "borderBottom": "1px solid var(--alloq-border-strong)",
+            "backgroundColor": "var(--alloq-fade-bg)",
+        },
     )
 
 
@@ -535,7 +564,27 @@ def planning_grid() -> rx.Component:
                         + " Personen",
                     ),
                     mn.box(
-                        rx.foreach(PlanningStore.filtered_employees, _employee_block),
+                        rx.foreach(
+                            PlanningStore.highlighted_employees, _employee_block
+                        ),
+                        rx.cond(
+                            PlanningStore.unhighlighted_employees.length() > 0,
+                            rx.fragment(
+                                _employee_section_header(
+                                    "Weitere Abteilungen",
+                                    PlanningStore.unhighlighted_collapsed,
+                                ),
+                                rx.cond(
+                                    ~PlanningStore.unhighlighted_collapsed,
+                                    rx.foreach(
+                                        PlanningStore.unhighlighted_employees,
+                                        _employee_block,
+                                    ),
+                                    rx.fragment(),
+                                ),
+                            ),
+                            rx.fragment(),
+                        ),
                     ),
                     grid_id="planning-grid-root",
                 ),
