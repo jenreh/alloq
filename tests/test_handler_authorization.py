@@ -33,6 +33,7 @@ OWN_PACKAGES = frozenset({*PACKAGES, "app"})
 ADMIN_STATES = frozenset(
     {
         "DailyRateState",
+        "PriceListState",
         "DepartmentState",
         "RoleState",
         "HolidayState",
@@ -267,6 +268,7 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
             "toggle_grid_density",
             "toggle_project",
             "toggle_project_scope",
+            "toggle_unhighlighted",
         }
     ),
 }

@@ -87,9 +87,16 @@ class TestDepartmentModels:
     def test_to_dict(self) -> None:
         assert _entity().to_dict()["abbreviation"] == "IT"
 
+    def test_department_highlight_defaults_to_false(self) -> None:
+        assert Department(id=3).highlighted is False
+
     def test_label_shows_name_and_abbreviation(self) -> None:
         department = Department(id=3, name="Informationstechnik", abbreviation="IT")
         assert department.label == "Informationstechnik (IT)"
+
+    def test_department_form_includes_highlight_toggle(self) -> None:
+        rendered = str(department_form_fields())
+        assert "highlighted" in rendered
 
     @pytest.mark.parametrize(
         "data",
@@ -196,6 +203,19 @@ class TestDepartmentState:
             text = await _run(state.create_department, {"name": "IT"})
         assert "Kürzel angeben" in text
         repo.create.assert_not_awaited()
+
+    async def test_create_persists_highlight_flag(self, repo: AsyncMock) -> None:
+        state = DepartmentState()
+        with _as_admin(state):
+            await _run(
+                state.create_department,
+                {
+                    "name": "Informationstechnik",
+                    "abbreviation": "IT",
+                    "highlighted": "on",
+                },
+            )
+        assert repo.create.await_args.args[1].highlighted is True
 
     async def test_select_and_update(self, repo: AsyncMock) -> None:
         entity = _entity()

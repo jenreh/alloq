@@ -5,7 +5,7 @@
 
   **Resource management & capacity planning for software teams**
 
-  ![Version](https://img.shields.io/badge/version-2.0.4-blue)
+  ![Version](https://img.shields.io/badge/version-2.0.5-blue)
   [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE.md)
   [![Python](https://img.shields.io/badge/python-3.14%2B-orange)](https://www.python.org)
   [![Reflex](https://img.shields.io/badge/reflex-0.10.0-purple)](https://reflex.dev)

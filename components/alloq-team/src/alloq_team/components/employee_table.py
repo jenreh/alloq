@@ -121,6 +121,7 @@ def employee_list() -> rx.Component:
         ),
         _group("Meine Mitarbeiter", TeamState.mine_rows),
         _group("Weitere Mitarbeiter", TeamState.other_rows),
+        _group("Weitere Abteilungen", TeamState.unhighlighted_rows),
         rx.cond(
             TeamState.row_count == 0,
             empty_list("Keine Mitarbeiter mit diesem Filter."),

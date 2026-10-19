@@ -49,6 +49,7 @@ def test_renders_with_events_and_props() -> None:
         on_commit=_GridState.commit,
         on_reject=_GridState.reject,
         on_save=_GridState.save,
+        on_discard=_GridState.save,
     )
     assert isinstance(component, ExcelGrid)
     rendered = str(component)
@@ -57,6 +58,7 @@ def test_renders_with_events_and_props() -> None:
         "onCommit",
         "onReject",
         "onSave",
+        "onDiscard",
         "decimals:1",
         "saving:false",
         'leaveTitle:"Unsaved"',

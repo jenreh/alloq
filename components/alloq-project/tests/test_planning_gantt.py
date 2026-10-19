@@ -4,6 +4,7 @@ from datetime import date
 from unittest.mock import patch
 
 import pytest
+from alloq_commons.models.department import Department
 from alloq_commons.models.employee import Absence, Employee
 from alloq_commons.role_colors import AVATAR_FALLBACK_COLOR, role_avatar_color
 from alloq_project.services.planning_builders import build_employee_meta, build_weeks
@@ -280,6 +281,45 @@ def _project(
         is_internal=internal,
         cells=[GridCell(week_key=str(i), value=v) for i, v in enumerate(values)],
     )
+
+
+def test_employee_meta_retains_department_highlight_for_grid_grouping() -> None:
+    employees = [
+        Employee(
+            id=1,
+            first_name="Ada",
+            last_name="A",
+            department=Department(id=4, name="IT", abbreviation="IT", highlighted=True),
+        ),
+        Employee(id=2, first_name="Ben", last_name="B"),
+    ]
+    meta, _ = build_employee_meta(employees, ["2026_10_19"])
+
+    assert [employee["department_highlighted"] for employee in meta] == [True, False]
+
+
+def test_unhighlighted_department_compartment_can_collapse_and_expand() -> None:
+    planning = PlanningStore()
+    planning.employee_meta = [
+        {"id": "emp-1", "department_highlighted": True},
+        {"id": "emp-2", "department_highlighted": False},
+        {"id": "emp-3", "department_highlighted": False},
+    ]
+
+    planning.toggle_all_sections()
+    assert planning.collapsed_employees == ["emp-1", "emp-2", "emp-3"]
+    assert planning.unhighlighted_collapsed is False
+
+    planning.toggle_all_sections()
+    assert planning.collapsed_employees == []
+
+    planning.toggle_unhighlighted()
+    assert planning.collapsed_employees == []
+    assert planning.unhighlighted_collapsed is True
+
+    planning.toggle_unhighlighted()
+    assert planning.collapsed_employees == []
+    assert planning.unhighlighted_collapsed is False
 
 
 def _with_plan(planning: PlanningStore, free_week_1: float) -> list[EmployeeBlock]:

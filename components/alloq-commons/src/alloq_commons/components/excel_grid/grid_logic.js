@@ -195,6 +195,49 @@ export function formatNumber(value, { decimals = 2, separator = "," } = {}) {
   return String(Math.round(v * factor) / factor).replace(".", separator);
 }
 
+/** Optional typed cells; absent metadata keeps the planning grid numeric. */
+export function cellSpec(layout, key, defaults = {}) {
+  return { ...defaults, ...layout.specs?.[key] };
+}
+
+export function parseCell(raw, options = {}) {
+  if (options.type === "text") {
+    const text = String(raw ?? "");
+    return text.length <= (options.maxLength ?? 255) ? text : null;
+  }
+  if (options.type !== "decimal") return parseNumber(raw, options);
+  let text = String(raw ?? "").trim().replace(/\s*€$/, "").trim();
+  if (!text) return "";
+  if (text.includes(",")) {
+    if (!/^(?:\d{1,3}(?:\.\d{3})+|\d+),\d{1,2}$/.test(text)) return null;
+    text = text.replaceAll(".", "").replace(",", ".");
+  } else if (/^\d{1,3}(?:\.\d{3})+$/.test(text)) {
+    text = text.replaceAll(".", "");
+  } else if (!/^\d+(?:\.\d{1,2})?$/.test(text)) return null;
+  const value = Number(text);
+  if (!Number.isFinite(value) || value <= 0 || value > (options.max ?? 100000)) return null;
+  const [whole, fraction = ""] = text.split(".");
+  return `${whole.replace(/^0+(?=\d)/, "")}.${fraction.padEnd(2, "0")}`;
+}
+
+export function formatCell(value, options = {}) {
+  if (options.type === "text") return String(value ?? "");
+  if (options.type === "decimal") return String(value ?? "").replace(".", options.separator ?? ",");
+  return formatNumber(value, options);
+}
+
+export function prepareChanges(layout, changes, defaults = {}) {
+  const result = { changes: [], skipped: 0 };
+  for (const change of changes) {
+    const spec = cellSpec(layout, change.key, defaults);
+    if (spec.readOnly) continue;
+    const value = parseCell(change.value, spec);
+    if (value === null) result.skipped++;
+    else result.changes.push({ key: change.key, value });
+  }
+  return result;
+}
+
 // ---------------------------------------------------------------------------
 // Clipboard
 // ---------------------------------------------------------------------------
@@ -243,12 +286,15 @@ export function planPaste(layout, rect, matrix, parseOptions) {
       // A short (ragged) source row has no cell here: leave the target as is.
       // Only an explicit empty string clears a cell.
       if (raw === undefined) continue;
-      const value = parseNumber(raw, parseOptions);
+      const key = keyAt(layout, { r, c });
+      const spec = cellSpec(layout, key, parseOptions);
+      if (spec.readOnly) continue;
+      const value = parseCell(raw, spec);
       if (value === null) {
         skipped++;
         continue;
       }
-      changes.push({ key: keyAt(layout, { r, c }), value });
+      changes.push({ key, value });
     }
   }
   return { changes, skipped, rect: target };
@@ -303,7 +349,9 @@ export function planFillHandle(layout, src, target, getValue) {
 }
 
 export function planClear(layout, rect) {
-  return rangeKeys(layout, rect).map((key) => ({ key, value: 0 }));
+  return rangeKeys(layout, rect)
+    .filter((key) => !cellSpec(layout, key).readOnly)
+    .map((key) => ({ key, value: cellSpec(layout, key).type ? "" : 0 }));
 }
 
 /** Drop no-op changes and attach the previous value for undo. */

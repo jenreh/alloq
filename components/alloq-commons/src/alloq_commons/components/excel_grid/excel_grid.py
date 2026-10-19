@@ -40,6 +40,9 @@ class ExcelGrid(rx.Component):
     read_only: Var[bool]
     """Selection and copy only: no editing, paste, fill or clear."""
 
+    navigation_guard: Var[bool]
+    """Disable on secondary grids so a page registers only one router blocker."""
+
     grid_label: Var[str]
     min_value: Var[float]
     max_value: Var[float]
@@ -55,6 +58,7 @@ class ExcelGrid(rx.Component):
     on_commit: EventHandler[passthrough_event_spec(list[dict[str, Any]])]  # ty: ignore[invalid-type-form]
     on_reject: EventHandler[passthrough_event_spec(int)]  # ty: ignore[invalid-type-form]
     on_save: EventHandler[no_args_event_spec]  # ty: ignore[invalid-type-form]
+    on_discard: EventHandler[no_args_event_spec]  # ty: ignore[invalid-type-form]
 
 
 excel_grid = ExcelGrid.create
