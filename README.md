@@ -5,49 +5,85 @@
 
   **Resource management & capacity planning for software teams**
 
-  ![Version](https://img.shields.io/badge/version-0.2.0-blue)
+  ![Version](https://img.shields.io/badge/version-2.0.4-blue)
   [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE.md)
   [![Python](https://img.shields.io/badge/python-3.14%2B-orange)](https://www.python.org)
-  [![Reflex](https://img.shields.io/badge/reflex-0.9.2-purple)](https://reflex.dev)
+  [![Reflex](https://img.shields.io/badge/reflex-0.10.0-purple)](https://reflex.dev)
 
-  [Features](#features) • [Getting Started](#getting-started) • [Development](#development) • [Deployment](#deployment)
+  [Features](#features) • [Documentation](#documentation) • [Getting Started](#getting-started) • [Development](#development) • [Deployment](#deployment)
 </div>
 
 ---
 
-Alloq helps software teams plan and track resource allocation across projects. Manage team capacity, forecast utilization, handle absences and public holidays — all in one place.
-
-![Dashboard](doc/dashboard.png)
+Alloq helps software teams plan which people work on which project in each week. It counts the free capacity of each person after absences, public holidays, part time and internal work, and it shows the state of all projects on one page. Alloq runs in the browser, and there is also a macOS desktop app that works on the same central database.
 
 ## Features
 
-- **Team Overview** — Employees, roles, seniority levels, and absence tracking
-- **Project Planning** — Allocate team members to projects with capacity forecasting
-- **Dashboard** — Aggregated utilization metrics and team health at a glance
-- **Public Holidays** — Region-aware holiday management for accurate capacity calculations
-- **Authentication** — Built-in user management with OAuth support (GitHub, Azure AD)
-- **Role-Based Access** — Admin and user roles with route-level protection
+- **Resource Planning** — Weekly capacity grid that you edit like a spreadsheet, with filters and an absence timeline
+- **Staffing** — Staff a project with the "Projekt planen" wizard or person by person in the project drawer
+- **Projects** — Project cards and an inspector with status, period, status reports, earned value chart and risks
+- **Portfolio Overview** — Health of all projects at a glance, with time and progress, risk grid and staffing capacity
+- **Team** — Employees, roles, seniority levels, departments and absences
+- **Master Data** — Roles, departments, region-aware public holidays and daily rates with margin-based pricing
+- **Authentication** — Email and password sign-in and Microsoft sign-in (Entra ID)
+- **Role-Based Access** — Administrators can do everything, project managers edit planning, employees only read
+- **Desktop App** — macOS app (Tauri) that signs in with Entra ID and connects to Postgres with a personal token
+
+## Documentation
+
+The developer documentation starts at [docs/index.md](docs/index.md). It covers setup, architecture, the user stories of each feature, and reference pages, and it describes v2.0.4.
+
+```bash
+# Install the docs dependencies once
+task docs:install
+
+# Start the docs site with live reload
+task docs:dev
+```
 
 ## Tech Stack
 
 | Layer | Technology |
 | ----- | ---------- |
-| Framework | [Reflex](https://reflex.dev) 0.9.2 (full-stack Python) |
-| UI Components | [appkit_mantine](https://github.com/jenreh/appkit) (Mantine 9.2) |
+| Framework | [Reflex](https://reflex.dev) 0.10.0 (full-stack Python) |
+| UI Components | [appkit_mantine](https://github.com/jenreh/appkit) (Mantine 9.5) |
 | Database | PostgreSQL 15 + SQLModel/SQLAlchemy 2.0 |
 | Migrations | Alembic (manually authored) |
 | Auth | appkit-user (session-based + OAuth) |
+| Desktop | Tauri + reflex-desktop |
+| Docs | VitePress |
 | Task Runner | [Task](https://taskfile.dev) |
 | Package Manager | [uv](https://docs.astral.sh/uv/) |
 
 ## Getting Started
 
+The full walkthrough is in [Getting started](docs/guide/getting-started.md). The short version follows.
+
 ### Prerequisites
 
-- Python 3.14+
-- [uv](https://docs.astral.sh/uv/) package manager
+- [uv](https://docs.astral.sh/uv/) package manager (`task init` installs Python 3.14 with it)
 - [Task](https://taskfile.dev) runner
-- PostgreSQL 15+ (or use Docker Compose)
+- PostgreSQL 15+ (or the `db` service in Docker Compose)
+- [ty](https://github.com/astral-sh/ty) on your `PATH` for `task typecheck`
+- Node.js, only for the docs and the JavaScript tests
+
+### Configuration
+
+Settings come from the YAML files in `configuration/` and from environment variables. Put your local values in a `.env` file in the repo root:
+
+```bash
+PROFILES=local
+SECRET_PROVIDER=local
+UV_PROJECT_ENVIRONMENT=.venv.mac
+```
+
+`PROFILES=local` loads `configuration/config.local.yaml` on top of `configuration/config.yaml`. With `SECRET_PROVIDER=local`, the `secret:` values in the config are read from environment variables, for example `ALLOQ_DB_USER` for `secret:alloq-db-user`. The [Getting started](docs/guide/getting-started.md#secrets) guide lists every secret the local profile needs.
+
+To use the Compose database, start only that service. It listens on host port `5433`:
+
+```bash
+docker compose up -d db
+```
 
 ### Installation
 
@@ -60,15 +96,7 @@ cd alloq
 task init
 ```
 
-### Configuration
-
-Copy and adjust the local config:
-
-```bash
-cp configuration/config.local.yaml configuration/config.local.yaml
-```
-
-Database connection and auth settings are configured in `configuration/config.yaml` with environment-specific overrides via profile files.
+`task init` runs the migrations, so the database must be reachable at this point.
 
 ### Running
 
@@ -80,21 +108,24 @@ task run
 task run:debug
 ```
 
-The app will be available at `http://localhost:8080`.
+With the `local` profile, the app is available at `http://localhost:8080/alloq`.
 
 ## Development
 
 ### Project Structure
 
 ```text
-app/                    # Main Reflex application (pages, styles, components)
+app/                    # Host Reflex app (pages, admin pages, desktop sign-in, styles)
 components/
-  alloq-commons/       # Shared entities, repositories, models, services
-  alloq-dashboard/     # Dashboard module (aggregation, charts)
+  alloq-commons/       # Shared entities, repositories, models, services, excel_grid
+  alloq-dashboard/     # Portfolio overview (aggregation, charts)
   alloq-project/       # Project planning & forecasting
   alloq-team/          # Team management views
-configuration/         # YAML config files (per-environment)
+configuration/         # YAML config files (per-environment profiles)
 alembic/               # Database migrations
+docs/                  # Developer documentation (VitePress)
+tauri/                 # macOS desktop app shell
+scripts/               # Desktop build and helper scripts
 tests/                 # Integration tests
 ```
 
@@ -103,18 +134,29 @@ Each `components/*` package is a uv workspace member with its own `pyproject.tom
 ### Common Tasks
 
 ```bash
+task run        # Start the app with hot reload
 task test       # Run tests with coverage
-task test:js    # Run JavaScript unit tests (node --test)
 task lint       # Lint with ruff
 task format     # Auto-format with ruff
+task typecheck  # Type check app/ with ty
 task db:upgrade # Apply pending migrations
 task db:revision -- "description"  # Create new migration
+task desktop:dev  # Run the desktop app against the local database
 ```
+
+The JavaScript tests of the planning grid have no task. Run them with Node.js:
+
+```bash
+node --test "components/*/tests/js/*.test.mjs"
+```
+
+[Commands](docs/reference/commands.md) lists every target.
 
 ### Quality Gates
 
 - Test coverage ≥ 80% for non-Reflex classes and State classes
 - `ruff` linting and formatting (line length 88)
+- `ty` type checks
 - Pre-commit hooks for secrets detection and formatting
 
 ## Screenshots
@@ -132,7 +174,7 @@ The **Abwesenheiten** tab next to **Projekte** shows Gantt bars for employees wi
 absences overlapping the selected time range. It shares the planning filters,
 with exact dates on hover.
 
-![Resource Planning](doc/planning.png)
+![Resource Planning](docs/images/planning.png)
 
 Capacities are edited like in a spreadsheet (reusable `excel_grid` component in
 `alloq_commons.components.excel_grid`). Selection, navigation and editing run in the
@@ -160,23 +202,24 @@ save & leave; closing or reloading the tab shows the browser's warning.
 
 Project cards with budget, progress, team members, and risk indicators.
 
-![Projects](doc/projects.png)
+![Projects](docs/images/projects.png)
 
 ### Team Overview
 
 Employee cards with roles, seniority levels, and absence periods.
 
-![Team Overview](doc/people.png)
+![Team Overview](docs/images/people.png)
 
 ### Administration
 
-User management with activation, verification, and admin role assignment.
+User management with activation, verification, and role assignment.
 
-![Administration](doc/admin.png)
+![Administration](docs/images/admin.png)
 
 ## Deployment
 
-For desktop access with Entra ID, follow the [Postgres setup](doc/desktop.md#postgres-azure-database-for-postgresql-flexible-server).
+For desktop access with Entra ID, follow the [Azure setup](docs/architecture/desktop.md#setup-in-azure-done-once)
+in the desktop architecture page.
 After migrating, grant `alloq_app` with `ADMIN OPTION` to the actual Entra admin
 principal; Azure's protected `azure_pg_admin` role must remain unchanged.
 
@@ -189,13 +232,13 @@ docker compose up --build
 
 The Compose setup includes:
 
-- Application container (Python 3.13 slim)
+- Application container (Python 3.14 slim)
 - PostgreSQL 15 with pgvector
 - Dev-mode file watching with `docker compose watch`
 
 ### Environment Variables
 
-Production secrets are referenced via `secret:` prefix in config and resolved from environment variables or a Key Vault at runtime. See `configuration/config.yaml` for the full list.
+Production secrets are referenced via `secret:` prefix in config and resolved from environment variables or a Key Vault at runtime. See `configuration/config.yaml` for the full list and [Configuration](docs/reference/configuration.md) for how profiles, secrets and overrides work together.
 
 > [!NOTE]
 > Never commit credentials. Use `.env` files locally and proper secret management in production.

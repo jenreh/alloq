@@ -77,6 +77,10 @@ develop-eggs/
 dist/
 dmypy.json
 docs/_build/
+docs/.work/
+docs/node_modules/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
 Documents/
 downloads/
 eggs/

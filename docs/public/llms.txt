@@ -1,0 +1,30 @@
+# Alloq developer docs
+Alloq is a web and desktop app that helps a software team plan people on projects week by week. Every claim in these pages links to the code or the test that backs it.
+
+- index.md: Start page of the Alloq developer documentation, with what Alloq is, who uses it, how the docs are organised and how the stories link to the code.
+- guide/getting-started.md: Set up a local Alloq development environment, run the web app, sign in and run the quality gates.
+- guide/contributing.md: How to change Alloq code - where each layer lives, tests first, the handler guard rules, the quality gates, hand-written migrations, and how to keep the story map current.
+- architecture/overview.md: System context, containers, package split, dependency direction and the path of a request from a page to the database.
+- architecture/layers.md: The layers of Alloq from entity to migration, shown on the departments slice with real file paths.
+- architecture/data-model.md: Entity relationship diagram and one table per entity from alloq_commons/entities, with fields, relations and constraints.
+- architecture/security-and-access.md: Sign-in, session guards, the three access levels, the guard decorators in access.py, the handler authorization test, OAuth and password reset.
+- architecture/calculations.md: How Alloq calculates capacity, utilization, the plan distribution of the plan modal, earned value with its forecasts, free role capacity and the portfolio buffer, with the service functions that do it.
+- architecture/desktop.md: How the Tauri desktop app runs the Python backend, signs in with Entra ID, connects to Postgres with a personal token and checks the schema version.
+- features/story-map.md: The user story map of Alloq. Activities, user tasks and release slices, with links to the feature pages that hold the stories.
+- features/sign-in.md: How people sign in to Alloq, reset a password, move between pages with the sidebar and manage their own account.
+- features/users-and-access.md: How admins manage user accounts and give access levels, and how Alloq protects sessions, checks rights on the server and runs behind a reverse proxy.
+- features/master-data.md: How an administrator keeps the roles, departments, public holidays and daily rates that the planning and the prices use.
+- features/team.md: How project managers open the team page, read the load and free days of each person, and add, change, delete and staff employees.
+- features/projects.md: How people open the project list, filter, sort and inspect projects, and how project managers create a project with the full form or with the quick create.
+- features/project-tracking.md: How project managers edit and delete a project, change its status and period in the inspector, record status reports, read the earned value chart and manage risks.
+- features/planning-grid.md: How project managers plan person-days per week in the planning grid, read the free days of each person, assign projects in the grid, switch to the project view, and how employees read the plan without changing it.
+- features/planning-view.md: How project managers choose the planning window, filter the planning by people, projects, roles, availability and scope, open the planning prefiltered from other pages, and adjust how the grid looks, with the settings the browser remembers.
+- features/staffing.md: How project managers staff a project, either with the wizard "Projekt planen" on the planning page or person by person in the tab "Ressourcen" of the project drawer.
+- features/absences.md: How project managers record and delete absences on the team page and on the planning page, and how the absence timeline shows coverage, bottlenecks and upcoming absences.
+- features/portfolio.md: How admins and project managers check the health of all projects on the page "Übersicht" at /dashboard, with the scope switch, the chart of time and progress, the risk grid and the side drawer.
+- features/portfolio-capacity.md: How admins and project managers find staffing bottlenecks on the page "Übersicht" at /dashboard with the cards "Kritischer Ressourcenpfad" and "Kapazität je Rolle", open a role or a person in the side drawer, and read the free capacity per role in the sidebar.
+- features/desktop.md: How people start the alloq desktop app on a Mac, sign in with Microsoft, work with the central database under their own identity, and how admins and developers set up, build and test the app.
+- reference/commands.md: Every Task target in Alloq, grouped by taskfile, with what it runs, the variables it reads and what it changes.
+- reference/configuration.md: How Alloq loads its YAML profiles, secrets and environment overrides, what each profile sets, and which keys and environment variables exist.
+- reference/testing.md: How to run the Alloq tests, where each test lives, what the shared fixtures give you, what the guard tests enforce, and short recipes for state, service and component tests.
+- reference/glossary.md: The domain terms of Alloq with their meaning and code location, and the German UI labels with their English meaning and the page where they appear.

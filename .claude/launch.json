@@ -6,6 +6,12 @@
       "runtimeExecutable": "task",
       "runtimeArgs": ["run"],
       "port": 8080
+    },
+    {
+      "name": "docs",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "docs", "run", "docs:preview", "--", "--port", "4173"],
+      "port": 4173
     }
   ]
 }
