@@ -34,13 +34,14 @@ const FILL_PREVIEW = "outline:1px dashed var(--mantine-color-blue-6);outline-off
 const HANDLE_HIT_PX = 5;
 const ROW_PX = 32;
 // Attributes that define the grid layout (see the header comment).
-const LAYOUT_ATTRS = ["data-row-key", "data-block", "data-cell-key", "data-col"];
+const LAYOUT_ATTRS = ["data-row-key", "data-block", "data-cell-key", "data-col", "data-cell-type", "data-read-only"];
 // How long an optimistic value may wait for the server to confirm it.
 const PENDING_TTL_MS = 5000;
 
 function readLayout(root) {
   const rows = [];
   const els = new Map();
+  const specs = {};
   let cols = [];
   root.querySelectorAll("[data-row-key]").forEach((rowEl) => {
     const cells = [];
@@ -48,6 +49,11 @@ function readLayout(root) {
       const key = el.getAttribute("data-cell-key");
       cells.push(key);
       els.set(key, el);
+      specs[key] = {
+        type: el.getAttribute("data-cell-type") || undefined,
+        readOnly: el.getAttribute("data-read-only") === "true",
+        maxLength: Number(el.getAttribute("data-max-length")) || 255,
+      };
     });
     if (cells.length) {
       if (!rows.length) cols = cells.map((k) => els.get(k).getAttribute("data-col") || "");
@@ -58,7 +64,7 @@ function readLayout(root) {
       });
     }
   });
-  return { rows, els, cols };
+  return { rows, els, cols, specs };
 }
 
 /** Height of the first editable row; rows shrink in the compact density. */
@@ -98,7 +104,7 @@ function selectionCss(id, layout, sel, { handle, fill }) {
   css += `${root} [data-cell-key="${attr(sel.focusKey)}"]{box-shadow:${FOCUS_RING};}`;
   if (handle) {
     const cell = `${root} [data-cell-key="${attr(G.keyAt(layout, { r: rect.r1, c: rect.c1 }))}"]`;
-    css += `${cell}{position:relative;}${cell}::after{${FILL_HANDLE}}`;
+    css += `${cell}:not([data-grid-frozen]){position:relative;}${cell}::after{${FILL_HANDLE}}`;
   }
   if (fill) {
     css += rectRule(root, layout, fill, FILL_PREVIEW);
@@ -118,13 +124,83 @@ function scrollIntoViewIfNeeded(root, el) {
   const headerH = header ? header.getBoundingClientRect().height : 0;
   const rowEl = el.closest("[data-row-key]");
   const label = rowEl ? rowEl.firstElementChild : null;
-  const labelW = label && label !== el ? label.getBoundingClientRect().width : 0;
+  const frozen = rowEl?.querySelectorAll("[data-grid-frozen]");
+  const labelW = frozen?.length
+    ? Array.from(frozen).reduce((width, cell) => width + cell.getBoundingClientRect().width, 0)
+    : label && label !== el ? label.getBoundingClientRect().width : 0;
   const rr = root.getBoundingClientRect();
   const cr = el.getBoundingClientRect();
   if (cr.bottom > rr.bottom - 2) root.scrollTop += cr.bottom - rr.bottom + 2;
   else if (cr.top < rr.top + headerH) root.scrollTop -= rr.top + headerH - cr.top + 2;
   if (cr.right > rr.right - 2) root.scrollLeft += cr.right - rr.right + 2;
   else if (cr.left < rr.left + labelW) root.scrollLeft -= rr.left + labelW - cr.left + 2;
+}
+
+function GridNavigationGuard({ dirty, saving, onSave, onDiscard, leaveTitle, leaveMessage, leaveStayLabel, leaveDiscardLabel, leaveSaveLabel }) {
+  // --- in-app navigation guard (links, redirects, Back) -------------------
+
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      Boolean(dirty) && currentLocation.pathname !== nextLocation.pathname,
+  );
+  const blocked = blocker.state === "blocked";
+  const [leaveSaving, setLeaveSaving] = useState(false);
+  const sawSavingRef = useRef(false);
+
+  useEffect(() => {
+    if (!blocked) {
+      setLeaveSaving(false);
+      return;
+    }
+    if (!dirty) {
+      // Saved (or nothing left to lose) while the dialog was open.
+      blocker.proceed();
+    } else if (leaveSaving) {
+      if (saving) sawSavingRef.current = true;
+      else if (sawSavingRef.current) {
+        // Save finished but changes remain (error) — let the user decide again.
+        sawSavingRef.current = false;
+        setLeaveSaving(false);
+      }
+    }
+  }, [blocked, dirty, saving, leaveSaving, blocker]);
+
+  const stay = () => blocker.reset?.();
+  const discard = () => {
+    if (onDiscard) onDiscard();
+    else blocker.proceed?.();
+  };
+  const saveAndLeave = () => {
+    sawSavingRef.current = false;
+    setLeaveSaving(true);
+    onSave?.();
+  };
+
+  return (
+      <Modal
+        opened={blocked}
+        onClose={stay}
+        title={leaveTitle}
+        centered
+        zIndex={400}
+        overlayProps={{ backgroundOpacity: 0.5, blur: 4 }}
+      >
+        <Text size="sm">{leaveMessage}</Text>
+        <Group justify="flex-end" mt="lg" gap="sm">
+          <Button variant="default" onClick={stay} data-autofocus>
+            {leaveStayLabel}
+          </Button>
+          <Button variant="light" color="red" onClick={discard} disabled={leaveSaving}>
+            {leaveDiscardLabel}
+          </Button>
+          {onSave && (
+            <Button onClick={saveAndLeave} loading={leaveSaving}>
+              {leaveSaveLabel}
+            </Button>
+          )}
+        </Group>
+      </Modal>
+  );
 }
 
 export function ExcelGrid({
@@ -134,6 +210,8 @@ export function ExcelGrid({
   className,
   onCommit,
   onSave,
+  onDiscard,
+  navigationGuard = true,
   onReject,
   revision,
   dirty,
@@ -187,7 +265,9 @@ export function ExcelGrid({
     (key) => {
       if (pendingRef.current.has(key)) return pendingRef.current.get(key);
       const el = layout().els.get(key);
-      return el ? Number(el.getAttribute("data-value")) || 0 : 0;
+      if (!el) return 0;
+      const raw = el.getAttribute("data-value");
+      return el.getAttribute("data-cell-type") ? raw ?? "" : Number(raw) || 0;
     },
     [layout],
   );
@@ -207,7 +287,9 @@ export function ExcelGrid({
         const els = layout().els;
         for (const [key, value] of pending) {
           const el = els.get(key);
-          if (!el || Number(el.getAttribute("data-value")) === value) pending.delete(key);
+          const raw = el?.getAttribute("data-value");
+          const confirmed = el?.getAttribute("data-cell-type") ? raw : Number(raw);
+          if (!el || confirmed === value) pending.delete(key);
         }
       }
     });
@@ -231,42 +313,6 @@ export function ExcelGrid({
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty]);
-
-  // --- in-app navigation guard (links, redirects, Back) -------------------
-
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      Boolean(dirty) && currentLocation.pathname !== nextLocation.pathname,
-  );
-  const blocked = blocker.state === "blocked";
-  const [leaveSaving, setLeaveSaving] = useState(false);
-  const sawSavingRef = useRef(false);
-
-  useEffect(() => {
-    if (!blocked) {
-      setLeaveSaving(false);
-      return;
-    }
-    if (!dirty) {
-      // Saved (or nothing left to lose) while the dialog was open.
-      blocker.proceed();
-    } else if (leaveSaving) {
-      if (saving) sawSavingRef.current = true;
-      else if (sawSavingRef.current) {
-        // Save finished but changes remain (error) — let the user decide again.
-        sawSavingRef.current = false;
-        setLeaveSaving(false);
-      }
-    }
-  }, [blocked, dirty, saving, leaveSaving, blocker]);
-
-  const stay = () => blocker.reset?.();
-  const discard = () => blocker.proceed?.();
-  const saveAndLeave = () => {
-    sawSavingRef.current = false;
-    setLeaveSaving(true);
-    onSave?.();
-  };
 
   // --- selection helpers --------------------------------------------------
 
@@ -303,7 +349,9 @@ export function ExcelGrid({
   const applyChanges = useCallback(
     (changes, { record = true } = {}) => {
       if (readOnly) return;
-      const batch = G.withBefore(changes, getValue);
+      const prepared = G.prepareChanges(layout(), changes, parseOpts);
+      if (prepared.skipped) onReject?.(prepared.skipped);
+      const batch = G.withBefore(prepared.changes, getValue);
       if (!batch.length) return;
       const pending = pendingRef.current;
       for (const ch of batch) pending.set(ch.key, ch.after);
@@ -319,7 +367,7 @@ export function ExcelGrid({
         redoRef.current = [];
       }
     },
-    [getValue, onCommit, readOnly],
+    [getValue, onCommit, onReject, readOnly, layout, minValue, maxValue, decimals],
   );
 
   const history = useCallback(
@@ -346,6 +394,7 @@ export function ExcelGrid({
       if (!cur || readOnly) return;
       const key = G.keyAt(cur.lay, cur.focus);
       const el = cur.lay.els.get(key);
+      if (G.cellSpec(cur.lay, key).readOnly) return;
       const root = rootRef.current;
       if (!el || !root) return;
       scrollIntoViewIfNeeded(root, el);
@@ -357,7 +406,7 @@ export function ExcelGrid({
         width: cr.width,
         height: cr.height,
       };
-      const value = initial ?? G.formatNumber(getValue(key), formatOpts);
+      const value = initial ?? G.formatCell(getValue(key), G.cellSpec(cur.lay, key, formatOpts));
       setSel({ anchorKey: key, focusKey: key, block: cur.lay.rows[cur.focus.r].block });
       setEditor({ key, value, mode, invalid: false, box });
     },
@@ -386,7 +435,7 @@ export function ExcelGrid({
   const commitEditor = useCallback(
     (then) => {
       if (!editor) return true;
-      const value = G.parseNumber(editor.value, parseOpts);
+      const value = G.parseCell(editor.value, G.cellSpec(layout(), editor.key, parseOpts));
       if (value === null) {
         setEditor({ ...editor, invalid: true });
         return false;
@@ -505,10 +554,14 @@ export function ExcelGrid({
       const matrix = [];
       for (let r = cur.rect.r0; r <= cur.rect.r1; r++) {
         const row = [];
-        for (let c = cur.rect.c0; c <= cur.rect.c1; c++) row.push(getValue(G.keyAt(cur.lay, { r, c })));
+        for (let c = cur.rect.c0; c <= cur.rect.c1; c++) {
+          const key = G.keyAt(cur.lay, { r, c });
+          const visible = cur.lay.els.get(key)?.getAttribute("data-copy-value");
+          row.push(G.formatCell(visible ?? getValue(key), G.cellSpec(cur.lay, key, formatOpts)));
+        }
         matrix.push(row);
       }
-      e.clipboardData.setData("text/plain", G.toTSV(matrix, formatOpts));
+      e.clipboardData.setData("text/plain", matrix.map((row) => row.join("\t")).join("\n"));
       e.preventDefault();
       if (cut) applyChanges(G.planClear(cur.lay, cur.rect));
     };
@@ -655,29 +708,19 @@ export function ExcelGrid({
     >
       <style>{css}</style>
       {children}
-      <Modal
-        opened={blocked}
-        onClose={stay}
-        title={leaveTitle}
-        centered
-        zIndex={400}
-        overlayProps={{ backgroundOpacity: 0.5, blur: 4 }}
-      >
-        <Text size="sm">{leaveMessage}</Text>
-        <Group justify="flex-end" mt="lg" gap="sm">
-          <Button variant="default" onClick={stay} data-autofocus>
-            {leaveStayLabel}
-          </Button>
-          <Button variant="light" color="red" onClick={discard} disabled={leaveSaving}>
-            {leaveDiscardLabel}
-          </Button>
-          {onSave && (
-            <Button onClick={saveAndLeave} loading={leaveSaving}>
-              {leaveSaveLabel}
-            </Button>
-          )}
-        </Group>
-      </Modal>
+      {navigationGuard && (
+        <GridNavigationGuard
+          dirty={dirty}
+          saving={saving}
+          onSave={onSave}
+          onDiscard={onDiscard}
+          leaveTitle={leaveTitle}
+          leaveMessage={leaveMessage}
+          leaveStayLabel={leaveStayLabel}
+          leaveDiscardLabel={leaveDiscardLabel}
+          leaveSaveLabel={leaveSaveLabel}
+        />
+      )}
       {editor && (
         <input
           ref={inputRef}
@@ -698,7 +741,7 @@ export function ExcelGrid({
             boxSizing: "border-box",
             padding: "0 4px",
             textAlign: "center",
-            fontSize: "0.8125rem",
+            fontSize: "var(--grid-editor-font-size, 0.8125rem)",
             fontVariantNumeric: "tabular-nums",
             border: `2px solid var(--mantine-color-${editor.invalid ? "red" : "blue"}-6)`,
             borderRadius: 0,

@@ -33,6 +33,7 @@ OWN_PACKAGES = frozenset({*PACKAGES, "app"})
 ADMIN_STATES = frozenset(
     {
         "DailyRateState",
+        "PriceListState",
         "DepartmentState",
         "RoleState",
         "HolidayState",

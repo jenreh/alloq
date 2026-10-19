@@ -27,6 +27,10 @@ Alloq helps software teams plan and track resource allocation across projects. M
 - **Public Holidays** — Region-aware holiday management for accurate capacity calculations
 - **Authentication** — Built-in user management with OAuth support (GitHub, Azure AD)
 - **Role-Based Access** — Admin and user roles with route-level protection
+- **Tagessatzkalkulation** — Excel-style administration of independent price lists,
+  with hourly/daily costs, minimum contribution margins, offer prices, templates
+  for Germany/2025/2026, and a read-only comparison. Changes are saved together;
+  conflicting edits preserve the draft. Existing role rates migrate to “Bestand”.
 
 ## Tech Stack
 
