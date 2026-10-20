@@ -225,7 +225,7 @@ Administrator · Maintain master data / Maintain public holidays · priority 3 �
 
 1. **Given** a holiday marked as yearly that is stored for another year, **when** the code reads the holidays for a date range, **then** the repository adds the holiday on the same month and day in every year of the range. It adds no second copy when a holiday with the same date and state code is already stored, and it skips 29 February in years without that day.
 2. **Given** a holiday on a weekday, **when** the code computes the weekly capacity for the team list, the planning grid or the dashboard, **then** it subtracts that day from the five working days of the week. The [calculations page](../architecture/calculations.md#capacity-of-one-person-in-one-week) explains the full rule.
-3. **Given** a new database, **when** the migrations run, **then** the NRW holidays of 2026 and 2027 are inserted. A later migration corrects the seeded 2026 dates of "Pfingstsonntag", "Pfingstmontag" and "Fronleichnam". (no test)
+3. **Given** a new database, **when** the migrations run, **then** the NRW holidays of 2026 and 2027 are inserted. A later migration corrects the seeded 2026 dates of "Pfingstsonntag", "Pfingstmontag" and "Fronleichnam".
 
 ### Evidence
 
@@ -233,7 +233,7 @@ Administrator · Maintain master data / Maintain public holidays · priority 3 �
 - [services/utilization.py](../../components/alloq-commons/src/alloq_commons/services/utilization.py): `UtilizationService.holidays_in_week`, `UtilizationService.work_days_for_week`
 - [alembic/versions/2026_05_11_public_holidays.py](../../alembic/versions/2026_05_11_public_holidays.py): `upgrade`
 - [alembic/versions/2026_09_28_fix_holiday_dates_and_default_admin.py](../../alembic/versions/2026_09_28_fix_holiday_dates_and_default_admin.py): `HOLIDAY_DATE_FIXES`, `upgrade`
-- Tests: [test_review_fixes_commons.py](../../components/alloq-commons/tests/test_review_fixes_commons.py) `TestRecurringHolidays.test_recurring_holiday_projects_to_later_year`, `TestUtilizationHolidaysAndWorkload.test_holiday_reduces_capacity_like_the_grid`
+- Tests: [test_review_fixes_commons.py](../../components/alloq-commons/tests/test_review_fixes_commons.py) `TestRecurringHolidays.test_recurring_holiday_projects_to_later_year`, `TestUtilizationHolidaysAndWorkload.test_holiday_reduces_capacity_like_the_grid`; [tests/test_migrations.py](../../tests/test_migrations.py) `test_seed_plus_fix_matches_easter_offsets`
 
 ### Open questions
 

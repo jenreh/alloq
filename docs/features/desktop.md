@@ -222,7 +222,7 @@ Desktop user · Sign in on the desktop / Sign in on the desktop · priority 4 ·
 
 ### Open questions
 
-- `doc/desktop.md` says that the user continues without the sign-in page while the alloq session is still valid. That depends on the session timeout of appkit, and no alloq test checks it.
+- `spec/desktop.md` says that the user continues without the sign-in page while the alloq session is still valid. That depends on the session timeout of appkit, and no alloq test checks it.
 
 ## DESK-06 Sign out on the desktop {#desk-06}
 

@@ -67,7 +67,7 @@ Alloq has four personas. Their goals come from the README and from the "so that"
 
 - **Activities.** The big steps of the user journey, from left to right in the order a new team uses Alloq. Each activity has one or two feature pages.
 - **User tasks.** The columns of each table. A user task is something a person does, named from their point of view.
-- **Sub-tasks.** Smaller steps and variants under a user task. They are not columns, but each story belongs to one. The file `docs/.work/stories-final.json` lists them.
+- **Sub-tasks.** Smaller steps and variants under a user task. They are not columns, but each story belongs to one. Each feature page lists its sub-tasks near the top.
 - **Release slices.** The rows. A story sits in the row of the first release that contained it.
 - **Priority.** Each story has a rank inside its sub-task, and core stories rank above comfort stories. Inside a cell, skeleton stories come first, then core stories, then comfort stories, each by rank.
 - **Walking skeleton.** A bold **S** marks the smallest set of stories that gives a working path from sign in to seeing the load of a person.

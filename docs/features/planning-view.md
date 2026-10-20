@@ -141,7 +141,7 @@ Project manager · Shape the planning view / Filter the planning · priority 4 �
 
 1. **Given** the button with the tooltip "Alle Projekte – klicken für eigene" [all projects, click for own], **when** the user turns it on, **then** only projects where the signed-in user is an owner are shown, in the team view and in the project view. The tooltip changes to "Nur eigene Projekte – klicken für alle" [only own projects, click for all].
 2. **Given** the button with the tooltip "Alle Mitarbeiter – klicken für eigene" [all employees, click for own], **when** the user turns it on in the team view, **then** only employees whose manager is the signed-in user are shown.
-3. **Given** the button for own employees in the project view, **when** it is on, **then** only projects with at least one direct report of the user remain. (no test)
+3. **Given** the button for own employees in the project view, **when** it is on, **then** only projects with at least one direct report of the user remain.
 4. **Given** a signed-in user whose email matches no employee, **when** they turn a scope on, **then** the warning "Ihrem Benutzer ist kein Mitarbeiter zugeordnet." [no employee is linked to your user] appears and the scope stays off. An active scope can always be turned off.
 
 ### Evidence
@@ -150,7 +150,7 @@ Project manager · Shape the planning view / Filter the planning · priority 4 �
 - [planning_grid_state.py](../../components/alloq-project/src/alloq_project/states/planning_grid_state.py): `PlanningStore._resolve_current_employee`, `PlanningStore._filter_employees`, `PlanningStore.filtered_projects`
 - [planning_builders.py](../../components/alloq-project/src/alloq_project/services/planning_builders.py): `owned_project_ids`, `managed_employee_ids`, `employee_id_by_email`
 - [planning_toolbar.py](../../components/alloq-project/src/alloq_project/components/planning_toolbar.py): `planning_toolbar`
-- Tests: [test_planning_project_view_state.py](../../components/alloq-project/tests/test_planning_project_view_state.py) `TestPlanningStoreProjectView.test_filtered_projects_by_project_scope`; [test_planning_grid_editing.py](../../components/alloq-project/tests/test_planning_grid_editing.py) `TestSettersAndLabels.test_filtered_employees_by_employee_scope`, `TestSettersAndLabels.test_scope_without_current_employee_is_refused`
+- Tests: [test_planning_project_view_state.py](../../components/alloq-project/tests/test_planning_project_view_state.py) `TestPlanningStoreProjectView.test_filtered_projects_by_project_scope`, `TestPlanningStoreProjectView.test_filtered_projects_by_employee_scope`; [test_planning_grid_editing.py](../../components/alloq-project/tests/test_planning_grid_editing.py) `TestSettersAndLabels.test_filtered_employees_by_employee_scope`, `TestSettersAndLabels.test_scope_without_current_employee_is_refused`
 
 ## PLAN-18 Open the planning prefiltered {#plan-18}
 

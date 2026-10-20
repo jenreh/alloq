@@ -59,7 +59,7 @@ Project manager · Check project health / Open the overview · priority 1 · cor
 - [portfolio_state.py](../../components/alloq-dashboard/src/alloq_dashboard/states/portfolio_state.py): `PortfolioState.load`
 - [dashboard_grid.py](../../components/alloq-dashboard/src/alloq_dashboard/components/dashboard_grid.py): `dashboard_grid`
 - [sidebar.py](../../app/components/sidebar.py): `PLANNING_ITEMS`, `_guarded_nav_item`, `VIEWER_ROUTES`
-- Tests: [test_components.py](../../components/alloq-dashboard/tests/test_components.py) `test_dashboard_grid_renders_the_four_portfolio_cards`, `test_greeting_uses_authenticated_user_name`; [test_access.py](../../components/alloq-commons/tests/test_access.py) `test_no_access_explains_the_missing_rights`; [test_portfolio_state.py](../../components/alloq-dashboard/tests/test_portfolio_state.py) `test_load_is_refused_for_non_admins`; [test_sidebar.py](../../tests/test_sidebar.py) `TestSidebarComponent.test_employees_see_only_planning_and_projects`
+- Tests: [test_components.py](../../components/alloq-dashboard/tests/test_components.py) `test_dashboard_grid_renders_the_four_portfolio_cards`, `test_greeting_uses_authenticated_user_name`; [test_access.py](../../components/alloq-commons/tests/test_access.py) `TestRenderGuards.test_no_access_explains_the_missing_rights`; [test_portfolio_state.py](../../components/alloq-dashboard/tests/test_portfolio_state.py) `test_load_is_refused_for_non_admins`; [test_sidebar.py](../../tests/test_sidebar.py) `TestSidebarComponent.test_employees_see_only_planning_and_projects`
 
 ## DASH-02 Placeholders and load error {#dash-02}
 

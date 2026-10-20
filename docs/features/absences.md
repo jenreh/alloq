@@ -219,11 +219,11 @@ Project manager · Track absences / Record on the planning page · priority 2 ·
 ### Acceptance criteria
 
 1. **Given** the details of an absence bar, **when** an editor clicks the trash icon "Abwesenheit löschen" and confirms the dialog, **then** `PlanningAbsenceState.delete_absence` deletes the absence through `TeamState.delete_absence` and reloads the planning. The toasts are the same as in [TEAM-13](#team-13). The planning also reloads when the delete failed.
-2. **Given** a user with the role employee, **when** they open the bar details, **then** the trash icon is hidden by `editor_only` and the handler refuses the call with `requires_editor`. (no test)
+2. **Given** a user with the role employee, **when** they open the bar details, **then** the trash icon is hidden by `editor_only` and the handler refuses the call with `requires_editor`. (no test for the hidden icon)
 
 ### Evidence
 
 - [planning_absence_state.py](../../components/alloq-project/src/alloq_project/states/planning_absence_state.py): `PlanningAbsenceState.delete_absence`
 - [planning_gantt.py (component)](../../components/alloq-project/src/alloq_project/components/planning_gantt.py): `_bar_details` (`editor_only`, `delete_dialog`)
 - [team_state.py](../../components/alloq-team/src/alloq_team/states/team_state.py): `TeamState.delete_absence`
-- Tests: [test_planning_absence.py](../../components/alloq-project/tests/test_planning_absence.py) `test_delete_absence_refreshes_planning`
+- Tests: [test_planning_absence.py](../../components/alloq-project/tests/test_planning_absence.py) `test_delete_absence_refreshes_planning`; [tests/test_handler_authorization.py](../../tests/test_handler_authorization.py) `test_every_handler_is_admin_guarded_or_ui_only`

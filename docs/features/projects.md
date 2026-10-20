@@ -168,14 +168,14 @@ Project manager · Find a project / Filter and search the list · priority 2 · 
 1. **Given** the table headers "Projekt" [project], "Status", "Zeitraum" [period], "Bedarf" [required effort], "Verbraucht" [budget used] and "Risiken" [risks], **when** the user clicks a header, **then** the table sorts by that column in ascending order. A second click on the active column flips the direction. `ProjectState.toggle_sort` ignores a column that is not in `SORT_COLUMNS`.
 2. **Given** a sort by status, **when** the projects are sorted, **then** the order follows the life cycle "Geplant", "Aktiv", "Risiko", "Abgeschlossen".
 3. **Given** projects without a value for the sort column, e.g. no start date, **when** they are sorted in either direction, **then** they always come last. Projects with the same value keep the ascending name order.
-4. **Given** a first visit, **when** the table renders, **then** it is sorted by name (`DEFAULT_SORT_COLUMN`), ignoring case. (no test)
+4. **Given** a first visit, **when** the table renders, **then** it is sorted by name (`DEFAULT_SORT_COLUMN`), ignoring case.
 
 ### Evidence
 
 - [project_sorting.py](../../components/alloq-project/src/alloq_project/services/project_sorting.py): `sort_projects`, `_STATE_ORDER`, `SORT_COLUMNS`, `DEFAULT_SORT_COLUMN`
 - [project_state.py](../../components/alloq-project/src/alloq_project/states/project_state.py): `ProjectState.toggle_sort`, `ProjectState.filtered_projects`
 - [project_table.py](../../components/alloq-project/src/alloq_project/components/project_table.py): `COLUMNS`, `project_list`
-- Tests: [test_project_state.py](../../components/alloq-project/tests/test_project_state.py) `TestProjectState.test_toggle_sort_same_column_flips_direction`; [test_project_sorting.py](../../components/alloq-project/tests/test_project_sorting.py) `TestSortProjects.test_state_uses_lifecycle_order`, `TestSortProjects.test_missing_start_date_sorts_last_descending`
+- Tests: [test_project_state.py](../../components/alloq-project/tests/test_project_state.py) `TestProjectState.test_toggle_sort_same_column_flips_direction`, `TestProjectState.test_sort_defaults`; [test_project_sorting.py](../../components/alloq-project/tests/test_project_sorting.py) `TestSortProjects.test_state_uses_lifecycle_order`, `TestSortProjects.test_missing_start_date_sorts_last_descending`, `TestSortProjects.test_name_is_case_insensitive`
 
 ## PROJ-05 Project inspector {#proj-05}
 

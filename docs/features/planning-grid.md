@@ -82,7 +82,7 @@ Project manager · Plan week by week / Plan in the team grid · priority 2 · co
 
 ### Acceptance criteria
 
-1. **Given** a focused cell, **when** the user types a number, **then** the grid accepts a comma or a dot as the decimal sign and rounds to 2 decimals. An empty cell counts as 0. A negative value or text keeps the editor open with the hint "Ungültige Zahl (≥ 0)" [invalid number]. (no test)
+1. **Given** a focused cell, **when** the user types a number, **then** the grid accepts a comma or a dot as the decimal sign and rounds to 2 decimals. An empty cell counts as 0. A negative value or text keeps the editor open with the hint "Ungültige Zahl (≥ 0)" [invalid number]. (no test for the editor hint)
 2. **Given** a batch of cell edits, **when** it reaches the server, **then** `parse_cell_changes` accepts only cells of rows shown in the grid and of loaded weeks, with a finite value of 0 or more. It rounds the values to 2 decimals.
 3. **Given** rejected cells in a batch, e.g. pasted text, **when** the batch is applied, **then** the warning "&lt;n&gt; ungültige Eingabe(n) ignoriert." [n invalid entries ignored] appears. A count of 0 shows nothing.
 4. **Given** an edited cell, **when** its value differs from the last loaded or saved value, **then** the cell shows a small dot. Setting it back to the saved value removes the dot.
@@ -95,7 +95,7 @@ Project manager · Plan week by week / Plan in the team grid · priority 2 · co
 - [planning_shared.py](../../components/alloq-project/src/alloq_project/components/planning_shared.py): `planning_excel_grid`, `editable_value_cell`
 - [excel_grid.jsx](../../components/alloq-commons/src/alloq_commons/components/excel_grid/excel_grid.jsx): `ExcelGrid` (`commitEditor`, `useBlocker`, `beforeunload`)
 - [grid_logic.js](../../components/alloq-commons/src/alloq_commons/components/excel_grid/grid_logic.js): `parseNumber`
-- Tests: [test_planning_grid_editing.py](../../components/alloq-project/tests/test_planning_grid_editing.py) `TestParseCellChanges.test_rejects_invalid_change`, `TestSettersAndLabels.test_notify_rejected_ignores_zero`, `TestApplyCellChanges.test_reverting_to_saved_value_clears_dirty`
+- Tests: [test_planning_grid_editing.py](../../components/alloq-project/tests/test_planning_grid_editing.py) `TestParseCellChanges.test_rejects_invalid_change`, `TestSettersAndLabels.test_notify_rejected_ignores_zero`, `TestApplyCellChanges.test_reverting_to_saved_value_clears_dirty`; [grid_logic.test.mjs](../../components/alloq-commons/tests/js/grid_logic.test.mjs) `numbers`
 
 ## PLAN-03 Save grid changes in one step {#plan-03}
 

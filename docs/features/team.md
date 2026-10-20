@@ -384,7 +384,7 @@ Project manager · Staff an employee on projects / Staff an employee on projects
 
 1. **Given** a project row in the drawer, **when** the user clicks its trash icon and confirms "Projektzuweisung entfernen" [remove project assignment], **then** all capacity rows and all weekly allocations of that project for the employee are deleted in the same transaction.
 2. **Given** weekly allocations without a capacity row, **when** the user removes the project, **then** the allocations are removed anyway.
-3. **Given** nothing was deleted, **when** the removal ends, **then** the toast "Zuweisung nicht gefunden." [assignment not found] appears. Otherwise the project list and the figures refresh and the toast "Projektzuweisung entfernt." [project assignment removed] appears. (no test)
+3. **Given** nothing was deleted, **when** the removal ends, **then** the toast "Zuweisung nicht gefunden." [assignment not found] appears (no test). Otherwise the project list and the figures refresh and the toast "Projektzuweisung entfernt." [project assignment removed] appears.
 
 ### Evidence
 
