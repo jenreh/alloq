@@ -26,7 +26,6 @@ from alloq_commons.repositories import (
     capacity_allocation_repo,
     capacity_repo,
     employee_repo,
-    project_repo,
     public_holiday_repo,
     role_repo,
 )
@@ -68,6 +67,7 @@ from alloq_project.services.planning_builders import (
     without_idle_projects,
     without_internal_projects,
 )
+from alloq_project.services.planning_projects import load_planning_projects
 from alloq_project.services.planning_view_settings import (
     READ_SCRIPT,
     ViewSettings,
@@ -582,8 +582,7 @@ class PlanningStore(
 
     async def _load_entities(self) -> None:
         async with get_asyncdb_session() as session:
-            projects = await project_repo.find_all(session)
-            all_proj = sorted_projects([Project(**p.to_dict()) for p in projects])
+            all_proj = sorted_projects(await load_planning_projects(session))
             self.all_projects = all_proj
             self.available_projects = [
                 p for p in all_proj if p.state != "Abgeschlossen"

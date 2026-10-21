@@ -2,6 +2,7 @@ import logging
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import noload
 
 from alloq_commons.entities import ProjectEntity
 from alloq_commons.repositories.search import LIKE_ESCAPE_CHAR, escape_like
@@ -68,6 +69,25 @@ class ProjectRepository(BaseRepository[ProjectEntity, AsyncSession]):
     ) -> list[ProjectEntity]:
         """Find all projects with relationship-derived stats loaded."""
         return await self.find_all_paginated(session, limit, offset, search)
+
+    async def find_all_for_planning(
+        self,
+        session: AsyncSession,
+    ) -> list[ProjectEntity]:
+        """All projects without allocation history, statuses, risks or capacities.
+
+        The default selectin load pulls every allocation row ever stored. The
+        planning page builds its team initials from
+        ``capacity_allocation_repo.find_staffed_employees`` instead.
+        """
+        statement = select(ProjectEntity).options(
+            noload(ProjectEntity.capacity_allocations),
+            noload(ProjectEntity.capacities),
+            noload(ProjectEntity.statuses),
+            noload(ProjectEntity.risks),
+        )
+        result = await session.execute(statement)
+        return list(result.scalars().all())
 
 
 project_repo = ProjectRepository()

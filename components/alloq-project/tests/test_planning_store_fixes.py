@@ -468,7 +468,7 @@ async def test_load_entities_keeps_absences_in_displayed_past_weeks() -> None:
     state = PlanningStore()
     with (
         patch(f"{_STATE}.get_asyncdb_session", _mock_session_ctx(AsyncMock())),
-        patch(f"{_STATE}.project_repo.find_all", AsyncMock(return_value=[])),
+        patch(f"{_STATE}.load_planning_projects", AsyncMock(return_value=[])),
         patch(f"{_STATE}.employee_repo.find_all", AsyncMock(return_value=[employee])),
         patch(f"{_STATE}.role_repo.find_all", AsyncMock(return_value=[])),
         patch.object(PlanningStore, "_resolve_current_employee", AsyncMock()),
