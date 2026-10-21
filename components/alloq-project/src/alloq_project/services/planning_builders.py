@@ -439,7 +439,6 @@ def without_idle_projects(blocks: list[ProjectBlock]) -> list[ProjectBlock]:
 def filter_project_blocks(
     blocks: list[ProjectBlock],
     weeks: list[WeekColumn],
-    from_key: str,
     *,
     project_ids: list[str],
     role_ids: list[str],
@@ -461,9 +460,7 @@ def filter_project_blocks(
                 continue
             filtered = block.model_copy(update={"employees": employees})
             filtered.gesamt = compute_project_gesamt(weeks, filtered)
-            filtered.planned_days, filtered.role_totals = project_summary(
-                filtered, from_key
-            )
+            filtered.planned_days, filtered.role_totals = project_summary(filtered)
             result.append(filtered)
     if project_ids:
         result = [p for p in result if str(p.real_id) in project_ids]
@@ -485,13 +482,11 @@ def filter_project_blocks(
     return result
 
 
-def project_summary(
-    block: ProjectBlock, from_key: str
-) -> tuple[float, list[RoleTotal]]:
-    """Planned person-days from ``from_key`` onward, in total and per role."""
+def project_summary(block: ProjectBlock) -> tuple[float, list[RoleTotal]]:
+    """Planned person-days of all visible weeks, in total and per role."""
     totals: dict[tuple[str, str], RoleTotal] = {}
     for emp in block.employees:
-        days = sum(c.value for c in emp.cells if c.week_key >= from_key)
+        days = sum(c.value for c in emp.cells)
         entry = totals.setdefault(
             (emp.role_short, emp.role_name),
             RoleTotal(code=emp.role_short, color=emp.role_color),

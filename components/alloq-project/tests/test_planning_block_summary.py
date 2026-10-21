@@ -107,7 +107,7 @@ class TestEmployeeSummary:
 
 
 class TestProjectSummary:
-    def test_total_and_roles_from_current_week(self) -> None:
+    def test_total_and_roles_cover_all_visible_weeks(self) -> None:
         weeks, _ = build_weeks(3)
         block = ProjectBlock(
             employees=[
@@ -116,28 +116,27 @@ class TestProjectSummary:
                 _emp_row(weeks, "DS", [0.0, 1.0, 0.0]),
             ]
         )
-        total, roles = project_summary(block, weeks[1].key)
-        assert total == 6.5
+        total, roles = project_summary(block)
+        assert total == 14.5
         assert [(r.code, r.days, r.color) for r in roles] == [
-            ("AIA", 1.5, "color-AIA"),
-            ("DS", 5.0, "color-DS"),
+            ("AIA", 2.5, "color-AIA"),
+            ("DS", 12.0, "color-DS"),
         ]
 
     def test_omits_roles_without_days(self) -> None:
         weeks, _ = build_weeks(2)
         block = ProjectBlock(
             employees=[
-                _emp_row(weeks, "DS", [3.0, 0.0]),
+                _emp_row(weeks, "DS", [0.0, 0.0]),
                 _emp_row(weeks, "PM", [0.0, 1.0]),
             ]
         )
-        total, roles = project_summary(block, weeks[1].key)
+        total, roles = project_summary(block)
         assert total == 1.0
         assert [r.code for r in roles] == ["PM"]
 
     def test_no_employees(self) -> None:
-        weeks, _ = build_weeks(2)
-        assert project_summary(ProjectBlock(), weeks[1].key) == (0.0, [])
+        assert project_summary(ProjectBlock()) == (0.0, [])
 
     def test_roles_sharing_an_abbreviation_stay_separate(self) -> None:
         weeks, _ = build_weeks(1)
@@ -147,7 +146,7 @@ class TestProjectSummary:
                 _emp_row(weeks, "SD", [2.0], name="Software Developer"),
             ]
         )
-        total, roles = project_summary(block, weeks[0].key)
+        total, roles = project_summary(block)
         assert total == 3.0
         assert [(r.code, r.days) for r in roles] == [("SD", 1.0), ("SD", 2.0)]
 
@@ -270,8 +269,8 @@ class TestStoreBlocksCarrySummary:
 
     def test_project_block(self) -> None:
         block = self._store().project_blocks[0]
-        assert block.planned_days == 2.0
-        assert [(r.code, r.days) for r in block.role_totals] == [("DS", 2.0)]
+        assert block.planned_days == 6.0
+        assert [(r.code, r.days) for r in block.role_totals] == [("DS", 6.0)]
 
     def test_summary_uses_week_of_last_populate(self) -> None:
         state = self._store()

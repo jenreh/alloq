@@ -351,7 +351,6 @@ class PlanningStore(
         wks = self._week_keys()
         emp_idx = {e["id"]: e for e in self.employee_meta}
         role_abbrev_by_name = {r.name: r.abbreviation for r in self.available_roles}
-        from_key = self.current_week_key
         dirty = set(self.dirty_keys)
         blocks: list[ProjectBlock] = []
         for proj in self.project_meta:
@@ -391,7 +390,7 @@ class PlanningStore(
                 employees=emp_rows,
             )
             block.gesamt = compute_project_gesamt(weeks, block)
-            block.planned_days, block.role_totals = project_summary(block, from_key)
+            block.planned_days, block.role_totals = project_summary(block)
             blocks.append(block)
         return blocks
 
@@ -464,7 +463,6 @@ class PlanningStore(
         return filter_project_blocks(
             result,
             self.weeks,
-            self.current_week_key,
             project_ids=self.project_filter,
             role_ids=self.role_filter,
             employee_ids=self.employee_filter,
