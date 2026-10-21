@@ -2,7 +2,6 @@
 
 import reflex as rx
 from alloq_commons import theme
-from alloq_commons.access import CAN_EDIT_OFFERS, offers_only
 from alloq_commons.components.list_view import (
     inspector,
     inspector_section,
@@ -10,6 +9,7 @@ from alloq_commons.components.list_view import (
     plain_button,
     tag,
 )
+from alloq_commons.roles import OFFER_EDITOR_ROLE
 from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
@@ -22,8 +22,11 @@ from alloq_offer.components.offer_parts import (
 from alloq_offer.entities import OfferStateEnum
 from alloq_offer.models import Offer
 from alloq_offer.states.offer_state import OfferState
+from appkit_user.authentication.components.components import requires_role
+from appkit_user.authentication.states import UserSession
 
 STATE_OPTIONS: list[str] = [s.value for s in OfferStateEnum]
+_CAN_EDIT = UserSession.user.roles.contains(OFFER_EDITOR_ROLE.name)
 
 
 def _selected() -> ObjectVar[Offer]:
@@ -48,7 +51,7 @@ def _heading(offer: ObjectVar[Offer]) -> rx.Component:
 
 
 def _actions(offer: ObjectVar[Offer]) -> rx.Component:
-    return offers_only(
+    return requires_role(
         mn.group(
             plain_button("Bearbeiten", OfferState.open_edit_modal(offer.id), flex="1"),
             rx.cond(
@@ -64,7 +67,8 @@ def _actions(offer: ObjectVar[Offer]) -> rx.Component:
             ),
             gap=8,
             wrap="nowrap",
-        )
+        ),
+        role=OFFER_EDITOR_ROLE.name,
     )
 
 
@@ -108,7 +112,7 @@ def _sent_date_input(offer: ObjectVar[Offer]) -> rx.Component:
         value=OfferState.inspected_sent_date,
         on_change=lambda value: OfferState.set_inspected_sent_date(offer.id, value),
         on_blur=OfferState.save_inspected_sent_date(offer.id),
-        right_section=offers_only(
+        right_section=requires_role(
             mn.action_icon(
                 rx.icon("calendar-check", size=14, stroke_width=1.8),
                 variant="subtle",
@@ -120,9 +124,10 @@ def _sent_date_input(offer: ObjectVar[Offer]) -> rx.Component:
                     OfferState.set_sent_date_today(offer.id),
                     OfferState.save_inspected_sent_date(offer.id),
                 ],
-            )
+            ),
+            role=OFFER_EDITOR_ROLE.name,
         ),
-        disabled=~CAN_EDIT_OFFERS,
+        disabled=~_CAN_EDIT,
         right_section_pointer_events="all",
         clearable=False,
         locale="de",
@@ -144,7 +149,7 @@ def _details(offer: ObjectVar[Offer]) -> rx.Component:
                         data=STATE_OPTIONS,
                         value=offer.state,
                         on_change=OfferState.update_inspected_state(offer.id),
-                        disabled=~CAN_EDIT_OFFERS,
+                        disabled=~_CAN_EDIT,
                         clearable=False,
                         size="xs",
                     ),

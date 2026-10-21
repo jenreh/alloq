@@ -1,16 +1,17 @@
 """Toolbar of the offers page: filter segments, search, inspector toggle."""
 
 import reflex as rx
-from alloq_commons.access import offers_only
 from alloq_commons.components.toolbar import (
     icon_button,
     primary_button,
     segmented,
     toolbar_search,
 )
+from alloq_commons.roles import OFFER_EDITOR_ROLE
 
 from alloq_offer.services.offers import FILTERS
 from alloq_offer.states.offer_state import OfferState
+from appkit_user.authentication.components.components import requires_role
 
 SEARCH_PLACEHOLDER = "Angebot, Kunde oder Key Accounter"
 
@@ -35,7 +36,8 @@ def offer_toolbar() -> list[rx.Component]:
             OfferState.toggle_inspector,
             active=OfferState.show_inspector,
         ),
-        offers_only(
-            primary_button("Angebot anlegen", "plus", OfferState.open_create_modal)
+        requires_role(
+            primary_button("Angebot anlegen", "plus", OfferState.open_create_modal),
+            role=OFFER_EDITOR_ROLE.name,
         ),
     ]

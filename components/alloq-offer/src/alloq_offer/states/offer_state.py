@@ -26,6 +26,7 @@ from alloq_offer.services.offers import (
     visible_offers,
 )
 from appkit_commons.database.session import get_asyncdb_session
+from appkit_user.authentication.decorators import is_authenticated
 
 logger = logging.getLogger(__name__)
 
@@ -292,7 +293,7 @@ class OfferState(rx.State):
             self.offers = [offer, *self.offers]
 
     @rx.event
-    @requires_offer_editor
+    @is_authenticated
     async def load_offers(self) -> AsyncGenerator[Any]:
         """Load all offers; the spinner only shows on the first load."""
         if not self.offers:

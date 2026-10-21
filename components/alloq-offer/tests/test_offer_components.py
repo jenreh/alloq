@@ -1,5 +1,7 @@
 """Render tests of the offer components."""
 
+from alloq_commons.access import NO_ACCESS_MSG
+from alloq_commons.roles import OFFER_EDITOR_ROLE
 from alloq_offer.components import offer_modal, offer_parts, offer_table
 from alloq_offer.components.offer_inspector import offer_inspector
 from alloq_offer.components.offer_toolbar import (
@@ -7,7 +9,7 @@ from alloq_offer.components.offer_toolbar import (
     offer_filter,
     offer_toolbar,
 )
-from alloq_offer.pages import create_offers_page
+from alloq_offer.pages import create_offers_page, offers_content
 
 
 def test_table_renders_groups_and_columns() -> None:
@@ -76,3 +78,18 @@ def test_state_tones_cover_all_states() -> None:
 
 def test_page_factory() -> None:
     assert callable(create_offers_page(offer_parts.state_badge))  # type: ignore[arg-type]
+
+
+def test_page_content_is_readable_by_everyone() -> None:
+    assert NO_ACCESS_MSG.split(",")[0] not in str(offers_content())
+
+
+def test_only_offer_editors_get_the_edit_modal() -> None:
+    modal = str(offers_content().children[0])
+    assert OFFER_EDITOR_ROLE.name in modal
+    assert "Angebot speichern" in modal
+
+
+def test_edit_controls_need_the_offer_editor_role() -> None:
+    for part in (offer_inspector(), offer_toolbar()[-1], offer_table._no_offers()):
+        assert f'"{OFFER_EDITOR_ROLE.name}"' in str(part)

@@ -2,7 +2,6 @@
 
 import reflex as rx
 from alloq_commons import theme
-from alloq_commons.access import offers_only
 from alloq_commons.components.list_view import (
     badge,
     cell_main,
@@ -15,6 +14,7 @@ from alloq_commons.components.list_view import (
     sticky_block_header,
 )
 from alloq_commons.components.toolbar import primary_button
+from alloq_commons.roles import OFFER_EDITOR_ROLE
 from reflex.vars import ArrayVar, ObjectVar
 
 import appkit_mantine as mn
@@ -34,6 +34,7 @@ from alloq_offer.entities import OfferStateEnum
 from alloq_offer.models import Offer
 from alloq_offer.services.offers import FILTER_ARCHIVED
 from alloq_offer.states.offer_state import OfferState
+from appkit_user.authentication.components.components import requires_role
 
 TEMPLATE = "minmax(0, 2fr) minmax(0, 1fr) 56px 108px 84px 100px 100px 104px"
 COLUMNS: list[tuple[str, str, bool]] = [
@@ -137,8 +138,9 @@ def _no_offers() -> rx.Component:
         "file-text",
         EMPTY_ALL,
         EMPTY_ALL_HINT,
-        offers_only(
-            primary_button("Angebot anlegen", "plus", OfferState.open_create_modal)
+        requires_role(
+            primary_button("Angebot anlegen", "plus", OfferState.open_create_modal),
+            role=OFFER_EDITOR_ROLE.name,
         ),
     )
 

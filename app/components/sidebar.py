@@ -8,13 +8,7 @@ from typing import Any, Final, cast
 
 import reflex as rx
 from alloq_commons import theme
-from alloq_commons.access import (
-    CAN_EDIT_OFFERS,
-    CAN_VIEW,
-    editor_only,
-    offers_only,
-    viewer_only,
-)
+from alloq_commons.access import editor_only, viewer_only
 from alloq_commons.components.formatters import de_number
 from alloq_commons.components.toolbar import DRAG, SIDEBAR_TOGGLE_SCRIPT, icon_button
 from alloq_commons.desktop import is_desktop
@@ -59,9 +53,10 @@ VIEWER_ROUTES: Final = frozenset({PLAN_ROUTE, PROJECTS_ROUTE})
 (admin or project manager)."""
 ROUTE_GUARDS: Final[dict[str, Any]] = {
     **dict.fromkeys(VIEWER_ROUTES, viewer_only),
-    OFFERS_ROUTE: offers_only,
+    OFFERS_ROUTE: rx.fragment,
 }
-"""Guard per planning route; routes not listed need edit rights."""
+"""Guard per planning route; every user may read the offers; routes not listed
+need edit rights."""
 _COUNTS: Final[dict[str, Any]] = {
     PROJECTS_ROUTE: SidebarState.project_count,
     OFFERS_ROUTE: SidebarState.offer_count,
@@ -334,13 +329,7 @@ def sidebar() -> rx.Component:
         _window_row(),
         _brand(),
         mn.box(
-            rx.cond(
-                CAN_VIEW | CAN_EDIT_OFFERS,
-                _section(
-                    "Planung", *(_guarded_nav_item(*item) for item in PLANNING_ITEMS)
-                ),
-                rx.fragment(),
-            ),
+            _section("Planung", *(_guarded_nav_item(*item) for item in PLANNING_ITEMS)),
             editor_only(_capacity_section()),
             _admin_section(),
             custom_attrs={"role": "navigation", "aria-label": "Navigation"},

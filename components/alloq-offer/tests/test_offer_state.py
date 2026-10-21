@@ -8,6 +8,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from alloq_commons.roles import OFFER_EDITOR_ROLE
 from alloq_offer.entities import OfferEntity
 from alloq_offer.models import Offer
 from alloq_offer.states import offer_state
@@ -66,14 +67,19 @@ def repo() -> Iterator[AsyncMock]:
 
 
 @contextmanager
-def _as_admin(state: OfferState) -> Iterator[None]:
-    user = MagicMock(is_admin=True, user_id=1, roles=[])
+def _as_offer_editor(state: OfferState, *, is_admin: bool = False) -> Iterator[None]:
+    roles = [] if is_admin else [OFFER_EDITOR_ROLE.name]
+    user = MagicMock(is_admin=is_admin, user_id=1, roles=roles)
 
     async def _user() -> MagicMock:
         return user
 
+    async def _signed_in() -> bool:
+        return True
+
     login = MagicMock()
     type(login).authenticated_user = property(lambda _self: _user())
+    type(login).is_authenticated = property(lambda _self: _signed_in())
     login.redir = AsyncMock(return_value=None)
 
     async def _get_state(cls: type) -> Any:
@@ -204,7 +210,7 @@ class TestDataHandlers:
     @pytest.mark.usefixtures("repo")
     async def test_load(self) -> None:
         state = _state()
-        with _as_admin(state):
+        with _as_offer_editor(state):
             await _run(state.load_offers)
         assert len(state.offers) == 1
         assert not state.is_loading
@@ -213,7 +219,7 @@ class TestDataHandlers:
     async def test_load_error(self, repo: AsyncMock) -> None:
         repo.find_all_ordered.side_effect = RuntimeError("db")
         state = _state()
-        with _as_admin(state):
+        with _as_offer_editor(state):
             out = await _run(state.load_offers)
         assert "geladen" in out
 
@@ -223,18 +229,27 @@ class TestDataHandlers:
         state = _state()
         state.open_create_modal()
         state.form = dict(FORM)
-        with _as_admin(state):
+        with _as_offer_editor(state):
             out = await _run(state.create_offer, {"title": " Neu "})
         assert "angelegt" in out
         assert state.offers[0].title == "Neu"
         assert not state.form_open
 
     @pytest.mark.asyncio
+    async def test_admin_without_role_may_not_create(self, repo: AsyncMock) -> None:
+        state = _state()
+        state.form = dict(FORM)
+        with _as_offer_editor(state, is_admin=True):
+            out = await _run(state.create_offer, {"title": "Neu"})
+        assert "Berechtigung" in out
+        repo.create.assert_not_called()
+
+    @pytest.mark.asyncio
     @pytest.mark.usefixtures("repo")
     async def test_create_sent_sets_today(self) -> None:
         state = _state()
         state.form = {**FORM, "state": "Versendet"}
-        with _as_admin(state):
+        with _as_offer_editor(state):
             await _run(state.create_offer, {})
         assert state.offers[0].sent_date is not None
 
@@ -242,7 +257,7 @@ class TestDataHandlers:
     async def test_create_invalid(self, repo: AsyncMock) -> None:
         state = _state()
         state.form = {**FORM, "title": ""}
-        with _as_admin(state):
+        with _as_offer_editor(state):
             out = await _run(state.create_offer, {})
         assert offer_state.HINT_INVALID in out
         repo.create.assert_not_called()
@@ -252,7 +267,7 @@ class TestDataHandlers:
         repo.create.side_effect = RuntimeError("db")
         state = _state()
         state.form = dict(FORM)
-        with _as_admin(state):
+        with _as_offer_editor(state):
             out = await _run(state.create_offer, {})
         assert offer_state.ERROR_SAVE in out
 
@@ -262,7 +277,7 @@ class TestDataHandlers:
         state = _state(_offer())
         state.open_edit_modal(1)
         state.set_form_field("title", "Anders")
-        with _as_admin(state):
+        with _as_offer_editor(state):
             out = await _run(state.update_offer, {})
         assert "aktualisiert" in out
         assert state.offers[0].title == "Anders"
@@ -272,7 +287,7 @@ class TestDataHandlers:
         repo.find_by_id.return_value = None
         state = _state(_offer())
         state.open_edit_modal(1)
-        with _as_admin(state):
+        with _as_offer_editor(state):
             out = await _run(state.update_offer, {})
         assert offer_state.NOT_FOUND in out
 
@@ -280,7 +295,7 @@ class TestDataHandlers:
     @pytest.mark.usefixtures("repo")
     async def test_state_change_sets_date(self) -> None:
         state = _state(_offer())
-        with _as_admin(state):
+        with _as_offer_editor(state):
             out = await _run(state.update_inspected_state, 1, "Versendet")
         assert "Status gespeichert" in out
         assert state.offers[0].state == "Versendet"
@@ -291,7 +306,7 @@ class TestDataHandlers:
         sent = date(2026, 1, 1)
         repo.find_by_id.return_value = _entity(state="Versendet", sent_date=sent)
         state = _state(_offer(state="Versendet", sent_date=sent))
-        with _as_admin(state):
+        with _as_offer_editor(state):
             await _run(state.update_inspected_state, 1, "In Bearbeitung")
         assert state.offers[0].sent_date == sent
 
@@ -299,7 +314,7 @@ class TestDataHandlers:
     @pytest.mark.usefixtures("repo")
     async def test_state_change_invalid(self) -> None:
         state = _state(_offer())
-        with _as_admin(state):
+        with _as_offer_editor(state):
             out = await _run(state.update_inspected_state, 1, "Foo")
         assert "Ungültig" in out
 
@@ -308,7 +323,7 @@ class TestDataHandlers:
     async def test_sent_date_edit(self) -> None:
         state = _state(_offer())
         state.set_inspected_sent_date(1, "2026-03-04")
-        with _as_admin(state):
+        with _as_offer_editor(state):
             out = await _run(state.save_inspected_sent_date, 1)
         assert "Datum gespeichert" in out
         assert state.offers[0].sent_date == date(2026, 3, 4)
@@ -317,7 +332,7 @@ class TestDataHandlers:
     @pytest.mark.asyncio
     async def test_sent_date_edge_cases(self, repo: AsyncMock) -> None:
         state = _state(_offer())
-        with _as_admin(state):
+        with _as_offer_editor(state):
             assert await _run(state.save_inspected_sent_date, 1) == ""
             state.set_inspected_sent_date(1, "kaputt")
             assert "gültiges Datum" in await _run(state.save_inspected_sent_date, 1)
@@ -329,7 +344,7 @@ class TestDataHandlers:
     @pytest.mark.usefixtures("repo")
     async def test_archive_and_restore(self) -> None:
         state = _state(_offer())
-        with _as_admin(state):
+        with _as_offer_editor(state):
             await _run(state.archive_offer, 1)
             assert state.offers[0].archived
             assert state.visible == []
@@ -340,7 +355,7 @@ class TestDataHandlers:
     async def test_persist_error(self, repo: AsyncMock) -> None:
         repo.find_by_id.side_effect = RuntimeError("db")
         state = _state(_offer())
-        with _as_admin(state):
+        with _as_offer_editor(state):
             out = await _run(state.archive_offer, 1)
         assert offer_state.ERROR_SAVE in out
 
@@ -348,6 +363,6 @@ class TestDataHandlers:
 class TestUpdateWithoutEditId:
     async def test_update_without_editing_id_does_not_create(self) -> None:
         state = _state()
-        with _as_admin(state):
+        with _as_offer_editor(state):
             out = await _run(state.update_offer, FORM)
         assert "nicht gefunden" in out

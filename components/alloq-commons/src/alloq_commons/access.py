@@ -2,7 +2,9 @@
 
 Admins may do everything. Project managers may read and edit every planning
 page; the administration pages stay admin-only (``@requires_admin``). Users
-with the employee role may only read the projects and planning pages.
+with the employee role may only read the projects and planning pages. Every
+signed-in user may read the offers; only the offer editor role may change
+them, admins included.
 """
 
 import inspect
@@ -31,10 +33,6 @@ CAN_EDIT: Final = IS_ADMIN | UserSession.user.roles.contains(PROJECT_MANAGER_ROL
 """Frontend Var: the signed-in user may read and edit the planning pages."""
 CAN_VIEW: Final = CAN_EDIT | UserSession.user.roles.contains(EMPLOYEE_ROLE.name)
 """Frontend Var: the signed-in user may read projects and planning."""
-CAN_EDIT_OFFERS: Final = CAN_EDIT | UserSession.user.roles.contains(
-    OFFER_EDITOR_ROLE.name
-)
-"""Frontend Var: the signed-in user may read and edit the offers."""
 
 
 def can_edit(user: User) -> bool:
@@ -48,8 +46,8 @@ def can_view(user: User) -> bool:
 
 
 def can_edit_offers(user: User) -> bool:
-    """Whether ``user`` may read and edit offers (admin, manager, offer editor)."""
-    return can_edit(user) or OFFER_EDITOR_ROLE.name in user.roles
+    """Whether ``user`` may edit offers; only the offer editor role may."""
+    return OFFER_EDITOR_ROLE.name in user.roles
 
 
 NO_ACCESS_MSG: Final = (
@@ -62,11 +60,7 @@ def no_access() -> rx.Component:
     return mn.center(
         mn.stack(
             mn.text(NO_ACCESS_MSG, fz="15px", fw=500),
-            rx.cond(
-                CAN_EDIT_OFFERS,
-                rx.link("Zu den Angeboten", href="/offers"),
-                rx.fragment(),
-            ),
+            rx.link("Zu den Angeboten", href="/offers"),
             align="center",
             gap=8,
         ),
@@ -83,11 +77,6 @@ def viewer_only(*children: Any, fallback: rx.Component | None = None) -> rx.Comp
 def editor_only(*children: Any, fallback: rx.Component | None = None) -> rx.Component:
     """Render ``children`` for admins and project managers (edit controls)."""
     return rx.cond(CAN_EDIT, rx.fragment(*children), fallback)
-
-
-def offers_only(*children: Any, fallback: rx.Component | None = None) -> rx.Component:
-    """Render ``children`` for admins, project managers and offer editors."""
-    return rx.cond(CAN_EDIT_OFFERS, rx.fragment(*children), fallback)
 
 
 def admin_only(*children: Any, fallback: rx.Component | None = None) -> rx.Component:
@@ -153,5 +142,5 @@ def requires_editor[F: Callable[..., Any]](func: F) -> F:
 
 
 def requires_offer_editor[F: Callable[..., Any]](func: F) -> F:
-    """Allow an offer event for admins, project managers and offer editors."""
+    """Allow an offer event for the offer editor role only."""
     return _guard(func, can_edit_offers, "offer_editor")

@@ -86,6 +86,11 @@ VIEWER_HANDLERS: dict[str, frozenset[str]] = {
     "PlanningStore": frozenset({"load", "refresh", "reload_with_time_range"}),
 }
 
+# Offer loads every signed-in user may run (appkit's ``@is_authenticated``).
+OFFER_READER_HANDLERS: dict[str, frozenset[str]] = {
+    "OfferState": frozenset({"load_offers"}),
+}
+
 UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
     "SplashState": frozenset({"finish"}),
     "SidebarState": frozenset({"invalidate"}),
@@ -380,6 +385,20 @@ def _is_requires_offer_editor(fn: Callable[..., Any]) -> bool:
     return _access_level(fn, "offer_editor")
 
 
+def _is_requires_login(fn: Callable[..., Any]) -> bool:
+    return _is_decorated_by(fn, "is_authenticated")
+
+
+def _is_allowed_reader(state_name: str, name: str, fn: Callable[..., Any]) -> bool:
+    """Read-only load guarded by its reader level and listed in its allowlist."""
+    return (
+        _is_requires_viewer(fn) and name in VIEWER_HANDLERS.get(state_name, frozenset())
+    ) or (
+        _is_requires_login(fn)
+        and name in OFFER_READER_HANDLERS.get(state_name, frozenset())
+    )
+
+
 def _is_guarded(fn: Callable[..., Any]) -> bool:
     return (
         _is_requires_admin(fn)
@@ -420,10 +439,7 @@ def test_every_handler_is_admin_guarded_or_ui_only() -> None:
         for state_name, state in STATES.items()
         for name, handler in _handlers(state).items()
         if not _is_guarded(handler.fn)
-        and not (
-            _is_requires_viewer(handler.fn)
-            and name in VIEWER_HANDLERS.get(state_name, frozenset())
-        )
+        and not _is_allowed_reader(state_name, name, handler.fn)
         and name not in INLINE_ADMIN_CHECK.get(state_name, frozenset())
         and name not in UI_ONLY_HANDLERS.get(state_name, frozenset())
         and name not in PRE_AUTH_HANDLERS.get(state_name, frozenset())
@@ -463,9 +479,30 @@ def test_offer_handlers_use_the_offer_editor_level() -> None:
         if _is_offer_state(state)
         for name, handler in _handlers(state).items()
         if not _is_requires_offer_editor(handler.fn)
+        and not _is_allowed_reader(state_name, name, handler.fn)
         and name not in UI_ONLY_HANDLERS.get(state_name, frozenset())
     )
     assert wrong == [], "Guard offer handlers with @requires_offer_editor"
+
+
+def test_offer_reader_handlers_are_exactly_the_allowlist() -> None:
+    reader_guarded = {
+        (state_name, name)
+        for state_name, state in STATES.items()
+        for name, handler in _handlers(state).items()
+        if _is_requires_login(handler.fn)
+    }
+    allowed = {(s, n) for s, names in OFFER_READER_HANDLERS.items() for n in names}
+    assert reader_guarded == allowed
+
+
+@pytest.mark.parametrize(
+    ("state_name", "name"),
+    sorted((s, n) for s, names in OFFER_READER_HANDLERS.items() for n in names),
+)
+def test_offer_reader_handler_does_not_write(state_name: str, name: str) -> None:
+    source = inspect.getsource(inspect.unwrap(_handlers(STATES[state_name])[name].fn))
+    assert not WRITE_MARKERS.findall(source)
 
 
 def test_offer_handlers_are_not_admin_or_editor_guarded() -> None:

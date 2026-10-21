@@ -8,7 +8,6 @@ import pytest
 import reflex as rx
 from alloq_commons.access import (
     CAN_EDIT,
-    CAN_EDIT_OFFERS,
     CAN_VIEW,
     IS_ADMIN,
     NO_ACCESS_MSG,
@@ -18,7 +17,6 @@ from alloq_commons.access import (
     can_view,
     editor_only,
     no_access,
-    offers_only,
     requires_editor,
     requires_offer_editor,
     requires_viewer,
@@ -235,8 +233,8 @@ class TestOfferEditor:
     @pytest.mark.parametrize(
         ("user", "expected"),
         [
-            (ADMIN, True),
-            (MANAGER, True),
+            (ADMIN, False),
+            (MANAGER, False),
             (OFFER_EDITOR, True),
             (EMPLOYEE, False),
             (OTHER, False),
@@ -250,18 +248,11 @@ class TestOfferEditor:
         assert can_edit(OFFER_EDITOR) is False
         assert can_view(OFFER_EDITOR) is False
 
-    def test_frontend_var_and_guard_component(self) -> None:
-        assert OFFER_EDITOR_ROLE.name in str(CAN_EDIT_OFFERS)
-        assert PROJECT_MANAGER_ROLE.name in str(CAN_EDIT_OFFERS)
-        assert "is_admin" in str(offers_only(rx.text("x")))
-        assert "outside" in str(offers_only(rx.text("x"), fallback=rx.text("outside")))
-
-    @pytest.mark.parametrize("user", [ADMIN, MANAGER, OFFER_EDITOR])
-    async def test_allowed_users_run_the_handler(self, user: User) -> None:
-        editor = _OfferEditor(user)
+    async def test_offer_editors_run_the_handler(self) -> None:
+        editor = _OfferEditor(OFFER_EDITOR)
         assert await editor.save(1) == 2
 
-    @pytest.mark.parametrize("user", [EMPLOYEE, OTHER, NO_ROLES])
+    @pytest.mark.parametrize("user", [ADMIN, MANAGER, EMPLOYEE, OTHER, NO_ROLES])
     async def test_others_are_denied(self, user: User) -> None:
         editor = _OfferEditor(user)
         assert await editor.save(1) is not None
@@ -271,3 +262,9 @@ class TestOfferEditor:
         editor = _OfferEditor(None)
         assert await editor.save(1) == "redirect"
         assert editor.calls == 0
+
+
+def test_no_access_links_to_the_offers_for_everyone() -> None:
+    rendered = str(no_access())
+    assert '"/offers"' in rendered
+    assert "user.roles" not in rendered

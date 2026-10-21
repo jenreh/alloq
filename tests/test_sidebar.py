@@ -13,6 +13,7 @@ from alloq_dashboard.states import RoleCapacityState
 from app.components import sidebar_state
 from app.components.sidebar import (
     ADMIN_ITEMS,
+    OFFERS_ROUTE,
     PLANNING_ITEMS,
     VIEWER_ROUTES,
     _admin_section,
@@ -152,15 +153,29 @@ class TestSidebarComponent:
         assert "data-tauri-drag-region" in rendered
         assert "LucidePanelLeftClose" in rendered
 
+    def test_every_user_sees_the_offers_entry(self) -> None:
+        rendered = str(_guarded_nav_item(OFFERS_ROUTE, "Angebote", "file-text"))
+        assert "user.roles" not in rendered
+        assert "is_admin" not in rendered
+
+    def test_planning_section_is_shown_to_every_user(self) -> None:
+        rendered = str(sidebar())
+        assert "Planung" in rendered
+        assert "offer_editor" not in rendered
+
     def test_employees_see_only_planning_and_projects(self) -> None:
         assert {"/plan", "/projects"} == VIEWER_ROUTES
         for route, label, icon in PLANNING_ITEMS:
+            if route == OFFERS_ROUTE:
+                continue
             rendered = str(_guarded_nav_item(route, label, icon))
             assert ('"employee"' in rendered) is (route in VIEWER_ROUTES)
             assert "is_admin" in rendered
 
     def test_project_managers_see_every_planning_page(self) -> None:
         for route, label, icon in PLANNING_ITEMS:
+            if route == OFFERS_ROUTE:
+                continue
             rendered = str(_guarded_nav_item(route, label, icon))
             assert f'"{PROJECT_MANAGER_ROLE.name}"' in rendered
 
