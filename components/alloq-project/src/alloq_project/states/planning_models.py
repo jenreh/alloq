@@ -89,25 +89,6 @@ class CoverageCell(BaseModel):
     title: str = ""
 
 
-class AffectedProject(BaseModel):
-    name: str
-    color: str = ""
-    days_label: str
-    weeks: str
-
-
-class UpcomingAbsence(BaseModel):
-    name: str
-    initials: str = ""
-    avatar_color: str = ""
-    period: str
-    relative: str
-    is_running: bool = False
-    projects: list[AffectedProject] = []
-    status: str = "none"
-    status_label: str = ""
-
-
 class AbsenceGanttView(BaseModel):
     rows: list[AbsenceGanttRow] = []
     weeks: list[GanttWeek] = []
@@ -115,7 +96,6 @@ class AbsenceGanttView(BaseModel):
     holidays: list[GanttMark] = []
     holiday_days: list[int] = []
     month_lines: list[int] = []
-    upcoming: list[UpcomingAbsence] = []
     today_px: float = -1
     min_day: int = 0
     day_px: float = 0
