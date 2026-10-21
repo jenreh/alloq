@@ -8,19 +8,28 @@ import pytest
 import reflex as rx
 from alloq_commons.access import (
     CAN_EDIT,
+    CAN_EDIT_OFFERS,
     CAN_VIEW,
     IS_ADMIN,
     NO_ACCESS_MSG,
     admin_only,
     can_edit,
+    can_edit_offers,
     can_view,
     editor_only,
     no_access,
+    offers_only,
     requires_editor,
+    requires_offer_editor,
     requires_viewer,
     viewer_only,
 )
-from alloq_commons.roles import ALL_ROLES, EMPLOYEE_ROLE, PROJECT_MANAGER_ROLE
+from alloq_commons.roles import (
+    ALL_ROLES,
+    EMPLOYEE_ROLE,
+    OFFER_EDITOR_ROLE,
+    PROJECT_MANAGER_ROLE,
+)
 
 from appkit_user.authentication.backend.models import User
 
@@ -28,6 +37,8 @@ ADMIN = User(user_id=1, is_admin=True)
 EMPLOYEE = User(user_id=2, roles=[EMPLOYEE_ROLE.name])
 MANAGER = User(user_id=3, roles=[PROJECT_MANAGER_ROLE.name])
 OTHER = User(user_id=4, roles=["department_1"])
+OFFER_EDITOR = User(user_id=5, roles=[OFFER_EDITOR_ROLE.name])
+NO_ROLES = User(user_id=6)
 
 
 class _FakeLogin:
@@ -206,3 +217,57 @@ class TestRenderGuards:
         rendered = str(viewer_only(rx.text("inside"), fallback=rx.text("outside")))
         assert "inside" in rendered
         assert "outside" in rendered
+
+
+class _OfferEditor(_Reader):
+    @requires_offer_editor
+    async def save(self, value: int) -> int:
+        self.calls += 1
+        return value + 1
+
+
+class TestOfferEditor:
+    def test_role_is_offered_in_user_management(self) -> None:
+        assert OFFER_EDITOR_ROLE in ALL_ROLES
+        assert OFFER_EDITOR_ROLE.name == "offer_editor"
+        assert OFFER_EDITOR_ROLE.label == "Angebote"
+
+    @pytest.mark.parametrize(
+        ("user", "expected"),
+        [
+            (ADMIN, True),
+            (MANAGER, True),
+            (OFFER_EDITOR, True),
+            (EMPLOYEE, False),
+            (OTHER, False),
+            (NO_ROLES, False),
+        ],
+    )
+    def test_can_edit_offers(self, user: User, expected: bool) -> None:
+        assert can_edit_offers(user) is expected
+
+    def test_offer_editor_gets_no_planning_access(self) -> None:
+        assert can_edit(OFFER_EDITOR) is False
+        assert can_view(OFFER_EDITOR) is False
+
+    def test_frontend_var_and_guard_component(self) -> None:
+        assert OFFER_EDITOR_ROLE.name in str(CAN_EDIT_OFFERS)
+        assert PROJECT_MANAGER_ROLE.name in str(CAN_EDIT_OFFERS)
+        assert "is_admin" in str(offers_only(rx.text("x")))
+        assert "outside" in str(offers_only(rx.text("x"), fallback=rx.text("outside")))
+
+    @pytest.mark.parametrize("user", [ADMIN, MANAGER, OFFER_EDITOR])
+    async def test_allowed_users_run_the_handler(self, user: User) -> None:
+        editor = _OfferEditor(user)
+        assert await editor.save(1) == 2
+
+    @pytest.mark.parametrize("user", [EMPLOYEE, OTHER, NO_ROLES])
+    async def test_others_are_denied(self, user: User) -> None:
+        editor = _OfferEditor(user)
+        assert await editor.save(1) is not None
+        assert editor.calls == 0
+
+    async def test_anonymous_users_are_redirected(self) -> None:
+        editor = _OfferEditor(None)
+        assert await editor.save(1) == "redirect"
+        assert editor.calls == 0

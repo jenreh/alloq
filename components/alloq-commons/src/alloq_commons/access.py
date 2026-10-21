@@ -14,7 +14,7 @@ from typing import Any, Final
 import reflex as rx
 
 import appkit_mantine as mn
-from alloq_commons.roles import EMPLOYEE_ROLE, PROJECT_MANAGER_ROLE
+from alloq_commons.roles import EMPLOYEE_ROLE, OFFER_EDITOR_ROLE, PROJECT_MANAGER_ROLE
 from appkit_user.authentication.backend.models import User
 from appkit_user.authentication.states import LoginState, UserSession
 
@@ -31,6 +31,10 @@ CAN_EDIT: Final = IS_ADMIN | UserSession.user.roles.contains(PROJECT_MANAGER_ROL
 """Frontend Var: the signed-in user may read and edit the planning pages."""
 CAN_VIEW: Final = CAN_EDIT | UserSession.user.roles.contains(EMPLOYEE_ROLE.name)
 """Frontend Var: the signed-in user may read projects and planning."""
+CAN_EDIT_OFFERS: Final = CAN_EDIT | UserSession.user.roles.contains(
+    OFFER_EDITOR_ROLE.name
+)
+"""Frontend Var: the signed-in user may read and edit the offers."""
 
 
 def can_edit(user: User) -> bool:
@@ -43,6 +47,11 @@ def can_view(user: User) -> bool:
     return can_edit(user) or EMPLOYEE_ROLE.name in user.roles
 
 
+def can_edit_offers(user: User) -> bool:
+    """Whether ``user`` may read and edit offers (admin, manager, offer editor)."""
+    return can_edit(user) or OFFER_EDITOR_ROLE.name in user.roles
+
+
 NO_ACCESS_MSG: Final = (
     "Sie haben nicht die notwendigen Berechtigungen, um auf diese Seite zuzugreifen."
 )
@@ -50,7 +59,20 @@ NO_ACCESS_MSG: Final = (
 
 def no_access() -> rx.Component:
     """Page content for signed-in users without read access."""
-    return mn.center(mn.text(NO_ACCESS_MSG, fz="15px", fw=500), h="60vh", px=24)
+    return mn.center(
+        mn.stack(
+            mn.text(NO_ACCESS_MSG, fz="15px", fw=500),
+            rx.cond(
+                CAN_EDIT_OFFERS,
+                rx.link("Zu den Angeboten", href="/offers"),
+                rx.fragment(),
+            ),
+            align="center",
+            gap=8,
+        ),
+        h="60vh",
+        px=24,
+    )
 
 
 def viewer_only(*children: Any, fallback: rx.Component | None = None) -> rx.Component:
@@ -61,6 +83,11 @@ def viewer_only(*children: Any, fallback: rx.Component | None = None) -> rx.Comp
 def editor_only(*children: Any, fallback: rx.Component | None = None) -> rx.Component:
     """Render ``children`` for admins and project managers (edit controls)."""
     return rx.cond(CAN_EDIT, rx.fragment(*children), fallback)
+
+
+def offers_only(*children: Any, fallback: rx.Component | None = None) -> rx.Component:
+    """Render ``children`` for admins, project managers and offer editors."""
+    return rx.cond(CAN_EDIT_OFFERS, rx.fragment(*children), fallback)
 
 
 def admin_only(*children: Any, fallback: rx.Component | None = None) -> rx.Component:
@@ -123,3 +150,8 @@ def requires_viewer[F: Callable[..., Any]](func: F) -> F:
 def requires_editor[F: Callable[..., Any]](func: F) -> F:
     """Allow a reading or writing event for admins and project managers."""
     return _guard(func, can_edit, "editor")
+
+
+def requires_offer_editor[F: Callable[..., Any]](func: F) -> F:
+    """Allow an offer event for admins, project managers and offer editors."""
+    return _guard(func, can_edit_offers, "offer_editor")

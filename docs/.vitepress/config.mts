@@ -104,6 +104,7 @@ export default withMermaid(
               link: "/features/master-data",
             },
             { text: "Team", link: "/features/team" },
+            { text: "Offers", link: "/features/offers" },
             { text: "Find and create projects", link: "/features/projects" },
             {
               text: "Maintain and track a project",

@@ -7,6 +7,7 @@ members = [
     "alloq",
     "alloq-commons",
     "alloq-dashboard",
+    "alloq-offer",
     "alloq-project",
     "alloq-team",
 ]
@@ -51,6 +52,7 @@ dependencies = [
     { name = "alembic" },
     { name = "alloq-commons" },
     { name = "alloq-dashboard" },
+    { name = "alloq-offer" },
     { name = "alloq-project" },
     { name = "alloq-team" },
     { name = "appkit-commons", extra = ["azure"] },
@@ -85,6 +87,7 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.20.0" },
     { name = "alloq-commons", editable = "components/alloq-commons" },
     { name = "alloq-dashboard", editable = "components/alloq-dashboard" },
+    { name = "alloq-offer", editable = "components/alloq-offer" },
     { name = "alloq-project", editable = "components/alloq-project" },
     { name = "alloq-team", editable = "components/alloq-team" },
     { name = "appkit-commons", extras = ["azure"], specifier = "==1.16.2" },
@@ -131,6 +134,17 @@ requires-dist = [
     { name = "alloq-project", editable = "components/alloq-project" },
     { name = "alloq-team", editable = "components/alloq-team" },
 ]
+
+[[package]]
+name = "alloq-offer"
+version = "2.0.5"
+source = { editable = "components/alloq-offer" }
+dependencies = [
+    { name = "alloq-commons" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "alloq-commons", editable = "components/alloq-commons" }]
 
 [[package]]
 name = "alloq-project"

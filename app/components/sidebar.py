@@ -8,7 +8,13 @@ from typing import Any, Final, cast
 
 import reflex as rx
 from alloq_commons import theme
-from alloq_commons.access import editor_only, viewer_only
+from alloq_commons.access import (
+    CAN_EDIT_OFFERS,
+    CAN_VIEW,
+    editor_only,
+    offers_only,
+    viewer_only,
+)
 from alloq_commons.components.formatters import de_number
 from alloq_commons.components.toolbar import DRAG, SIDEBAR_TOGGLE_SCRIPT, icon_button
 from alloq_commons.desktop import is_desktop
@@ -32,11 +38,13 @@ PROJECTS_ROUTE: Final = "/projects"
 TEAM_ROUTE: Final = "/team"
 
 PLAN_ROUTE: Final = "/plan"
+OFFERS_ROUTE: Final = "/offers"
 
 PLANNING_ITEMS: Final[list[tuple[str, str, str]]] = [
     ("/dashboard", "Übersicht", "layout-dashboard"),
     (PLAN_ROUTE, "Ressourcenplanung", "calendar-range"),
     (PROJECTS_ROUTE, "Projekte", "folder-kanban"),
+    (OFFERS_ROUTE, "Angebote", "file-text"),
     (TEAM_ROUTE, "Team", "users"),
 ]
 ADMIN_ITEMS: Final[list[tuple[str, str, str]]] = [
@@ -49,6 +57,11 @@ ADMIN_ITEMS: Final[list[tuple[str, str, str]]] = [
 VIEWER_ROUTES: Final = frozenset({PLAN_ROUTE, PROJECTS_ROUTE})
 """Pages the employee role may read; the other planning pages need edit rights
 (admin or project manager)."""
+ROUTE_GUARDS: Final[dict[str, Any]] = {
+    **dict.fromkeys(VIEWER_ROUTES, viewer_only),
+    OFFERS_ROUTE: offers_only,
+}
+"""Guard per planning route; routes not listed need edit rights."""
 _COUNTS: Final[dict[str, Any]] = {
     PROJECTS_ROUTE: SidebarState.project_count,
     TEAM_ROUTE: SidebarState.employee_count,
@@ -168,7 +181,7 @@ def _nav_item(route: str, label: str, icon: str) -> rx.Component:
 
 def _guarded_nav_item(route: str, label: str, icon: str) -> rx.Component:
     """Nav item shown only to users who may open its page."""
-    guard = viewer_only if route in VIEWER_ROUTES else editor_only
+    guard = ROUTE_GUARDS.get(route, editor_only)
     return guard(_nav_item(route, label, icon))
 
 
@@ -320,10 +333,12 @@ def sidebar() -> rx.Component:
         _window_row(),
         _brand(),
         mn.box(
-            viewer_only(
+            rx.cond(
+                CAN_VIEW | CAN_EDIT_OFFERS,
                 _section(
                     "Planung", *(_guarded_nav_item(*item) for item in PLANNING_ITEMS)
-                )
+                ),
+                rx.fragment(),
             ),
             editor_only(_capacity_section()),
             _admin_section(),

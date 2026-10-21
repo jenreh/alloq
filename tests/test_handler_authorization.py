@@ -21,7 +21,13 @@ import pytest
 import reflex as rx
 from alloq_commons.access import ACCESS_LEVEL_ATTR
 
-PACKAGES = ("alloq_commons", "alloq_dashboard", "alloq_project", "alloq_team")
+PACKAGES = (
+    "alloq_commons",
+    "alloq_dashboard",
+    "alloq_offer",
+    "alloq_project",
+    "alloq_team",
+)
 EXTRA_MODULES = (
     "app.components.sidebar_state",
     "app.desktop.db_access_state",
@@ -43,6 +49,8 @@ ADMIN_STATES = frozenset(
 # Planning states are open to project managers, so they use @requires_editor.
 EDITOR_PACKAGES = frozenset({"alloq_dashboard", "alloq_project", "alloq_team"})
 EDITOR_STATES = frozenset({"SidebarState"})
+# Offer states use their own level (admin, project manager, offer editor).
+OFFER_PACKAGES = frozenset({"alloq_offer"})
 
 # Reflex adds ``setvar`` to every state; it only sets a declared var.
 REFLEX_BUILTINS = frozenset({"setvar"})
@@ -82,6 +90,22 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
     "SplashState": frozenset({"finish"}),
     "SidebarState": frozenset({"invalidate"}),
     "DashboardState": frozenset({"close_drill_down", "open_drill_down"}),
+    "OfferState": frozenset(
+        {
+            "close_modal",
+            "inspect",
+            "open_create_modal",
+            "open_edit_modal",
+            "reset_filters",
+            "set_form_field",
+            "set_inspected_sent_date",
+            "set_list_filter",
+            "set_search_filter",
+            "set_sent_date_today",
+            "toggle_inspector",
+            "toggle_sort",
+        }
+    ),
     "RoleState": frozenset(
         {
             "close_add_modal",
@@ -352,8 +376,16 @@ def _is_requires_viewer(fn: Callable[..., Any]) -> bool:
     return _access_level(fn, "viewer")
 
 
+def _is_requires_offer_editor(fn: Callable[..., Any]) -> bool:
+    return _access_level(fn, "offer_editor")
+
+
 def _is_guarded(fn: Callable[..., Any]) -> bool:
-    return _is_requires_admin(fn) or _is_requires_editor(fn)
+    return (
+        _is_requires_admin(fn)
+        or _is_requires_editor(fn)
+        or _is_requires_offer_editor(fn)
+    )
 
 
 def _db_markers(
@@ -418,6 +450,35 @@ def test_planning_handlers_are_open_to_project_managers() -> None:
         if _is_requires_admin(handler.fn)
     )
     assert admin_guarded == [], "Use @requires_editor outside the administration"
+
+
+def _is_offer_state(state: type[rx.State]) -> bool:
+    return state.__module__.split(".")[0] in OFFER_PACKAGES
+
+
+def test_offer_handlers_use_the_offer_editor_level() -> None:
+    wrong = sorted(
+        f"{state_name}.{name}"
+        for state_name, state in STATES.items()
+        if _is_offer_state(state)
+        for name, handler in _handlers(state).items()
+        if not _is_requires_offer_editor(handler.fn)
+        and name not in UI_ONLY_HANDLERS.get(state_name, frozenset())
+    )
+    assert wrong == [], "Guard offer handlers with @requires_offer_editor"
+
+
+def test_offer_handlers_are_not_admin_or_editor_guarded() -> None:
+    wrong = sorted(
+        f"{state_name}.{name}"
+        for state_name, state in STATES.items()
+        if _is_offer_state(state)
+        for name, handler in _handlers(state).items()
+        if _is_requires_admin(handler.fn)
+        or _is_requires_editor(handler.fn)
+        or _is_requires_viewer(handler.fn)
+    )
+    assert wrong == []
 
 
 def test_administration_handlers_stay_admin_only() -> None:

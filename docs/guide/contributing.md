@@ -252,7 +252,7 @@ For every feature change, do these steps:
      renumber an ID, because other pages link to it.
    - Start with one plain sentence that says what the story is about.
    - Then write `As a <persona>, I want <goal>, so that <benefit>`, with one persona:
-     Administrator, Project manager, Employee or Desktop user.
+     Administrator, Project manager, Employee, Offer editor or Desktop user.
    - Write each acceptance criterion as Given, When, Then. Each one must match a
      concrete rule in the code, e.g. a `Field(max_length=...)` limit, a guard, a
      filter, a calculation or an error message.

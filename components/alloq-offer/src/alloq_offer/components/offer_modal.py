@@ -1,0 +1,141 @@
+"""Create and edit modal of an offer."""
+
+from typing import Any
+
+import reflex as rx
+from alloq_commons.components.forms import section
+from alloq_commons.components.modal_layout import (
+    MODAL_CLASS,
+    modal_footer,
+    modal_form_layout,
+)
+from reflex.event import EventType
+
+import appkit_mantine as mn
+from alloq_offer.entities import CIU_LABELS, OfferStateEnum
+from alloq_offer.states.offer_state import OfferState
+
+TITLE_CREATE = "Neues Angebot"
+TITLE_EDIT = "Angebot bearbeiten"
+CIU_OPTIONS: list[dict[str, str]] = [
+    {"value": code, "label": label} for code, label in CIU_LABELS.items()
+]
+STATE_OPTIONS: list[str] = [s.value for s in OfferStateEnum]
+
+
+def _text(name: str, label: str, *, required: bool = True, limit: int = 255, **kw):  # noqa: ANN003, ANN202
+    return mn.text_input(
+        name=name,
+        label=label,
+        default_value=OfferState.form[name],
+        on_blur=lambda value: OfferState.set_form_field(name, value),
+        required=required,
+        custom_attrs={"maxLength": limit},
+        **kw,
+    )
+
+
+def _number(name: str, label: str, *, required: bool = True, **kw):  # noqa: ANN003, ANN202
+    return mn.number_input(
+        name=name,
+        label=label,
+        default_value=OfferState.form[name].to(float),
+        on_change=lambda value: OfferState.set_form_field(name, value),
+        required=required,
+        min=0,
+        decimal_scale=2,
+        decimal_separator=",",
+        thousand_separator=".",
+        allow_negative=False,
+        **kw,
+    )
+
+
+def offer_form_fields() -> rx.Component:
+    return mn.flex(
+        section(
+            _text("title", "Angebotstitel", placeholder="z.B. Datenplattform"),
+            _text("customer", "Kunde", placeholder="z.B. Muster AG"),
+            _text("key_accounter", "Key Accounter"),
+            mn.select(
+                name="ciu",
+                label="CIU",
+                data=CIU_OPTIONS,
+                default_value=OfferState.form["ciu"],
+                on_change=lambda value: OfferState.set_form_field("ciu", value),
+                required=True,
+                clearable=False,
+            ),
+        ),
+        section(
+            _number("person_days", "Kalkulierte Personentage (PT)"),
+            _number("risk_buffer_days", "Risikopuffer (PT)", required=False),
+            _number("production_cost", "Herstellkosten (HK)", suffix=" €"),
+            _number("recommended_price", "Empfohlener VK", suffix=" €"),
+        ),
+        section(
+            mn.select(
+                name="state",
+                label="Status",
+                data=STATE_OPTIONS,
+                default_value=OfferState.form["state"],
+                on_change=lambda value: OfferState.set_form_field("state", value),
+                required=True,
+                clearable=False,
+            ),
+            mn.date_input(
+                label="Versendet am",
+                value=OfferState.form["sent_date"],
+                on_change=lambda value: OfferState.set_form_field("sent_date", value),
+                clearable=True,
+                locale="de",
+                value_format="DD.MM.YYYY",
+                left_section=rx.icon("calendar", size=16),
+            ),
+            _text(
+                "sharepoint_url",
+                "SharePoint-Link",
+                required=False,
+                limit=2048,
+                placeholder="https://",
+            ),
+        ),
+        direction="column",
+        width="100%",
+        gap="md",
+    )
+
+
+def _form(on_submit: EventType[Any]) -> rx.Component:
+    return modal_form_layout(
+        content=mn.flex(
+            offer_form_fields(),
+            mn.space(height="1.5rem"),
+            direction="column",
+            width="100%",
+            key=OfferState.form_version.to(str),
+        ),
+        footer=modal_footer(
+            "Angebot speichern",
+            OfferState.close_modal,
+            disabled=OfferState.is_form_invalid,
+        ),
+        on_submit=on_submit,
+    )
+
+
+def offer_modal() -> rx.Component:
+    return mn.modal(
+        rx.cond(
+            OfferState.editing_id > 0,
+            _form(OfferState.update_offer),
+            _form(OfferState.create_offer),
+        ),
+        title=rx.cond(OfferState.editing_id > 0, TITLE_EDIT, TITLE_CREATE),
+        opened=OfferState.form_open,
+        on_close=OfferState.close_modal,
+        size="lg",
+        centered=True,
+        class_name=MODAL_CLASS,
+        overlay_props={"backgroundOpacity": 0.5, "blur": 4},
+    )

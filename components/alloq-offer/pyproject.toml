@@ -1,0 +1,23 @@
+[project]
+name = "alloq-offer"
+version = "2.0.5"
+description = "Offer management component for Alloq, a Reflex.dev based app for offer calculation for customer projects"
+authors = [{ name = "Jens Rehpöhler", email = "jens.rehpoehler@bertelsmann.de" }]
+requires-python = ">=3.14"
+dependencies = [
+    "alloq-commons",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.uv.sources]
+knai-common = { workspace = true }
+knowledgeai-commons-ui = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/alloq_offer"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
