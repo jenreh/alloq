@@ -35,7 +35,9 @@ from alloq_offer.services.offers import FILTER_ARCHIVED
 from alloq_offer.states.offer_state import OfferState
 from appkit_user.authentication.components.components import requires_role
 
-TEMPLATE = "minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) 108px 100px 100px 100px 104px"
+TEMPLATE = (
+    "minmax(0, 1.5fr) minmax(0, 1.2fr) minmax(0, 1.2fr) 96px 104px 100px 100px 104px"
+)
 COLUMNS: list[tuple[str, str, bool]] = [
     ("Angebot", "title", False),
     ("Account Manager", "key_accounter", False),
