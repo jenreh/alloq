@@ -207,7 +207,9 @@
     margin: 0;
     font-variant-numeric: tabular-nums;
     min-width: 0;
-    overflow-wrap: anywhere;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .aq-badge {

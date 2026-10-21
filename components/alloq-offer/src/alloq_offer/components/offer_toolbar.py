@@ -13,7 +13,7 @@ from alloq_offer.services.offers import FILTERS
 from alloq_offer.states.offer_state import OfferState
 from appkit_user.authentication.components.components import requires_role
 
-SEARCH_PLACEHOLDER = "Angebot, Kunde oder Key Accounter"
+SEARCH_PLACEHOLDER = "Angebot, Kunde oder Account Manager"
 
 
 def offer_filter() -> rx.Component:

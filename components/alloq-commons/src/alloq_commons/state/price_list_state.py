@@ -1,4 +1,4 @@
-"""Admin spreadsheet drafts, recalculation and explicit document saves."""
+"""Price list spreadsheet: every signed-in user reads, admins edit and save."""
 
 import logging
 from collections.abc import AsyncGenerator
@@ -23,7 +23,7 @@ from alloq_commons.services.price_list_templates import price_list_template
 from pydantic import ValidationError
 
 from appkit_commons.database.session import get_asyncdb_session
-from appkit_user.authentication.decorators import requires_admin
+from appkit_user.authentication.decorators import is_authenticated, requires_admin
 
 logger = logging.getLogger(__name__)
 SETTINGS = {
@@ -195,7 +195,7 @@ class PriceListState(rx.State):
             ]
 
     @rx.event
-    @requires_admin
+    @is_authenticated
     async def load(self) -> AsyncGenerator[Any]:
         self.is_loading = True
         yield
@@ -216,7 +216,6 @@ class PriceListState(rx.State):
             self.is_loading = False
 
     @rx.event
-    @requires_admin
     async def set_view(self, field: str, value: bool) -> None:
         if field in {
             "show_archived",
@@ -232,7 +231,6 @@ class PriceListState(rx.State):
             self.template_key = value
 
     @rx.event
-    @requires_admin
     async def set_compare(self, value: str) -> None:
         self.compare_id = (
             value if any(str(item.id) == value for item in self.lists) else ""
@@ -427,6 +425,20 @@ class PriceListState(rx.State):
             self._accept(sheet)
             self._saved = previous
             self._baseline = {}
+
+    @rx.event
+    @is_authenticated
+    async def open_list(self, value: str) -> AsyncGenerator[Any]:
+        """Show a saved list; readers cannot edit, so there is no draft to keep."""
+        if value == self.selected_id:
+            return
+        try:
+            await self._perform("select", value)
+        except ValueError:
+            yield rx.toast.error("Preisliste nicht verfügbar.")
+        except Exception:
+            logger.exception("Failed to open price list")
+            yield rx.toast.error("Fehler beim Laden der Preisliste.")
 
     @rx.event
     @requires_admin

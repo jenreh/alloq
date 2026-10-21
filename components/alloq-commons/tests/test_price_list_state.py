@@ -20,13 +20,18 @@ MODULE = "alloq_commons.state.price_list_state"
 @pytest.fixture
 def sheet_state() -> tuple[PriceListState, AsyncMock]:
     state = PriceListState()
-    user = MagicMock(is_admin=True)
+    user = MagicMock(is_admin=True, signed_in=True)
     login = MagicMock()
 
     async def authenticated() -> MagicMock:
         return user
 
+    async def signed_in() -> bool:
+        return user.signed_in
+
     type(login).authenticated_user = property(lambda _: authenticated())
+    type(login).is_authenticated = property(lambda _: signed_in())
+    login.redir = AsyncMock(return_value=None)
 
     async def get_state(cls: type) -> MagicMock:
         assert cls is LoginState
@@ -322,3 +327,47 @@ async def test_reload_and_unavailable_lists(
     assert "verfügbar" in await drive(state.request_action, "select", "42")
     persistence.load.side_effect = RuntimeError("offline")
     assert "Fehler" in await drive(state.request_action, "select", "42")
+
+
+async def test_signed_in_readers_load_and_open_lists(
+    sheet_state: tuple, persistence: AsyncMock
+) -> None:
+    state, user = sheet_state
+    user.is_admin = False
+    state._baseline = {}
+    await drive(state.load)
+    assert state.selected_id == "42"
+    await drive(state.set_view, "show_hourly", False)
+    assert not state.show_hourly
+    await drive(state.set_compare, "42")
+    assert state.compare_name == "Tagessätze 2026"
+    state.selected_id = ""
+    await drive(state.open_list, "42")
+    persistence.load.assert_awaited_once()
+    assert state.selected_id == "42"
+    await drive(state.open_list, "42")
+    persistence.load.assert_awaited_once()
+    await drive(state.save)
+    persistence.save_document.assert_not_awaited()
+
+
+async def test_open_list_reports_unavailable_and_failing_lists(
+    sheet_state: tuple, persistence: AsyncMock
+) -> None:
+    state, _ = sheet_state
+    persistence.load.side_effect = PriceListConflict()
+    assert "nicht verfügbar" in await drive(state.open_list, "7")
+    persistence.load.side_effect = RuntimeError("db down")
+    assert "Fehler" in await drive(state.open_list, "7")
+    assert "nicht verfügbar" in await drive(state.open_list, "abc")
+
+
+async def test_signed_out_users_cannot_load(
+    sheet_state: tuple, persistence: AsyncMock
+) -> None:
+    state, user = sheet_state
+    user.signed_in = False
+    await drive(state.load)
+    await drive(state.open_list, "42")
+    persistence.list_all.assert_not_awaited()
+    persistence.load.assert_not_awaited()

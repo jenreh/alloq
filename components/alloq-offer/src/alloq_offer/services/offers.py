@@ -26,7 +26,7 @@ GROUP_ORDER: Final[tuple[str, ...]] = (
 SORT_COLUMNS: Final[tuple[str, ...]] = (
     "title",
     "key_accounter",
-    "ciu",
+    "industry",
     "state",
     "person_days",
     "production_cost",
@@ -77,7 +77,7 @@ class OfferTotals:
 
 
 def totals(offers: list[Offer]) -> OfferTotals:
-    """Sum of PT (incl. buffer), HK and VK."""
+    """Sum of person days (incl. buffer), costs and recommended prices."""
     return OfferTotals(
         person_days=sum((total_days(o) for o in offers), Decimal(0)),
         production_cost=sum((o.production_cost for o in offers), Decimal(0)),
@@ -86,7 +86,7 @@ def totals(offers: list[Offer]) -> OfferTotals:
 
 
 def search_offers(offers: list[Offer], query: str) -> list[Offer]:
-    """Offers whose title, customer or key accounter contain ``query``."""
+    """Offers whose title, customer or account manager contain ``query``."""
     needle = query.strip().casefold()
     if not needle:
         return list(offers)
@@ -112,7 +112,7 @@ def filter_offers(offers: list[Offer], list_filter: str) -> list[Offer]:
 _SORT_KEYS: Final[dict[str, Callable[[Offer], object]]] = {
     "title": lambda o: o.title.casefold(),
     "key_accounter": lambda o: o.key_accounter.casefold(),
-    "ciu": lambda o: o.ciu,
+    "industry": lambda o: o.industry.casefold(),
     "state": lambda o: GROUP_ORDER.index(o.state) if o.state in GROUP_ORDER else -1,
     "person_days": total_days,
     "production_cost": lambda o: o.production_cost,

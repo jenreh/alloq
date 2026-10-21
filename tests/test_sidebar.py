@@ -15,6 +15,8 @@ from app.components.sidebar import (
     ADMIN_ITEMS,
     OFFERS_ROUTE,
     PLANNING_ITEMS,
+    PRICES_ROUTE,
+    PUBLIC_ROUTES,
     VIEWER_ROUTES,
     _admin_section,
     _brand,
@@ -157,10 +159,18 @@ class TestSidebarComponent:
         assert "data-tauri-drag-region" in rendered
         assert "LucidePanelLeftClose" in rendered
 
-    def test_every_user_sees_the_offers_entry(self) -> None:
-        rendered = str(_guarded_nav_item(OFFERS_ROUTE, "Angebote", "file-text"))
-        assert "user.roles" not in rendered
-        assert "is_admin" not in rendered
+    def test_every_user_sees_the_offers_and_prices_entries(self) -> None:
+        assert {OFFERS_ROUTE, PRICES_ROUTE} == PUBLIC_ROUTES
+        for route, label, icon in PLANNING_ITEMS:
+            if route in PUBLIC_ROUTES:
+                rendered = str(_guarded_nav_item(route, label, icon))
+                assert "user.roles" not in rendered
+                assert "is_admin" not in rendered
+
+    def test_prices_follow_the_offers_outside_the_administration(self) -> None:
+        routes = [route for route, _label, _icon in PLANNING_ITEMS]
+        assert routes.index(PRICES_ROUTE) == routes.index(OFFERS_ROUTE) + 1
+        assert PRICES_ROUTE not in {route for route, _label, _icon in ADMIN_ITEMS}
 
     def test_planning_section_is_shown_to_every_user(self) -> None:
         rendered = str(sidebar())
@@ -170,7 +180,7 @@ class TestSidebarComponent:
     def test_employees_see_only_planning_and_projects(self) -> None:
         assert {"/plan", "/projects"} == VIEWER_ROUTES
         for route, label, icon in PLANNING_ITEMS:
-            if route == OFFERS_ROUTE:
+            if route in PUBLIC_ROUTES:
                 continue
             rendered = str(_guarded_nav_item(route, label, icon))
             assert ('"employee"' in rendered) is (route in VIEWER_ROUTES)
@@ -178,7 +188,7 @@ class TestSidebarComponent:
 
     def test_project_managers_see_the_manager_pages(self) -> None:
         for route, label, icon in PLANNING_ITEMS:
-            if route == OFFERS_ROUTE or route in VIEWER_ROUTES:
+            if route in PUBLIC_ROUTES or route in VIEWER_ROUTES:
                 continue
             rendered = str(_guarded_nav_item(route, label, icon))
             assert f'"{PROJECT_MANAGER_ROLE.name}"' in rendered

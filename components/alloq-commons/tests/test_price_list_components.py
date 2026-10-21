@@ -6,6 +6,7 @@ from collections.abc import Iterator
 import pytest
 import reflex as rx
 from alloq_commons.components.price_list import (
+    edit_actions,
     price_list_editor,
     price_list_toolbar,
     price_sheet,
@@ -94,7 +95,7 @@ def test_frozen_cells_keep_a_visible_right_border(comparison: bool) -> None:
 
 
 def test_save_is_an_icon_before_the_new_primary_action() -> None:
-    actions = price_list_toolbar()
+    actions = edit_actions()
     assert actions[-1].tag == "Button"
     assert '"Neu"' in str(actions[-1])
     assert actions[-2].tag == "Tooltip"
@@ -104,3 +105,21 @@ def test_save_is_an_icon_before_the_new_primary_action() -> None:
     ]
     assert len(buttons) == 1
     assert "Speichern" not in str(buttons[0])
+
+
+def test_readers_switch_lists_and_admins_get_the_edit_actions() -> None:
+    select, actions = (str(control) for control in price_list_toolbar())
+    assert "is_admin" in select
+    assert "open_list" in select
+    assert "request_action" in select
+    assert "is_admin" in actions
+    assert "toggle_archive" in actions
+
+
+def test_sheet_and_settings_are_read_only_without_admin() -> None:
+    rendered = str(price_list_editor())
+    assert "fieldset" in rendered
+    assert "is_admin" in rendered
+    grid = next(node for node in _walk(price_sheet()) if node.tag == "ExcelGrid")
+    assert "is_admin" in str(grid.read_only)
+    assert str(price_sheet(comparison=True)).count("is_admin") == 0

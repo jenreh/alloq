@@ -8,6 +8,8 @@ or an inline check for background handlers. Handlers that only change UI state
 are listed explicitly in ``UI_ONLY_HANDLERS``; they must not reach the
 database. Read-only loads of the projects and planning pages are also open to
 the employee role (``@requires_viewer``); they are listed in ``VIEWER_HANDLERS``.
+Offers and price lists may be read by every signed-in user
+(``@is_authenticated``); those loads are listed in ``SIGNED_IN_HANDLERS``.
 """
 
 import importlib
@@ -36,11 +38,14 @@ EXTRA_MODULES = (
 OWN_PACKAGES = frozenset({*PACKAGES, "app"})
 
 # Administration needs the admin switch; project managers may not run these.
+# Price lists are edited here too, but every signed-in user may read them.
+# The offer industries are maintained here, although they live in alloq_offer.
 ADMIN_STATES = frozenset(
     {
         "DailyRateState",
         "PriceListState",
         "DepartmentState",
+        "IndustryState",
         "RoleState",
         "HolidayState",
         "DatabaseAccessState",
@@ -86,9 +91,10 @@ VIEWER_HANDLERS: dict[str, frozenset[str]] = {
     "PlanningStore": frozenset({"load", "refresh", "reload_with_time_range"}),
 }
 
-# Offer loads every signed-in user may run (appkit's ``@is_authenticated``).
-OFFER_READER_HANDLERS: dict[str, frozenset[str]] = {
+# Loads every signed-in user may run (appkit's ``@is_authenticated``).
+SIGNED_IN_HANDLERS: dict[str, frozenset[str]] = {
     "OfferState": frozenset({"load_offers"}),
+    "PriceListState": frozenset({"load", "open_list"}),
 }
 
 UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
@@ -123,11 +129,21 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
     "DailyRateState": frozenset(
         {"set_margin_draft", "set_min_margin_draft", "set_search_filter"}
     ),
+    "PriceListState": frozenset({"set_compare", "set_view"}),
     "DepartmentState": frozenset(
         {
             "close_add_modal",
             "close_edit_modal",
             "open_add_modal",
+            "set_search_filter",
+        }
+    ),
+    "IndustryState": frozenset(
+        {
+            "close_add_modal",
+            "close_edit_modal",
+            "open_add_modal",
+            "open_edit_modal",
             "set_search_filter",
         }
     ),
@@ -396,7 +412,7 @@ def _is_allowed_reader(state_name: str, name: str, fn: Callable[..., Any]) -> bo
         _is_requires_viewer(fn) and name in VIEWER_HANDLERS.get(state_name, frozenset())
     ) or (
         _is_requires_login(fn)
-        and name in OFFER_READER_HANDLERS.get(state_name, frozenset())
+        and name in SIGNED_IN_HANDLERS.get(state_name, frozenset())
     )
 
 
@@ -470,7 +486,11 @@ def test_planning_handlers_are_open_to_project_managers() -> None:
 
 
 def _is_offer_state(state: type[rx.State]) -> bool:
-    return state.__module__.split(".")[0] in OFFER_PACKAGES
+    """Offer states, without the industries administration (admin level)."""
+    return (
+        state.__module__.split(".")[0] in OFFER_PACKAGES
+        and state.__name__ not in ADMIN_STATES
+    )
 
 
 def test_offer_handlers_use_the_offer_editor_level() -> None:
@@ -486,22 +506,22 @@ def test_offer_handlers_use_the_offer_editor_level() -> None:
     assert wrong == [], "Guard offer handlers with @requires_offer_editor"
 
 
-def test_offer_reader_handlers_are_exactly_the_allowlist() -> None:
+def test_signed_in_handlers_are_exactly_the_allowlist() -> None:
     reader_guarded = {
         (state_name, name)
         for state_name, state in STATES.items()
         for name, handler in _handlers(state).items()
         if _is_requires_login(handler.fn)
     }
-    allowed = {(s, n) for s, names in OFFER_READER_HANDLERS.items() for n in names}
+    allowed = {(s, n) for s, names in SIGNED_IN_HANDLERS.items() for n in names}
     assert reader_guarded == allowed
 
 
 @pytest.mark.parametrize(
     ("state_name", "name"),
-    sorted((s, n) for s, names in OFFER_READER_HANDLERS.items() for n in names),
+    sorted((s, n) for s, names in SIGNED_IN_HANDLERS.items() for n in names),
 )
-def test_offer_reader_handler_does_not_write(state_name: str, name: str) -> None:
+def test_signed_in_handler_does_not_write(state_name: str, name: str) -> None:
     source = inspect.getsource(inspect.unwrap(_handlers(STATES[state_name])[name].fn))
     assert not WRITE_MARKERS.findall(source)
 

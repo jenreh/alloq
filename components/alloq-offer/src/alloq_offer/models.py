@@ -1,4 +1,4 @@
-"""Pydantic models of offers."""
+"""Pydantic models of offers and industries."""
 
 from datetime import date, datetime
 from decimal import Decimal
@@ -6,11 +6,28 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
-from alloq_offer.entities import CustomerIndustryUnit, OfferStateEnum
+from alloq_offer.entities import OfferStateEnum
 
 _Text255 = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
 ]
+
+
+class Industry(BaseModel):
+    """Read model of a customer industry."""
+
+    id: int = 0
+    name: str = ""
+    created: datetime | None = None
+    updated: datetime | None = None
+
+
+class IndustryCreate(BaseModel):
+    """Write model for creating and renaming industries."""
+
+    name: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
+    ]
 
 
 class Offer(BaseModel):
@@ -24,7 +41,9 @@ class Offer(BaseModel):
     production_cost: Decimal = Decimal(0)
     recommended_price: Decimal = Decimal(0)
     key_accounter: str = ""
-    ciu: str = ""
+    industry_id: int = 0
+    industry: str = ""
+    """Name of the industry; the state fills it from the loaded industries."""
     sharepoint_url: str | None = None
     sent_date: date | None = None
     state: str = OfferStateEnum.NEW
@@ -45,7 +64,7 @@ class OfferCreate(BaseModel):
     production_cost: Decimal = Field(..., ge=0, max_digits=12, decimal_places=2)
     recommended_price: Decimal = Field(..., ge=0, max_digits=12, decimal_places=2)
     key_accounter: _Text255
-    ciu: CustomerIndustryUnit
+    industry_id: int = Field(..., gt=0)
     sharepoint_url: str | None = Field(default=None, max_length=2048)
     sent_date: date | None = None
     state: OfferStateEnum = OfferStateEnum.NEW

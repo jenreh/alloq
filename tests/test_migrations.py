@@ -396,3 +396,61 @@ def test_upgrade_grants_roles_to_admins_and_project_managers(
         5: [],
     }
     assert after_downgrade == result
+
+
+# ---------------------------------------------------------------------------
+# f1a2b3c4d5e6 — CIU codes become editable industries
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def industries() -> ModuleType:
+    return _load("2026_10_21_industries.py")
+
+
+def test_industries_follow_role_grant(industries: ModuleType) -> None:
+    assert industries.down_revision == "e023b4c5d6f7"
+
+
+def test_industries_migration_links_offers_and_restores_codes(
+    industries: ModuleType,
+) -> None:
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    offers = sa.Table(
+        "offers",
+        metadata,
+        sa.Column("id", sa.Integer, primary_key=True),
+        sa.Column("title", sa.String, nullable=False),
+        sa.Column("ciu", sa.String(10), nullable=False),
+    )
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        conn.execute(
+            offers.insert(),
+            [
+                {"id": 1, "title": "A", "ciu": "FS"},
+                {"id": 2, "title": "B", "ciu": "P"},
+                {"id": 3, "title": "C", "ciu": "XY"},
+            ],
+        )
+        _run(industries, "upgrade", conn)
+        linked = dict(
+            conn.execute(
+                sa.text(
+                    "SELECT o.id, i.name FROM offers o "
+                    "JOIN industries i ON i.id = o.industry_id"
+                )
+            ).all()
+        )
+        count = conn.execute(sa.text("SELECT COUNT(*) FROM industries")).scalar()
+        columns = {c["name"] for c in sa.inspect(conn).get_columns("offers")}
+        _run(industries, "downgrade", conn)
+        restored = dict(conn.execute(sa.text("SELECT id, ciu FROM offers")).all())
+        tables = sa.inspect(conn).get_table_names()
+
+    assert linked == {1: "Finanzdienstleistungen", 2: "Öffentlicher Sektor", 3: "XY"}
+    assert count == 7
+    assert "ciu" not in columns
+    assert restored == {1: "FS", 2: "P", 3: "XY"}
+    assert "industries" not in tables

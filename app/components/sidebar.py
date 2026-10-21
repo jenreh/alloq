@@ -33,30 +33,32 @@ TEAM_ROUTE: Final = "/team"
 
 PLAN_ROUTE: Final = "/plan"
 OFFERS_ROUTE: Final = "/offers"
+PRICES_ROUTE: Final = "/daily-rates"
 
 PLANNING_ITEMS: Final[list[tuple[str, str, str]]] = [
-    ("/dashboard", "Übersicht", "layout-dashboard"),
     (PLAN_ROUTE, "Ressourcenplanung", "calendar-range"),
     (PROJECTS_ROUTE, "Projekte", "folder-kanban"),
     (OFFERS_ROUTE, "Angebote", "file-text"),
+    (PRICES_ROUTE, "Tagessätze", "euro"),
     (TEAM_ROUTE, "Team", "users"),
 ]
 ADMIN_ITEMS: Final[list[tuple[str, str, str]]] = [
     ("/admin/users", "Benutzer", "user-cog"),
     ("/admin/roles", "Rollen", "shield"),
-    ("/admin/daily-rates", "Tagessätze", "euro"),
     ("/admin/departments", "Abteilungen", "building-2"),
+    ("/admin/industries", "Branchen", "factory"),
     ("/admin/holidays", "Feiertage", "calendar-days"),
 ]
 VIEWER_ROUTES: Final = frozenset({PLAN_ROUTE, PROJECTS_ROUTE})
 """Pages the employee role may read; the other planning pages need edit rights
 (admin or project manager)."""
+PUBLIC_ROUTES: Final = frozenset({OFFERS_ROUTE, PRICES_ROUTE})
+"""Pages every signed-in user may read; their states guard the edits."""
 ROUTE_GUARDS: Final[dict[str, Any]] = {
     **dict.fromkeys(VIEWER_ROUTES, viewer_only),
-    OFFERS_ROUTE: rx.fragment,
+    **dict.fromkeys(PUBLIC_ROUTES, rx.fragment),
 }
-"""Guard per planning route; every user may read the offers; routes not listed
-need edit rights."""
+"""Guard per planning route; routes not listed need edit rights."""
 _COUNTS: Final[dict[str, Any]] = {
     PROJECTS_ROUTE: SidebarState.project_count,
     OFFERS_ROUTE: SidebarState.offer_count,

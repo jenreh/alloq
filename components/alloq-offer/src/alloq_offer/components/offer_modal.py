@@ -12,14 +12,11 @@ from alloq_commons.components.modal_layout import (
 from reflex.event import EventType
 
 import appkit_mantine as mn
-from alloq_offer.entities import CIU_LABELS, OfferStateEnum
+from alloq_offer.entities import OfferStateEnum
 from alloq_offer.states.offer_state import OfferState
 
 TITLE_CREATE = "Neues Angebot"
 TITLE_EDIT = "Angebot bearbeiten"
-CIU_OPTIONS: list[dict[str, str]] = [
-    {"value": code, "label": label} for code, label in CIU_LABELS.items()
-]
 STATE_OPTIONS: list[str] = [s.value for s in OfferStateEnum]
 
 
@@ -56,22 +53,23 @@ def offer_form_fields() -> rx.Component:
         section(
             _text("title", "Angebotstitel", placeholder="z.B. Datenplattform"),
             _text("customer", "Kunde", placeholder="z.B. Muster AG"),
-            _text("key_accounter", "Key Accounter"),
+            _text("key_accounter", "Account Manager"),
             mn.select(
-                name="ciu",
-                label="CIU",
-                data=CIU_OPTIONS,
-                default_value=OfferState.form["ciu"],
-                on_change=lambda value: OfferState.set_form_field("ciu", value),
+                name="industry_id",
+                label="Branche",
+                description="Die Liste pflegen Admins unter Administration · Branchen.",
+                data=OfferState.industry_options,
+                default_value=OfferState.form["industry_id"],
+                on_change=lambda value: OfferState.set_form_field("industry_id", value),
                 required=True,
                 clearable=False,
             ),
         ),
         section(
-            _number("person_days", "Kalkulierte Personentage (PT)"),
-            _number("risk_buffer_days", "Risikopuffer (PT)", required=False),
-            _number("production_cost", "Herstellkosten (HK)", suffix=" €"),
-            _number("recommended_price", "Empfohlener VK", suffix=" €"),
+            _number("person_days", "Kalkulierte Personentage"),
+            _number("risk_buffer_days", "Risikopuffer (Personentage)", required=False),
+            _number("production_cost", "Kosten", suffix=" €"),
+            _number("recommended_price", "Empfohlener Preis", suffix=" €"),
         ),
         section(
             mn.select(
@@ -94,7 +92,7 @@ def offer_form_fields() -> rx.Component:
             ),
             _text(
                 "sharepoint_url",
-                "SharePoint-Link",
+                "Link zu den Dokumenten",
                 required=False,
                 limit=2048,
                 placeholder="https://",

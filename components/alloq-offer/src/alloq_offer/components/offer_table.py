@@ -3,7 +3,6 @@
 import reflex as rx
 from alloq_commons import theme
 from alloq_commons.components.list_view import (
-    badge,
     cell_main,
     list_group,
     list_header,
@@ -36,15 +35,15 @@ from alloq_offer.services.offers import FILTER_ARCHIVED
 from alloq_offer.states.offer_state import OfferState
 from appkit_user.authentication.components.components import requires_role
 
-TEMPLATE = "minmax(0, 2fr) minmax(0, 1fr) 56px 108px 84px 100px 100px 104px"
+TEMPLATE = "minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) 108px 100px 100px 100px 104px"
 COLUMNS: list[tuple[str, str, bool]] = [
     ("Angebot", "title", False),
-    ("Key Accounter", "key_accounter", False),
-    ("CIU", "ciu", False),
+    ("Account Manager", "key_accounter", False),
+    ("Branche", "industry", False),
     ("Status", "state", False),
-    ("PT", "person_days", True),
-    ("HK", "production_cost", True),
-    ("VK", "recommended_price", True),
+    ("Personentage", "person_days", True),
+    ("Kosten", "production_cost", True),
+    ("Preis", "recommended_price", True),
     ("Versendet am", "sent_date", True),
 ]
 GROUPS: list[tuple[str, str]] = [
@@ -60,7 +59,7 @@ def _row(offer: ObjectVar[Offer]) -> rx.Component:
     return list_row(
         cell_main(rx.fragment(), offer.title, offer.customer),
         rx.el.span(offer.key_accounter, class_name="aq-cell-text"),
-        rx.el.span(badge(offer.ciu, "neutral")),
+        rx.el.span(offer.industry, class_name="aq-cell-text"),
         rx.el.span(state_badge(offer.state)),
         number(days(offer.person_days + offer.risk_buffer_days), fontWeight="600"),
         number(euro(offer.production_cost)),

@@ -1,9 +1,11 @@
-"""Async repository for offers."""
+"""Async repositories for offers and industries."""
 
-from sqlalchemy import select
+import unicodedata
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from alloq_offer.entities import OfferEntity
+from alloq_offer.entities import IndustryEntity, OfferEntity
 from appkit_commons.database.base_repository import BaseRepository
 
 
@@ -24,3 +26,33 @@ class OfferRepository(BaseRepository[OfferEntity, AsyncSession]):
 
 
 offer_repo = OfferRepository()
+
+
+def _sort_key(name: str) -> str:
+    """'Öffentlich' sorts next to 'Offen', not after 'Z' as in the C collation."""
+    return unicodedata.normalize("NFKD", name).casefold()
+
+
+class IndustryRepository(BaseRepository[IndustryEntity, AsyncSession]):
+    """Async repository for the customer industries."""
+
+    @property
+    def model_class(self) -> type[IndustryEntity]:
+        return IndustryEntity
+
+    async def find_all_ordered(self, session: AsyncSession) -> list[IndustryEntity]:
+        """All industries ordered by name; umlauts sort like their base letter."""
+        result = await session.execute(select(IndustryEntity))
+        return sorted(result.scalars().all(), key=lambda i: _sort_key(i.name))
+
+    async def count_offers(self, session: AsyncSession, industry_id: int) -> int:
+        """Number of offers, archived ones included, that use the industry."""
+        result = await session.execute(
+            select(func.count())
+            .select_from(OfferEntity)
+            .where(OfferEntity.industry_id == industry_id)
+        )
+        return result.scalar_one()
+
+
+industry_repo = IndustryRepository()

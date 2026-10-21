@@ -9,8 +9,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from alloq_commons.roles import OFFER_EDITOR_ROLE
-from alloq_offer.entities import OfferEntity
-from alloq_offer.models import Offer
+from alloq_offer.entities import IndustryEntity, OfferEntity
+from alloq_offer.models import Industry, Offer
 from alloq_offer.states import offer_state
 from alloq_offer.states.offer_state import OfferState, number_text
 
@@ -28,13 +28,19 @@ def _entity(offer_id: int = 1, **over: Any) -> OfferEntity:
         "production_cost": Decimal(1000),
         "recommended_price": Decimal(2000),
         "key_accounter": "Anna",
-        "ciu": "FS",
+        "industry_id": 2,
         "state": "Neu",
         "archived": False,
         **over,
     }
     entity = OfferEntity(**values)
     entity.id = offer_id
+    return entity
+
+
+def _industry() -> IndustryEntity:
+    entity = IndustryEntity(name="Finanzdienstleistungen")
+    entity.id = 2
     return entity
 
 
@@ -59,8 +65,11 @@ def repo() -> Iterator[AsyncMock]:
     mock.find_all_ordered = AsyncMock(return_value=[_entity()])
     mock.find_by_id = AsyncMock(return_value=_entity())
     mock.create = AsyncMock(side_effect=_persisted)
+    industries = AsyncMock()
+    industries.find_all_ordered = AsyncMock(return_value=[_industry()])
     with (
         patch(f"{MODULE}.offer_repo", mock),
+        patch(f"{MODULE}.industry_repo", industries),
         patch(f"{MODULE}.get_asyncdb_session", _ctx),
     ):
         yield mock
@@ -104,6 +113,7 @@ async def _run(handler: Any, *args: Any) -> str:
 def _state(*offers: Offer) -> OfferState:
     state = OfferState(_reflex_internal_init=True)  # ty: ignore[unknown-argument]
     state.offers = list(offers)
+    state.industries = [Industry(id=2, name="Finanzdienstleistungen")]
     return state
 
 
@@ -111,7 +121,7 @@ FORM = {
     "title": "Neu",
     "customer": "Kunde",
     "key_accounter": "Bea",
-    "ciu": "CP",
+    "industry_id": "2",
     "person_days": "5",
     "risk_buffer_days": "0",
     "production_cost": "100",
@@ -162,6 +172,7 @@ class TestUiHandlers:
         state.open_edit_modal(1)
         assert state.editing_id == 1
         assert state.form["title"] == "Plattform"
+        assert state.form["industry_id"] == "2"
         state.open_edit_modal(99)
         assert state.editing_id == 1
         state.close_modal()
@@ -174,7 +185,6 @@ class TestUiHandlers:
         assert state.inspected.id == 2
         assert state.inspected_total_days == 12.0
         assert state.inspected_margin == "50,0 %"
-        assert state.inspected_ciu_label == "Financial Services - FS"
         state.toggle_inspector()
         assert not state.show_inspector
 
@@ -213,6 +223,10 @@ class TestDataHandlers:
         with _as_offer_editor(state):
             await _run(state.load_offers)
         assert len(state.offers) == 1
+        assert state.offers[0].industry == "Finanzdienstleistungen"
+        assert state.industry_options == [
+            {"value": "2", "label": "Finanzdienstleistungen"}
+        ]
         assert not state.is_loading
 
     @pytest.mark.asyncio
@@ -233,6 +247,7 @@ class TestDataHandlers:
             out = await _run(state.create_offer, {"title": " Neu "})
         assert "angelegt" in out
         assert state.offers[0].title == "Neu"
+        assert state.offers[0].industry == "Finanzdienstleistungen"
         assert not state.form_open
 
     @pytest.mark.asyncio

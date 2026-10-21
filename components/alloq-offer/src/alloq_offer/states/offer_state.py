@@ -10,9 +10,9 @@ import reflex as rx
 from alloq_commons.access import requires_offer_editor
 from pydantic import ValidationError
 
-from alloq_offer.entities import CIU_LABELS, OfferEntity, OfferStateEnum
-from alloq_offer.models import Offer, OfferCreate
-from alloq_offer.repository import offer_repo
+from alloq_offer.entities import OfferEntity, OfferStateEnum
+from alloq_offer.models import Industry, Offer, OfferCreate
+from alloq_offer.repository import industry_repo, offer_repo
 from alloq_offer.services.offers import (
     FILTER_ALL,
     FILTER_ARCHIVED,
@@ -40,7 +40,7 @@ NUMBER_FIELDS: Final = (
 FORM_FIELDS: Final = (
     *TEXT_FIELDS,
     *NUMBER_FIELDS,
-    "ciu",
+    "industry_id",
     "sent_date",
     "state",
 )
@@ -48,7 +48,7 @@ REQUIRED_FIELDS: Final = (
     "title",
     "customer",
     "key_accounter",
-    "ciu",
+    "industry_id",
     "person_days",
     "production_cost",
     "recommended_price",
@@ -73,7 +73,7 @@ def _empty_form() -> dict[str, str]:
 
 def _form_from(offer: Offer) -> dict[str, str]:
     form = _empty_form()
-    for field in (*TEXT_FIELDS, "ciu", "state"):
+    for field in (*TEXT_FIELDS, "industry_id", "state"):
         form[field] = str(getattr(offer, field) or "")
     for field in NUMBER_FIELDS:
         form[field] = str(getattr(offer, field))
@@ -102,6 +102,7 @@ class OfferState(rx.State):
     """Offers list with inspector, create/edit form and archive actions."""
 
     offers: rx.Field[list[Offer]] = rx.field(default_factory=list)
+    industries: rx.Field[list[Industry]] = rx.field(default_factory=list)
     is_loading: rx.Field[bool] = rx.field(False)
     search_filter: rx.Field[str] = rx.field("")
     list_filter: rx.Field[str] = rx.field(FILTER_ALL)
@@ -258,9 +259,8 @@ class OfferState(rx.State):
         return next((o for o in self.visible if o.id == self.inspected_id), None)
 
     @rx.var
-    def inspected_ciu_label(self) -> str:
-        offer = self.inspected
-        return CIU_LABELS.get(offer.ciu, offer.ciu) if offer else ""
+    def industry_options(self) -> list[dict[str, str]]:
+        return [{"value": str(i.id), "label": i.name} for i in self.industries]
 
     @rx.var
     def inspected_total_days(self) -> float:
@@ -286,6 +286,12 @@ class OfferState(rx.State):
 
     # --- Data handlers ----------------------------------------------------
 
+    def _named(self, entity: OfferEntity) -> Offer:
+        """Read model of ``entity`` with the name of its industry."""
+        names = {i.id: i.name for i in self.industries}
+        offer = Offer(**entity.to_dict())
+        return offer.model_copy(update={"industry": names.get(offer.industry_id, "")})
+
     def _replace(self, offer: Offer) -> None:
         if any(o.id == offer.id for o in self.offers):
             self.offers = [offer if o.id == offer.id else o for o in self.offers]
@@ -295,14 +301,16 @@ class OfferState(rx.State):
     @rx.event
     @is_authenticated
     async def load_offers(self) -> AsyncGenerator[Any]:
-        """Load all offers; the spinner only shows on the first load."""
+        """Load all offers and industries; the spinner only shows on the first load."""
         if not self.offers:
             self.is_loading = True
             yield
         try:
             async with get_asyncdb_session() as session:
+                industries = await industry_repo.find_all_ordered(session)
+                self.industries = [Industry(**i.to_dict()) for i in industries]
                 entities = await offer_repo.find_all_ordered(session)
-                self.offers = [Offer(**e.to_dict()) for e in entities]
+                self.offers = [self._named(e) for e in entities]
         except Exception:
             logger.exception("Failed to load offers")
             yield rx.toast.error(
@@ -341,7 +349,7 @@ class OfferState(rx.State):
                     entity = await offer_repo.create(
                         session, OfferEntity(**data.model_dump())
                     )
-                saved = Offer(**entity.to_dict())
+                saved = self._named(entity)
         except ValidationError:
             yield rx.toast.error(HINT_INVALID, position="top-right")
             return
@@ -391,7 +399,7 @@ class OfferState(rx.State):
                     setattr(entity, key, value)
                 await session.commit()
                 await session.refresh(entity)
-                saved = Offer(**entity.to_dict())
+                saved = self._named(entity)
         except Exception:
             logger.exception("Failed to update offer %s", offer_id)
             yield rx.toast.error(ERROR_SAVE, position="top-right")

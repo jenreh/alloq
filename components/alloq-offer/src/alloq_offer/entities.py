@@ -1,11 +1,10 @@
-"""Offer entity and its enums."""
+"""Offer and industry entities and the offer state enum."""
 
 import enum
 from datetime import date
 from decimal import Decimal
-from typing import Final
 
-from sqlalchemy import Boolean, Date, Index, Numeric, String
+from sqlalchemy import Boolean, Date, ForeignKey, Index, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import false
 
@@ -20,25 +19,21 @@ class OfferStateEnum(enum.StrEnum):
     SENT = "Versendet"
 
 
-class CustomerIndustryUnit(enum.StrEnum):
-    """Customer industry unit (CIU) codes."""
+class IndustryEntity(Entity, Base):
+    """Customer industry (Branche) of an offer; admins maintain the list."""
 
-    CP = "CP"
-    FS = "FS"
-    U = "U"
-    P = "P"
-    H = "H"
-    IMC = "IMC"
+    __tablename__ = "industries"
 
+    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
 
-CIU_LABELS: Final[dict[str, str]] = {
-    CustomerIndustryUnit.CP: "Consumer Services - CP",
-    CustomerIndustryUnit.FS: "Financial Services - FS",
-    CustomerIndustryUnit.U: "Utilities - U",
-    CustomerIndustryUnit.P: "Public - P",
-    CustomerIndustryUnit.H: "Health - H",
-    CustomerIndustryUnit.IMC: "Industrial Midcaps - IMC",
-}
+    def to_dict(self) -> dict:
+        """Convert entity to dictionary for Pydantic model creation."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "created": self.created,
+            "updated": self.updated,
+        }
 
 
 class OfferEntity(Entity, Base):
@@ -56,7 +51,9 @@ class OfferEntity(Entity, Base):
     production_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     recommended_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     key_accounter: Mapped[str] = mapped_column(String(255), nullable=False)
-    ciu: Mapped[str] = mapped_column(String(10), nullable=False)
+    industry_id: Mapped[int] = mapped_column(
+        ForeignKey("industries.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
     sharepoint_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     sent_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     state: Mapped[str] = mapped_column(
@@ -77,7 +74,7 @@ class OfferEntity(Entity, Base):
             "production_cost": self.production_cost,
             "recommended_price": self.recommended_price,
             "key_accounter": self.key_accounter,
-            "ciu": self.ciu,
+            "industry_id": self.industry_id,
             "sharepoint_url": self.sharepoint_url,
             "sent_date": self.sent_date,
             "state": self.state,

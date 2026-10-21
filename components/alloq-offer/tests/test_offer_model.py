@@ -4,13 +4,8 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
-from alloq_offer.entities import (
-    CIU_LABELS,
-    CustomerIndustryUnit,
-    OfferEntity,
-    OfferStateEnum,
-)
-from alloq_offer.models import Offer, OfferCreate
+from alloq_offer.entities import IndustryEntity, OfferEntity, OfferStateEnum
+from alloq_offer.models import IndustryCreate, Offer, OfferCreate
 from pydantic import ValidationError
 
 
@@ -23,7 +18,7 @@ def _valid(**overrides: Any) -> dict[str, Any]:
         "production_cost": "5000",
         "recommended_price": "8000",
         "key_accounter": "Max Muster",
-        "ciu": "FS",
+        "industry_id": "2",
     }
     return data | overrides
 
@@ -39,7 +34,7 @@ class TestOfferEntity:
             production_cost=Decimal(2),
             recommended_price=Decimal(3),
             key_accounter="K",
-            ciu="CP",
+            industry_id=2,
             state=OfferStateEnum.NEW,
             archived=False,
         )
@@ -53,7 +48,7 @@ class TestOfferEntity:
             "production_cost",
             "recommended_price",
             "key_accounter",
-            "ciu",
+            "industry_id",
             "sharepoint_url",
             "sent_date",
             "state",
@@ -66,9 +61,8 @@ class TestOfferEntity:
     def test_tablename(self) -> None:
         assert OfferEntity.__tablename__ == "offers"
 
-    def test_ciu_labels_cover_every_code(self) -> None:
-        assert set(CIU_LABELS) == {c.value for c in CustomerIndustryUnit}
-        assert CIU_LABELS["IMC"] == "Industrial Midcaps - IMC"
+    def test_offer_name_of_industry_defaults_to_empty(self) -> None:
+        assert Offer(industry_id=2).industry == ""
 
 
 class TestOfferCreate:
@@ -95,9 +89,9 @@ class TestOfferCreate:
         with pytest.raises(ValidationError):
             OfferCreate(**_valid(**{field: "-1"}))
 
-    def test_rejects_unknown_ciu_and_state(self) -> None:
+    def test_rejects_missing_industry_and_unknown_state(self) -> None:
         with pytest.raises(ValidationError):
-            OfferCreate(**_valid(ciu="XX"))
+            OfferCreate(**_valid(industry_id=""))
         with pytest.raises(ValidationError):
             OfferCreate(**_valid(state="Offen"))
 
@@ -109,3 +103,21 @@ class TestOfferCreate:
             OfferCreate(**_valid(sharepoint_url="ftp://x"))
         with pytest.raises(ValidationError):
             OfferCreate(**_valid(sharepoint_url="javascript:alert(1)"))
+
+
+class TestIndustry:
+    def test_to_dict_has_all_keys(self) -> None:
+        data = IndustryEntity(id=2, name="Handel").to_dict()
+        assert set(data) == {"id", "name", "created", "updated"}
+
+    def test_create_strips_the_name(self) -> None:
+        assert IndustryCreate(name="  Handel ").name == "Handel"
+
+    @pytest.mark.parametrize("name", ["", "   ", "x" * 101])
+    def test_create_rejects_empty_or_long_names(self, name: str) -> None:
+        with pytest.raises(ValidationError):
+            IndustryCreate(name=name)
+
+    def test_offer_needs_an_industry(self) -> None:
+        with pytest.raises(ValidationError):
+            OfferCreate(**_valid(industry_id=0))

@@ -1,7 +1,7 @@
 ---
 title: Offers
 description: How offer editors, project managers and admins list, create, edit, send and archive customer offers on the page "Angebote", and how an admin gives a user access to the offers only.
-story_ids: [OFF-01, OFF-02, OFF-03, OFF-04, OFF-05, OFF-06, OFF-07, OFF-08]
+story_ids: [OFF-01, OFF-02, OFF-03, OFF-04, OFF-05, OFF-06, OFF-07, OFF-08, OFF-09]
 source_paths:
   - components/alloq-offer/src/alloq_offer/entities.py
   - components/alloq-offer/src/alloq_offer/models.py
@@ -14,11 +14,15 @@ source_paths:
   - components/alloq-offer/src/alloq_offer/components/offer_parts.py
   - components/alloq-offer/src/alloq_offer/components/offer_toolbar.py
   - components/alloq-offer/src/alloq_offer/pages.py
+  - components/alloq-offer/src/alloq_offer/states/industry_state.py
+  - components/alloq-offer/src/alloq_offer/components/industry.py
+  - app/pages/industries.py
   - components/alloq-commons/src/alloq_commons/roles.py
   - components/alloq-commons/src/alloq_commons/access.py
   - app/components/sidebar.py
   - app/app.py
   - alembic/versions/2026_10_21_offers.py
+  - alembic/versions/2026_10_21_industries.py
 last_verified_commit: "63da7bd (unreleased offers package)"
 ---
 
@@ -32,6 +36,7 @@ The page has four user tasks:
 - **Create an offer.** Enter a new offer in the form "Neues Angebot" [new offer].
 - **Maintain an offer.** Edit an offer, change its status and sent date in the inspector, and archive or restore it.
 - **Give access to offers.** An admin gives a user the role "Angebote" [offers].
+- **Maintain the industries.** An admin keeps the list "Branchen" [industries] that the offer form offers.
 
 An offer is one row in `OfferEntity` (table `offers`). All values are typed in by hand. Alloq does not calculate them from daily rates, and an offer is not linked to a project. Offers are never deleted. The package has no delete handler, and an offer that is no longer needed is archived.
 
@@ -48,10 +53,10 @@ Offer editor · Find an offer / Read the list · priority 1 · core · unrelease
 ### Acceptance criteria
 
 1. **Given** a user who may edit offers, **when** they open `/offers`, **then** `load_offers` loads all offers with the newest change first. The loader shows only on the first load, and later loads keep the list on screen.
-2. **Given** the loaded offers, **when** the table renders, **then** it shows the columns "Angebot" [offer] with title and customer, "Key Accounter", "CIU", "Status", "PT" [person days], "HK" [production cost], "VK" [sales price] and "Versendet am" [sent on].
+2. **Given** the loaded offers, **when** the table renders, **then** it shows the columns "Angebot" [offer] with title and customer, "Account Manager", "Branche" [industry], "Status", "Personentage" [person days], "Kosten" [cost], "Preis" [price] and "Versendet am" [sent on].
 3. **Given** active offers, **when** the table renders, **then** they appear in the groups "Neu" [new], "In Bearbeitung" [in progress] and "Versendet" [sent], in this order, and a group without offers is hidden. Each status has its own badge colour.
-4. **Given** an offer, **when** its row renders, **then** "PT" shows person days plus risk buffer, "HK" and "VK" show euros with two decimals, and "Versendet am" shows the date as DD.MM.YYYY or "–" when there is none.
-5. **Given** the visible offers, **when** the footer row "Summe" [sum] renders, **then** it shows the sums of PT (with buffer), HK and VK of exactly the visible rows.
+4. **Given** an offer, **when** its row renders, **then** "Personentage" shows person days plus risk buffer with the unit "PT", "Kosten" and "Preis" show euros with two decimals, and "Versendet am" shows the date as DD.MM.YYYY or "–" when there is none.
+5. **Given** the visible offers, **when** the footer row "Summe" [sum] renders, **then** it shows the sums of person days (with buffer), cost and price of exactly the visible rows.
 6. **Given** the offers, **when** the toolbar renders, **then** the subtitle says how many offers are not archived and how many of them are not yet sent, e.g. "4 Angebote · 3 offen" [4 offers, 3 open].
 7. **Given** no offers at all, **when** the page renders, **then** it shows "Noch keine Angebote vorhanden." [no offers yet]. **Given** offers but none that match the filter, **then** it shows "Keine Angebote mit diesem Filter." [no offers with this filter].
 8. **Given** a database error, **when** the offers load, **then** the toast "Die Angebote konnten nicht geladen werden." [offers could not be loaded] appears without the error text.
@@ -76,7 +81,7 @@ Offer editor · Find an offer / Narrow the list · priority 2 · comfort · unre
 
 ### Acceptance criteria
 
-1. **Given** text in the search field "Angebot, Kunde oder Key Accounter" [offer, customer or key accounter], **when** the list filters, **then** it keeps the offers whose title, customer or key accounter contain the text, ignoring case and surrounding spaces.
+1. **Given** text in the search field "Angebot, Kunde oder Account Manager" [offer, customer or account manager], **when** the list filters, **then** it keeps the offers whose title, customer or key accounter contain the text, ignoring case and surrounding spaces.
 2. **Given** the filter segments "Alle" [all], "Neu", "In Bearbeitung", "Versendet" and "Archiviert" [archived], **when** the user picks "Alle" or a status, **then** the list shows only active offers, all or of that status.
 3. **Given** the segment "Archiviert", **when** the user picks it, **then** the list shows only archived offers, in one group "Archiviert". Archived offers never show under any other segment.
 4. **Given** an unknown filter value, **when** `set_list_filter` gets it, **then** the filter falls back to "Alle".
@@ -103,19 +108,18 @@ Offer editor · Find an offer / Read one offer · priority 3 · core · unreleas
 
 1. **Given** no selected row, **when** the inspector "Angebotsdetails" [offer details] renders, **then** it shows "Kein Angebot ausgewählt." [no offer selected].
 2. **Given** a click on a row, **when** the inspector renders, **then** it shows title, customer and status badge of that offer, and the tag "Archiviert" when it is archived. If a filter hides the selected offer, the inspector shows nothing selected again.
-3. **Given** a selected offer, **when** the section "Eckdaten" [key data] renders, **then** it shows "Status", "Versendet am", the full CIU label (e.g. "Financial Services - FS"), "Key Accounter" and "SharePoint".
-4. **Given** a SharePoint link, **when** the inspector renders, **then** "Öffnen" [open] opens it in a new tab and a copy icon copies it with the toast "Link kopiert" [link copied]. Without a link it shows "–". (no test)
-5. **Given** a selected offer, **when** the section "Kalkulation" [calculation] renders, **then** it shows "PT", "Risikopuffer" [risk buffer], "Gesamt-PT" [total person days] as person days plus buffer, "HK", "Empfohlener VK" [recommended price] and "Marge" [margin].
+3. **Given** a selected offer, **when** the section "Eckdaten" [key data] renders, **then** it shows "Status", "Versendet am", "Branche" [industry] with the name of the industry, "Account Manager" and "Dokumente" [documents].
+4. **Given** a document link, **when** the inspector renders, **then** "Öffnen" [open] opens it in a new tab and a copy icon copies it with the toast "Link kopiert" [link copied]. Without a link it shows "–". (no test)
+5. **Given** a selected offer, **when** the section "Kalkulation" [calculation] renders, **then** it shows "Personentage" [person days], "Risikopuffer" [risk buffer], "Gesamtaufwand" [total effort] as person days plus buffer, "Kosten" [cost], "Empfohlener Preis" [recommended price] and "Marge" [margin].
 6. **Given** a recommended price above 0, **when** the margin shows, **then** it is (VK − HK) / VK × 100 with one decimal and a German comma, e.g. "50,0 %". **Given** a price of 0, **then** it shows "–".
 7. **Given** the icon "Inspektor ein- oder ausblenden" [show or hide inspector], **when** the user clicks it, **then** the inspector hides or shows, and the browser remembers the choice in `alloq_offers_inspector`.
 
 ### Evidence
 
 - [offer_inspector.py](../../components/alloq-offer/src/alloq_offer/components/offer_inspector.py): `offer_inspector`, `_heading`, `_details`, `_sharepoint`, `_copy_icon`
-- [offer_state.py](../../components/alloq-offer/src/alloq_offer/states/offer_state.py): `OfferState.inspect`, `OfferState.inspected`, `OfferState.inspected_ciu_label`, `OfferState.inspected_total_days`, `OfferState.inspected_margin`, `OfferState.toggle_inspector`, `OfferState.show_inspector`
+- [offer_state.py](../../components/alloq-offer/src/alloq_offer/states/offer_state.py): `OfferState.inspect`, `OfferState.inspected`, `OfferState._named`, `OfferState.inspected_total_days`, `OfferState.inspected_margin`, `OfferState.toggle_inspector`, `OfferState.show_inspector`
 - [offers.py](../../components/alloq-offer/src/alloq_offer/services/offers.py): `total_days`, `margin_pct`
-- [entities.py](../../components/alloq-offer/src/alloq_offer/entities.py): `CIU_LABELS`
-- Tests: [test_offer_state.py](../../components/alloq-offer/tests/test_offer_state.py) `TestUiHandlers.test_inspector`, `TestUiHandlers.test_nothing_inspected_without_selection`; [test_offer_services.py](../../components/alloq-offer/tests/test_offer_services.py) `TestDerived.test_total_days`, `TestDerived.test_margin`, `TestDerived.test_margin_none_without_price`; [test_offer_components.py](../../components/alloq-offer/tests/test_offer_components.py) `test_inspector_renders`; [test_offer_model.py](../../components/alloq-offer/tests/test_offer_model.py) `TestOfferEntity.test_ciu_labels_cover_every_code`
+- Tests: [test_offer_state.py](../../components/alloq-offer/tests/test_offer_state.py) `TestUiHandlers.test_inspector`, `TestUiHandlers.test_nothing_inspected_without_selection`; [test_offer_services.py](../../components/alloq-offer/tests/test_offer_services.py) `TestDerived.test_total_days`, `TestDerived.test_margin`, `TestDerived.test_margin_none_without_price`; [test_offer_components.py](../../components/alloq-offer/tests/test_offer_components.py) `test_inspector_renders`
 
 ## OFF-04 Create an offer {#off-04}
 
@@ -127,26 +131,26 @@ Offer editor · Create an offer / Enter the offer · priority 1 · core · unrel
 
 ### Acceptance criteria
 
-1. **Given** the button "Angebot anlegen" [create offer], **when** the user clicks it, **then** the empty dialog "Neues Angebot" [new offer] opens with "Risikopuffer (PT)" set to 0 and "Status" set to "Neu". Reopening the dialog clears the inputs again.
-2. **Given** the dialog, **when** it renders, **then** it has the fields "Angebotstitel" [offer title], "Kunde" [customer], "Key Accounter", "CIU", "Kalkulierte Personentage (PT)" [calculated person days], "Risikopuffer (PT)", "Herstellkosten (HK)" [production cost], "Empfohlener VK", "Status", "Versendet am" and "SharePoint-Link".
-3. **Given** an empty title, customer, key accounter, CIU, person days, production cost or recommended price, **when** the dialog renders, **then** the button "Angebot speichern" [save offer] is disabled.
+1. **Given** the button "Angebot anlegen" [create offer], **when** the user clicks it, **then** the empty dialog "Neues Angebot" [new offer] opens with "Risikopuffer (Personentage)" set to 0 and "Status" set to "Neu". Reopening the dialog clears the inputs again.
+2. **Given** the dialog, **when** it renders, **then** it has the fields "Angebotstitel" [offer title], "Kunde" [customer], "Account Manager", "Branche" [industry], "Kalkulierte Personentage" [calculated person days], "Risikopuffer (Personentage)", "Kosten" [cost], "Empfohlener Preis" [recommended price], "Status", "Versendet am" and "Link zu den Dokumenten" [link to the documents]. "Branche" lists the industries from [OFF-09](#off-09) by name.
+3. **Given** an empty title, customer, account manager, industry, person days, production cost or recommended price, **when** the dialog renders, **then** the button "Angebot speichern" [save offer] is disabled.
 4. **Given** the number fields, **when** the user types, **then** they accept no negative values and at most two decimals, with a German comma. A value such as "1.120 €" is read as 1120.
-5. **Given** the text fields, **when** the user types, **then** the browser stops at 255 characters, and at 2048 for the SharePoint link.
-6. **Given** text with only spaces, a negative number, an unknown CIU or status, or a SharePoint link that does not start with `http://` or `https://`, **when** the user saves, **then** `OfferCreate` rejects it, the toast "Bitte alle Pflichtfelder ausfüllen (Zahlen nicht negativ, Link mit https://)." [fill in all required fields] appears and nothing is stored. An empty link is stored as no link.
+5. **Given** the text fields, **when** the user types, **then** the browser stops at 255 characters, and at 2048 for the document link.
+6. **Given** text with only spaces, a negative number, no industry, an unknown status, or a document link that does not start with `http://` or `https://`, **when** the user saves, **then** `OfferCreate` rejects it, the toast "Bitte alle Pflichtfelder ausfüllen (Zahlen nicht negativ, Link mit https://)." [fill in all required fields] appears and nothing is stored. An empty link is stored as no link.
 7. **Given** the status "Versendet" and no sent date, **when** the user saves, **then** the sent date becomes today.
 8. **Given** valid input, **when** the user saves, **then** the offer is stored, appears in the list and is selected in the inspector, the dialog closes and the toast "Angebot '…' angelegt." [offer created] appears, with the title of the offer in place of the dots.
 9. **Given** a database error, **when** the user saves, **then** the toast "Das Angebot konnte nicht gespeichert werden." [offer could not be saved] appears without the error text.
 
 ### Evidence
 
-- [offer_modal.py](../../components/alloq-offer/src/alloq_offer/components/offer_modal.py): `TITLE_CREATE`, `CIU_OPTIONS`, `_text`, `_number`, `offer_form_fields`, `_form`, `offer_modal`
+- [offer_modal.py](../../components/alloq-offer/src/alloq_offer/components/offer_modal.py): `TITLE_CREATE`, `_text`, `_number`, `offer_form_fields`, `_form`, `offer_modal`
 - [offer_toolbar.py](../../components/alloq-offer/src/alloq_offer/components/offer_toolbar.py): `offer_toolbar`
 - [offer_state.py](../../components/alloq-offer/src/alloq_offer/states/offer_state.py): `REQUIRED_FIELDS`, `HINT_INVALID`, `ERROR_SAVE`, `_empty_form`, `number_text`, `OfferState.open_create_modal`, `OfferState.set_form_field`, `OfferState.is_form_invalid`, `OfferState.create_offer`, `OfferState._save_form`, `OfferState._data_from`
 - [models.py](../../components/alloq-offer/src/alloq_offer/models.py): `OfferCreate`, `OfferCreate._check_url`
 - [offers.py](../../components/alloq-offer/src/alloq_offer/services/offers.py): `apply_state_change`
-- [entities.py](../../components/alloq-offer/src/alloq_offer/entities.py): `OfferEntity`, `OfferStateEnum`, `CustomerIndustryUnit`
+- [entities.py](../../components/alloq-offer/src/alloq_offer/entities.py): `OfferEntity`, `OfferStateEnum`
 - [2026_10_21_offers.py](../../alembic/versions/2026_10_21_offers.py): table `offers`
-- Tests: [test_offer_state.py](../../components/alloq-offer/tests/test_offer_state.py) `TestNumberText.test_normalizes`, `TestUiHandlers.test_modal_and_form`, `TestDataHandlers.test_create`, `TestDataHandlers.test_create_sent_sets_today`, `TestDataHandlers.test_create_invalid`, `TestDataHandlers.test_create_error`; [test_offer_model.py](../../components/alloq-offer/tests/test_offer_model.py) `TestOfferCreate.test_valid_defaults`, `TestOfferCreate.test_strips_text`, `TestOfferCreate.test_rejects_empty_text`, `TestOfferCreate.test_rejects_negative_numbers`, `TestOfferCreate.test_rejects_unknown_ciu_and_state`, `TestOfferCreate.test_sharepoint_url_rules`, `TestOfferEntity.test_to_dict_has_all_keys`; [test_offer_components.py](../../components/alloq-offer/tests/test_offer_components.py) `test_modal_has_all_fields`
+- Tests: [test_offer_state.py](../../components/alloq-offer/tests/test_offer_state.py) `TestNumberText.test_normalizes`, `TestUiHandlers.test_modal_and_form`, `TestDataHandlers.test_create`, `TestDataHandlers.test_create_sent_sets_today`, `TestDataHandlers.test_create_invalid`, `TestDataHandlers.test_create_error`; [test_offer_model.py](../../components/alloq-offer/tests/test_offer_model.py) `TestOfferCreate.test_valid_defaults`, `TestOfferCreate.test_strips_text`, `TestOfferCreate.test_rejects_empty_text`, `TestOfferCreate.test_rejects_negative_numbers`, `TestOfferCreate.test_rejects_missing_industry_and_unknown_state`, `TestOfferCreate.test_sharepoint_url_rules`, `TestOfferEntity.test_to_dict_has_all_keys`; [test_offer_components.py](../../components/alloq-offer/tests/test_offer_components.py) `test_modal_has_all_fields`
 
 ### Open questions
 
@@ -254,3 +258,33 @@ Administrator · Give access to offers / Assign the role · priority 1 · core �
 - [pages.py](../../components/alloq-offer/src/alloq_offer/pages.py): `create_offers_page`
 - [app.py](../../app/app.py): `create_offers_page`
 - Tests: [test_access.py](../../components/alloq-commons/tests/test_access.py) `TestOfferEditor.test_role_is_offered_in_user_management`, `TestOfferEditor.test_can_edit_offers`, `TestOfferEditor.test_offer_editor_gets_no_planning_access`, `TestOfferEditor.test_frontend_var_and_guard_component`, `TestOfferEditor.test_allowed_users_run_the_handler`, `TestOfferEditor.test_others_are_denied`, `TestOfferEditor.test_anonymous_users_are_redirected`; [test_handler_authorization.py](../../tests/test_handler_authorization.py) `test_offer_handlers_use_the_offer_editor_level`, `test_offer_handlers_are_not_admin_or_editor_guarded`
+
+## OFF-09 Maintain the industries {#off-09}
+
+Keep the list of customer industries that an offer can belong to.
+
+As an administrator, I want to add, rename and delete industries, so that the offer form uses words that fit our customers.
+
+Administrator · Maintain the industries / Edit the list · priority 2 · core · unreleased
+
+### Acceptance criteria
+
+1. **Given** a signed-in admin, **when** the admin opens `/admin/industries` ("Branchen" [industries] in the section "Administration"), **then** the table lists all industries ordered by name. The loading row "Lade Branchen..." [loading industries] only shows on the first load.
+2. **Given** the migration `f1a2b3c4d5e6`, **when** it runs, **then** it creates one industry per former CIU code ("Verbraucherdienstleistungen", "Finanzdienstleistungen", "Energie und Versorgung", "Öffentlicher Sektor", "Gesundheitswesen", "Industrie und Mittelstand"), links every offer to its industry and drops the column `ciu`. An unknown code becomes an industry with the code as its name. The downgrade restores the codes.
+3. **Given** a name, **when** the admin saves "Neue Branche" [new industry] or renames an industry, **then** the name is stored without surrounding spaces. An empty name or one longer than 100 characters shows "Bitte einen Namen mit höchstens 100 Zeichen angeben." [enter a name of at most 100 characters], and a name that exists shows "Diese Branche gibt es bereits." [this industry exists].
+4. **Given** a renamed industry, **when** the offers load again, **then** the offers show the new name.
+5. **Given** an industry that offers use, archived ones included, **when** the admin deletes it, **then** it stays and the toast says in how many offers it is used. The database also refuses the delete (`ON DELETE RESTRICT`).
+6. **Given** text in "Branchen suchen" [search industries], **when** the table renders, **then** it shows only the industries whose name contains the text, ignoring case.
+7. **Given** a user who is not an admin, **when** they call a data handler of `IndustryState`, **then** it does not run. The handlers use `requires_admin` like the other administration pages, although the state lives in `alloq_offer`.
+
+### Evidence
+
+- [entities.py](../../components/alloq-offer/src/alloq_offer/entities.py): `IndustryEntity`, `OfferEntity.industry_id`
+- [models.py](../../components/alloq-offer/src/alloq_offer/models.py): `Industry`, `IndustryCreate`, `Offer.industry`
+- [repository.py](../../components/alloq-offer/src/alloq_offer/repository.py): `IndustryRepository.find_all_ordered`, `IndustryRepository.count_offers`
+- [industry_state.py](../../components/alloq-offer/src/alloq_offer/states/industry_state.py): `IndustryState`, `in_use_message`, `load_industries`
+- [industry.py](../../components/alloq-offer/src/alloq_offer/components/industry.py): `industries_table`, `industries_toolbar`, `industry_form_fields`
+- [industries.py](../../app/pages/industries.py): `create_industries_page`
+- [sidebar.py](../../app/components/sidebar.py): `ADMIN_ITEMS`
+- [2026_10_21_industries.py](../../alembic/versions/2026_10_21_industries.py): table `industries`, column `offers.industry_id`
+- Tests: [test_industry_state.py](../../components/alloq-offer/tests/test_industry_state.py); [test_offer_repository.py](../../components/alloq-offer/tests/test_offer_repository.py) `test_industries_are_ordered_by_name`, `test_count_offers_includes_archived`; [test_migrations.py](../../tests/test_migrations.py) `test_industries_migration_links_offers_and_restores_codes`; [test_handler_authorization.py](../../tests/test_handler_authorization.py) `ADMIN_STATES`

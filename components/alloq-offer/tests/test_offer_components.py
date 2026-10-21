@@ -44,7 +44,7 @@ def test_empty_state_offers_create_button() -> None:
 def test_inspector_renders() -> None:
     rendered = str(offer_inspector())
     assert "inspected_margin" in rendered
-    assert "inspected_ciu_label" in rendered
+    assert "industry" in rendered
     assert "update_inspected_state" in rendered
 
 
@@ -54,7 +54,7 @@ def test_modal_has_all_fields() -> None:
         "title",
         "customer",
         "key_accounter",
-        "ciu",
+        "industry_id",
         "person_days",
         "risk_buffer_days",
         "production_cost",
@@ -63,13 +63,13 @@ def test_modal_has_all_fields() -> None:
         "state",
     ):
         assert f'name:"{name}"' in rendered.replace(" ", "")
-    assert len(offer_modal.CIU_OPTIONS) == 6
+    assert "industry_options" in rendered
 
 
 def test_toolbar() -> None:
     assert len(offer_toolbar()) == 3
     assert "list_filter" in str(offer_filter())
-    assert SEARCH_PLACEHOLDER == "Angebot, Kunde oder Key Accounter"
+    assert SEARCH_PLACEHOLDER == "Angebot, Kunde oder Account Manager"
 
 
 def test_state_tones_cover_all_states() -> None:
@@ -93,3 +93,9 @@ def test_only_offer_editors_get_the_edit_modal() -> None:
 def test_edit_controls_need_the_offer_editor_role() -> None:
     for part in (offer_inspector(), offer_toolbar()[-1], offer_table._no_offers()):
         assert f'"{OFFER_EDITOR_ROLE.name}"' in str(part)
+
+
+def test_labels_avoid_company_abbreviations() -> None:
+    labels = {label for label, _field, _numeric in offer_table.COLUMNS}
+    assert {"Account Manager", "Branche", "Kosten", "Preis"} <= labels
+    assert not labels & {"CIU", "Key Accounter", "HK", "VK", "PT"}

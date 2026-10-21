@@ -27,6 +27,7 @@ from app.desktop.login_state import get_sign_in
 from app.pages.daily_rates import create_daily_rates_page
 from app.pages.departments import create_departments_page
 from app.pages.holidays import create_holidays_page
+from app.pages.industries import create_industries_page
 from app.pages.login import create_login_page
 from app.pages.profile import create_profile_page
 from app.pages.roles import create_roles_page
@@ -61,6 +62,7 @@ create_roles_page(sidebar())
 create_daily_rates_page(sidebar())
 create_departments_page(sidebar())
 create_holidays_page(sidebar())
+create_industries_page(sidebar())
 create_team_overview_page(sidebar())
 create_projects_overview_page(sidebar())
 create_offers_page(sidebar())
