@@ -277,6 +277,7 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
             "apply_cell_changes",
             "apply_view_settings",
             "close_add_project_for_employee",
+            "discard_changes",
             "notify_rejected",
             "open_add_project_for_employee",
             "open_project",

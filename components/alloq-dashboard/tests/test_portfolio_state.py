@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from alloq_commons.roles import EMPLOYEE_ROLE, PROJECT_MANAGER_ROLE
 from alloq_dashboard.models import (
     PersonDetail,
     PortfolioKpi,
@@ -25,8 +26,17 @@ from alloq_dashboard.states.portfolio_state import (
 
 from appkit_user.authentication.backend.models import User
 
+# Allowed fakes hold the roles; the admin switch grants no planning access.
+_PLANNER_ROLES = [PROJECT_MANAGER_ROLE.name, EMPLOYEE_ROLE.name]
+
 LOADER = "alloq_dashboard.states.portfolio_state.portfolio.load_portfolio"
-ADMIN = User(user_id=1, name="Katrin", email="katrin@example.com", is_admin=True)
+ADMIN = User(
+    user_id=1,
+    name="Katrin",
+    email="katrin@example.com",
+    is_admin=True,
+    roles=_PLANNER_ROLES,
+)
 MEMBER = User(user_id=2, name="Ben", is_admin=False)
 
 

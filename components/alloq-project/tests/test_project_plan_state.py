@@ -15,6 +15,7 @@ from alloq_commons.entities import (
     RoleEntity,
 )
 from alloq_commons.repositories import capacity_allocation_repo
+from alloq_commons.roles import EMPLOYEE_ROLE, PROJECT_MANAGER_ROLE
 from alloq_project.services.plan_distribution import (
     distribute_with_avail,
     weeks_between,
@@ -23,6 +24,9 @@ from alloq_project.states.project_plan_state import ProjectPlanState
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from appkit_user.authentication.states import LoginState
+
+# Allowed fakes hold the roles; the admin switch grants no planning access.
+_PLANNER_ROLES = [PROJECT_MANAGER_ROLE.name, EMPLOYEE_ROLE.name]
 
 MODULE = "alloq_project.states.project_plan_state"
 MON = dt.date(2026, 1, 5)
@@ -34,7 +38,11 @@ class _FakeLogin:
 
     @property
     async def authenticated_user(self) -> Any:
-        return SimpleNamespace(user_id=1, is_admin=self.is_admin, roles=[])
+        return SimpleNamespace(
+            user_id=1,
+            is_admin=self.is_admin,
+            roles=_PLANNER_ROLES if self.is_admin else [],
+        )
 
     async def redir(self) -> None:
         return None

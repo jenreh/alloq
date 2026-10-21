@@ -29,7 +29,12 @@ from alloq_dashboard.states.dashboard_states import (
 from appkit_user.authentication.backend.models import User
 
 _LOADER = "alloq_dashboard.states.dashboard_states.aggregation.load_projects_overview"
-_ADMIN = User(user_id=1, name="Admin", is_admin=True)
+_ADMIN = User(
+    user_id=1,
+    name="Admin",
+    is_admin=True,
+    roles=[PROJECT_MANAGER_ROLE.name, EMPLOYEE_ROLE.name],
+)
 _MEMBER = User(user_id=2, name="Member", is_admin=False)
 _EMPLOYEE = User(user_id=3, name="Employee", roles=[EMPLOYEE_ROLE.name])
 _MANAGER = User(user_id=4, name="Manager", roles=[PROJECT_MANAGER_ROLE.name])

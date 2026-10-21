@@ -8,14 +8,9 @@ import pytest
 import reflex as rx
 from alloq_commons.access import (
     CAN_EDIT,
-    CAN_VIEW,
-    IS_ADMIN,
     NO_ACCESS_MSG,
-    admin_only,
-    can_edit,
-    can_edit_offers,
-    can_view,
     editor_only,
+    has_role,
     no_access,
     requires_editor,
     requires_offer_editor,
@@ -29,6 +24,7 @@ from alloq_commons.roles import (
     PROJECT_MANAGER_ROLE,
 )
 
+from appkit_commons.roles import Role
 from appkit_user.authentication.backend.models import User
 
 ADMIN = User(user_id=1, is_admin=True)
@@ -93,40 +89,36 @@ class TestEmployeeRole:
         assert len({role.name for role in ALL_ROLES}) == len(ALL_ROLES)
 
 
-class TestCanView:
+class TestHasRole:
     @pytest.mark.parametrize(
-        ("user", "expected"),
-        [(ADMIN, True), (MANAGER, True), (EMPLOYEE, True), (OTHER, False)],
+        ("user", "role", "expected"),
+        [
+            (EMPLOYEE, EMPLOYEE_ROLE, True),
+            (MANAGER, PROJECT_MANAGER_ROLE, True),
+            (MANAGER, EMPLOYEE_ROLE, False),
+            (OFFER_EDITOR, OFFER_EDITOR_ROLE, True),
+            (OFFER_EDITOR, EMPLOYEE_ROLE, False),
+            (ADMIN, EMPLOYEE_ROLE, False),
+            (ADMIN, PROJECT_MANAGER_ROLE, False),
+            (ADMIN, OFFER_EDITOR_ROLE, False),
+            (OTHER, EMPLOYEE_ROLE, False),
+        ],
     )
-    def test_admins_managers_and_employees_may_read(
-        self, user: User, expected: bool
+    def test_only_the_role_counts_not_the_admin_switch(
+        self, user: User, role: Role, expected: bool
     ) -> None:
-        assert can_view(user) is expected
-
-
-class TestCanEdit:
-    @pytest.mark.parametrize(
-        ("user", "expected"),
-        [(ADMIN, True), (MANAGER, True), (EMPLOYEE, False), (OTHER, False)],
-    )
-    def test_admins_and_project_managers_may_edit(
-        self, user: User, expected: bool
-    ) -> None:
-        assert can_edit(user) is expected
+        assert has_role(user, role) is expected
 
 
 class TestRequiresEditor:
-    @pytest.mark.parametrize("user", [ADMIN, MANAGER])
-    async def test_admins_and_project_managers_run_the_handler(
-        self, user: User
-    ) -> None:
-        editor = _Editor(user)
+    async def test_project_managers_run_the_handler(self) -> None:
+        editor = _Editor(MANAGER)
         assert await editor.save(3) == 4
         assert await _collect(editor.save_stream()) == ["saved"]
         assert editor.calls == 2
 
-    @pytest.mark.parametrize("user", [EMPLOYEE, OTHER])
-    async def test_readers_and_others_are_denied(self, user: User) -> None:
+    @pytest.mark.parametrize("user", [ADMIN, EMPLOYEE, OTHER])
+    async def test_admins_readers_and_others_are_denied(self, user: User) -> None:
         editor = _Editor(user)
         assert await editor.save(3) is not None
         assert len(await _collect(editor.save_stream())) == 1
@@ -143,17 +135,15 @@ class TestRequiresEditor:
 
 
 class TestRequiresViewer:
-    @pytest.mark.parametrize("user", [ADMIN, MANAGER, EMPLOYEE])
-    async def test_allowed_users_run_the_handler(self, user: User) -> None:
-        reader = _Reader(user)
+    async def test_employees_run_the_handler(self) -> None:
+        reader = _Reader(EMPLOYEE)
         assert await reader.read(3) == 6
         assert await _collect(reader.stream()) == ["loaded"]
         assert reader.calls == 2
 
-    async def test_other_users_get_an_error_and_the_handler_does_not_run(
-        self,
-    ) -> None:
-        reader = _Reader(OTHER)
+    @pytest.mark.parametrize("user", [ADMIN, MANAGER, OTHER])
+    async def test_users_without_the_employee_role_are_denied(self, user: User) -> None:
+        reader = _Reader(user)
         result = await reader.read(3)
         events = await _collect(reader.stream())
         assert reader.calls == 0
@@ -181,31 +171,20 @@ class TestRequiresViewer:
 
 
 class TestRenderGuards:
-    def test_viewer_only_checks_admin_or_employee_role(self) -> None:
+    def test_viewer_only_checks_the_employee_role(self) -> None:
         rendered = str(viewer_only(rx.text("x")))
-        assert "is_admin" in rendered
         assert EMPLOYEE_ROLE.name in rendered
+        assert "is_admin" not in rendered
 
-    def test_admin_only_checks_admin_flag(self) -> None:
-        rendered = str(admin_only(rx.text("x")))
-        assert "is_admin" in rendered
-        assert EMPLOYEE_ROLE.name not in rendered
-        assert PROJECT_MANAGER_ROLE.name not in rendered
-
-    def test_editor_only_checks_admin_or_project_manager_role(self) -> None:
+    def test_editor_only_checks_the_project_manager_role(self) -> None:
         rendered = str(editor_only(rx.text("x")))
-        assert "is_admin" in rendered
         assert PROJECT_MANAGER_ROLE.name in rendered
         assert EMPLOYEE_ROLE.name not in rendered
+        assert "is_admin" not in rendered
 
-    def test_viewer_only_includes_project_managers(self) -> None:
-        assert PROJECT_MANAGER_ROLE.name in str(CAN_VIEW)
+    def test_can_edit_is_the_project_manager_role(self) -> None:
         assert PROJECT_MANAGER_ROLE.name in str(CAN_EDIT)
-
-    def test_can_view_includes_admin_flag_and_role(self) -> None:
-        assert "is_admin" in str(CAN_VIEW)
-        assert EMPLOYEE_ROLE.name in str(CAN_VIEW)
-        assert "is_admin" in str(IS_ADMIN)
+        assert "is_admin" not in str(CAN_EDIT)
 
     def test_no_access_explains_the_missing_rights(self) -> None:
         # Reflex escapes umlauts on render; the message has none up to here.
@@ -242,11 +221,7 @@ class TestOfferEditor:
         ],
     )
     def test_can_edit_offers(self, user: User, expected: bool) -> None:
-        assert can_edit_offers(user) is expected
-
-    def test_offer_editor_gets_no_planning_access(self) -> None:
-        assert can_edit(OFFER_EDITOR) is False
-        assert can_view(OFFER_EDITOR) is False
+        assert has_role(user, OFFER_EDITOR_ROLE) is expected
 
     async def test_offer_editors_run_the_handler(self) -> None:
         editor = _OfferEditor(OFFER_EDITOR)

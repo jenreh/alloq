@@ -16,10 +16,14 @@ from alloq_commons.models.project import (
     RequiredCapacity,
 )
 from alloq_commons.models.role import Role
+from alloq_commons.roles import EMPLOYEE_ROLE, PROJECT_MANAGER_ROLE
 from alloq_project.components.project_resource_tab import ressourcen_tab
 from alloq_project.services.resource_planning import PlanTarget
 from alloq_project.states.project_resource_state import ProjectResourceState
 from alloq_project.states.project_state import ProjectState
+
+# Allowed fakes hold the roles; the admin switch grants no planning access.
+_PLANNER_ROLES = [PROJECT_MANAGER_ROLE.name, EMPLOYEE_ROLE.name]
 
 MODULE = "alloq_project.states.project_resource_state"
 W1 = date(2026, 9, 14)
@@ -53,7 +57,11 @@ async def _patch_states(
     """Log in as (non-)admin and route get_state(ProjectState) to a mock."""
 
     async def _user() -> Any:
-        return SimpleNamespace(user_id=1, is_admin=is_admin, roles=[])
+        return SimpleNamespace(
+            user_id=1,
+            is_admin=is_admin,
+            roles=_PLANNER_ROLES if is_admin else [],
+        )
 
     async def _get_state(cls: type) -> Any:
         if cls is ProjectState:

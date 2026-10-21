@@ -135,9 +135,9 @@ def _indexes(conn: Connection) -> dict[str, set[str]]:
     return {table: {i["name"] for i in inspector.get_indexes(table)} for table in AFTER}
 
 
-def test_follows_offers_and_is_expected(migration: ModuleType) -> None:
+def test_follows_offers_and_is_known(migration: ModuleType) -> None:
     assert migration.down_revision == "ce01a2b3c4d5"
-    assert schema.EXPECTED_REVISION == migration.revision
+    assert migration.revision in schema.KNOWN_REVISIONS
 
 
 def test_upgrade_leaves_planned_indexes(

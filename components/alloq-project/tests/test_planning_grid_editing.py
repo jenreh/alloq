@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, PropertyMock, patch
 import pytest
 from alloq_commons.models.employee import Employee
 from alloq_commons.models.project import Project
+from alloq_commons.roles import EMPLOYEE_ROLE, PROJECT_MANAGER_ROLE
 from alloq_project.services.planning_builders import (
     build_employee_meta,
     build_weeks,
@@ -23,6 +24,9 @@ from alloq_project.services.planning_builders import (
 from alloq_project.services.planning_view_settings import ViewSettings
 from alloq_project.states.planning_grid_state import PlanningStore
 
+# Allowed fakes hold the roles; the admin switch grants no planning access.
+_PLANNER_ROLES = [PROJECT_MANAGER_ROLE.name, EMPLOYEE_ROLE.name]
+
 
 class _FakeLogin:
     """LoginState stand-in for the admin guard on PlanningStore handlers."""
@@ -32,7 +36,11 @@ class _FakeLogin:
 
     @property
     async def authenticated_user(self) -> Any:
-        return SimpleNamespace(user_id=1, is_admin=self.is_admin)
+        return SimpleNamespace(
+            user_id=1,
+            is_admin=self.is_admin,
+            roles=_PLANNER_ROLES if self.is_admin else [],
+        )
 
     async def redir(self) -> None:
         return None
@@ -464,6 +472,37 @@ class TestSaveGridPaths:
             await _drain(state.save_grid())
         assert state.dirty_keys == [key]
         assert state.is_saving is False
+
+
+class TestDiscardChanges:
+    def test_restores_saved_values(self) -> None:
+        state = _store()
+        state.apply_cell_changes(
+            [
+                {"key": _key(state, "emp-1", "A", 0), "value": 3},
+                {"key": _key(state, "emp-1", "A", 1), "value": 2},
+            ]
+        )
+        state.hidden_edits = {"emp-1|A|2020_01_06": 1.0}
+        revision = state.grid_revision
+
+        state.discard_changes()
+
+        assert state.cells == state.saved_cells
+        assert state.dirty_keys == []
+        assert state.hidden_edits == {}
+        assert state.has_dirty is False
+        assert state.grid_revision == revision + 1
+
+    def test_ignored_while_saving(self) -> None:
+        state = _store()
+        key = _key(state, "emp-1", "A", 1)
+        state.apply_cell_changes([{"key": key, "value": 2}])
+        state.is_saving = True
+
+        state.discard_changes()
+
+        assert state.dirty_keys == [key]
 
 
 class TestRemoveProject:

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from alloq_commons.roles import PROJECT_MANAGER_ROLE
+from alloq_commons.roles import EMPLOYEE_ROLE, PROJECT_MANAGER_ROLE
 from alloq_dashboard.states import RoleCapacityState
 
 from app.components import sidebar_state
@@ -26,6 +26,9 @@ from app.components.sidebar import (
 )
 from app.components.sidebar_state import SidebarState
 from app.configuration import configure
+
+# Allowed fakes hold the roles; the admin switch grants no planning access.
+_PLANNER_ROLES = [PROJECT_MANAGER_ROLE.name, EMPLOYEE_ROLE.name]
 
 MODULE = "app.components.sidebar_state"
 
@@ -47,7 +50,8 @@ USER = SimpleNamespace(user_id=1, is_admin=True, roles=[], email="ada@example.co
 
 def _state(*, is_admin: bool = True, roles: list[str] | None = None) -> SidebarState:
     state = SidebarState()
-    user = SimpleNamespace(**{**vars(USER), "is_admin": is_admin, "roles": roles or []})
+    roles = [*(roles or []), *(_PLANNER_ROLES if is_admin else [])]
+    user = SimpleNamespace(**{**vars(USER), "is_admin": is_admin, "roles": roles})
     object.__setattr__(state, "get_state", AsyncMock(return_value=_FakeLogin(user)))
     return state
 
@@ -170,11 +174,11 @@ class TestSidebarComponent:
                 continue
             rendered = str(_guarded_nav_item(route, label, icon))
             assert ('"employee"' in rendered) is (route in VIEWER_ROUTES)
-            assert "is_admin" in rendered
+            assert "is_admin" not in rendered
 
-    def test_project_managers_see_every_planning_page(self) -> None:
+    def test_project_managers_see_the_manager_pages(self) -> None:
         for route, label, icon in PLANNING_ITEMS:
-            if route == OFFERS_ROUTE:
+            if route == OFFERS_ROUTE or route in VIEWER_ROUTES:
                 continue
             rendered = str(_guarded_nav_item(route, label, icon))
             assert f'"{PROJECT_MANAGER_ROLE.name}"' in rendered

@@ -81,6 +81,7 @@ from alloq_project.states.planning_display_mixin import (
     NORMAL,
     PlanningDisplayState,
 )
+from alloq_project.states.planning_edit_mixin import PlanningEditMixin
 from alloq_project.states.planning_filter_mixin import (
     GRID_VIEW,
     PROJECT_VIEW,
@@ -128,6 +129,7 @@ __all__ = [
 
 class PlanningStore(
     PlanningDisplayState,
+    PlanningEditMixin,
     PlanningDepartmentMixin,
     PlanningFilterMixin,
     PlanningAbsenceViewMixin,
@@ -150,13 +152,6 @@ class PlanningStore(
     holiday_dates: rx.Field[list[dt.date]] = rx.field(default_factory=list)
     is_loaded: rx.Field[bool] = rx.field(False)
 
-    cells: rx.Field[dict[str, float]] = rx.field(default_factory=dict)
-    saved_cells: rx.Field[dict[str, float]] = rx.field(default_factory=dict)
-    dirty_keys: rx.Field[list[str]] = rx.field(default_factory=list)
-    # Unsaved edits whose row/week is not part of the loaded time range.
-    hidden_edits: rx.Field[dict[str, float]] = rx.field(default_factory=dict)
-    grid_revision: rx.Field[int] = rx.field(0)
-
     employee_meta: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
     project_meta: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
     role_lookup: rx.Field[dict[str, str]] = rx.field(default_factory=dict)
@@ -167,7 +162,6 @@ class PlanningStore(
 
     view_mode: rx.Field[str] = rx.field("Grid")
     time_range: rx.Field[str] = rx.field("3 Monate")
-    is_saving: rx.Field[bool] = rx.field(False)
 
     current_employee_id: rx.Field[int | None] = rx.field(None)
     current_week: rx.Field[str] = rx.field("")
@@ -479,10 +473,6 @@ class PlanningStore(
         return self.project_blocks
 
     @rx.var(cache=True)
-    def has_dirty(self) -> bool:
-        return len(self.dirty_keys) > 0 or len(self.hidden_edits) > 0
-
-    @rx.var(cache=True)
     def current_week_key(self) -> str:
         """Current week as of the last populate, so summaries match the columns."""
         return self.current_week or current_week_key()
@@ -531,13 +521,6 @@ class PlanningStore(
                 for employee_id, project_id, role_id, role_name in cap_rows.all()
             ]
         return list(allocs), assignments
-
-    def _unsaved_edits(self) -> dict[str, float]:
-        """All unsaved edits, including those outside the loaded range."""
-        return {
-            **self.hidden_edits,
-            **{key: self.cells.get(key, 0.0) for key in self.dirty_keys},
-        }
 
     async def _populate(self, num_weeks: int, *, keep_edits: bool = False) -> None:
         pending = self._unsaved_edits() if keep_edits else {}
