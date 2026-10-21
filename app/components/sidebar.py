@@ -64,6 +64,7 @@ ROUTE_GUARDS: Final[dict[str, Any]] = {
 """Guard per planning route; routes not listed need edit rights."""
 _COUNTS: Final[dict[str, Any]] = {
     PROJECTS_ROUTE: SidebarState.project_count,
+    OFFERS_ROUTE: SidebarState.offer_count,
     TEAM_ROUTE: SidebarState.employee_count,
 }
 # appkit_user declares ``user`` as a plain field; class access yields a Var.

@@ -31,7 +31,6 @@ class CapacityEntity(Entity, Base):
         Integer,
         ForeignKey("projects.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
     employee_id: Mapped[int] = mapped_column(
         Integer,

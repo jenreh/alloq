@@ -70,17 +70,20 @@ async def _run(state: SidebarState) -> None:
 
 
 class TestSidebarStateLoad:
-    async def test_load_counts_open_projects_and_employees(self) -> None:
+    async def test_load_counts_open_projects_employees_and_offers(self) -> None:
         state = _state()
-        ctx, session = _session([3, 2])
+        ctx, session = _session([3, 2, 4])
         with patch(f"{MODULE}.get_asyncdb_session", ctx):
             await _run(state)
         assert state.project_count == 3
         assert state.employee_count == 2
+        assert state.offer_count == 4
         statements = [str(c.args[0]) for c in session.execute.call_args_list]
         assert "count" in statements[0].lower()
         assert "state" in statements[0]
         assert "employees" in statements[1]
+        assert "offers" in statements[2]
+        assert "state" in statements[2]
 
     async def test_recent_data_is_not_reloaded(self) -> None:
         state = _state()
@@ -98,7 +101,7 @@ class TestSidebarStateLoad:
 
     async def test_project_manager_loads_counts(self) -> None:
         state = _state(is_admin=False, roles=[PROJECT_MANAGER_ROLE.name])
-        ctx, _session_mock = _session([3, 2])
+        ctx, _session_mock = _session([3, 2, 4])
         with patch(f"{MODULE}.get_asyncdb_session", ctx):
             await _run(state)
         assert state.project_count == 3
@@ -145,6 +148,7 @@ class TestSidebarComponent:
         assert "decimalScale:1" in rendered
         assert "fixedDecimalScale:true" in rendered
         assert "aq-sidebar" in rendered
+        assert "offer_count" in rendered
         assert "data-tauri-drag-region" in rendered
         assert "LucidePanelLeftClose" in rendered
 

@@ -25,6 +25,7 @@ employee_roles = Table(
         Integer,
         ForeignKey("roles.id", ondelete="CASCADE"),
         primary_key=True,
+        index=True,
     ),
 )
 
@@ -50,16 +51,16 @@ class EmployeeEntity(Entity, Base):
     email: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     location: Mapped[str | None] = mapped_column(String(255), nullable=True)
     department_id: Mapped[int | None] = mapped_column(
-        ForeignKey("departments.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("departments.id", ondelete="SET NULL"), nullable=True, index=True
     )
     hours_per_week: Mapped[float] = mapped_column(Float, nullable=False, default=40.0)
     internal_hours: Mapped[int] = mapped_column(Integer, nullable=False, default=4)
     manager_id: Mapped[int | None] = mapped_column(
-        ForeignKey("employees.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("employees.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
     key_role_id: Mapped[int | None] = mapped_column(
-        ForeignKey("roles.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("roles.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
     # All roles the employee can fill, including the key role.

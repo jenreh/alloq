@@ -49,6 +49,7 @@ project_owners_m2m = Table(
         Integer,
         ForeignKey("employees.id", ondelete="CASCADE"),
         primary_key=True,
+        index=True,
     ),
 )
 
@@ -61,9 +62,7 @@ class ProjectEntity(Entity, Base):
         CheckConstraint("end_date >= start_date", name="ck_projects_date_range"),
     )
 
-    code: Mapped[str] = mapped_column(
-        String(50), nullable=False, unique=True, index=True
-    )
+    code: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
     customer: Mapped[str] = mapped_column(String(255), nullable=True, default="")
     name_de: Mapped[str] = mapped_column(String(255), nullable=False)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
