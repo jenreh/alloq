@@ -48,6 +48,9 @@ class Offer(BaseModel):
     sent_date: date | None = None
     state: str = OfferStateEnum.NEW
     archived: bool = False
+    project_id: int | None = None
+    project_code: str = ""
+    """Code of the project; the state fills it from the loaded projects."""
     created: datetime | None = None
     updated: datetime | None = None
 

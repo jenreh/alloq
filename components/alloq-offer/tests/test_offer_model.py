@@ -53,6 +53,7 @@ class TestOfferEntity:
             "sent_date",
             "state",
             "archived",
+            "project_id",
             "created",
             "updated",
         }

@@ -454,3 +454,21 @@ def test_industries_migration_links_offers_and_restores_codes(
     assert "ciu" not in columns
     assert restored == {1: "FS", 2: "P", 3: "XY"}
     assert "industries" not in tables
+
+
+# a2b3c4d5e6f7 — offers remember the project created on acceptance
+def test_offer_project_migration_adds_and_drops_the_link() -> None:
+    migration = _load("2026_10_22_offer_project.py")
+    assert migration.down_revision == "f1a2b3c4d5e6"
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("projects", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        _run(migration, "upgrade", conn)
+        added = {c["name"] for c in sa.inspect(conn).get_columns("offers")}
+        _run(migration, "downgrade", conn)
+        removed = {c["name"] for c in sa.inspect(conn).get_columns("offers")}
+    assert "project_id" in added
+    assert "project_id" not in removed

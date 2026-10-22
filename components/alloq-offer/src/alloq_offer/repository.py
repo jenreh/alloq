@@ -1,7 +1,9 @@
 """Async repositories for offers and industries."""
 
 import unicodedata
+from collections.abc import Iterable
 
+from alloq_commons.entities import ProjectEntity
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,6 +25,20 @@ class OfferRepository(BaseRepository[OfferEntity, AsyncSession]):
         )
         result = await session.execute(statement)
         return list(result.scalars().all())
+
+    async def project_codes(
+        self, session: AsyncSession, project_ids: Iterable[int]
+    ) -> dict[int, str]:
+        """Project code per id for the given project ids."""
+        ids = set(project_ids)
+        if not ids:
+            return {}
+        result = await session.execute(
+            select(ProjectEntity.id, ProjectEntity.code).where(
+                ProjectEntity.id.in_(ids)
+            )
+        )
+        return dict(result.tuples().all())
 
 
 offer_repo = OfferRepository()

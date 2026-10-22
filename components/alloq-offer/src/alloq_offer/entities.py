@@ -59,6 +59,10 @@ class OfferEntity(Entity, Base):
     state: Mapped[str] = mapped_column(
         String(20), nullable=False, default=OfferStateEnum.NEW
     )
+    project_id: Mapped[int | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    """Project created when the offer was accepted."""
     archived: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
@@ -79,6 +83,7 @@ class OfferEntity(Entity, Base):
             "sent_date": self.sent_date,
             "state": self.state,
             "archived": bool(self.archived),
+            "project_id": self.project_id,
             "created": self.created,
             "updated": self.updated,
         }

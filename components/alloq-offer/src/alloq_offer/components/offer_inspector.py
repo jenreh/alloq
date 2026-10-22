@@ -26,6 +26,7 @@ from alloq_offer.states.offer_state import OfferState
 from appkit_user.authentication.components.components import requires_role
 from appkit_user.authentication.states import UserSession
 
+ACCEPT_LABEL = "Annehmen"
 STATE_OPTIONS: list[str] = [s.value for s in OfferStateEnum]
 _CAN_EDIT = UserSession.user.roles.contains(OFFER_EDITOR_ROLE.name)
 
@@ -51,19 +52,42 @@ def _heading(offer: ObjectVar[Offer]) -> rx.Component:
     )
 
 
+def _icon_button(icon: str, label: str, on_click: rx.EventHandler) -> rx.Component:
+    return mn.tooltip(
+        mn.action_icon(
+            rx.icon(icon, size=15, stroke_width=1.8),
+            variant="default",
+            size=28,
+            radius="md",
+            aria_label=label,
+            on_click=on_click,
+        ),
+        label=label,
+        position="bottom",
+        open_delay=400,
+    )
+
+
 def _actions(offer: ObjectVar[Offer]) -> rx.Component:
     return requires_role(
         mn.group(
             plain_button("Bearbeiten", OfferState.open_edit_modal(offer.id), flex="1"),
             rx.cond(
-                offer.archived,
+                OfferState.can_accept_inspected,
                 plain_button(
+                    ACCEPT_LABEL, OfferState.open_accept_modal(offer.id), flex="1"
+                ),
+                rx.fragment(),
+            ),
+            rx.cond(
+                offer.archived,
+                _icon_button(
+                    "archive-restore",
                     "Wiederherstellen",
                     OfferState.restore_offer(offer.id),
-                    flex="1",
                 ),
-                plain_button(
-                    "Archivieren", OfferState.archive_offer(offer.id), flex="1"
+                _icon_button(
+                    "archive", "Archivieren", OfferState.archive_offer(offer.id)
                 ),
             ),
             gap=8,
@@ -159,6 +183,14 @@ def _details(offer: ObjectVar[Offer]) -> rx.Component:
                 ("Branche", offer.industry),
                 ("Account Manager", offer.key_accounter),
                 ("Dokumente", _sharepoint(offer)),
+                (
+                    "Projekt",
+                    rx.cond(
+                        offer.project_id,
+                        offer.project_code,
+                        mn.text("–", fz="inherit", lh="inherit", c=theme.TEXT_MUTED),
+                    ),
+                ),
             ),
         ),
         inspector_section(

@@ -2,6 +2,7 @@
 
 from alloq_commons.access import NO_ACCESS_MSG
 from alloq_commons.roles import OFFER_EDITOR_ROLE
+from alloq_offer.components import offer_inspector as offer_inspector_module
 from alloq_offer.components import offer_modal, offer_parts, offer_table
 from alloq_offer.components.offer_inspector import offer_inspector
 from alloq_offer.components.offer_toolbar import (
@@ -46,6 +47,21 @@ def test_inspector_renders() -> None:
     assert "inspected_margin" in rendered
     assert "industry" in rendered
     assert "update_inspected_state" in rendered
+
+
+def test_inspector_offers_acceptance_and_shows_the_project() -> None:
+    rendered = str(offer_inspector())
+    assert "open_accept_modal" in rendered
+    assert offer_inspector_module.ACCEPT_LABEL in rendered
+    assert "project_code" in rendered
+
+
+def test_accept_modal_asks_for_code_and_dates() -> None:
+    rendered = str(offer_modal.accept_modal())
+    for name in ("code", "start_date", "end_date"):
+        assert f'name:"{name}"' in rendered.replace(" ", "")
+    assert offer_modal.TITLE_ACCEPT in rendered
+    assert "Projekt anlegen" in rendered
 
 
 def test_inspector_without_selection_shows_empty_state() -> None:

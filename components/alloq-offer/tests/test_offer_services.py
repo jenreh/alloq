@@ -9,9 +9,12 @@ from alloq_offer.services.offers import (
     FILTER_ALL,
     FILTER_ARCHIVED,
     apply_state_change,
+    can_accept,
+    default_project_dates,
     filter_offers,
     group_offers,
     margin_pct,
+    project_from_offer,
     search_offers,
     sort_offers,
     total_days,
@@ -155,3 +158,32 @@ class TestSortAndGroup:
             sort_desc=True,
         )
         assert [o.id for o in result] == [3, 1, 2]
+
+
+class TestAcceptance:
+    def test_can_accept_only_open_unarchived_offers(self) -> None:
+        assert can_accept(_offer())
+        assert not can_accept(_offer(archived=True))
+        assert not can_accept(_offer(project_id=5))
+
+    def test_default_dates_span_the_placeholder_duration(self) -> None:
+        start, end = default_project_dates(TODAY)
+        assert start == TODAY
+        assert (end - start).days == 90
+
+    def test_project_takes_over_offer_data(self) -> None:
+        project = project_from_offer(
+            _offer(recommended_price=Decimal("1234.60")),
+            "ABC",
+            date(2026, 11, 1),
+            date(2026, 12, 1),
+        )
+        assert project.code == "ABC"
+        assert project.name_de == "Alpha"
+        assert project.customer == "ACME"
+        assert project.budget == 1235
+        assert project.state == "Geplant"
+        assert (project.start_date, project.end_date) == (
+            date(2026, 11, 1),
+            date(2026, 12, 1),
+        )

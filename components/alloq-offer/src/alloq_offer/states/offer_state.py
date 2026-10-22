@@ -8,6 +8,7 @@ from typing import Any, Final
 
 import reflex as rx
 from alloq_commons.access import requires_offer_editor
+from alloq_commons.repositories import project_repo
 from pydantic import ValidationError
 
 from alloq_offer.entities import OfferEntity, OfferStateEnum
@@ -19,8 +20,11 @@ from alloq_offer.services.offers import (
     FILTERS,
     SORT_COLUMNS,
     apply_state_change,
+    can_accept,
+    default_project_dates,
     group_offers,
     margin_pct,
+    project_from_offer,
     total_days,
     totals,
     visible_offers,
@@ -58,6 +62,14 @@ HINT_INVALID: Final = (
 )
 ERROR_SAVE: Final = "Das Angebot konnte nicht gespeichert werden."
 NOT_FOUND: Final = "Angebot nicht gefunden."
+ACCEPT_FIELDS: Final = ("code", "start_date", "end_date")
+HINT_ACCEPT: Final = (
+    "Bitte ein Projektkürzel (höchstens 50 Zeichen) und einen "
+    "gültigen Zeitraum angeben."
+)
+ERROR_ACCEPT: Final = "Das Projekt konnte nicht angelegt werden."
+MAX_CODE_LENGTH: Final = 50
+ALREADY_ACCEPTED: Final = "Aus diesem Angebot wurde bereits ein Projekt angelegt."
 
 
 def _today() -> date:
@@ -117,6 +129,10 @@ class OfferState(rx.State):
     form_version: rx.Field[int] = rx.field(0)
     date_draft_id: rx.Field[int] = rx.field(0)
     date_draft: rx.Field[str] = rx.field("")
+
+    accept_open: rx.Field[bool] = rx.field(False)
+    accept_id: rx.Field[int] = rx.field(0)
+    accept_form: rx.Field[dict[str, str]] = rx.field(default_factory=dict)
 
     # --- UI-only handlers -------------------------------------------------
 
@@ -191,6 +207,30 @@ class OfferState(rx.State):
     def set_sent_date_today(self, offer_id: int) -> None:
         self.date_draft_id = offer_id
         self.date_draft = _today().isoformat()
+
+    @rx.event
+    def open_accept_modal(self, offer_id: int) -> None:
+        """Ask for code and dates of the project of an accepted offer."""
+        offer = next((o for o in self.offers if o.id == offer_id), None)
+        if offer is None or not can_accept(offer):
+            return
+        start, end = default_project_dates(_today())
+        self.accept_id = offer_id
+        self.accept_form = {
+            "code": "",
+            "start_date": start.isoformat(),
+            "end_date": end.isoformat(),
+        }
+        self.accept_open = True
+
+    @rx.event
+    def close_accept_modal(self) -> None:
+        self.accept_open = False
+
+    @rx.event
+    def set_accept_field(self, field: str, value: Any) -> None:
+        if field in ACCEPT_FIELDS:
+            self.accept_form = {**self.accept_form, field: str(value or "")}
 
     # --- Computed vars ----------------------------------------------------
 
@@ -281,16 +321,32 @@ class OfferState(rx.State):
         return offer.sent_date.isoformat() if offer and offer.sent_date else ""
 
     @rx.var
+    def is_accept_invalid(self) -> bool:
+        return any(not self.accept_form.get(f, "").strip() for f in ACCEPT_FIELDS)
+
+    @rx.var
+    def can_accept_inspected(self) -> bool:
+        return self.inspected is not None and can_accept(self.inspected)
+
+    @rx.var
     def is_form_invalid(self) -> bool:
         return any(not self.form.get(f, "").strip() for f in REQUIRED_FIELDS)
 
     # --- Data handlers ----------------------------------------------------
 
-    def _named(self, entity: OfferEntity) -> Offer:
-        """Read model of ``entity`` with the name of its industry."""
+    def _named(
+        self, entity: OfferEntity, project_codes: dict[int, str] | None = None
+    ) -> Offer:
+        """Read model of ``entity`` with industry name and project code."""
         names = {i.id: i.name for i in self.industries}
         offer = Offer(**entity.to_dict())
-        return offer.model_copy(update={"industry": names.get(offer.industry_id, "")})
+        code = (project_codes or {}).get(offer.project_id or 0, "")
+        return offer.model_copy(
+            update={
+                "industry": names.get(offer.industry_id, ""),
+                "project_code": code,
+            }
+        )
 
     def _replace(self, offer: Offer) -> None:
         if any(o.id == offer.id for o in self.offers):
@@ -310,7 +366,10 @@ class OfferState(rx.State):
                 industries = await industry_repo.find_all_ordered(session)
                 self.industries = [Industry(**i.to_dict()) for i in industries]
                 entities = await offer_repo.find_all_ordered(session)
-                self.offers = [self._named(e) for e in entities]
+                codes = await offer_repo.project_codes(
+                    session, [e.project_id for e in entities if e.project_id]
+                )
+                self.offers = [self._named(e, codes) for e in entities]
         except Exception:
             logger.exception("Failed to load offers")
             yield rx.toast.error(
@@ -463,3 +522,57 @@ class OfferState(rx.State):
             offer_id, {"archived": False}, "Angebot wiederhergestellt."
         ):
             yield event
+
+    def _accept_input(self, form_data: dict) -> tuple[str, date, date]:
+        """Validated code and dates of the accept form."""
+        code = str(form_data.get("code") or self.accept_form.get("code", "")).strip()
+        start = _parse_date(self.accept_form.get("start_date", ""))
+        end = _parse_date(self.accept_form.get("end_date", ""))
+        if not code or len(code) > MAX_CODE_LENGTH or not start or not end:
+            raise ValueError(HINT_ACCEPT)
+        if end < start:
+            raise ValueError(HINT_ACCEPT)
+        return code, start, end
+
+    @rx.event
+    @requires_offer_editor
+    async def accept_offer(self, form_data: dict) -> AsyncGenerator[Any]:
+        """Create a planned project from the offer and remember its id."""
+        try:
+            code, start, end = self._accept_input(form_data)
+        except ValueError:
+            yield rx.toast.error(HINT_ACCEPT, position="top-right")
+            return
+        offer_id = self.accept_id
+        try:
+            async with get_asyncdb_session() as session:
+                entity = await offer_repo.find_by_id(session, offer_id)
+                if entity is None:
+                    yield rx.toast.error(NOT_FOUND, position="top-right")
+                    return
+                if entity.project_id is not None:
+                    yield rx.toast.error(ALREADY_ACCEPTED, position="top-right")
+                    return
+                if await project_repo.find_by_code(session, code):
+                    yield rx.toast.error(
+                        f"Projektkürzel '{code}' ist bereits vergeben.",
+                        position="top-right",
+                    )
+                    return
+                project = await project_repo.create(
+                    session,
+                    project_from_offer(self._named(entity), code, start, end),
+                )
+                entity.project_id = project.id
+                await session.commit()
+                await session.refresh(entity)
+                saved = self._named(entity, {project.id: project.code})
+        except Exception:
+            logger.exception("Failed to accept offer %s", offer_id)
+            yield rx.toast.error(ERROR_ACCEPT, position="top-right")
+            return
+        self._replace(saved)
+        self.accept_open = False
+        yield rx.toast.info(
+            f"Projekt '{saved.project_code}' wurde angelegt.", position="top-right"
+        )

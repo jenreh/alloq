@@ -103,11 +103,14 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
     "DashboardState": frozenset({"close_drill_down", "open_drill_down"}),
     "OfferState": frozenset(
         {
+            "close_accept_modal",
             "close_modal",
             "inspect",
+            "open_accept_modal",
             "open_create_modal",
             "open_edit_modal",
             "reset_filters",
+            "set_accept_field",
             "set_form_field",
             "set_inspected_sent_date",
             "set_list_filter",

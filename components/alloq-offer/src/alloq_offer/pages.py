@@ -6,7 +6,7 @@ from alloq_commons.components.toolbar import window_toolbar
 from alloq_commons.roles import OFFER_EDITOR_ROLE
 
 import appkit_mantine as mn
-from alloq_offer.components.offer_modal import offer_modal
+from alloq_offer.components.offer_modal import accept_modal, offer_modal
 from alloq_offer.components.offer_table import offer_table
 from alloq_offer.components.offer_toolbar import offer_filter, offer_toolbar
 from alloq_offer.states.offer_state import OfferState
@@ -16,7 +16,9 @@ from appkit_user.authentication.components.components import requires_role
 def offers_content() -> rx.Component:
     """Offer list for every signed-in user; the edit modal for offer editors."""
     return mn.box(
-        requires_role(offer_modal(), role=OFFER_EDITOR_ROLE.name),
+        requires_role(
+            rx.fragment(offer_modal(), accept_modal()), role=OFFER_EDITOR_ROLE.name
+        ),
         offer_table(),
         style={"display": "flex", "flexDirection": "column", "minHeight": "0"},
     )

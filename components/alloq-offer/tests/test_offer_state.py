@@ -8,6 +8,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from alloq_commons.entities import ProjectEntity
 from alloq_commons.roles import OFFER_EDITOR_ROLE
 from alloq_offer.entities import IndustryEntity, OfferEntity
 from alloq_offer.models import Industry, Offer
@@ -65,6 +66,7 @@ def repo() -> Iterator[AsyncMock]:
     mock.find_all_ordered = AsyncMock(return_value=[_entity()])
     mock.find_by_id = AsyncMock(return_value=_entity())
     mock.create = AsyncMock(side_effect=_persisted)
+    mock.project_codes = AsyncMock(return_value={})
     industries = AsyncMock()
     industries.find_all_ordered = AsyncMock(return_value=[_industry()])
     with (
@@ -381,3 +383,146 @@ class TestUpdateWithoutEditId:
         with _as_offer_editor(state):
             out = await _run(state.update_offer, FORM)
         assert "nicht gefunden" in out
+
+
+def _project_entity(code: str = "ABC") -> Any:
+    entity = ProjectEntity(
+        code=code,
+        name_de="x",
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 2, 1),
+        budget=0,
+    )
+    entity.id = 40
+    return entity
+
+
+@pytest.fixture
+def projects() -> Iterator[AsyncMock]:
+    mock = AsyncMock()
+    mock.find_by_code = AsyncMock(return_value=None)
+
+    async def _create(_session: Any, entity: Any) -> Any:
+        entity.id = 40
+        return entity
+
+    mock.create = AsyncMock(side_effect=_create)
+    with patch(f"{MODULE}.project_repo", mock):
+        yield mock
+
+
+class TestAcceptOffer:
+    def test_open_modal_prefills_dates(self) -> None:
+        state = _state(_offer())
+        state.open_accept_modal(1)
+        assert state.accept_open
+        assert state.accept_form["code"] == ""
+        assert state.accept_form["start_date"] == offer_state._today().isoformat()
+        assert state.accept_form["end_date"] > state.accept_form["start_date"]
+        state.set_accept_field("code", "ABC")
+        state.set_accept_field("bogus", "x")
+        assert state.accept_form["code"] == "ABC"
+        assert not state.is_accept_invalid
+        state.set_accept_field("code", " ")
+        assert state.is_accept_invalid
+        state.close_accept_modal()
+        assert not state.accept_open
+
+    def test_open_modal_ignores_unacceptable_offers(self) -> None:
+        state = _state(_offer(project_id=3))
+        state.open_accept_modal(1)
+        state.open_accept_modal(99)
+        assert not state.accept_open
+
+    @pytest.mark.asyncio
+    @pytest.mark.usefixtures("projects")
+    async def test_accept_creates_planned_project(
+        self, repo: AsyncMock, projects: AsyncMock
+    ) -> None:
+        entity = _entity()
+        repo.find_by_id.return_value = entity
+        repo.project_codes = AsyncMock(return_value={40: "ABC"})
+        state = _state(_offer())
+        state.open_accept_modal(1)
+        state.set_accept_field("code", " ABC ")
+        with _as_offer_editor(state):
+            out = await _run(state.accept_offer, {})
+        assert "Projekt 'ABC'" in out
+        created = projects.create.call_args.args[1]
+        assert (created.code, created.state, created.budget) == ("ABC", "Geplant", 2000)
+        assert entity.project_id == 40
+        assert state.offers[0].project_id == 40
+        assert state.offers[0].project_code == "ABC"
+        assert not state.accept_open
+
+    @pytest.mark.asyncio
+    async def test_accept_rejects_taken_code(
+        self, repo: AsyncMock, projects: AsyncMock
+    ) -> None:
+        projects.find_by_code.return_value = _project_entity()
+        state = _state(_offer())
+        state.open_accept_modal(1)
+        state.set_accept_field("code", "ABC")
+        with _as_offer_editor(state):
+            out = await _run(state.accept_offer, {})
+        assert "bereits vergeben" in out
+        projects.create.assert_not_called()
+        assert repo.find_by_id.return_value.project_id is None
+        assert state.accept_open
+
+    @pytest.mark.asyncio
+    @pytest.mark.usefixtures("projects")
+    async def test_accept_rejects_bad_input(self, repo: AsyncMock) -> None:
+        state = _state(_offer())
+        state.open_accept_modal(1)
+        with _as_offer_editor(state):
+            assert offer_state.HINT_ACCEPT in await _run(state.accept_offer, {})
+            state.set_accept_field("code", "ABC")
+            state.set_accept_field("end_date", "2020-01-01")
+            assert offer_state.HINT_ACCEPT in await _run(state.accept_offer, {})
+            state.set_accept_field("end_date", "kaputt")
+            assert offer_state.HINT_ACCEPT in await _run(state.accept_offer, {})
+        repo.find_by_id.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.usefixtures("projects")
+    async def test_accept_twice_creates_one_project(
+        self, repo: AsyncMock, projects: AsyncMock
+    ) -> None:
+        repo.find_by_id.return_value = _entity(project_id=40)
+        state = _state(_offer())
+        state.open_accept_modal(1)
+        state.set_accept_field("code", "ABC")
+        with _as_offer_editor(state):
+            out = await _run(state.accept_offer, {})
+        assert offer_state.ALREADY_ACCEPTED in out
+        projects.create.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.usefixtures("projects")
+    async def test_accept_missing_offer(self, repo: AsyncMock) -> None:
+        repo.find_by_id.return_value = None
+        state = _state(_offer())
+        state.open_accept_modal(1)
+        state.set_accept_field("code", "ABC")
+        with _as_offer_editor(state):
+            assert offer_state.NOT_FOUND in await _run(state.accept_offer, {})
+
+    @pytest.mark.asyncio
+    @pytest.mark.usefixtures("repo")
+    async def test_accept_error(self, projects: AsyncMock) -> None:
+        projects.create.side_effect = RuntimeError("db")
+        state = _state(_offer())
+        state.open_accept_modal(1)
+        state.set_accept_field("code", "ABC")
+        with _as_offer_editor(state):
+            assert offer_state.ERROR_ACCEPT in await _run(state.accept_offer, {})
+
+    @pytest.mark.asyncio
+    async def test_accept_needs_offer_editor(self, projects: AsyncMock) -> None:
+        state = _state(_offer())
+        state.open_accept_modal(1)
+        with _as_offer_editor(state, is_admin=True):
+            out = await _run(state.accept_offer, {})
+        assert "Berechtigung" in out
+        projects.create.assert_not_called()

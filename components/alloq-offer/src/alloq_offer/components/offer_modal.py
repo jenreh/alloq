@@ -3,6 +3,7 @@
 from typing import Any
 
 import reflex as rx
+from alloq_commons import theme
 from alloq_commons.components.forms import section
 from alloq_commons.components.modal_layout import (
     MODAL_CLASS,
@@ -17,6 +18,8 @@ from alloq_offer.states.offer_state import OfferState
 
 TITLE_CREATE = "Neues Angebot"
 TITLE_EDIT = "Angebot bearbeiten"
+TITLE_ACCEPT = "Angebot annehmen"
+ACCEPT_HINT = "Aus dem Angebot wird ein Projekt im Status Geplant angelegt."
 STATE_OPTIONS: list[str] = [s.value for s in OfferStateEnum]
 
 
@@ -133,6 +136,55 @@ def offer_modal() -> rx.Component:
         opened=OfferState.form_open,
         on_close=OfferState.close_modal,
         size="lg",
+        centered=True,
+        class_name=MODAL_CLASS,
+        overlay_props={"backgroundOpacity": 0.5, "blur": 4},
+    )
+
+
+def _accept_date(name: str, label: str) -> rx.Component:
+    return mn.date_input(
+        name=name,
+        label=label,
+        value=OfferState.accept_form[name],
+        on_change=lambda value: OfferState.set_accept_field(name, value),
+        required=True,
+        clearable=False,
+        locale="de",
+        value_format="DD.MM.YYYY",
+        left_section=rx.icon("calendar", size=16),
+    )
+
+
+def accept_modal() -> rx.Component:
+    """Ask for the project code and period when an offer is accepted."""
+    return mn.modal(
+        modal_form_layout(
+            content=mn.stack(
+                mn.text(ACCEPT_HINT, fz="13px", c=theme.TEXT_MUTED),
+                mn.text_input(
+                    name="code",
+                    label="Projektkürzel",
+                    default_value=OfferState.accept_form["code"],
+                    on_blur=lambda value: OfferState.set_accept_field("code", value),
+                    required=True,
+                    custom_attrs={"maxLength": 50},
+                ),
+                _accept_date("start_date", "Projektstart"),
+                _accept_date("end_date", "Projektende"),
+                gap="md",
+            ),
+            footer=modal_footer(
+                "Projekt anlegen",
+                OfferState.close_accept_modal,
+                disabled=OfferState.is_accept_invalid,
+            ),
+            on_submit=OfferState.accept_offer,
+        ),
+        title=TITLE_ACCEPT,
+        opened=OfferState.accept_open,
+        on_close=OfferState.close_accept_modal,
+        size="md",
         centered=True,
         class_name=MODAL_CLASS,
         overlay_props={"backgroundOpacity": 0.5, "blur": 4},

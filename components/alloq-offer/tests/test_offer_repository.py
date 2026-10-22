@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+from alloq_commons.entities import ProjectEntity
 from alloq_offer.entities import IndustryEntity, OfferEntity
 from alloq_offer.repository import industry_repo, offer_repo
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -73,3 +74,20 @@ async def test_count_offers_includes_archived(session: AsyncSession) -> None:
 
     assert await industry_repo.count_offers(session, 1) == 2
     assert await industry_repo.count_offers(session, 2) == 0
+
+
+async def test_project_codes_maps_ids_to_codes(session: AsyncSession) -> None:
+    project = ProjectEntity(
+        code="ABC",
+        name_de="x",
+        start_date=datetime(2026, 1, 1, tzinfo=UTC).date(),
+        end_date=datetime(2026, 2, 1, tzinfo=UTC).date(),
+        budget=0,
+    )
+    session.add(project)
+    await session.commit()
+
+    assert await offer_repo.project_codes(session, [project.id, 999]) == {
+        project.id: "ABC"
+    }
+    assert await offer_repo.project_codes(session, []) == {}

@@ -2,9 +2,12 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Final
+
+from alloq_commons.entities import ProjectEntity
+from alloq_commons.entities.project import ProjectStateEnum
 
 from alloq_offer.entities import OfferStateEnum
 from alloq_offer.models import Offer
@@ -49,6 +52,34 @@ def apply_state_change(
     if new_state == OfferStateEnum.SENT and sent_date is None:
         return today
     return sent_date
+
+
+PROJECT_DURATION_DAYS: Final = 90
+
+
+def can_accept(offer: Offer) -> bool:
+    """Only archived-free offers without a project can be accepted."""
+    return not offer.archived and offer.project_id is None
+
+
+def default_project_dates(today: date) -> tuple[date, date]:
+    """Suggested start and end of the project of an accepted offer."""
+    return today, today + timedelta(days=PROJECT_DURATION_DAYS)
+
+
+def project_from_offer(
+    offer: Offer, code: str, start_date: date, end_date: date
+) -> ProjectEntity:
+    """Planned project with the title, customer and price of ``offer``."""
+    return ProjectEntity(
+        code=code,
+        customer=offer.customer,
+        name_de=offer.title,
+        start_date=start_date,
+        end_date=end_date,
+        state=ProjectStateEnum.PLANNED,
+        budget=int(offer.recommended_price.to_integral_value()),
+    )
 
 
 def total_days(offer: Offer) -> Decimal:
