@@ -48,6 +48,12 @@ def test_inspector_renders() -> None:
     assert "update_inspected_state" in rendered
 
 
+def test_inspector_without_selection_shows_empty_state() -> None:
+    rendered = str(offer_inspector())
+    assert "LucideMousePointerClick" in rendered
+    assert offer_parts.NO_SELECTION_HINT != offer_parts.NO_SELECTION
+
+
 def test_modal_has_all_fields() -> None:
     rendered = str(offer_modal.offer_modal())
     for name in (

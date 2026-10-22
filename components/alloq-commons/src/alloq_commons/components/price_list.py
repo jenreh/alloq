@@ -96,6 +96,16 @@ def _sticky(column: str) -> dict[str, Any]:
     return {}
 
 
+def _pinned_right(background: str, z_index: int) -> dict[str, Any]:
+    return {
+        "position": "sticky",
+        "right": "0px",
+        "zIndex": z_index,
+        "boxShadow": "inset 1px 0 0 var(--alloq-border)",
+        "backgroundColor": background,
+    }
+
+
 def _cell(
     row: ObjectVar[PriceGridRow], column: str, width: int, comparison: bool
 ) -> rx.Component:
@@ -215,7 +225,10 @@ def _row(row: ObjectVar[PriceGridRow], comparison: bool = False) -> rx.Component
                         )
                     ),
                     p="4px",
-                    style={"whiteSpace": "nowrap"},
+                    style={
+                        "whiteSpace": "nowrap",
+                        **_pinned_right("var(--alloq-surface-solid)", 3),
+                    },
                 ),
             ]
         )
@@ -274,7 +287,13 @@ def price_sheet(comparison: bool = False) -> rx.Component:
         headers.extend(
             [
                 rx.cond(S.show_roles, mn.table.th("Planungsrolle"), rx.fragment()),
-                mn.table.th("", style={"width": f"{ACTION_COLUMN_WIDTH}px"}),
+                mn.table.th(
+                    "",
+                    style={
+                        "width": f"{ACTION_COLUMN_WIDTH}px",
+                        **_pinned_right("var(--alloq-surface-muted)", 6),
+                    },
+                ),
             ]
         )
     table = mn.table(

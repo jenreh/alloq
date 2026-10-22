@@ -15,6 +15,7 @@ from reflex.vars import ObjectVar
 import appkit_mantine as mn
 from alloq_offer.components.offer_parts import (
     NO_SELECTION,
+    NO_SELECTION_HINT,
     days,
     euro,
     state_badge,
@@ -175,12 +176,34 @@ def _details(offer: ObjectVar[Offer]) -> rx.Component:
     )
 
 
+def _no_selection() -> rx.Component:
+    return mn.stack(
+        mn.theme_icon(
+            rx.icon("mouse-pointer-click", size=22),
+            size=48,
+            radius="xl",
+            variant="light",
+            color="gray",
+        ),
+        mn.stack(
+            mn.text(NO_SELECTION, fz="15px", fw="600", ta="center"),
+            mn.text(NO_SELECTION_HINT, fz="13px", c=theme.TEXT_MUTED, ta="center"),
+            gap=4,
+            align="center",
+        ),
+        gap="md",
+        align="center",
+        justify="center",
+        py=48,
+    )
+
+
 def offer_inspector() -> rx.Component:
     return inspector(
         rx.cond(
             OfferState.inspected,
             _details(_selected()),
-            mn.text(NO_SELECTION, fz="12.5px", c=theme.TEXT_MUTED),
+            _no_selection(),
         ),
         label="Angebotsdetails",
     )

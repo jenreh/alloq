@@ -12,6 +12,7 @@ EMPTY_ALL = "Noch keine Angebote vorhanden."
 EMPTY_ALL_HINT = "Legen Sie Ihr erstes Angebot an."
 RESET_FILTERS = "Filter zurücksetzen"
 NO_SELECTION = "Kein Angebot ausgewählt."
+NO_SELECTION_HINT = "Wählen Sie links ein Angebot aus, um die Details zu sehen."
 STATE_TONES: dict[str, str] = {
     OfferStateEnum.NEW.value: "info",
     OfferStateEnum.IN_PROGRESS.value: "warning",

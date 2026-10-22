@@ -51,7 +51,7 @@ def test_frozen_headers_stay_above_scrolling_headers(comparison: bool) -> None:
         if node.tag == "Table.Th" and "zIndex" in node.style
     ]
     frozen = headers[:2]
-    scrolling = headers[2:]
+    scrolling = [header for header in headers[2:] if "right" not in header.style]
     assert len(frozen) == 2
     assert scrolling
     la_width = json.loads(str(frozen[0].style["width"]))
