@@ -5,7 +5,6 @@ from typing import Any
 import reflex as rx
 from alloq_commons import theme
 from alloq_commons.components.list_view import inspector, inspector_section
-from alloq_commons.components.toolbar import segmented
 
 import appkit_mantine as mn
 from alloq_offer.workshop.states.map_state import SCOPES, SENTENCE_HINT, MapState
@@ -58,7 +57,7 @@ def story_drawer() -> rx.Component:
             mn.text(story["title"], fw=650, fz="16px"),
             *(_field(*field) for field in FIELDS),
             mn.box(
-                story["sentence"].to(str),
+                mn.text(story["sentence"].to(str), fz="13px", lh="1.5"),
                 p=12,
                 style={"background": theme.SURFACE_MUTED, "borderRadius": "10px"},
             ),
@@ -66,10 +65,11 @@ def story_drawer() -> rx.Component:
         ),
         inspector_section(
             SCOPE_TITLE,
-            segmented(
-                story["scope"].to(str),
-                MapState.set_scope,
-                [{"value": scope, "label": scope} for scope in SCOPES],
+            mn.select(
+                data=SCOPES,
+                value=story["scope"].to(str),
+                allow_deselect=False,
+                on_change=MapState.set_scope,
             ),
         ),
         inspector_section(

@@ -4,6 +4,7 @@ import logging
 
 from alloq_offer.workshop.configuration import WorkshopConfig
 from alloq_offer.workshop.jobs import (  # noqa: F401  (registers the handlers)
+    draft_chapters,
     extract_source,
     initial_draft,
 )

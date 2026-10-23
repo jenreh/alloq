@@ -19,6 +19,7 @@ from alloq_offer.workshop.entities import (
     TaskEntity,
     WorkspaceEntity,
 )
+from alloq_offer.workshop.services.chapters import mark_dependent_review
 from alloq_offer.workshop.services.story_rules import story_problems, story_sentence
 
 logger = logging.getLogger(__name__)
@@ -140,6 +141,7 @@ async def apply_proposed_map(
         result.statements += 1
     await session.flush()
     workspace.map_revision += 1
+    await mark_dependent_review(session, workspace)
     session.add(
         MapRevisionEntity(
             offer_id=offer_id,

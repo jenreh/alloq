@@ -1,9 +1,16 @@
 """What the model may propose; validated before anything is stored."""
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
+from alloq_offer.workshop.content.schema import (
+    BulletList,
+    Heading,
+    OrderedList,
+    Paragraph,
+    ProseContent,
+)
 from alloq_offer.workshop.entities import StatementType
 
 
@@ -54,3 +61,17 @@ class ProposedStatement(BaseModel):
 
 class ProposedBriefing(BaseModel):
     statements: list[ProposedStatement] = Field(default_factory=list)
+
+
+EditorBlock = Annotated[
+    Paragraph | Heading | BulletList | OrderedList, Field(discriminator="type")
+]
+
+
+class ProposedChapter(BaseModel):
+    """Chapter text in the blocks the editor can show; no tables or bound values."""
+
+    blocks: list[EditorBlock] = Field(default_factory=list)
+
+    def to_content(self) -> ProseContent:
+        return ProseContent(blocks=list(self.blocks))

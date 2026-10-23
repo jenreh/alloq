@@ -94,6 +94,21 @@ class StatementStatus(enum.StrEnum):
     CONFIRMED = "Bestätigt"
 
 
+class ChapterOrigin(enum.StrEnum):
+    """Who wrote the current revision of a chapter."""
+
+    TEMPLATE = "Vorlage"
+    MANUAL = "manuell"
+    AI = "KI übernommen"
+
+
+class ProposalStatus(enum.StrEnum):
+    OPEN = "offen"
+    ACCEPTED = "übernommen"
+    REJECTED = "verworfen"
+    STALE = "veraltet"
+
+
 class WorkspaceEntity(Entity, Base):
     """Workshop state of one offer (one workspace per offer)."""
 
@@ -505,6 +520,107 @@ class GenerationRunEntity(Entity, Base):
             "model": self.model,
             "prompt_version": self.prompt_version,
             "input_revisions": self.input_revisions,
+            "status": self.status,
+            "created": self.created,
+        }
+
+
+class ChapterEntity(Entity, Base):
+    """One chapter of the offer document; its text lives in revisions."""
+
+    __tablename__ = "offer_chapters"
+    __table_args__ = (
+        UniqueConstraint("offer_id", "chapter_key", name="uq_offer_chapters_key"),
+    )
+
+    offer_id: Mapped[int] = mapped_column(
+        ForeignKey("offers.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    chapter_key: Mapped[str] = mapped_column(String(50), nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    protected: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    needs_review: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    review_reason: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+    def to_dict(self) -> dict:
+        """Convert entity to dictionary for Pydantic model creation."""
+        return {
+            "id": self.id,
+            "offer_id": self.offer_id,
+            "chapter_key": self.chapter_key,
+            "revision": self.revision,
+            "protected": self.protected,
+            "needs_review": self.needs_review,
+            "review_reason": self.review_reason,
+        }
+
+
+class ChapterRevisionEntity(Entity, Base):
+    """An immutable revision of a chapter: the canonical content tree."""
+
+    __tablename__ = "offer_chapter_revisions"
+    __table_args__ = (
+        UniqueConstraint("chapter_id", "number", name="uq_offer_chapter_revisions"),
+    )
+
+    chapter_id: Mapped[int] = mapped_column(
+        ForeignKey("offer_chapters.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    number: Mapped[int] = mapped_column(Integer, nullable=False)
+    content: Mapped[dict] = mapped_column(JSON, nullable=False)
+    map_revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    origin: Mapped[str] = mapped_column(String(20), nullable=False)
+    author: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+
+    def to_dict(self) -> dict:
+        """Convert entity to dictionary for Pydantic model creation."""
+        return {
+            "id": self.id,
+            "chapter_id": self.chapter_id,
+            "number": self.number,
+            "content": self.content,
+            "map_revision": self.map_revision,
+            "origin": self.origin,
+            "author": self.author,
+            "created": self.created,
+        }
+
+
+class ProposalEntity(Entity, Base):
+    """A suggested chapter text; it changes nothing until a person accepts it."""
+
+    __tablename__ = "offer_proposals"
+
+    offer_id: Mapped[int] = mapped_column(
+        ForeignKey("offers.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    chapter_key: Mapped[str] = mapped_column(String(50), nullable=False)
+    job_id: Mapped[int | None] = mapped_column(
+        ForeignKey("offer_jobs.id", ondelete="SET NULL"), nullable=True
+    )
+    content: Mapped[dict] = mapped_column(JSON, nullable=False)
+    base_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    map_revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    instruction: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=ProposalStatus.OPEN
+    )
+
+    def to_dict(self) -> dict:
+        """Convert entity to dictionary for Pydantic model creation."""
+        return {
+            "id": self.id,
+            "offer_id": self.offer_id,
+            "chapter_key": self.chapter_key,
+            "job_id": self.job_id,
+            "content": self.content,
+            "base_revision": self.base_revision,
+            "map_revision": self.map_revision,
+            "instruction": self.instruction,
             "status": self.status,
             "created": self.created,
         }

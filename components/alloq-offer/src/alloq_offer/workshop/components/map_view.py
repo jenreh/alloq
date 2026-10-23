@@ -108,7 +108,7 @@ def _row(row: Row) -> rx.Component:
                     size="xs",
                     variant="unstyled",
                     custom_attrs={"maxLength": 255, "aria-label": "Name des Schnitts"},
-                    styles={"input": {"fontWeight": 600}},
+                    class_name="aq-map-title",
                 ),
                 mn.text(row["title"], fw=600, fz="13px", c=theme.TEXT_MUTED),
             ),
@@ -133,7 +133,7 @@ def _column(column: Row) -> rx.Component:
             size="xs",
             variant="unstyled",
             custom_attrs={"maxLength": 255, "aria-label": "Name der Aktivität"},
-            styles={"input": {"fontWeight": 650}},
+            class_name="aq-map-title",
         ),
         mn.text(column["tasks"], fz="12px", c=theme.TEXT_MUTED),
         mn.group(

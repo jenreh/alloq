@@ -19,6 +19,7 @@ from alloq_offer.workshop.entities import (
     WorkspaceEntity,
 )
 from alloq_offer.workshop.repositories import workspace_repo
+from alloq_offer.workshop.services.chapters import mark_dependent_review
 from alloq_offer.workshop.services.map_apply import next_story_key, snapshot_map
 from alloq_offer.workshop.services.story_rules import story_problems
 
@@ -60,6 +61,7 @@ async def record(session: AsyncSession, workspace: WorkspaceEntity, user: str) -
     """Bump the revision and keep an immutable snapshot of the result."""
     await session.flush()
     workspace.map_revision += 1
+    await mark_dependent_review(session, workspace)
     session.add(
         MapRevisionEntity(
             offer_id=workspace.offer_id,

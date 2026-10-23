@@ -12,6 +12,7 @@ base_stylesheets = [
     "css/aq-list.css",
     "css/aq-splash.css",
     "css/aq-toast.css",
+    "css/aq-workshop.css",
 ]
 
 base_style: ComponentStyle = {

@@ -72,14 +72,12 @@ def _side_column() -> rx.Component:
 
 
 def draft_tab() -> rx.Component:
-    return mn.group(
-        mn.box(
+    """Map or start card scroll on their own; the inspector keeps its width."""
+    return rx.box(
+        rx.box(
             rx.cond(MapState.has_map, map_section(), start_card()),
-            style={"flex": "999 1 640px", "minWidth": "0"},
+            class_name="aq-split-main aq-ws-pad",
         ),
         _side_column(),
-        align="flex-start",
-        wrap="wrap",
-        gap=16,
-        p=20,
+        class_name="aq-split",
     )

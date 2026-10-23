@@ -7,6 +7,7 @@ from alloq_commons.components.toolbar import segmented
 
 import appkit_mantine as mn
 from alloq_offer.workshop.components.briefing_tab import briefing_tab
+from alloq_offer.workshop.components.chapters_tab import chapters_tab
 from alloq_offer.workshop.components.draft_tab import draft_tab
 from alloq_offer.workshop.states.workshop_state import (
     TAB_BRIEFING,
@@ -30,6 +31,10 @@ def _later_tab() -> rx.Component:
 
 
 def workshop_body() -> rx.Component:
+    return rx.box(_workshop_content(), class_name="aq-ws")
+
+
+def _workshop_content() -> rx.Component:
     return rx.cond(
         WorkshopState.not_found,
         mn.box(empty_list(NOT_FOUND_TEXT), p=20),
@@ -38,7 +43,7 @@ def workshop_body() -> rx.Component:
             rx.match(
                 WorkshopState.active_tab,
                 (TAB_DRAFT, draft_tab()),
-                (TAB_CHAPTERS, _later_tab()),
+                (TAB_CHAPTERS, chapters_tab()),
                 (TAB_BRIEFING, briefing_tab()),
                 (TAB_EXPORT, _later_tab()),
                 draft_tab(),

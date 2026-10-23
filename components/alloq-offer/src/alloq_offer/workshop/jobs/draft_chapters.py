@@ -1,0 +1,225 @@
+"""Job ``draft_chapters``: proposals for prose chapters from map and briefing.
+
+Nothing is written into a chapter. A proposal waits until a person accepts it, and
+protected chapters are never drafted at all (A07).
+"""
+
+import logging
+from dataclasses import dataclass
+
+from sqlalchemy import select
+
+from alloq_offer.workshop.ai.agents import create_offer_ai
+from alloq_offer.workshop.ai.port import (
+    AiTransientError,
+    AiUnavailableError,
+    ChapterAi,
+    ChapterRequest,
+)
+from alloq_offer.workshop.ai.render import map_outline
+from alloq_offer.workshop.configuration import WorkshopConfig
+from alloq_offer.workshop.content.schema import ProseContent
+from alloq_offer.workshop.content.text import stored_lines
+from alloq_offer.workshop.db import SessionFactory
+from alloq_offer.workshop.entities import (
+    ChapterEntity,
+    GenerationRunEntity,
+    ProposalEntity,
+    ProposalStatus,
+    StatementEntity,
+    StatementStatus,
+)
+from alloq_offer.workshop.export.template_package import ChapterDef, load_template
+from alloq_offer.workshop.jobs.registry import (
+    JobContext,
+    PermanentJobError,
+    TransientJobError,
+    register_handler,
+)
+from alloq_offer.workshop.repositories import workspace_repo
+from alloq_offer.workshop.services.chapter_draft import DRAFT_CHAPTERS_JOB
+from alloq_offer.workshop.services.chapters import (
+    ChapterError,
+    add_proposal,
+    find_chapter,
+    revision_of,
+)
+from alloq_offer.workshop.services.map_apply import snapshot_map
+from appkit_commons.database.session import get_asyncdb_session
+from appkit_commons.registry import service_registry
+
+logger = logging.getLogger(__name__)
+
+AI_FAILED = "Die KI konnte keinen Vorschlag liefern. Bitte prüfen Sie die Einrichtung."
+AI_BUSY = "Die KI ist gerade nicht erreichbar. Der Auftrag wird erneut versucht."
+CONFIRMED = " (fachlich bestätigt)"
+NO_BASIS = {"status": "skipped", "reason": "no map and no briefing"}
+
+
+@dataclass(frozen=True)
+class _Target:
+    definition: ChapterDef
+    base_revision: int
+    current_lines: list[str]
+
+
+@dataclass(frozen=True)
+class _Basis:
+    map_revision: int
+    outline: str
+    statements: list[str]
+    targets: list[_Target]
+
+
+class DraftChapters:
+    """Drafts the wanted chapters one after the other and stores each result."""
+
+    def __init__(self, ai: ChapterAi, session_factory: SessionFactory) -> None:
+        self._ai = ai
+        self._session_factory = session_factory
+
+    async def run(self, ctx: JobContext) -> dict:
+        basis = await self._load(ctx)
+        if basis is None:
+            return NO_BASIS
+        stored = skipped = 0
+        instruction = str(ctx.payload.get("instruction") or "")
+        for target in basis.targets:
+            request = ChapterRequest(
+                title=target.definition.title,
+                guiding_question=target.definition.guiding_question,
+                rules=target.definition.content_rules,
+                current_lines=target.current_lines,
+                instruction=instruction,
+                map_outline=basis.outline,
+                statements=basis.statements,
+            )
+            try:
+                proposed = await self._ai.propose_chapter(request)
+            except AiTransientError as exc:
+                raise TransientJobError(AI_BUSY) from exc
+            except AiUnavailableError as exc:
+                raise PermanentJobError(AI_FAILED) from exc
+            if await self._store(ctx, basis, target, proposed.to_content()):
+                stored += 1
+            else:
+                skipped += 1
+        async with self._session_factory() as session:
+            session.add(
+                GenerationRunEntity(
+                    offer_id=ctx.offer_id,
+                    job_id=ctx.job_id,
+                    kind=DRAFT_CHAPTERS_JOB,
+                    model=self._ai.model_name,
+                    prompt_version=self._ai.chapter_prompt_version,
+                    input_revisions={"map": basis.map_revision},
+                    status="ok",
+                )
+            )
+        logger.info(
+            "Chapter drafts of offer %s: %d stored, %d skipped",
+            ctx.offer_id,
+            stored,
+            skipped,
+        )
+        return {"status": "ok", "proposals": stored, "skipped": skipped}
+
+    async def _store(
+        self, ctx: JobContext, basis: _Basis, target: _Target, content: ProseContent
+    ) -> bool:
+        """Keep the proposal unless the chapter changed while the model worked."""
+        key = target.definition.key
+        async with self._session_factory() as session:
+            try:
+                chapter = await find_chapter(session, ctx.offer_id, key)
+            except ChapterError:
+                return False
+            if chapter.protected or chapter.revision != target.base_revision:
+                return False
+            await add_proposal(
+                session,
+                offer_id=ctx.offer_id,
+                chapter_key=key,
+                content=content,
+                base_revision=target.base_revision,
+                map_revision=basis.map_revision,
+                instruction=str(ctx.payload.get("instruction") or ""),
+                job_id=ctx.job_id,
+            )
+            return True
+
+    async def _load(self, ctx: JobContext) -> _Basis | None:
+        wanted = ctx.payload.get("keys")
+        async with self._session_factory() as session:
+            workspace = await workspace_repo.find_by_offer(session, ctx.offer_id)
+            if workspace is None:
+                return None
+            statements = list(
+                (
+                    await session.scalars(
+                        select(StatementEntity)
+                        .where(StatementEntity.offer_id == ctx.offer_id)
+                        .order_by(StatementEntity.id)
+                    )
+                ).all()
+            )
+            if workspace.map_revision == 0 and not statements:
+                return None
+            snapshot = await snapshot_map(session, workspace)
+            template = load_template(workspace.template_key)
+            done = set(
+                (
+                    await session.scalars(
+                        select(ProposalEntity.chapter_key).where(
+                            ProposalEntity.job_id == ctx.job_id,
+                            ProposalEntity.status == ProposalStatus.OPEN,
+                        )
+                    )
+                ).all()
+            )
+            chapters = {
+                c.chapter_key: c
+                for c in (
+                    await session.scalars(
+                        select(ChapterEntity).where(
+                            ChapterEntity.offer_id == ctx.offer_id
+                        )
+                    )
+                ).all()
+            }
+            targets: list[_Target] = []
+            for definition in template.chapters:
+                if definition.chapter_type != "prose" or definition.key in done:
+                    continue
+                if wanted is not None and definition.key not in wanted:
+                    continue
+                chapter = chapters.get(definition.key)
+                if chapter is None or chapter.protected:
+                    continue
+                # Without explicit keys only chapters nobody wrote are drafted.
+                if wanted is None and chapter.revision > 1:
+                    continue
+                current = await revision_of(session, chapter)
+                targets.append(
+                    _Target(
+                        definition,
+                        chapter.revision,
+                        stored_lines(current.content),
+                    )
+                )
+        return _Basis(
+            map_revision=workspace.map_revision,
+            outline=map_outline(snapshot),
+            statements=[
+                f"{s.type}: {s.text}"
+                + (CONFIRMED if s.status == StatementStatus.CONFIRMED else "")
+                for s in statements
+            ],
+            targets=targets,
+        )
+
+
+@register_handler(DRAFT_CHAPTERS_JOB)
+async def draft_chapters(ctx: JobContext) -> dict:
+    config = service_registry().get(WorkshopConfig)
+    return await DraftChapters(create_offer_ai(config), get_asyncdb_session).run(ctx)

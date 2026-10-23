@@ -1,0 +1,21 @@
+/* Offer workshop: story map titles are bold inline inputs. */
+.aq-map-title input {
+  font-weight: 650;
+}
+
+/* The shell body is overflow: hidden, so the workshop scrolls itself. */
+.aq-ws {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.aq-ws-pad {
+  padding: 20px;
+}
+
+.aq-split-main.aq-ws-pad {
+  background: var(--aq-background);
+}
