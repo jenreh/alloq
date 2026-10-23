@@ -4,7 +4,10 @@ import reflex as rx
 from alloq_commons import theme
 
 import appkit_mantine as mn
+from alloq_offer.workshop.components.map_view import map_section
 from alloq_offer.workshop.components.sources_panel import sources_panel
+from alloq_offer.workshop.components.story_drawer import story_drawer
+from alloq_offer.workshop.states.map_state import MapState
 from alloq_offer.workshop.states.sources_state import SourcesState
 from alloq_offer.workshop.states.workshop_state import WorkshopState
 
@@ -64,10 +67,17 @@ def start_card() -> rx.Component:
     )
 
 
+def _side_column() -> rx.Component:
+    return rx.cond(MapState.has_selection, story_drawer(), sources_panel())
+
+
 def draft_tab() -> rx.Component:
     return mn.group(
-        mn.box(start_card(), style={"flex": "999 1 640px", "minWidth": "0"}),
-        sources_panel(),
+        mn.box(
+            rx.cond(MapState.has_map, map_section(), start_card()),
+            style={"flex": "999 1 640px", "minWidth": "0"},
+        ),
+        _side_column(),
         align="flex-start",
         wrap="wrap",
         gap=16,

@@ -11,6 +11,8 @@ from alloq_offer.workshop.components.workshop_view import (
     workshop_tabs,
 )
 from alloq_offer.workshop.routes import WORKSHOP_ROUTE
+from alloq_offer.workshop.states.briefing_state import BriefingState
+from alloq_offer.workshop.states.map_state import MapState
 from alloq_offer.workshop.states.sources_state import SourcesState
 from alloq_offer.workshop.states.workshop_state import WorkshopState
 from appkit_user.authentication.components.components import requires_role
@@ -41,7 +43,12 @@ def create_offer_workshop_page(
             ],
         ),
         padded=False,
-        on_load=[WorkshopState.load_workshop, SourcesState.load_sources],
+        on_load=[
+            WorkshopState.load_workshop,
+            SourcesState.load_sources,
+            MapState.load_map,
+            BriefingState.load_briefing,
+        ],
     )
     def _workshop_page() -> rx.Component:
         return requires_role(

@@ -21,11 +21,10 @@ from alloq_offer.workshop.services.sources import (
     READABLE_STATUSES,
     SourceRejectedError,
 )
-from alloq_offer.workshop.states.workshop_state import WorkshopState
+from alloq_offer.workshop.states.helpers import current_user_name, open_offer_id
 from alloq_offer.workshop.storage import BlobTooLargeError, DbBlobStore
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
-from appkit_user.authentication.states import LoginState
 
 logger = logging.getLogger(__name__)
 
@@ -117,13 +116,10 @@ class SourcesState(rx.State):
         return not self.sources
 
     async def _offer_id(self) -> int:
-        workshop = await self.get_state(WorkshopState)
-        return workshop.offer_id
+        return await open_offer_id(self)
 
     async def _user_name(self) -> str:
-        login = await self.get_state(LoginState)
-        user = await login.authenticated_user
-        return user.name if user else ""
+        return await current_user_name(self)
 
     async def _reload(self, offer_id: int) -> None:
         async with get_asyncdb_session() as session:

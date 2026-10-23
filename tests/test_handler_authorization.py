@@ -101,6 +101,7 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
     "SplashState": frozenset({"finish"}),
     "SidebarState": frozenset({"invalidate"}),
     "DashboardState": frozenset({"close_drill_down", "open_drill_down"}),
+    "MapState": frozenset({"close_story", "select_story"}),
     "SourcesState": frozenset({"close_paste", "open_paste"}),
     "OfferState": frozenset(
         {

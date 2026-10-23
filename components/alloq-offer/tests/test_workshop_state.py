@@ -168,10 +168,17 @@ def test_set_tab_and_route_param() -> None:
     assert state.active_tab == TAB_EXPORT
 
 
-def test_route_offer_id_parses_param() -> None:
+def test_route_offer_id_parses_path() -> None:
     state = _state()
-    for params, expected in (({"offer_id": "12"}, 12), ({"offer_id": "x"}, 0), ({}, 0)):
-        router = SimpleNamespace(page=SimpleNamespace(params=params))
+    cases = (
+        ("/offers/12/werkstatt", 12),
+        ("/prefix/offers/12/werkstatt", 12),
+        ("/offers/x/werkstatt", 0),
+        ("/offers/12/other", 0),
+        ("/", 0),
+    )
+    for path, expected in cases:
+        router = SimpleNamespace(url=SimpleNamespace(path=path))
         with patch.object(WorkshopState, "router", router, create=True):
             assert state._route_offer_id() == expected  # noqa: SLF001
 

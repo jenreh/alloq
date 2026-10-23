@@ -196,7 +196,8 @@ async def snapshot_map(session: AsyncSession, workspace: WorkspaceEntity) -> dic
         statement = select(entity).where(
             getattr(entity, "offer_id") == offer_id  # noqa: B009
         )
-        return list((await session.scalars(statement.order_by(position))).all())  # ty: ignore[invalid-argument-type]
+        ordered = statement.order_by(position, getattr(entity, "id"))  # noqa: B009  # ty: ignore[invalid-argument-type]
+        return list((await session.scalars(ordered)).all())
 
     activities = await _rows(ActivityEntity, ActivityEntity.position)
     tasks = await _rows(TaskEntity, TaskEntity.position)
@@ -235,6 +236,9 @@ def _story_dict(story: StoryEntity) -> dict:
         "id": story.id,
         "key": story.key,
         "title": story.title,
+        "role": story.role,
+        "goal": story.goal,
+        "benefit": story.benefit,
         "sentence": story_sentence(story.role, story.goal, story.benefit),
         "scope": story.scope,
         "origin": story.origin,

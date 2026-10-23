@@ -6,6 +6,7 @@ from alloq_commons.components.list_view import empty_list
 from alloq_commons.components.toolbar import segmented
 
 import appkit_mantine as mn
+from alloq_offer.workshop.components.briefing_tab import briefing_tab
 from alloq_offer.workshop.components.draft_tab import draft_tab
 from alloq_offer.workshop.states.workshop_state import (
     TAB_BRIEFING,
@@ -38,7 +39,7 @@ def workshop_body() -> rx.Component:
                 WorkshopState.active_tab,
                 (TAB_DRAFT, draft_tab()),
                 (TAB_CHAPTERS, _later_tab()),
-                (TAB_BRIEFING, _later_tab()),
+                (TAB_BRIEFING, briefing_tab()),
                 (TAB_EXPORT, _later_tab()),
                 draft_tab(),
             ),

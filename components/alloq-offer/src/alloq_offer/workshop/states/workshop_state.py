@@ -8,6 +8,7 @@ import reflex as rx
 from alloq_commons.access import requires_offer_editor
 
 from alloq_offer.repository import offer_repo
+from alloq_offer.workshop.routes import WORKSHOP_ROUTE_SUFFIX
 from alloq_offer.workshop.services.workspace import open_workspace
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_user.authentication.states import LoginState
@@ -51,8 +52,12 @@ class WorkshopState(rx.State):
         )
 
     def _route_offer_id(self) -> int:
+        path = self.router.url.path
+        if not path.endswith(WORKSHOP_ROUTE_SUFFIX):
+            return 0
+        segment = path.removesuffix(WORKSHOP_ROUTE_SUFFIX).rsplit("/", 1)[-1]
         try:
-            return int(self.router.page.params.get("offer_id", "0"))
+            return int(segment)
         except ValueError:
             return 0
 

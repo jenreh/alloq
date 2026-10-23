@@ -15,6 +15,8 @@ from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
 from alloq_offer.workshop.services.sources import TEXT_EXTENSIONS
+from alloq_offer.workshop.states.briefing_state import BriefingState
+from alloq_offer.workshop.states.map_state import MapState
 from alloq_offer.workshop.states.sources_state import UPLOAD_ID, SourcesState
 
 SOURCES_TITLE = "Quellen"
@@ -153,7 +155,11 @@ def sources_panel() -> rx.Component:
                 SourcesState.has_working,
                 rx.moment(
                     interval=STATUS_POLL_MS,
-                    on_change=SourcesState.load_sources,
+                    on_change=[
+                        SourcesState.load_sources,
+                        MapState.load_map,
+                        BriefingState.load_briefing,
+                    ],
                     display="none",
                 ),
             ),
