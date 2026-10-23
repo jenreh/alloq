@@ -8,6 +8,10 @@ class TransientJobError(RuntimeError):
     """The job may succeed on a later attempt (timeout, rate limit)."""
 
 
+class PermanentJobError(RuntimeError):
+    """The job cannot succeed; the message is ours and shown to users."""
+
+
 class UnknownJobKindError(LookupError):
     """No handler is registered for the job kind."""
 

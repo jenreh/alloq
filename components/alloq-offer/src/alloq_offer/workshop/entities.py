@@ -13,6 +13,7 @@ from sqlalchemy import (
     LargeBinary,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import false, true
@@ -60,6 +61,37 @@ class SourceStatus(enum.StrEnum):
     PARTIAL = "teilweise nutzbar"
     FAILED = "fehlgeschlagen"
     MANUAL = "manuell nötig"
+
+
+class Scope(enum.StrEnum):
+    """How far a story is part of the offer."""
+
+    OPEN = "offen"
+    OFFERED = "angeboten"
+    OPTION = "option"
+    EXCLUDED = "ausgeschlossen"
+
+
+class Origin(enum.StrEnum):
+    """Where a story comes from."""
+
+    CUSTOMER = "Kunde"
+    PROPOSAL = "Vorschlag"
+    USER = "Nutzer"
+
+
+class StatementType(enum.StrEnum):
+    REQUIREMENT = "Kundenanforderung"
+    FACT = "Belegter Sachverhalt"
+    SOLUTION = "Lösungsvorschlag"
+    ASSUMPTION = "Annahme"
+    OPEN_POINT = "Offener Punkt/Konflikt"
+    CONFLICT = "Widerspruch"
+
+
+class StatementStatus(enum.StrEnum):
+    PROPOSED = "Vorschlag"
+    CONFIRMED = "Bestätigt"
 
 
 class WorkspaceEntity(Entity, Base):
@@ -244,4 +276,235 @@ class SourceBlockEntity(Entity, Base):
             "anchor": self.anchor,
             "speaker": self.speaker,
             "text": self.text,
+        }
+
+
+class SliceEntity(Entity, Base):
+    """A proposed implementation slice of the map."""
+
+    __tablename__ = "offer_slices"
+
+    offer_id: Mapped[int] = mapped_column(
+        ForeignKey("offers.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    def to_dict(self) -> dict:
+        """Convert entity to dictionary for Pydantic model creation."""
+        return {
+            "id": self.id,
+            "offer_id": self.offer_id,
+            "title": self.title,
+            "position": self.position,
+        }
+
+
+class ActivityEntity(Entity, Base):
+    """A customer activity: one column of the story map."""
+
+    __tablename__ = "offer_activities"
+
+    offer_id: Mapped[int] = mapped_column(
+        ForeignKey("offers.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    def to_dict(self) -> dict:
+        """Convert entity to dictionary for Pydantic model creation."""
+        return {
+            "id": self.id,
+            "offer_id": self.offer_id,
+            "title": self.title,
+            "position": self.position,
+            "archived_at": self.archived_at,
+        }
+
+
+class TaskEntity(Entity, Base):
+    """A task below an activity."""
+
+    __tablename__ = "offer_tasks"
+
+    offer_id: Mapped[int] = mapped_column(
+        ForeignKey("offers.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    activity_id: Mapped[int] = mapped_column(
+        ForeignKey("offer_activities.id", ondelete="RESTRICT"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    def to_dict(self) -> dict:
+        """Convert entity to dictionary for Pydantic model creation."""
+        return {
+            "id": self.id,
+            "offer_id": self.offer_id,
+            "activity_id": self.activity_id,
+            "title": self.title,
+            "position": self.position,
+            "archived_at": self.archived_at,
+        }
+
+
+class StoryEntity(Entity, Base):
+    """A simple user story; its key never changes and is never reused."""
+
+    __tablename__ = "offer_stories"
+    __table_args__ = (
+        UniqueConstraint("offer_id", "key", name="uq_offer_stories_offer_key"),
+    )
+
+    offer_id: Mapped[int] = mapped_column(
+        ForeignKey("offers.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    key: Mapped[str] = mapped_column(String(20), nullable=False)
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    role: Mapped[str] = mapped_column(String(300), nullable=False)
+    goal: Mapped[str] = mapped_column(String(300), nullable=False)
+    benefit: Mapped[str] = mapped_column(String(300), nullable=False)
+    scope: Mapped[str] = mapped_column(String(20), nullable=False, default=Scope.OPEN)
+    origin: Mapped[str] = mapped_column(String(20), nullable=False)
+    task_id: Mapped[int | None] = mapped_column(
+        ForeignKey("offer_tasks.id", ondelete="RESTRICT"), nullable=True
+    )
+    slice_id: Mapped[int | None] = mapped_column(
+        ForeignKey("offer_slices.id", ondelete="RESTRICT"), nullable=True
+    )
+    skeleton: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    priority: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    source_refs: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    split_from_id: Mapped[int | None] = mapped_column(
+        ForeignKey("offer_stories.id", ondelete="RESTRICT"), nullable=True
+    )
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    def to_dict(self) -> dict:
+        """Convert entity to dictionary for Pydantic model creation."""
+        return {
+            "id": self.id,
+            "offer_id": self.offer_id,
+            "key": self.key,
+            "title": self.title,
+            "role": self.role,
+            "goal": self.goal,
+            "benefit": self.benefit,
+            "scope": self.scope,
+            "origin": self.origin,
+            "task_id": self.task_id,
+            "slice_id": self.slice_id,
+            "skeleton": self.skeleton,
+            "priority": self.priority,
+            "position": self.position,
+            "source_refs": self.source_refs,
+            "split_from_id": self.split_from_id,
+            "archived_at": self.archived_at,
+        }
+
+
+class StatementEntity(Entity, Base):
+    """A briefing statement: requirement, fact, proposal, assumption or open point."""
+
+    __tablename__ = "offer_statements"
+
+    offer_id: Mapped[int] = mapped_column(
+        ForeignKey("offers.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    type: Mapped[str] = mapped_column(String(40), nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=StatementStatus.PROPOSED
+    )
+    source_refs: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    needs_recheck: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    confirmed_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    confirmed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    def to_dict(self) -> dict:
+        """Convert entity to dictionary for Pydantic model creation."""
+        return {
+            "id": self.id,
+            "offer_id": self.offer_id,
+            "type": self.type,
+            "text": self.text,
+            "status": self.status,
+            "source_refs": self.source_refs,
+            "needs_recheck": self.needs_recheck,
+            "confirmed_by": self.confirmed_by,
+            "confirmed_at": self.confirmed_at,
+        }
+
+
+class MapRevisionEntity(Entity, Base):
+    """Immutable snapshot of the map after one change."""
+
+    __tablename__ = "offer_map_revisions"
+    __table_args__ = (
+        UniqueConstraint("offer_id", "revision", name="uq_offer_map_revisions"),
+    )
+
+    offer_id: Mapped[int] = mapped_column(
+        ForeignKey("offers.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_by: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+
+    def to_dict(self) -> dict:
+        """Convert entity to dictionary for Pydantic model creation."""
+        return {
+            "id": self.id,
+            "offer_id": self.offer_id,
+            "revision": self.revision,
+            "snapshot": self.snapshot,
+            "created_by": self.created_by,
+            "created": self.created,
+        }
+
+
+class GenerationRunEntity(Entity, Base):
+    """Which model and prompt version produced a proposal."""
+
+    __tablename__ = "offer_generation_runs"
+
+    offer_id: Mapped[int] = mapped_column(
+        ForeignKey("offers.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    job_id: Mapped[int | None] = mapped_column(
+        ForeignKey("offer_jobs.id", ondelete="SET NULL"), nullable=True
+    )
+    kind: Mapped[str] = mapped_column(String(50), nullable=False)
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    prompt_version: Mapped[str] = mapped_column(String(50), nullable=False)
+    input_revisions: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+
+    def to_dict(self) -> dict:
+        """Convert entity to dictionary for Pydantic model creation."""
+        return {
+            "id": self.id,
+            "offer_id": self.offer_id,
+            "job_id": self.job_id,
+            "kind": self.kind,
+            "model": self.model,
+            "prompt_version": self.prompt_version,
+            "input_revisions": self.input_revisions,
+            "status": self.status,
+            "created": self.created,
         }

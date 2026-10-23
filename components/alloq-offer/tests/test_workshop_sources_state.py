@@ -13,6 +13,7 @@ from alloq_offer.workshop.configuration import WorkshopConfig
 from alloq_offer.workshop.entities import SourceEntity, SourceKind, SourceStatus
 from alloq_offer.workshop.services.sources import (
     ACCEPTED_EXTENSIONS,
+    DraftNotPossibleError,
     SourceRejectedError,
 )
 from alloq_offer.workshop.states import sources_state
@@ -64,6 +65,15 @@ def repo() -> Generator[AsyncMock]:
     sources.list_current = AsyncMock(return_value=[_source()])
     with (
         patch(f"{MODULE}.source_repo", sources),
+        patch(
+            f"{MODULE}.workspace_repo",
+            MagicMock(
+                find_by_offer=AsyncMock(return_value=SimpleNamespace(map_revision=0))
+            ),
+        ),
+        patch(
+            f"{MODULE}.job_repo", MagicMock(find_latest=AsyncMock(return_value=None))
+        ),
         patch(f"{MODULE}.get_asyncdb_session", _ctx),
         patch(
             f"{MODULE}.service_registry",
@@ -308,3 +318,63 @@ async def test_known_content_and_oversized_files_are_reported() -> None:
     assert TOO_LARGE in toasts
     assert sources_state.KNOWN in pasted
     assert add.await_count == 2
+
+
+def test_draft_button_state_follows_map_and_job() -> None:
+    state = _state()
+    state.sources = [source_row(_source(1))]
+    assert state.can_generate
+    state.has_map = True
+    assert not state.can_generate
+    state.has_map = False
+    state.draft_job = "running"
+    assert state.draft_working
+    assert state.has_working
+    assert not state.can_generate
+    assert "gerade erzeugt" in state.draft_message
+    state.draft_job = "succeeded"
+    assert state.draft_message == ""
+
+
+@pytest.mark.usefixtures("repo")
+async def test_generate_draft_queues_the_job() -> None:
+    state = _state()
+    state.sources = [source_row(_source(1))]
+    request = AsyncMock()
+    with _as_offer_editor(state), patch(f"{SERVICE}.request_initial_draft", request):
+        toasts = await _run(state.generate_draft)
+    request.assert_awaited_once()
+    assert sources_state.DRAFT_QUEUED in toasts
+    with (
+        _as_offer_editor(state),
+        patch(f"{SERVICE}.request_initial_draft", AsyncMock(side_effect=RuntimeError)),
+    ):
+        assert sources_state.DRAFT_ERROR in await _run(state.generate_draft)
+
+
+@pytest.mark.usefixtures("repo")
+async def test_generate_draft_does_nothing_without_sources() -> None:
+    state = _state()
+    request = AsyncMock()
+    with _as_offer_editor(state), patch(f"{SERVICE}.request_initial_draft", request):
+        await _run(state.generate_draft)
+    request.assert_not_called()
+
+
+@pytest.mark.usefixtures("repo")
+async def test_generate_draft_reports_a_draft_that_is_not_possible() -> None:
+    state = _state()
+    state.sources = [source_row(_source(1))]
+    error = DraftNotPossibleError("Zu diesem Angebot gibt es schon eine Story Map.")
+    with (
+        _as_offer_editor(state),
+        patch(f"{SERVICE}.request_initial_draft", AsyncMock(side_effect=error)),
+    ):
+        assert "schon eine Story Map" in await _run(state.generate_draft)
+
+
+def test_failed_draft_shows_the_reason() -> None:
+    state = _state()
+    state.draft_job = "failed"
+    state.draft_error = "Bitte prüfen Sie die Einrichtung."
+    assert state.draft_message.endswith("Bitte prüfen Sie die Einrichtung.")

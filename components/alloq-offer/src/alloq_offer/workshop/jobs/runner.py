@@ -13,6 +13,7 @@ from alloq_offer.workshop.entities import JobEntity
 from alloq_offer.workshop.jobs import queue
 from alloq_offer.workshop.jobs.registry import (
     JobContext,
+    PermanentJobError,
     TransientJobError,
     get_exhausted_hook,
     get_handler,
@@ -155,7 +156,11 @@ class JobRunner:
                 error_class=type(exc).__name__,
                 # Only transient errors carry a message we wrote ourselves; other
                 # exceptions may quote source content, the log has the trace.
-                message=str(exc) if isinstance(exc, TransientJobError) else "",
+                message=(
+                    str(exc)
+                    if isinstance(exc, TransientJobError | PermanentJobError)
+                    else ""
+                ),
                 retry=retry,
                 now=self._clock(),
             )

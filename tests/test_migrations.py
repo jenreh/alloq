@@ -514,3 +514,29 @@ def test_offer_sources_migration_creates_and_drops_tables() -> None:
     assert tables <= created
     assert "ix_offer_sources_offer_sha256" in indexes
     assert not tables & dropped
+
+
+# d5e6f7a8b9c0 — offer workshop story map
+def test_offer_story_map_migration_creates_and_drops_tables() -> None:
+    base = _load("2026_10_23_offer_workshop_base.py")
+    sources = _load("2026_10_24_offer_sources.py")
+    migration = _load("2026_10_25_offer_story_map.py")
+    assert migration.down_revision == sources.revision
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    tables = set(migration.TABLES)
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        _run(base, "upgrade", conn)
+        _run(sources, "upgrade", conn)
+        _run(migration, "upgrade", conn)
+        created = set(sa.inspect(conn).get_table_names())
+        uniques = {
+            u["name"] for u in sa.inspect(conn).get_unique_constraints("offer_stories")
+        }
+        _run(migration, "downgrade", conn)
+        dropped = set(sa.inspect(conn).get_table_names())
+    assert tables <= created
+    assert "uq_offer_stories_offer_key" in uniques
+    assert not tables & dropped

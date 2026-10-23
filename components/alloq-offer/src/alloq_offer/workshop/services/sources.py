@@ -6,15 +6,22 @@ from datetime import datetime
 from pathlib import PurePath
 
 from alloq_offer.workshop.db import SessionFactory
-from alloq_offer.workshop.entities import SourceEntity, SourceKind, SourceStatus
+from alloq_offer.workshop.entities import (
+    JobEntity,
+    JobStatus,
+    SourceEntity,
+    SourceKind,
+    SourceStatus,
+)
 from alloq_offer.workshop.jobs import queue
-from alloq_offer.workshop.repositories import source_repo
+from alloq_offer.workshop.repositories import job_repo, source_repo, workspace_repo
 from alloq_offer.workshop.storage import BlobStore, sha256_hex
 from appkit_commons.database.session import get_asyncdb_session
 
 logger = logging.getLogger(__name__)
 
 EXTRACT_JOB = "extract_source"
+READABLE_STATUSES = (SourceStatus.USABLE, SourceStatus.PARTIAL)
 DEFAULT_TEXT_TITLE = "Eingefügter Text"
 TEXT_EXTENSIONS = (
     ".txt",
@@ -177,3 +184,48 @@ async def retry_source(
             max_attempts=max_attempts,
         )
         return True
+
+
+INITIAL_DRAFT_JOB = "initial_draft"
+MAP_EXISTS = "Zu diesem Angebot gibt es schon eine Story Map."
+NO_READABLE_SOURCES = "Es gibt keine nutzbaren Quellen für einen Entwurf."
+
+
+class DraftNotPossibleError(ValueError):
+    """There is nothing to draft from, or the offer already has a map."""
+
+
+async def request_initial_draft(
+    session_factory: SessionFactory,
+    offer_id: int,
+    *,
+    now: datetime,
+    max_attempts: int,
+) -> JobEntity:
+    """Queue the first draft; one waiting or running draft per offer.
+
+    The key counts the drafts of the offer, so two clicks at once meet in the same
+    queue entry instead of queuing two jobs.
+    """
+    async with session_factory() as session:
+        workspace = await workspace_repo.find_by_offer(session, offer_id)
+        if workspace is not None and workspace.map_revision > 0:
+            raise DraftNotPossibleError(MAP_EXISTS)
+        sources = await source_repo.list_current(session, offer_id)
+        if not any(s.included and s.status in READABLE_STATUSES for s in sources):
+            raise DraftNotPossibleError(NO_READABLE_SOURCES)
+        latest = await job_repo.find_latest(session, offer_id, INITIAL_DRAFT_JOB)
+        if latest is not None and latest.status in (
+            JobStatus.QUEUED,
+            JobStatus.RUNNING,
+        ):
+            return latest
+        number = await job_repo.count_of_kind(session, offer_id, INITIAL_DRAFT_JOB) + 1
+        return await queue.enqueue(
+            session,
+            kind=INITIAL_DRAFT_JOB,
+            offer_id=offer_id,
+            idempotency_key=f"{INITIAL_DRAFT_JOB}:{offer_id}:{number}",
+            now=now,
+            max_attempts=max_attempts,
+        )

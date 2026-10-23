@@ -22,4 +22,7 @@ class WorkshopConfig(BaseModel):
     lease_seconds: int = Field(default=300, ge=10)
     max_attempts: int = Field(default=3, ge=1)
     max_blob_bytes: int = Field(default=50 * 1024 * 1024, gt=0)
+    ai_max_input_chars: int = Field(default=400_000, gt=0)
+    ai_timeout_seconds: float = Field(default=300.0, gt=0)
+    ai_request_limit: int = Field(default=6, ge=1)
     azure_openai: AzureOpenAiConfig = Field(default_factory=AzureOpenAiConfig)

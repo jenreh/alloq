@@ -36,6 +36,8 @@ def start_card() -> rx.Component:
                 size="md",
                 radius="md",
                 disabled=~SourcesState.can_generate,
+                loading=SourcesState.draft_working,
+                on_click=SourcesState.generate_draft,
             ),
             mn.checkbox(
                 label=AUTO_DRAFT_LABEL,
@@ -44,6 +46,10 @@ def start_card() -> rx.Component:
             ),
             gap=12,
             align="center",
+        ),
+        rx.cond(
+            SourcesState.draft_message != "",
+            mn.text(SourcesState.draft_message, fz="13px", c=theme.TEXT_MUTED),
         ),
         mn.stack(
             mn.text(LOOKS_FOR_TITLE, fz="12px", fw=600, c=theme.TEXT_MUTED),

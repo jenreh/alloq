@@ -1,6 +1,6 @@
 """Async repositories of the offer workshop."""
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from alloq_offer.workshop.entities import (
@@ -33,6 +33,18 @@ class JobRepository(BaseRepository[JobEntity, AsyncSession]):
     @property
     def model_class(self) -> type[JobEntity]:
         return JobEntity
+
+    async def count_of_kind(
+        self, session: AsyncSession, offer_id: int, kind: str
+    ) -> int:
+        return (
+            await session.scalar(
+                select(func.count())
+                .select_from(JobEntity)
+                .where(JobEntity.offer_id == offer_id, JobEntity.kind == kind)
+            )
+            or 0
+        )
 
     async def find_latest(
         self, session: AsyncSession, offer_id: int, kind: str

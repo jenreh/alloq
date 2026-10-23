@@ -9,10 +9,18 @@ import reflex as rx
 from alloq_commons.access import requires_offer_editor
 
 from alloq_offer.workshop.configuration import WorkshopConfig
-from alloq_offer.workshop.entities import SourceEntity, SourceKind, SourceStatus
-from alloq_offer.workshop.repositories import source_repo
+from alloq_offer.workshop.entities import (
+    JobStatus,
+    SourceEntity,
+    SourceKind,
+    SourceStatus,
+)
+from alloq_offer.workshop.repositories import job_repo, source_repo, workspace_repo
 from alloq_offer.workshop.services import sources as source_service
-from alloq_offer.workshop.services.sources import SourceRejectedError
+from alloq_offer.workshop.services.sources import (
+    READABLE_STATUSES,
+    SourceRejectedError,
+)
 from alloq_offer.workshop.states.workshop_state import WorkshopState
 from alloq_offer.workshop.storage import BlobTooLargeError, DbBlobStore
 from appkit_commons.database.session import get_asyncdb_session
@@ -32,7 +40,6 @@ KIND_LABELS: dict[str, str] = {
     SourceKind.PPTX: "Folien",
     SourceKind.AUDIO: "Audio",
 }
-READABLE = (SourceStatus.USABLE, SourceStatus.PARTIAL)
 WORKING = (SourceStatus.UPLOADED, SourceStatus.PROCESSING)
 RETRYABLE = (SourceStatus.FAILED, SourceStatus.MANUAL)
 LOAD_ERROR = "Die Quellen konnten nicht geladen werden."
@@ -40,6 +47,13 @@ ADD_ERROR = "Die Quelle konnte nicht hinzugefügt werden."
 RETRY_ERROR = "Die Quelle konnte nicht erneut gestartet werden."
 SAVE_ERROR = "Die Änderung konnte nicht gespeichert werden."
 EMPTY_TEXT = "Bitte geben Sie einen Text ein."
+DRAFT_QUEUED = "Der Entwurf wird erzeugt."
+DRAFT_ERROR = "Der Entwurf konnte nicht gestartet werden."
+DRAFT_STATUS: dict[str, str] = {
+    JobStatus.QUEUED: "Der Entwurf wartet auf die Bearbeitung.",
+    JobStatus.RUNNING: "Der Entwurf wird gerade erzeugt.",
+    JobStatus.FAILED: "Der Entwurf ist fehlgeschlagen. Sie können es erneut versuchen.",
+}
 TOO_LARGE = "Die Datei ist zu groß: "
 KNOWN = "Diese Quelle gibt es schon: "
 
@@ -55,8 +69,8 @@ def source_row(source: SourceEntity) -> dict[str, Any]:
         "name": source.title,
         "summary": summary,
         "included": source.included,
-        "usable": source.status in READABLE,
-        "ok": source.status in (*READABLE, *WORKING),
+        "usable": source.status in READABLE_STATUSES,
+        "ok": source.status in (*READABLE_STATUSES, *WORKING),
         "working": source.status in WORKING,
         "retryable": source.status in RETRYABLE,
     }
@@ -67,14 +81,27 @@ class SourcesState(rx.State):
 
     sources: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
     paste_open: rx.Field[bool] = rx.field(False)
+    draft_job: rx.Field[str] = rx.field("")
+    draft_error: rx.Field[str] = rx.field("")
+    has_map: rx.Field[bool] = rx.field(False)
 
     @rx.var
     def included_count(self) -> int:
         return sum(1 for row in self.sources if row["included"] and row["usable"])
 
     @rx.var
+    def draft_working(self) -> bool:
+        return self.draft_job in (JobStatus.QUEUED, JobStatus.RUNNING)
+
+    @rx.var
+    def draft_message(self) -> str:
+        if self.draft_job == JobStatus.FAILED and self.draft_error:
+            return f"Der Entwurf ist fehlgeschlagen. {self.draft_error}"
+        return DRAFT_STATUS.get(self.draft_job, "")
+
+    @rx.var
     def can_generate(self) -> bool:
-        return self.included_count > 0
+        return self.included_count > 0 and not self.has_map and not self.draft_working
 
     @rx.var
     def generate_label(self) -> str:
@@ -83,7 +110,7 @@ class SourcesState(rx.State):
 
     @rx.var
     def has_working(self) -> bool:
-        return any(row["working"] for row in self.sources)
+        return self.draft_working or any(row["working"] for row in self.sources)
 
     @rx.var
     def is_empty(self) -> bool:
@@ -102,6 +129,13 @@ class SourcesState(rx.State):
         async with get_asyncdb_session() as session:
             rows = await source_repo.list_current(session, offer_id)
             self.sources = [source_row(row) for row in rows]
+            workspace = await workspace_repo.find_by_offer(session, offer_id)
+            self.has_map = workspace is not None and workspace.map_revision > 0
+            job = await job_repo.find_latest(
+                session, offer_id, source_service.INITIAL_DRAFT_JOB
+            )
+            self.draft_job = job.status if job is not None else ""
+            self.draft_error = (job.error_message or "") if job is not None else ""
 
     @rx.event
     def open_paste(self) -> None:
@@ -123,6 +157,29 @@ class SourcesState(rx.State):
         except Exception:
             logger.exception("Loading sources of offer %s failed", offer_id)
             yield rx.toast.error(LOAD_ERROR, position="top-right")
+
+    @rx.event
+    @requires_offer_editor
+    async def generate_draft(self) -> AsyncGenerator[Any]:
+        """Queue the first draft from the included sources."""
+        offer_id = await self._offer_id()
+        if not offer_id or not self.can_generate:
+            return
+        config = service_registry().get(WorkshopConfig)
+        try:
+            await source_service.request_initial_draft(
+                get_asyncdb_session,
+                offer_id,
+                now=datetime.now(UTC),
+                max_attempts=config.max_attempts,
+            )
+            await self._reload(offer_id)
+            yield rx.toast.info(DRAFT_QUEUED, position="top-right")
+        except source_service.DraftNotPossibleError as exc:
+            yield rx.toast.error(str(exc), position="top-right")
+        except Exception:
+            logger.exception("Queueing the draft of offer %s failed", offer_id)
+            yield rx.toast.error(DRAFT_ERROR, position="top-right")
 
     @rx.event
     @requires_offer_editor
