@@ -21,6 +21,8 @@ from alloq_offer.workshop.states.sources_state import (
     ADD_ERROR,
     EMPTY_TEXT,
     RETRY_ERROR,
+    REVOKE_ERROR,
+    REVOKED,
     TOO_LARGE,
     SourcesState,
     source_row,
@@ -378,3 +380,39 @@ def test_failed_draft_shows_the_reason() -> None:
     state.draft_job = "failed"
     state.draft_error = "Bitte prüfen Sie die Einrichtung."
     assert state.draft_message.endswith("Bitte prüfen Sie die Einrichtung.")
+
+
+@pytest.mark.usefixtures("repo")
+async def test_revoke_source_reports_success_and_failure() -> None:
+    state = _state()
+    with (
+        _as_offer_editor(state),
+        patch(f"{MODULE}.revoke_source", AsyncMock(return_value=True)) as revoke,
+    ):
+        assert REVOKED in await _run(state.revoke_source, 1)
+    assert revoke.await_args.args[1:3] == (5, 1)
+    with (
+        _as_offer_editor(state),
+        patch(f"{MODULE}.revoke_source", AsyncMock(side_effect=RuntimeError)),
+    ):
+        assert REVOKE_ERROR in await _run(state.revoke_source, 1)
+
+
+@pytest.mark.usefixtures("repo")
+async def test_viewer_opens_with_blocks_and_closes() -> None:
+    state = _state()
+    blocks = [{"label": "Seite 1", "speaker": "", "text": "Hallo", "gap": False}]
+    with (
+        _as_offer_editor(state),
+        patch(f"{SERVICE}.load_blocks", AsyncMock(return_value=("Mail", blocks))),
+    ):
+        await _run(state.open_viewer, 1)
+    assert state.viewer_open
+    assert (state.viewer_title, state.viewer_blocks) == ("Mail", blocks)
+    state.close_viewer()
+    assert not state.viewer_open
+    with (
+        _as_offer_editor(state),
+        patch(f"{SERVICE}.load_blocks", AsyncMock(side_effect=RuntimeError)),
+    ):
+        assert "geladen" in await _run(state.open_viewer, 1)

@@ -272,3 +272,21 @@ async def test_exhausted_hook_runs_when_the_lease_expired_on_the_last_attempt(
     assert not await runner.run_once()
     assert seen == [job_id]
     assert (await _job(db, job_id)).status == JobStatus.FAILED
+
+
+async def test_runner_logs_duration_status_and_error_class_without_content(
+    db, caplog: pytest.LogCaptureFixture
+) -> None:
+    @register_handler("telemetry")
+    async def secret(_context: JobContext) -> None:
+        raise TransientJobError("vertraulicher Text")
+
+    await _enqueue(db, "t", "telemetry", payload={"geheim": "Kundendaten"})
+    with caplog.at_level("INFO", logger="alloq_offer.workshop.jobs.runner"):
+        await _runner(db).run_once()
+    line = next(r.getMessage() for r in caplog.records if "telemetry" in r.getMessage())
+    assert "retry" in line
+    assert "TransientJobError" in line
+    assert " s," in line
+    assert "Kundendaten" not in caplog.text
+    assert "vertraulicher" not in caplog.text

@@ -60,3 +60,4 @@ class RenderContext:
     stories: list[ResolvedStory] = field(default_factory=list)
     values: dict[str, ResolvedValue] = field(default_factory=dict)
     draft: bool = True
+    open_points: list[str] = field(default_factory=list)

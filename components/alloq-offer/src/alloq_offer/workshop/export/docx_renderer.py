@@ -23,6 +23,8 @@ from alloq_offer.workshop.export.template_package import (
 )
 
 DRAFT_MARKER = "ENTWURF – nicht zur Weitergabe an den Kunden"
+OPEN_POINTS_TITLE = "Offene Punkte"
+BULLET_STYLE = "Aufzählung 1"
 
 
 def render_document(
@@ -48,6 +50,10 @@ def render_document(
             raise UnsupportedContentError(chapter.content.chapter_type)
         writer.heading(chapter.title, chapter.level)
         renderer(writer, chapter, ctx)
+    if ctx.draft and ctx.open_points:
+        writer.heading(OPEN_POINTS_TITLE, 1)
+        for point in ctx.open_points:
+            writer.paragraph([Run(text=point)], BULLET_STYLE)
     anchor._p.getparent().remove(anchor._p)  # noqa: SLF001
 
     out = io.BytesIO()

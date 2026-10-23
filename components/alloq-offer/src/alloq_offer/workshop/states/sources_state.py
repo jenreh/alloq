@@ -17,6 +17,7 @@ from alloq_offer.workshop.entities import (
 )
 from alloq_offer.workshop.repositories import job_repo, source_repo, workspace_repo
 from alloq_offer.workshop.services import sources as source_service
+from alloq_offer.workshop.services.source_revocation import revoke_source
 from alloq_offer.workshop.services.sources import (
     READABLE_STATUSES,
     SourceRejectedError,
@@ -44,6 +45,8 @@ RETRYABLE = (SourceStatus.FAILED, SourceStatus.MANUAL)
 LOAD_ERROR = "Die Quellen konnten nicht geladen werden."
 ADD_ERROR = "Die Quelle konnte nicht hinzugefügt werden."
 RETRY_ERROR = "Die Quelle konnte nicht erneut gestartet werden."
+REVOKED = "Die Quelle wurde zurückgezogen und ihr Inhalt gelöscht."
+REVOKE_ERROR = "Die Quelle konnte nicht zurückgezogen werden."
 SAVE_ERROR = "Die Änderung konnte nicht gespeichert werden."
 EMPTY_TEXT = "Bitte geben Sie einen Text ein."
 DRAFT_QUEUED = "Der Entwurf wird erzeugt."
@@ -80,6 +83,9 @@ class SourcesState(rx.State):
 
     sources: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
     paste_open: rx.Field[bool] = rx.field(False)
+    viewer_open: rx.Field[bool] = rx.field(False)
+    viewer_title: rx.Field[str] = rx.field("")
+    viewer_blocks: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
     draft_job: rx.Field[str] = rx.field("")
     draft_error: rx.Field[str] = rx.field("")
     has_map: rx.Field[bool] = rx.field(False)
@@ -142,6 +148,27 @@ class SourcesState(rx.State):
         self.paste_open = False
 
     @rx.event
+    def close_viewer(self) -> None:
+        self.viewer_open = False
+
+    @rx.event
+    @requires_offer_editor
+    async def open_viewer(self, source_id: int) -> AsyncGenerator[Any]:
+        """Show the extracted blocks of a source with the place they came from."""
+        offer_id = await self._offer_id()
+        try:
+            title, blocks = await source_service.load_blocks(
+                get_asyncdb_session, offer_id, source_id
+            )
+        except Exception:
+            logger.exception("Loading blocks of source %s failed", source_id)
+            yield rx.toast.error(LOAD_ERROR, position="top-right")
+            return
+        self.viewer_title = title
+        self.viewer_blocks = blocks
+        self.viewer_open = True
+
+    @rx.event
     @requires_offer_editor
     async def load_sources(self) -> AsyncGenerator[Any]:
         """Load the sources; also called while a source is still being read."""
@@ -192,6 +219,21 @@ class SourcesState(rx.State):
         except Exception:
             logger.exception("Switching source %s failed", source_id)
             yield rx.toast.error(SAVE_ERROR, position="top-right")
+
+    @rx.event
+    @requires_offer_editor
+    async def revoke_source(self, source_id: int) -> AsyncGenerator[Any]:
+        """Withdraw a source: its content is deleted, dependents are flagged."""
+        offer_id = await self._offer_id()
+        try:
+            await revoke_source(
+                get_asyncdb_session, offer_id, source_id, now=datetime.now(UTC)
+            )
+            await self._reload(offer_id)
+            yield rx.toast.info(REVOKED, position="top-right")
+        except Exception:
+            logger.exception("Revoking source %s failed", source_id)
+            yield rx.toast.error(REVOKE_ERROR, position="top-right")
 
     @rx.event
     @requires_offer_editor

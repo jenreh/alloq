@@ -59,6 +59,16 @@ class ReviewRequest:
     chapters: list[ReviewChapter]
 
 
+@dataclass(frozen=True)
+class MapRequest:
+    """A wish for more of the map: the current map, the briefing and the sources."""
+
+    instruction: str
+    map_outline: str
+    statements: list[str]
+    sources: list[SourceText]
+
+
 class AiUnavailableError(RuntimeError):
     """No model is configured or it cannot be reached for good."""
 
@@ -89,3 +99,10 @@ class ReviewAi(Protocol):
     review_prompt_version: str
 
     async def propose_review(self, request: ReviewRequest) -> ProposedReview: ...
+
+
+class MapAdditionAi(Protocol):
+    model_name: str
+    map_additions_prompt_version: str
+
+    async def propose_map_additions(self, request: MapRequest) -> ProposedMap: ...

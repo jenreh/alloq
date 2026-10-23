@@ -5,6 +5,7 @@ from typing import Any
 
 import reflex as rx
 from alloq_commons import theme
+from alloq_commons.components.dialogs import delete_dialog
 from alloq_commons.components.list_view import inspector, inspector_section
 from alloq_commons.components.modal_layout import (
     MODAL_CLASS,
@@ -29,6 +30,10 @@ DROP_TEXT = "E-Mails, Mitschnitte, Konzepte oder Folien hier ablegen"
 ADD_TEXT = "Text einfügen"
 PASTE_TITLE = "Text als Quelle einfügen"
 PASTE_SUBMIT = "Quelle hinzufügen"
+REVOKE_TITLE = "Quelle zurückziehen"
+VIEW_LABEL = "Ansehen"
+GAP_LABEL = "Nicht gelesen"
+NO_BLOCKS = "Aus dieser Quelle wurde noch nichts gelesen."
 RETRY_LABEL = "Erneut versuchen"
 UPLOAD_ACCEPT: dict[str, Sequence] = {
     "message/rfc822": [".eml"],
@@ -81,6 +86,12 @@ def _source_row(source: ObjectVar[dict[str, Any]]) -> rx.Component:
             gap=2,
             style={"minWidth": "0", "flex": "1"},
         ),
+        mn.button(
+            VIEW_LABEL,
+            variant="subtle",
+            size="compact-xs",
+            on_click=SourcesState.open_viewer(source["id"]),
+        ),
         rx.cond(
             source["retryable"],
             mn.button(
@@ -90,10 +101,65 @@ def _source_row(source: ObjectVar[dict[str, Any]]) -> rx.Component:
                 on_click=SourcesState.retry_source(source["id"]),
             ),
         ),
+        delete_dialog(
+            REVOKE_TITLE,
+            source["name"],
+            SourcesState.revoke_source(source["id"]),
+            icon_button=True,
+            variant="subtle",
+            color="gray",
+            size="sm",
+        ),
         wrap="nowrap",
         align="flex-start",
         p=10,
         style={"borderRadius": "8px", "background": theme.SURFACE_MUTED},
+    )
+
+
+def _block(block: ObjectVar[dict[str, Any]]) -> rx.Component:
+    return mn.stack(
+        mn.group(
+            mn.text(block["label"], fz="11px", fw=600, c=theme.TEXT_MUTED),
+            rx.cond(
+                block["speaker"] != "",
+                mn.text(block["speaker"], fz="11px", c=theme.TEXT_MUTED),
+            ),
+            rx.cond(
+                block["gap"],
+                mn.badge(GAP_LABEL, color="yellow", variant="light", size="xs"),
+            ),
+            gap=8,
+        ),
+        mn.text(
+            block["text"],
+            fz="13px",
+            lh="1.5",
+            c=rx.cond(block["gap"], theme.WARNING, theme.TEXT),
+        ),
+        gap=2,
+        py=6,
+        style={"borderTop": f"1px solid {theme.SEPARATOR}"},
+    )
+
+
+def _viewer_modal() -> rx.Component:
+    return mn.modal(
+        mn.stack(
+            rx.cond(
+                SourcesState.viewer_blocks.length() > 0,
+                mn.stack(rx.foreach(SourcesState.viewer_blocks, _block), gap=0),
+                mn.text(NO_BLOCKS, fz="13px", c=theme.TEXT_MUTED),
+            ),
+            gap=8,
+        ),
+        title=SourcesState.viewer_title,
+        opened=SourcesState.viewer_open,
+        on_close=SourcesState.close_viewer,
+        size="lg",
+        centered=True,
+        class_name=MODAL_CLASS,
+        overlay_props={"backgroundOpacity": 0.5, "blur": 4},
     )
 
 
@@ -165,5 +231,6 @@ def sources_panel() -> rx.Component:
             ),
         ),
         _paste_modal(),
+        _viewer_modal(),
         label=SOURCES_TITLE,
     )

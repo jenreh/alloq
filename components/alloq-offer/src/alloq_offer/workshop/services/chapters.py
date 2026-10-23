@@ -18,6 +18,8 @@ from alloq_offer.workshop.entities import (
     ChapterEntity,
     ChapterOrigin,
     ChapterRevisionEntity,
+    FindingDecision,
+    FindingEntity,
     ProposalEntity,
     ProposalStatus,
     WorkspaceEntity,
@@ -156,6 +158,21 @@ async def current_revisions(
         )
     )
     return {row.chapter_id: row for row in rows.all()}
+
+
+async def reopen_accepted(session: AsyncSession, offer_id: int, key: str) -> None:
+    """A changed text voids earlier decisions on its findings (spec 11.4, A15)."""
+    await session.execute(
+        update(FindingEntity)
+        .where(
+            FindingEntity.offer_id == offer_id,
+            FindingEntity.target == f"chapter:{key}",
+            FindingEntity.decision == FindingDecision.ACCEPTED,
+        )
+        .values(
+            decision=FindingDecision.OPEN, reason="", decided_by="", decided_at=None
+        )
+    )
 
 
 def _add_revision(
@@ -303,6 +320,7 @@ class ChapterService:
                 author=self._user,
                 map_revision=workspace.map_revision,
             )
+            await reopen_accepted(session, self._offer_id, key)
             await self._stale_proposals(session, key, number)
             return number
 
@@ -368,6 +386,7 @@ class ChapterService:
             old = await revision_of(session, chapter, number)
             content = parse_content(old.content)
             self._check(chapter, workspace, content)
+            await reopen_accepted(session, self._offer_id, key)
             return _add_revision(
                 session,
                 chapter,
@@ -397,6 +416,7 @@ class ChapterService:
                 content = parse_content(proposal.content)
                 self._check(chapter, workspace, content)
                 proposal.status = ProposalStatus.ACCEPTED
+                await reopen_accepted(session, self._offer_id, proposal.chapter_key)
                 return _add_revision(
                     session,
                     chapter,

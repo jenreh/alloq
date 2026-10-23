@@ -7,6 +7,7 @@ from alloq_commons import theme
 from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
+from alloq_offer.workshop.components.map_proposal import map_proposal
 from alloq_offer.workshop.states.map_state import MapState
 
 MAP_TITLE = "Story Map"
@@ -225,5 +226,6 @@ def map_section() -> rx.Component:
             _add_form(ADD_SLICE, MapState.add_slice),
             gap=12,
         ),
+        rx.cond(MapState.has_map, map_proposal()),
         gap=12,
     )

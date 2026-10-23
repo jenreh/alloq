@@ -13,6 +13,8 @@ from alloq_offer.workshop.components.workshop_view import (
 from alloq_offer.workshop.routes import WORKSHOP_ROUTE
 from alloq_offer.workshop.states.briefing_state import BriefingState
 from alloq_offer.workshop.states.chapter_state import ChapterState
+from alloq_offer.workshop.states.export_state import ExportState
+from alloq_offer.workshop.states.map_proposal_state import MapProposalState
 from alloq_offer.workshop.states.map_state import MapState
 from alloq_offer.workshop.states.review_state import ReviewState
 from alloq_offer.workshop.states.sources_state import SourcesState
@@ -49,9 +51,11 @@ def create_offer_workshop_page(
             WorkshopState.load_workshop,
             SourcesState.load_sources,
             MapState.load_map,
+            MapProposalState.load_proposal,
             BriefingState.load_briefing,
             ChapterState.load_chapters,
             ReviewState.run_checks,
+            ExportState.load_exports,
         ],
     )
     def _workshop_page() -> rx.Component:

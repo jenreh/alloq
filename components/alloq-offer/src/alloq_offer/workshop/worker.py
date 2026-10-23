@@ -5,8 +5,10 @@ import logging
 from alloq_offer.workshop.configuration import WorkshopConfig
 from alloq_offer.workshop.jobs import (  # noqa: F401  (registers the handlers)
     draft_chapters,
+    export_docx,
     extract_source,
     initial_draft,
+    propose_map,
     review_offer,
 )
 from alloq_offer.workshop.jobs.registry import registered_kinds

@@ -17,11 +17,13 @@ from alloq_offer.workshop.ai.port import (
     AiTransientError,
     AiUnavailableError,
     ChapterRequest,
+    MapRequest,
     ReviewRequest,
     SourceText,
 )
 from alloq_offer.workshop.ai.render import (
     render_chapter,
+    render_map_request,
     render_review,
     render_sources,
 )
@@ -37,6 +39,7 @@ logger = logging.getLogger(__name__)
 
 MAP_PROMPT = "map_v1"
 BRIEFING_PROMPT = "briefing_v1"
+MAP_ADDITIONS_PROMPT = "map_additions_v1"
 CHAPTER_PROMPT = "chapter_v1"
 REVIEW_PROMPT = "review_v1"
 NOT_CONFIGURED = "Die KI ist nicht eingerichtet."
@@ -72,6 +75,7 @@ class PydanticOfferAi:
     briefing_prompt_version = BRIEFING_PROMPT
     chapter_prompt_version = CHAPTER_PROMPT
     review_prompt_version = REVIEW_PROMPT
+    map_additions_prompt_version = MAP_ADDITIONS_PROMPT
 
     def __init__(self, model: Model, config: WorkshopConfig, name: str) -> None:
         self._model = model
@@ -102,7 +106,14 @@ class PydanticOfferAi:
             raise AiTransientError(label) from exc
         except UnexpectedModelBehavior as exc:
             raise AiUnavailableError(label) from exc
-        logger.info("Model run %s used %s", label, result.usage)
+        usage = result.usage
+        logger.info(
+            "Model run %s: %d requests, %d input and %d output tokens",
+            label,
+            usage.requests,
+            usage.input_tokens,
+            usage.output_tokens,
+        )
         return result.output
 
     async def propose_map(self, sources: list[SourceText]) -> ProposedMap:
@@ -118,6 +129,12 @@ class PydanticOfferAi:
     async def propose_chapter(self, request: ChapterRequest) -> ProposedChapter:
         data = render_chapter(request, self._config.ai_max_input_chars)
         return await self._run(ProposedChapter, CHAPTER_PROMPT, data, "propose_chapter")
+
+    async def propose_map_additions(self, request: MapRequest) -> ProposedMap:
+        data = render_map_request(request, self._config.ai_max_input_chars)
+        return await self._run(
+            ProposedMap, MAP_ADDITIONS_PROMPT, data, "propose_map_additions"
+        )
 
     async def propose_review(self, request: ReviewRequest) -> ProposedReview:
         data = render_review(request, self._config.ai_max_input_chars)

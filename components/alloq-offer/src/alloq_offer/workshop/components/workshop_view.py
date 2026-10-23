@@ -9,6 +9,7 @@ import appkit_mantine as mn
 from alloq_offer.workshop.components.briefing_tab import briefing_tab
 from alloq_offer.workshop.components.chapters_tab import chapters_tab
 from alloq_offer.workshop.components.draft_tab import draft_tab
+from alloq_offer.workshop.components.export_tab import export_tab
 from alloq_offer.workshop.states.workshop_state import (
     TAB_BRIEFING,
     TAB_CHAPTERS,
@@ -19,15 +20,10 @@ from alloq_offer.workshop.states.workshop_state import (
 )
 
 NOT_FOUND_TEXT = "Dieses Angebot gibt es nicht."
-COMING_SOON = "Dieser Bereich folgt in einem der nächsten Ausbauschritte."
 
 
 def workshop_tabs() -> rx.Component:
     return segmented(WorkshopState.active_tab, WorkshopState.set_tab, TABS)
-
-
-def _later_tab() -> rx.Component:
-    return mn.box(empty_list(COMING_SOON), p=20)
 
 
 def workshop_body() -> rx.Component:
@@ -45,7 +41,7 @@ def _workshop_content() -> rx.Component:
                 (TAB_DRAFT, draft_tab()),
                 (TAB_CHAPTERS, chapters_tab()),
                 (TAB_BRIEFING, briefing_tab()),
-                (TAB_EXPORT, _later_tab()),
+                (TAB_EXPORT, export_tab()),
                 draft_tab(),
             ),
             mn.box(mn.loader(size="sm"), p=20, c=theme.TEXT_MUTED),

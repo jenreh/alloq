@@ -30,7 +30,7 @@ last_verified_commit: "63da7bd (unreleased offers package)"
 
 This page covers the page "Angebote" [offers] at `/offers`. It lists the offers that the company calculated for customer projects, with person days, risk buffer, production cost and recommended price. The stories belong to the activity "Prepare offers" on the [story map](./story-map.md).
 
-The page has four user tasks:
+The page has four user tasks (the AI-supported drafting of a full offer is described in [Offer workshop](./offer-workshop.md)):
 
 - **Find an offer.** Read the list grouped by status, search, filter and sort it, and read one offer in the inspector.
 - **Create an offer.** Enter a new offer in the form "Neues Angebot" [new offer].

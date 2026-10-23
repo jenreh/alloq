@@ -9,6 +9,8 @@ from alloq_offer.workshop.content.schema import (
 )
 from alloq_offer.workshop.entities import (
     ChapterEntity,
+    FindingDecision,
+    FindingEntity,
     ProposalEntity,
     ProposalStatus,
 )
@@ -217,3 +219,32 @@ async def test_saving_the_same_text_creates_no_revision(db) -> None:
     assert await service.save(KEY, 1, _prose("Text")) == 2
     assert await service.save(KEY, 2, _prose("Text")) == 2
     assert len(await service.history(KEY)) == 2
+
+
+async def test_a_changed_text_voids_accepted_decisions_on_its_findings(db) -> None:
+    """A15: an earlier positive review does not carry over to rewritten text."""
+    service = await _service(db)
+    async with db.session() as session:
+        for target in (f"chapter:{KEY}", "chapter:loesung"):
+            session.add(
+                FindingEntity(
+                    offer_id=1,
+                    fingerprint=target,
+                    rule="r",
+                    severity="Warnung",
+                    source="Regel",
+                    target=target,
+                    message="m",
+                    decision=FindingDecision.ACCEPTED,
+                    reason="passt",
+                    decided_by="Anna",
+                )
+            )
+    await service.save(KEY, 1, _prose("Umgeschrieben"))
+    async with db.session() as session:
+        rows = {
+            f.target: f for f in (await session.scalars(select(FindingEntity))).all()
+        }
+    assert rows[f"chapter:{KEY}"].decision == FindingDecision.OPEN
+    assert rows[f"chapter:{KEY}"].reason == ""
+    assert rows["chapter:loesung"].decision == FindingDecision.ACCEPTED

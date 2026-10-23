@@ -7,11 +7,13 @@ from alloq_commons import theme
 from alloq_commons.components.list_view import inspector, inspector_section
 
 import appkit_mantine as mn
+from alloq_offer.workshop.states.map_proposal_state import MapProposalState
 from alloq_offer.workshop.states.map_state import SCOPES, SENTENCE_HINT, MapState
 
 DRAWER_LABEL = "Story bearbeiten"
 SCOPE_TITLE = "Umfang"
 SPLIT = "Aufteilen"
+SPLIT_AI = "KI-Aufteilung vorschlagen"
 ARCHIVE = "Archivieren"
 CLOSE = "Schließen"
 ORIGIN_TITLE = "Herkunft"
@@ -94,6 +96,12 @@ def story_drawer() -> rx.Component:
         mn.group(
             mn.button(
                 SPLIT, variant="default", size="xs", on_click=MapState.split_selected
+            ),
+            mn.button(
+                SPLIT_AI,
+                variant="default",
+                size="xs",
+                on_click=MapProposalState.propose_split,
             ),
             mn.button(
                 ARCHIVE,

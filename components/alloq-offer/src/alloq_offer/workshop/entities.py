@@ -110,6 +110,21 @@ class ProposalStatus(enum.StrEnum):
     STALE = "veraltet"
 
 
+class ExportKind(enum.StrEnum):
+    """Which Word output an export is."""
+
+    DRAFT = "Entwurf"
+    FINAL = "Final"
+
+
+class ExportStatus(enum.StrEnum):
+    """State of one export, shown to users as is."""
+
+    WORKING = "in Arbeit"
+    READY = "fertig"
+    FAILED = "fehlgeschlagen"
+
+
 class FindingSeverity(enum.StrEnum):
     BLOCKER = "Blocker"
     WARNING = "Warnung"
@@ -709,5 +724,85 @@ class FindingEntity(Entity, Base):
             "reason": self.reason,
             "decided_by": self.decided_by,
             "decided_at": self.decided_at,
+            "created": self.created,
+        }
+
+
+class SnapshotEntity(Entity, Base):
+    """The fixed document state an export is built from; never changed."""
+
+    __tablename__ = "offer_snapshots"
+    __table_args__ = (
+        UniqueConstraint("offer_id", "number", name="uq_offer_snapshots_number"),
+    )
+
+    offer_id: Mapped[int] = mapped_column(
+        ForeignKey("offers.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    number: Mapped[int] = mapped_column(Integer, nullable=False)
+    map_revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    template_key: Mapped[str] = mapped_column(String(50), nullable=False)
+    template_version: Mapped[str] = mapped_column(String(50), nullable=False)
+    content: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_by: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+
+    def to_dict(self) -> dict:
+        """Convert entity to dictionary for Pydantic model creation."""
+        return {
+            "id": self.id,
+            "offer_id": self.offer_id,
+            "number": self.number,
+            "map_revision": self.map_revision,
+            "template_key": self.template_key,
+            "template_version": self.template_version,
+            "created_by": self.created_by,
+            "created": self.created,
+        }
+
+
+class ExportEntity(Entity, Base):
+    """A Word file made from a snapshot, with its manifest."""
+
+    __tablename__ = "offer_exports"
+
+    offer_id: Mapped[int] = mapped_column(
+        ForeignKey("offers.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    snapshot_id: Mapped[int] = mapped_column(
+        ForeignKey("offer_snapshots.id", ondelete="RESTRICT"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=ExportStatus.WORKING
+    )
+    template_version: Mapped[str] = mapped_column(String(50), nullable=False)
+    exporter_version: Mapped[str] = mapped_column(String(20), nullable=False)
+    blob_id: Mapped[int | None] = mapped_column(
+        ForeignKey("offer_blobs.id", ondelete="RESTRICT"), nullable=True
+    )
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    size: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    manifest: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    error: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_by: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+
+    def to_dict(self) -> dict:
+        """Convert entity to dictionary for Pydantic model creation."""
+        return {
+            "id": self.id,
+            "offer_id": self.offer_id,
+            "snapshot_id": self.snapshot_id,
+            "kind": self.kind,
+            "status": self.status,
+            "template_version": self.template_version,
+            "exporter_version": self.exporter_version,
+            "blob_id": self.blob_id,
+            "sha256": self.sha256,
+            "size": self.size,
+            "filename": self.filename,
+            "manifest": self.manifest,
+            "error": self.error,
+            "created_by": self.created_by,
             "created": self.created,
         }

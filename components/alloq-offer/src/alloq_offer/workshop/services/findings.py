@@ -7,6 +7,7 @@ comes back opens again.
 
 import hashlib
 import logging
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
@@ -37,6 +38,7 @@ from alloq_offer.workshop.services.checks import (
     CheckInput,
     RuleFinding,
     StatementFacts,
+    live_stories,
     run_rules,
 )
 from alloq_offer.workshop.services.commercials import (
@@ -64,6 +66,33 @@ def fingerprint(source: FindingSource, issue: RuleFinding) -> str:
     identity = issue.key or (issue.message if source == FindingSource.AI else "")
     raw = f"{source}|{issue.rule}|{issue.target}|{identity}"
     return hashlib.sha256(raw.encode()).hexdigest()
+
+
+async def _revoked_block_ids(
+    session: AsyncSession,
+    offer_id: int,
+    snapshot: dict,
+    statements: Sequence[StatementEntity],
+) -> set[int]:
+    """References to blocks that are gone or belong to a revoked source."""
+    cited = {ref for s in statements for ref in s.source_refs}
+    cited.update(ref for s in live_stories(snapshot) for ref in s["source_refs"])
+    if not cited:
+        return set()
+    alive = set(
+        (
+            await session.scalars(
+                select(SourceBlockEntity.id)
+                .join(SourceEntity, SourceEntity.id == SourceBlockEntity.source_id)
+                .where(
+                    SourceEntity.offer_id == offer_id,
+                    SourceEntity.revoked_at.is_(None),
+                    SourceBlockEntity.id.in_(cited),
+                )
+            )
+        ).all()
+    )
+    return cited - alive
 
 
 async def load_check_input(session: AsyncSession, offer_id: int) -> CheckInput | None:
@@ -104,14 +133,11 @@ async def load_check_input(session: AsyncSession, offer_id: int) -> CheckInput |
             select(StatementEntity).where(StatementEntity.offer_id == offer_id)
         )
     ).all()
-    revoked = await session.scalars(
-        select(SourceBlockEntity.id)
-        .join(SourceEntity, SourceEntity.id == SourceBlockEntity.source_id)
-        .where(SourceEntity.offer_id == offer_id, SourceEntity.revoked_at.is_not(None))
-    )
+    snapshot = await snapshot_map(session, workspace)
+    revoked = await _revoked_block_ids(session, offer_id, snapshot, statements)
     return CheckInput(
         chapters=facts,
-        snapshot=await snapshot_map(session, workspace),
+        snapshot=snapshot,
         statements=[
             StatementFacts(
                 s.id,
@@ -129,7 +155,7 @@ async def load_check_input(session: AsyncSession, offer_id: int) -> CheckInput |
         price_required=workspace.price_required,
         commercials_confirmed=is_confirmed(workspace, current_values(offer, workspace)),
         map_revision=workspace.map_revision,
-        revoked_block_ids=set(revoked.all()),
+        revoked_block_ids=revoked,
     )
 
 

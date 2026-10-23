@@ -117,12 +117,15 @@ class JobRunner:
     async def _execute(self, context: JobContext) -> None:
         started = time.monotonic()
         beat = asyncio.create_task(self._heartbeat(context))
+        outcome, error_class = "succeeded", "-"
         try:
             handler = get_handler(context.kind)
             result = await handler(context)
         except TransientJobError as exc:
+            outcome, error_class = "retry", type(exc).__name__
             await self._record_failure(context, exc, retry=True)
         except Exception as exc:
+            outcome, error_class = "failed", type(exc).__name__
             logger.exception("Job %s (%s) failed", context.job_id, context.kind)
             await self._record_failure(context, exc, retry=False)
         else:
@@ -131,17 +134,20 @@ class JobRunner:
                     session, context.job_id, context.attempt, result
                 )
             if not stored:
-                logger.info("Result of job %s discarded", context.job_id)
-            logger.info(
-                "Job %s (%s) finished in %.2f s",
-                context.job_id,
-                context.kind,
-                time.monotonic() - started,
-            )
+                outcome = "discarded"
         finally:
             beat.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await beat
+            logger.info(
+                "Job %s (%s) attempt %d %s in %.2f s, error class %s",
+                context.job_id,
+                context.kind,
+                context.attempt,
+                outcome,
+                time.monotonic() - started,
+                error_class,
+            )
 
     async def _record_failure(
         self, context: JobContext, exc: Exception, *, retry: bool

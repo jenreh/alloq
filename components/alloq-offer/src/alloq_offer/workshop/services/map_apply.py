@@ -6,7 +6,11 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from alloq_offer.workshop.ai.schemas import ProposedBriefing, ProposedMap
+from alloq_offer.workshop.ai.schemas import (
+    ProposedBriefing,
+    ProposedMap,
+    ProposedStory,
+)
 from alloq_offer.workshop.entities import (
     ActivityEntity,
     MapRevisionEntity,
@@ -47,6 +51,39 @@ def _known_refs(refs: list[int], valid_block_ids: set[int]) -> list[int]:
     if len(kept) < len(set(refs)):
         logger.warning("Dropped %d unknown source refs", len(set(refs)) - len(kept))
     return kept
+
+
+def new_story(
+    workspace: WorkspaceEntity,
+    story: ProposedStory,
+    *,
+    task_id: int,
+    slice_id: int | None,
+    position: int,
+    valid_block_ids: set[int],
+) -> StoryEntity:
+    """A stored story from a proposal: app key, scope ``offen``, checked origin."""
+    refs = _known_refs(story.source_refs, valid_block_ids)
+    return StoryEntity(
+        offer_id=workspace.offer_id,
+        key=next_story_key(workspace),
+        title=story.title.strip(),
+        role=story.role.strip(),
+        goal=story.goal.strip(),
+        benefit=story.benefit.strip(),
+        scope=Scope.OPEN,
+        # Without a surviving source ref the wish is not verifiable.
+        origin=(
+            Origin.CUSTOMER
+            if story.origin == Origin.CUSTOMER and refs
+            else Origin.PROPOSAL
+        ),
+        task_id=task_id,
+        slice_id=slice_id,
+        skeleton=story.skeleton,
+        position=position,
+        source_refs=refs,
+    )
 
 
 async def apply_proposed_map(
@@ -95,27 +132,14 @@ async def apply_proposed_map(
                     continue
                 story_position += 1
                 slice_row = slices.get(story.slice or "")
-                refs = _known_refs(story.source_refs, valid_block_ids)
                 session.add(
-                    StoryEntity(
-                        offer_id=offer_id,
-                        key=next_story_key(workspace),
-                        title=story.title.strip(),
-                        role=story.role.strip(),
-                        goal=story.goal.strip(),
-                        benefit=story.benefit.strip(),
-                        scope=Scope.OPEN,
-                        # Without a surviving source ref the wish is not verifiable.
-                        origin=(
-                            Origin.CUSTOMER
-                            if story.origin == Origin.CUSTOMER and refs
-                            else Origin.PROPOSAL
-                        ),
+                    new_story(
+                        workspace,
+                        story,
                         task_id=task_row.id,
                         slice_id=slice_row.id if slice_row else None,
-                        skeleton=story.skeleton,
                         position=story_position,
-                        source_refs=refs,
+                        valid_block_ids=valid_block_ids,
                     )
                 )
                 result.stories += 1

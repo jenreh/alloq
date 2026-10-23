@@ -13,8 +13,14 @@ from alloq_offer.workshop.entities import (
     SourceKind,
     SourceStatus,
 )
+from alloq_offer.workshop.extraction.models import KIND_GAP, anchor_label
 from alloq_offer.workshop.jobs import queue
-from alloq_offer.workshop.repositories import job_repo, source_repo, workspace_repo
+from alloq_offer.workshop.repositories import (
+    job_repo,
+    source_block_repo,
+    source_repo,
+    workspace_repo,
+)
 from alloq_offer.workshop.storage import BlobStore, sha256_hex
 from appkit_commons.database.session import get_asyncdb_session
 
@@ -229,3 +235,23 @@ async def request_initial_draft(
             now=now,
             max_attempts=max_attempts,
         )
+
+
+async def load_blocks(
+    session_factory: SessionFactory, offer_id: int, source_id: int
+) -> tuple[str, list[dict]]:
+    """Title and readable blocks of a source of this offer; empty when revoked."""
+    async with session_factory() as session:
+        source = await source_repo.find_in_offer(session, offer_id, source_id)
+        if source is None or source.revoked_at is not None:
+            return "", []
+        rows = await source_block_repo.list_for_source(session, source.id)
+        return source.title, [
+            {
+                "label": anchor_label(row.anchor),
+                "speaker": row.speaker or "",
+                "text": row.text,
+                "gap": row.kind == KIND_GAP,
+            }
+            for row in rows
+        ]

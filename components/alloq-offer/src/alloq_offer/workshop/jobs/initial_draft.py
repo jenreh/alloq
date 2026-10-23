@@ -9,33 +9,22 @@ from alloq_offer.workshop.ai.agents import create_offer_ai
 from alloq_offer.workshop.ai.port import (
     AiTransientError,
     AiUnavailableError,
-    BlockText,
     OfferAi,
     SourceText,
 )
 from alloq_offer.workshop.configuration import WorkshopConfig
 from alloq_offer.workshop.db import SessionFactory
-from alloq_offer.workshop.entities import (
-    GenerationRunEntity,
-    SourceKind,
-)
-from alloq_offer.workshop.extraction.models import KIND_GAP, anchor_label
+from alloq_offer.workshop.entities import GenerationRunEntity
 from alloq_offer.workshop.jobs.registry import (
     JobContext,
     PermanentJobError,
     TransientJobError,
     register_handler,
 )
-from alloq_offer.workshop.repositories import (
-    source_block_repo,
-    source_repo,
-    workspace_repo,
-)
+from alloq_offer.workshop.repositories import workspace_repo
 from alloq_offer.workshop.services.map_apply import apply_briefing, apply_proposed_map
-from alloq_offer.workshop.services.sources import (
-    INITIAL_DRAFT_JOB,
-    READABLE_STATUSES,
-)
+from alloq_offer.workshop.services.source_texts import load_source_texts
+from alloq_offer.workshop.services.sources import INITIAL_DRAFT_JOB
 from alloq_offer.workshop.services.workspace import open_workspace
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
@@ -44,11 +33,6 @@ logger = logging.getLogger(__name__)
 
 AI_FAILED = "Die KI konnte keinen Entwurf liefern. Bitte prüfen Sie die Einrichtung."
 AI_BUSY = "Die KI ist gerade nicht erreichbar. Der Auftrag wird erneut versucht."
-KIND_NAMES = {
-    SourceKind.EML: "E-Mail",
-    SourceKind.AUDIO: "Mitschnitt",
-    SourceKind.PPTX: "Folien",
-}
 
 
 class InitialDraft:
@@ -129,27 +113,7 @@ class InitialDraft:
             workspace = await workspace_repo.find_by_offer(session, offer_id)
             if workspace is not None and workspace.map_revision > 0:
                 return None
-            sources: list[SourceText] = []
-            valid_ids: set[int] = set()
-            for source in await source_repo.list_current(session, offer_id):
-                if not source.included or source.status not in READABLE_STATUSES:
-                    continue
-                blocks = await source_block_repo.list_for_source(session, source.id)
-                texts = [
-                    BlockText(b.id, b.text, anchor_label(b.anchor), b.speaker)
-                    for b in blocks
-                    if b.kind != KIND_GAP
-                ]
-                valid_ids.update(block.id for block in texts)
-                sources.append(
-                    SourceText(
-                        id=source.id,
-                        title=source.title,
-                        kind=KIND_NAMES.get(SourceKind(source.kind), "Dokument"),
-                        blocks=texts,
-                        gaps=[b.text for b in blocks if b.kind == KIND_GAP],
-                    )
-                )
+            sources, valid_ids = await load_source_texts(session, offer_id)
         return (sources, valid_ids) if sources else None
 
 

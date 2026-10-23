@@ -121,7 +121,7 @@ components/
   alloq-dashboard/     # Portfolio overview (aggregation, charts)
   alloq-project/       # Project planning & forecasting
   alloq-team/          # Team management views
-  alloq-offer/         # Offers (Angebote): independent package, own table and offer_editor role
+  alloq-offer/         # Offers (Angebote) and the AI offer workshop: own tables and offer_editor role
 configuration/         # YAML config files (per-environment profiles)
 alembic/               # Database migrations
 docs/                  # Developer documentation (VitePress)

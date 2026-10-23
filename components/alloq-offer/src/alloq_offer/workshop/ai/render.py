@@ -1,6 +1,11 @@
 """Sources as clearly delimited data for a prompt."""
 
-from alloq_offer.workshop.ai.port import ChapterRequest, ReviewRequest, SourceText
+from alloq_offer.workshop.ai.port import (
+    ChapterRequest,
+    MapRequest,
+    ReviewRequest,
+    SourceText,
+)
 
 TRUNCATED = "[Weitere Quellen wurden wegen der Länge ausgelassen.]"
 
@@ -94,3 +99,13 @@ def render_review(request: ReviewRequest, max_chars: int) -> str:
         ]
         parts += [*map(_tags, chapter.lines), "</kapitel>"]
     return "\n".join(parts)[:max_chars]
+
+
+def render_map_request(request: MapRequest, max_chars: int) -> str:
+    """Instruction, current map and briefing, then the sources as delimited data."""
+    parts = ["<anweisung>", _tags(request.instruction), "</anweisung>"]
+    parts += ["<map>", _tags(request.map_outline), "</map>"]
+    parts += ["<briefing>", *map(_tags, request.statements), "</briefing>"]
+    head = "\n".join(parts)
+    sources = render_sources(request.sources, max(max_chars - len(head), 0))
+    return f"{head}\n\n{sources}"

@@ -591,3 +591,31 @@ def test_offer_findings_migration_adds_columns_and_table() -> None:
     assert "uq_offer_findings_fingerprint" in uniques
     assert not set(migration.WORKSPACE_COLUMNS) & left
     assert "offer_findings" not in tables
+
+
+# ---------------------------------------------------------------------------
+# a8b9c0d1e2f3 — offer workshop snapshots and exports
+# ---------------------------------------------------------------------------
+
+
+def test_offer_exports_migration_creates_and_drops_tables() -> None:
+    base = _load("2026_10_23_offer_workshop_base.py")
+    migration = _load("2026_10_28_offer_exports.py")
+    assert migration.down_revision == "f7a8b9c0d1e2"
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        _run(base, "upgrade", conn)
+        _run(migration, "upgrade", conn)
+        inspector = sa.inspect(conn)
+        tables = set(inspector.get_table_names())
+        uniques = {
+            u["name"] for u in inspector.get_unique_constraints("offer_snapshots")
+        }
+        _run(migration, "downgrade", conn)
+        left = set(sa.inspect(conn).get_table_names())
+    assert {"offer_snapshots", "offer_exports"} <= tables
+    assert "uq_offer_snapshots_number" in uniques
+    assert not {"offer_snapshots", "offer_exports"} & left
