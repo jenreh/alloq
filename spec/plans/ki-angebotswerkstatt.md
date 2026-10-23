@@ -6,7 +6,18 @@
 
 Build the AI-supported offer workshop described in `spec/ki-angebotswerkstatt.md` (German, 785 lines; read §5–§14, §17, §18 before each phase) **inside the existing package `components/alloq-offer`**. For an existing offer, an `offer_editor` adds customer sources (pasted text, EML, TXT, DOCX, PDF, PPTX, audio) and starts **one run that produces a complete first draft without further input**: extraction, a **User Story Map with simple stories (no acceptance criteria)**, the briefing, a scope proposal, all chapters of the bound Word template, rule checks plus AI review, and an editable DOCX draft in the existing QUO template layout. Afterwards the user only makes the decisions the AI must not make (confirm scope, resolve conflicts, confirm price) and may optionally refine the map on its own screen and the typed chapters in a Word-style document view before exporting a final DOCX.
 
-UI prototypes (approved direction, "Kombination A + C" row): <https://claude.ai/artifact/SqvwnLbKttsfEL7XwnTcYX> — board "A + C · 1 Entwurf erzeugen und Story Map anpassen" and board "A + C · 2 Kapitel im Dokument: Kapiteltypen".
+### UI design (binding)
+
+The UI **must follow the design "Kombination A + C – Entwurf in einem Durchlauf"** on the prototype canvas <https://claude.ai/artifact/SqvwnLbKttsfEL7XwnTcYX>. It has two clickable boards:
+
+| Board | File on the canvas | Screen in Alloq |
+| --- | --- | --- |
+| A + C · 1 Entwurf erzeugen und Story Map anpassen | `project/Werkstatt.dc.html` | Tab "Entwurf & Story Map" (Phase 1 start card, Phase 3 progress and decisions, Phase 4 map editor) |
+| A + C · 2 Kapitel im Dokument: Kapiteltypen | `project/Kapitel.dc.html` | Tab "Kapitel" (Phase 5 document view, Phase 6 findings, Phase 7 export panel) |
+
+- Before building a screen, read its board (Artifact tool, action `read`, `url` above, `path` = the file in the table) and match its layout, texts, states and interactions. The boards are a layout and behavior reference, not code to copy: build with `mn.*` components, Alloq shell parts and `alloq_commons/theme.py` tokens.
+- The first row of the canvas (concepts A, B, C) are earlier explorations. They are **not** the basis; where they differ from the A + C boards, the A + C boards win.
+- Deviate from the boards only where Reflex/Mantine cannot do it the same way, and note each deviation in the phase's PR description.
 
 The plan covers spec Etappe 0 (template proof) and Etappe 1 (first end-to-end version) in detail. Etappe 2/3 are only listed under "Out of scope".
 
@@ -16,6 +27,7 @@ The plan covers spec Etappe 0 (template proof) and Etappe 1 (first end-to-end ve
 | --- | --- |
 | Placement | Extend `alloq-offer` (import `alloq_offer`). New code lives in a sub-package `alloq_offer/workshop/`. Depends only on `alloq-commons` + appkit, never on `app` or other alloq packages. |
 | UI stack | Reflex + `appkit_mantine` (not Next.js as the spec suggests). Rich text via `mn.rich_text_editor` (Tiptap wrapper in `appkit_mantine/tiptap.py`). |
+| UI design | Design "Kombination A + C – Entwurf in einem Durchlauf" (see "UI design (binding)" above). |
 | LLM | Azure OpenAI through **pydantic-ai** (`OpenAIChatModel` + `AzureProvider`) behind a narrow port. Tests use pydantic-ai `TestModel` / `FunctionModel` via `Agent.override`, never the network. |
 | Access | Whole workshop (sources, transcripts, map, chapters, findings, exports) read **and** write only for role `offer_editor` (`OFFER_EDITOR_ROLE`, `@requires_offer_editor`). Offer list stays readable for all. No per-offer ownership in Etappe 1. |
 | Storage | A `BlobStore` protocol; first implementation stores bytes in Postgres (`offer_blobs`, `LargeBinary`, deduplicated by SHA-256) so server and desktop share files. Azure Blob is a later adapter. |
