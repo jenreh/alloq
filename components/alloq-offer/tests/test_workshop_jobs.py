@@ -225,3 +225,50 @@ async def test_run_forever_processes_jobs_until_cancelled(db) -> None:
     with pytest.raises(asyncio.CancelledError):
         await task
     assert finished
+
+
+async def test_exhausted_hook_runs_for_permanent_failure_but_not_for_retries(
+    db,
+) -> None:
+    seen: list[int] = []
+
+    async def hook(context: JobContext) -> None:
+        seen.append(context.job_id)
+
+    @register_handler("hooked-fail", on_exhausted=hook)
+    async def explode(_context: JobContext) -> None:
+        raise RuntimeError("kaputt")
+
+    @register_handler("hooked-flaky", on_exhausted=hook)
+    async def flaky(_context: JobContext) -> None:
+        raise TransientJobError("später")
+
+    failed = await _enqueue(db, "hf", "hooked-fail")
+    await _enqueue(db, "hr", "hooked-flaky")
+    runner = _runner(db)
+    while await runner.run_once():
+        pass
+    assert seen == [failed]
+
+
+async def test_exhausted_hook_runs_when_the_lease_expired_on_the_last_attempt(
+    db,
+) -> None:
+    seen: list[int] = []
+
+    async def hook(context: JobContext) -> None:
+        seen.append(context.job_id)
+        raise RuntimeError("hook broken")
+
+    @register_handler("hooked-lease", on_exhausted=hook)
+    async def never(_context: JobContext) -> None:
+        return None
+
+    job_id = await _enqueue(db, "hl", "hooked-lease", max_attempts=1)
+    async with db.session() as session:
+        await queue.claim_next(session, now=NOW, lease_seconds=1)
+    later = NOW + timedelta(minutes=5)
+    runner = JobRunner(WorkshopConfig(lease_seconds=30), db.session, lambda: later)
+    assert not await runner.run_once()
+    assert seen == [job_id]
+    assert (await _job(db, job_id)).status == JobStatus.FAILED

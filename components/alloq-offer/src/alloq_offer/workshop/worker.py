@@ -3,6 +3,7 @@
 import logging
 
 from alloq_offer.workshop.configuration import WorkshopConfig
+from alloq_offer.workshop.jobs import extract_source  # noqa: F401  (registers the handler)
 from alloq_offer.workshop.jobs.registry import registered_kinds
 from alloq_offer.workshop.jobs.runner import JobRunner
 from appkit_commons.registry import service_registry

@@ -75,11 +75,13 @@ async def claim_next(
     now: datetime,
     lease_seconds: int,
     kinds: list[str] | None = None,
+    exhausted: list[JobEntity] | None = None,
 ) -> JobEntity | None:
     """Lease the next runnable job.
 
     Runnable are queued jobs that are due and running jobs whose lease expired.
-    A job that expired with no attempts left is failed instead of re-run.
+    A job that expired with no attempts left is failed instead of re-run and
+    appended to ``exhausted`` when given.
     """
     while True:
         statement = (
@@ -112,6 +114,8 @@ async def claim_next(
             job.lease_until = None
             await session.flush()
             logger.warning("Job %s failed after %s attempts", job.id, job.attempts)
+            if exhausted is not None:
+                exhausted.append(job)
             continue
         job.status = JobStatus.RUNNING
         job.attempts += 1

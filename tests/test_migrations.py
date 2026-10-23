@@ -492,3 +492,25 @@ def test_offer_workshop_base_migration_creates_and_drops_tables() -> None:
     assert tables <= created
     assert "ix_offer_jobs_status_run_after" in job_indexes
     assert not tables & dropped
+
+
+# c4d5e6f7a8b9 — offer workshop sources
+def test_offer_sources_migration_creates_and_drops_tables() -> None:
+    base = _load("2026_10_23_offer_workshop_base.py")
+    migration = _load("2026_10_24_offer_sources.py")
+    assert migration.down_revision == base.revision
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    tables = {"offer_sources", "offer_source_blocks"}
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        _run(base, "upgrade", conn)
+        _run(migration, "upgrade", conn)
+        created = set(sa.inspect(conn).get_table_names())
+        indexes = {i["name"] for i in sa.inspect(conn).get_indexes("offer_sources")}
+        _run(migration, "downgrade", conn)
+        dropped = set(sa.inspect(conn).get_table_names())
+    assert tables <= created
+    assert "ix_offer_sources_offer_sha256" in indexes
+    assert not tables & dropped

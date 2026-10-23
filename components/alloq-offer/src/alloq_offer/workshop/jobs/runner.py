@@ -9,10 +9,12 @@ from datetime import UTC, datetime
 
 from alloq_offer.workshop.configuration import WorkshopConfig
 from alloq_offer.workshop.db import SessionFactory
+from alloq_offer.workshop.entities import JobEntity
 from alloq_offer.workshop.jobs import queue
 from alloq_offer.workshop.jobs.registry import (
     JobContext,
     TransientJobError,
+    get_exhausted_hook,
     get_handler,
     registered_kinds,
 )
@@ -25,6 +27,18 @@ Clock = Callable[[], datetime]
 
 def utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+def _context(job: JobEntity) -> JobContext:
+    return JobContext(
+        job_id=job.id,
+        offer_id=job.offer_id,
+        kind=job.kind,
+        payload=dict(job.payload),
+        input_revisions=dict(job.input_revisions),
+        attempt=job.attempts,
+        max_attempts=job.max_attempts,
+    )
 
 
 class JobRunner:
@@ -41,23 +55,29 @@ class JobRunner:
         self._clock = clock
 
     async def _claim(self) -> JobContext | None:
+        exhausted: list[JobEntity] = []
         async with self._session_factory() as session:
             job = await queue.claim_next(
                 session,
                 now=self._clock(),
                 lease_seconds=self._config.lease_seconds,
                 kinds=registered_kinds(),
+                exhausted=exhausted,
             )
-            if job is None:
-                return None
-            return JobContext(
-                job_id=job.id,
-                offer_id=job.offer_id,
-                kind=job.kind,
-                payload=dict(job.payload),
-                input_revisions=dict(job.input_revisions),
-                attempt=job.attempts,
-            )
+            context = _context(job) if job is not None else None
+            expired = [_context(item) for item in exhausted]
+        for item in expired:
+            await self._run_exhausted_hook(item)
+        return context
+
+    async def _run_exhausted_hook(self, context: JobContext) -> None:
+        hook = get_exhausted_hook(context.kind)
+        if hook is None:
+            return
+        try:
+            await hook(context)
+        except Exception:
+            logger.exception("Cleanup of failed job %s failed", context.job_id)
 
     async def run_once(self) -> bool:
         """Run one due job to the end; False when the queue had none."""
@@ -125,6 +145,8 @@ class JobRunner:
     async def _record_failure(
         self, context: JobContext, exc: Exception, *, retry: bool
     ) -> None:
+        if not retry or context.attempt >= context.max_attempts:
+            await self._run_exhausted_hook(context)
         async with self._session_factory() as session:
             await queue.fail(
                 session,

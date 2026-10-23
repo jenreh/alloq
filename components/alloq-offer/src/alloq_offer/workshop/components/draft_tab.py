@@ -2,9 +2,10 @@
 
 import reflex as rx
 from alloq_commons import theme
-from alloq_commons.components.list_view import inspector, inspector_section
 
 import appkit_mantine as mn
+from alloq_offer.workshop.components.sources_panel import sources_panel
+from alloq_offer.workshop.states.sources_state import SourcesState
 from alloq_offer.workshop.states.workshop_state import WorkshopState
 
 START_TITLE = "Ersten Angebotsentwurf erzeugen"
@@ -20,12 +21,6 @@ LOOKS_FOR = (
     "Rollen und Ziele · Auslöser und Ergebnisse · Aktivitäten und Aufgaben · "
     "Varianten, Rückfragen und Übergaben · Ist- und Soll-Zustand"
 )
-SOURCES_TITLE = "Quellen"
-NO_SOURCES = "Noch keine Quellen. Fügen Sie Texte, E-Mails oder Dokumente hinzu."
-SOURCES_HINT = (
-    "Lücken wie nicht ausgewertete Bilder oder fehlende OCR bleiben sichtbar. "
-    "Neue Quellen ändern einen bestehenden Entwurf nur als Vorschlag."
-)
 
 
 def start_card() -> rx.Component:
@@ -37,10 +32,10 @@ def start_card() -> rx.Component:
         ),
         mn.group(
             mn.button(
-                WorkshopState.generate_label,
+                SourcesState.generate_label,
                 size="md",
                 radius="md",
-                disabled=~WorkshopState.can_generate,
+                disabled=~SourcesState.can_generate,
             ),
             mn.checkbox(
                 label=AUTO_DRAFT_LABEL,
@@ -60,17 +55,6 @@ def start_card() -> rx.Component:
         gap=18,
         p=28,
         style=theme.CARD,
-    )
-
-
-def sources_panel() -> rx.Component:
-    return inspector(
-        inspector_section(
-            SOURCES_TITLE,
-            mn.text(NO_SOURCES, fz="13px", c=theme.TEXT_MUTED),
-            mn.text(SOURCES_HINT, fz="12px", c=theme.TEXT_MUTED, lh="1.5"),
-        ),
-        label=SOURCES_TITLE,
     )
 
 

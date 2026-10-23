@@ -15,7 +15,7 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.sql import false
+from sqlalchemy.sql import false, true
 
 from appkit_commons.database.entities import Base, Entity
 
@@ -36,6 +36,30 @@ class JobStatus(enum.StrEnum):
     SUCCEEDED = "succeeded"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
+
+class SourceKind(enum.StrEnum):
+    """What a customer source is."""
+
+    TEXT = "text"
+    EML = "eml"
+    TXT = "txt"
+    HTML = "html"
+    DOCX = "docx"
+    PDF = "pdf"
+    PPTX = "pptx"
+    AUDIO = "audio"
+
+
+class SourceStatus(enum.StrEnum):
+    """Processing state of a source, shown to users as is."""
+
+    UPLOADED = "hochgeladen"
+    PROCESSING = "in Verarbeitung"
+    USABLE = "nutzbar"
+    PARTIAL = "teilweise nutzbar"
+    FAILED = "fehlgeschlagen"
+    MANUAL = "manuell nötig"
 
 
 class WorkspaceEntity(Entity, Base):
@@ -137,4 +161,87 @@ class JobEntity(Entity, Base):
             "result": self.result,
             "created": self.created,
             "updated": self.updated,
+        }
+
+
+class SourceEntity(Entity, Base):
+    """A customer source (pasted text or uploaded file) of one offer."""
+
+    __tablename__ = "offer_sources"
+    __table_args__ = (Index("ix_offer_sources_offer_sha256", "offer_id", "sha256"),)
+
+    offer_id: Mapped[int] = mapped_column(
+        ForeignKey("offers.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    mime: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    blob_id: Mapped[int | None] = mapped_column(
+        ForeignKey("offer_blobs.id", ondelete="RESTRICT"), nullable=True
+    )
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    replaces_id: Mapped[int | None] = mapped_column(
+        ForeignKey("offer_sources.id", ondelete="RESTRICT"), nullable=True
+    )
+    status: Mapped[str] = mapped_column(
+        String(30), nullable=False, default=SourceStatus.UPLOADED
+    )
+    status_detail: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    included: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_by: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+
+    def to_dict(self) -> dict:
+        """Convert entity to dictionary for Pydantic model creation."""
+        return {
+            "id": self.id,
+            "offer_id": self.offer_id,
+            "kind": self.kind,
+            "title": self.title,
+            "filename": self.filename,
+            "mime": self.mime,
+            "blob_id": self.blob_id,
+            "sha256": self.sha256,
+            "version": self.version,
+            "replaces_id": self.replaces_id,
+            "status": self.status,
+            "status_detail": self.status_detail,
+            "included": self.included,
+            "revoked_at": self.revoked_at,
+            "created_by": self.created_by,
+            "created": self.created,
+            "updated": self.updated,
+        }
+
+
+class SourceBlockEntity(Entity, Base):
+    """A citable piece of a source; a ``gap`` block records what was not read."""
+
+    __tablename__ = "offer_source_blocks"
+
+    source_id: Mapped[int] = mapped_column(
+        ForeignKey("offer_sources.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    seq: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    anchor: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    speaker: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+
+    def to_dict(self) -> dict:
+        """Convert entity to dictionary for Pydantic model creation."""
+        return {
+            "id": self.id,
+            "source_id": self.source_id,
+            "seq": self.seq,
+            "kind": self.kind,
+            "anchor": self.anchor,
+            "speaker": self.speaker,
+            "text": self.text,
         }

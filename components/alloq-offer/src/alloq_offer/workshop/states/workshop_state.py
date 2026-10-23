@@ -38,7 +38,6 @@ class WorkshopState(rx.State):
     template_label: rx.Field[str] = rx.field("")
     doc_state: rx.Field[str] = rx.field("")
     auto_draft: rx.Field[bool] = rx.field(False)
-    source_count: rx.Field[int] = rx.field(0)
     active_tab: rx.Field[str] = rx.field(TAB_DRAFT)
     loaded: rx.Field[bool] = rx.field(False)
     not_found: rx.Field[bool] = rx.field(False)
@@ -50,15 +49,6 @@ class WorkshopState(rx.State):
         return (
             f"{self.offer_customer} · Vorlage {self.template_label} · {self.doc_state}"
         )
-
-    @rx.var
-    def can_generate(self) -> bool:
-        return self.source_count > 0
-
-    @rx.var
-    def generate_label(self) -> str:
-        noun = "Quelle" if self.source_count == 1 else "Quellen"
-        return f"Entwurf aus {self.source_count} {noun} erzeugen"
 
     def _route_offer_id(self) -> int:
         try:

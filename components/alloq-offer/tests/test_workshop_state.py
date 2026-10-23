@@ -111,8 +111,6 @@ async def test_load_workshop_fills_header_and_workspace() -> None:
     assert (state.offer_id, state.offer_title) == (5, "Plattform")
     assert state.auto_draft
     assert state.subtitle == "Muster AG · Vorlage QUO V1 · Entwurf"
-    assert not state.can_generate
-    assert "0 Quellen" in state.generate_label
 
 
 async def test_load_workshop_unknown_offer(repo: AsyncMock) -> None:
@@ -180,7 +178,6 @@ def test_route_offer_id_parses_param() -> None:
 
 def test_components_render_constants() -> None:
     card = str(draft_tab.start_card())
-    assert "can_generate" in card
     assert "set_auto_draft" in card
     assert "set_tab" in str(workshop_tabs())
     body = str(workshop_body())
@@ -219,11 +216,3 @@ async def test_set_auto_draft_ignored_before_load() -> None:
     with _as_offer_editor(state):
         await _run(state.set_auto_draft, True)
     assert not state.auto_draft
-
-
-def test_generate_label_uses_singular_for_one_source() -> None:
-    state = _state()
-    state.source_count = 1
-    assert state.generate_label == "Entwurf aus 1 Quelle erzeugen"
-    state.source_count = 3
-    assert state.generate_label == "Entwurf aus 3 Quellen erzeugen"
