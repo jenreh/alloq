@@ -1,0 +1,12 @@
+version: "quo_v1.0"
+chapters:
+  management_summary:
+    required_info: [Ziel des Kunden, Angebotene Lösung, Umfang]
+  user_stories:
+    checks: [contains_all_offered_stories, no_acceptance_criteria]
+  mitwirkung:
+    required_info: [Verantwortlicher, Zeitpunkt]
+  laufzeit:
+    required_info: [Beginn, Dauer]
+  verguetung:
+    checks: [commercials_confirmed]

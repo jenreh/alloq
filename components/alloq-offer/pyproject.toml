@@ -6,6 +6,9 @@ authors = [{ name = "Jens Rehpöhler", email = "jens.rehpoehler@bertelsmann.de" 
 requires-python = ">=3.14"
 dependencies = [
     "alloq-commons",
+    "docxtpl>=0.20.2",
+    "python-docx>=1.2.0",
+    "pyyaml>=6.0.3",
 ]
 
 [tool.setuptools.packages.find]
