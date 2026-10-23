@@ -32,6 +32,7 @@ app:
 
   offer_workshop:
     worker_enabled: false # true on the server that runs the background jobs
+    ai_provider: azure # demo: drafts from source sentences, no language model
     worker_concurrency: 2
     poll_interval_seconds: 2
     lease_seconds: 300

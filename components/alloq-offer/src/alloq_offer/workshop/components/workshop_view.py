@@ -10,11 +10,13 @@ from alloq_offer.workshop.components.briefing_tab import briefing_tab
 from alloq_offer.workshop.components.chapters_tab import chapters_tab
 from alloq_offer.workshop.components.draft_tab import draft_tab
 from alloq_offer.workshop.components.export_tab import export_tab
+from alloq_offer.workshop.components.map_tab import map_tab
 from alloq_offer.workshop.states.workshop_state import (
     TAB_BRIEFING,
     TAB_CHAPTERS,
     TAB_DRAFT,
     TAB_EXPORT,
+    TAB_MAP,
     TABS,
     WorkshopState,
 )
@@ -39,6 +41,7 @@ def _workshop_content() -> rx.Component:
             rx.match(
                 WorkshopState.active_tab,
                 (TAB_DRAFT, draft_tab()),
+                (TAB_MAP, map_tab()),
                 (TAB_CHAPTERS, chapters_tab()),
                 (TAB_BRIEFING, briefing_tab()),
                 (TAB_EXPORT, export_tab()),

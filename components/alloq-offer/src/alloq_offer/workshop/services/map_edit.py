@@ -288,6 +288,25 @@ class MapEditor:
             story.scope = value
             return await record(session, workspace, self._user)
 
+    async def confirm_skeleton(self, revision: int) -> int:
+        """ "Umfang bestätigen": every open skeleton story becomes offered at once."""
+        async with self._edit(revision) as (session, workspace):
+            stories = (
+                await session.scalars(
+                    select(StoryEntity).where(
+                        StoryEntity.offer_id == self._offer_id,
+                        StoryEntity.archived_at.is_(None),
+                        StoryEntity.skeleton.is_(True),
+                        StoryEntity.scope == Scope.OPEN,
+                    )
+                )
+            ).all()
+            if not stories:
+                return workspace.map_revision
+            for story in stories:
+                story.scope = Scope.OFFERED
+            return await record(session, workspace, self._user)
+
     async def move_story(
         self, revision: int, story_id: int, task_id: int, slice_id: int | None
     ) -> int:

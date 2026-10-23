@@ -50,10 +50,13 @@ class JobRunner:
         config: WorkshopConfig,
         session_factory: SessionFactory = get_asyncdb_session,
         clock: Clock = utc_now,
+        offer_id: int | None = None,
     ) -> None:
         self._config = config
         self._session_factory = session_factory
         self._clock = clock
+        # Set for a runner that works off the jobs of one offer only (demo seed).
+        self._offer_id = offer_id
 
     async def _claim(self) -> JobContext | None:
         exhausted: list[JobEntity] = []
@@ -64,6 +67,7 @@ class JobRunner:
                 lease_seconds=self._config.lease_seconds,
                 kinds=registered_kinds(),
                 exhausted=exhausted,
+                offer_id=self._offer_id,
             )
             context = _context(job) if job is not None else None
             expired = [_context(item) for item in exhausted]

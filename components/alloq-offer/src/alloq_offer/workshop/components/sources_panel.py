@@ -17,6 +17,7 @@ from reflex.vars import ObjectVar
 import appkit_mantine as mn
 from alloq_offer.workshop.services.sources import TEXT_EXTENSIONS
 from alloq_offer.workshop.states.briefing_state import BriefingState
+from alloq_offer.workshop.states.draft_state import DraftState
 from alloq_offer.workshop.states.map_state import MapState
 from alloq_offer.workshop.states.sources_state import UPLOAD_ID, SourcesState
 
@@ -35,6 +36,7 @@ VIEW_LABEL = "Ansehen"
 GAP_LABEL = "Nicht gelesen"
 NO_BLOCKS = "Aus dieser Quelle wurde noch nichts gelesen."
 RETRY_LABEL = "Erneut versuchen"
+READING_TITLE = "Quellen werden gelesen"
 UPLOAD_ACCEPT: dict[str, Sequence] = {
     "message/rfc822": [".eml"],
     "text/*": [*TEXT_EXTENSIONS, ".html", ".htm"],
@@ -48,6 +50,28 @@ UPLOAD_ACCEPT: dict[str, Sequence] = {
     "audio/*": [".wav", ".mp3", ".m4a"],
 }
 STATUS_POLL_MS = 3000
+
+
+def _read_progress() -> rx.Component:
+    """Shown while sources are read; the bar moves as each one finishes."""
+    return rx.cond(
+        SourcesState.reading,
+        mn.stack(
+            mn.group(
+                mn.text(READING_TITLE, fz="12px", fw=600),
+                mn.text(SourcesState.read_label, fz="12px", c=theme.TEXT_MUTED),
+                justify="space-between",
+            ),
+            mn.progress(
+                value=SourcesState.read_progress,
+                size="sm",
+                radius="xl",
+                striped=True,
+                animated=True,
+            ),
+            gap=6,
+        ),
+    )
 
 
 def _drop_area() -> rx.Component:
@@ -211,6 +235,7 @@ def sources_panel() -> rx.Component:
                 justify="flex-end",
             ),
             _drop_area(),
+            _read_progress(),
             rx.cond(
                 SourcesState.is_empty,
                 mn.text(NO_SOURCES, fz="13px", c=theme.TEXT_MUTED),
@@ -225,6 +250,7 @@ def sources_panel() -> rx.Component:
                         SourcesState.load_sources,
                         MapState.load_map,
                         BriefingState.load_briefing,
+                        DraftState.load_overview,
                     ],
                     display="none",
                 ),

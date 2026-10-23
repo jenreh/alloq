@@ -121,6 +121,23 @@ class SourcesState(rx.State):
     def is_empty(self) -> bool:
         return not self.sources
 
+    @rx.var
+    def reading(self) -> bool:
+        return any(row["working"] for row in self.sources)
+
+    @rx.var
+    def read_progress(self) -> int:
+        """Share of the listed sources that are read, in percent."""
+        if not self.sources:
+            return 0
+        done = sum(not row["working"] for row in self.sources)
+        return round(100 * done / len(self.sources))
+
+    @rx.var
+    def read_label(self) -> str:
+        done = sum(not row["working"] for row in self.sources)
+        return f"{done} von {len(self.sources)} Quellen gelesen"
+
     async def _offer_id(self) -> int:
         return await open_offer_id(self)
 

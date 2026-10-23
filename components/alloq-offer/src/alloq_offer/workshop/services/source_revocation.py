@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from alloq_offer.workshop.db import SessionFactory
 from alloq_offer.workshop.entities import (
     BlobEntity,
+    ExportEntity,
     SourceBlockEntity,
     SourceEntity,
     StatementEntity,
@@ -55,11 +56,17 @@ async def _version_chain(
 
 
 async def _drop_blob_if_unused(session: AsyncSession, blob_id: int) -> None:
-    still_used = await session.scalar(
-        select(func.count())
-        .select_from(SourceEntity)
-        .where(SourceEntity.blob_id == blob_id)
-    )
+    # Blobs are shared by content hash, so an export may hold the same bytes.
+    still_used = 0
+    for entity in (SourceEntity, ExportEntity):
+        still_used += (
+            await session.scalar(
+                select(func.count())
+                .select_from(entity)
+                .where(entity.blob_id == blob_id)
+            )
+            or 0
+        )
     if not still_used:
         await session.execute(delete(BlobEntity).where(BlobEntity.id == blob_id))
 

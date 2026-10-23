@@ -16,11 +16,13 @@ from appkit_user.authentication.states import LoginState
 logger = logging.getLogger(__name__)
 
 TAB_DRAFT = "draft"
+TAB_MAP = "map"
 TAB_CHAPTERS = "chapters"
 TAB_BRIEFING = "briefing"
 TAB_EXPORT = "export"
 TABS: list[dict[str, str]] = [
-    {"value": TAB_DRAFT, "label": "Entwurf & Story Map"},
+    {"value": TAB_DRAFT, "label": "Entwurf"},
+    {"value": TAB_MAP, "label": "Story Map"},
     {"value": TAB_CHAPTERS, "label": "Kapitel"},
     {"value": TAB_BRIEFING, "label": "Briefing"},
     {"value": TAB_EXPORT, "label": "Export"},

@@ -13,6 +13,7 @@ from pydantic_ai.providers.azure import AzureProvider
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import UsageLimits
 
+from alloq_offer.workshop.ai.demo import DemoOfferAi
 from alloq_offer.workshop.ai.port import (
     AiTransientError,
     AiUnavailableError,
@@ -42,7 +43,10 @@ BRIEFING_PROMPT = "briefing_v1"
 MAP_ADDITIONS_PROMPT = "map_additions_v1"
 CHAPTER_PROMPT = "chapter_v1"
 REVIEW_PROMPT = "review_v1"
-NOT_CONFIGURED = "Die KI ist nicht eingerichtet."
+NOT_CONFIGURED = (
+    "Die KI ist nicht eingerichtet. Bitte hinterlegen Sie den Azure-OpenAI-Zugang "
+    "in der Konfiguration."
+)
 RATE_LIMITED = 429
 SERVER_ERROR = 500
 
@@ -141,7 +145,10 @@ class PydanticOfferAi:
         return await self._run(ProposedReview, REVIEW_PROMPT, data, "propose_review")
 
 
-def create_offer_ai(config: WorkshopConfig) -> PydanticOfferAi:
+def create_offer_ai(config: WorkshopConfig) -> PydanticOfferAi | DemoOfferAi:
+    """The configured model; ``demo`` quotes the sources instead of a model."""
+    if config.ai_provider == "demo":
+        return DemoOfferAi()
     return PydanticOfferAi(
         build_azure_model(config), config, config.azure_openai.chat_deployment
     )

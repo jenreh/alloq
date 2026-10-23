@@ -36,8 +36,10 @@ from alloq_offer.workshop.jobs.registry import (
     register_handler,
 )
 from alloq_offer.workshop.repositories import source_block_repo, source_repo
+from alloq_offer.workshop.services.draft_pipeline import draft_when_usable
 from alloq_offer.workshop.services.sources import (
     EXTRACT_JOB,
+    READABLE_STATUSES,
     SourceRejectedError,
     add_source,
     classify_filename,
@@ -134,7 +136,21 @@ class SourceExtractor:
         status, detail = await self._store_result(
             ctx.offer_id, source_id, result, notes
         )
+        if status in READABLE_STATUSES:
+            await self._auto_draft(ctx.offer_id)
         return {"status": status, "detail": detail}
+
+    async def _auto_draft(self, offer_id: int) -> None:
+        """A failed follow-up must not mark the source that was read as failed."""
+        try:
+            await draft_when_usable(
+                self._session_factory,
+                offer_id,
+                now=self._clock(),
+                max_attempts=self._max_attempts,
+            )
+        except Exception:
+            logger.exception("Automatic draft of offer %s failed", offer_id)
 
     async def _begin(self, offer_id: int, source_id: int) -> SourceEntity | None:
         async with self._session_factory() as session:
@@ -143,6 +159,8 @@ class SourceExtractor:
                 return None
             source.status = SourceStatus.PROCESSING
             source.status_detail = ""
+            # Expunging drops unflushed changes, so write the status first.
+            await session.flush()
             session.expunge(source)
             return source
 

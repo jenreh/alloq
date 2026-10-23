@@ -8,7 +8,6 @@ import logging
 
 from sqlalchemy import select
 
-from alloq_offer.workshop.ai.agents import create_offer_ai
 from alloq_offer.workshop.ai.port import (
     AiTransientError,
     AiUnavailableError,
@@ -23,6 +22,7 @@ from alloq_offer.workshop.entities import (
     StatementEntity,
     StatementStatus,
 )
+from alloq_offer.workshop.jobs.ai_access import job_ai
 from alloq_offer.workshop.jobs.registry import (
     JobContext,
     PermanentJobError,
@@ -115,6 +115,4 @@ class ProposeMapAdditions:
 @register_handler(MAP_PROPOSAL_JOB)
 async def propose_map_additions(ctx: JobContext) -> dict:
     config = service_registry().get(WorkshopConfig)
-    return await ProposeMapAdditions(create_offer_ai(config), get_asyncdb_session).run(
-        ctx
-    )
+    return await ProposeMapAdditions(job_ai(config), get_asyncdb_session).run(ctx)

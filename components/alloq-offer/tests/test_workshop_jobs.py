@@ -55,6 +55,19 @@ async def test_claim_leases_and_hides_job(db) -> None:
         assert await queue.claim_next(session, now=NOW, lease_seconds=60) is None
 
 
+async def test_claim_can_be_limited_to_one_offer(db) -> None:
+    await _enqueue(db)
+    async with db.session() as session:
+        assert (
+            await queue.claim_next(session, now=NOW, lease_seconds=60, offer_id=2)
+            is None
+        )
+        assert (
+            await queue.claim_next(session, now=NOW, lease_seconds=60, offer_id=1)
+            is not None
+        )
+
+
 async def test_claim_respects_run_after_and_kind_filter(db) -> None:
     await _enqueue(db, "a", "later")
     async with db.session() as session:

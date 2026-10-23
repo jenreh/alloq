@@ -76,6 +76,7 @@ async def claim_next(
     lease_seconds: int,
     kinds: list[str] | None = None,
     exhausted: list[JobEntity] | None = None,
+    offer_id: int | None = None,
 ) -> JobEntity | None:
     """Lease the next runnable job.
 
@@ -103,6 +104,8 @@ async def claim_next(
         )
         if kinds is not None:
             statement = statement.where(JobEntity.kind.in_(kinds))
+        if offer_id is not None:
+            statement = statement.where(JobEntity.offer_id == offer_id)
         if _is_postgres(session):
             statement = statement.with_for_update(skip_locked=True)
         job = await session.scalar(statement)

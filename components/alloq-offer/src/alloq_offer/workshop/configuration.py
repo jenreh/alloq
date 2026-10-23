@@ -1,6 +1,10 @@
 """Configuration of the offer workshop (``app.offer_workshop`` in config.yaml)."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, SecretStr
+
+AiProvider = Literal["azure", "demo"]
 
 
 class AzureOpenAiConfig(BaseModel):
@@ -17,6 +21,8 @@ class WorkshopConfig(BaseModel):
     """Limits, background worker and AI access of the workshop."""
 
     worker_enabled: bool = False
+    # "demo" drafts from source sentences without a language model (local use).
+    ai_provider: AiProvider = "azure"
     worker_concurrency: int = Field(default=2, ge=1, le=16)
     poll_interval_seconds: float = Field(default=2.0, gt=0)
     lease_seconds: int = Field(default=300, ge=10)

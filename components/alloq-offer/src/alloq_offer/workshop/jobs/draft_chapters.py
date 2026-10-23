@@ -1,15 +1,16 @@
 """Job ``draft_chapters``: proposals for prose chapters from map and briefing.
 
-Nothing is written into a chapter. A proposal waits until a person accepts it, and
-protected chapters are never drafted at all (A07).
+Later runs write nothing into a chapter: a proposal waits until a person accepts
+it, and protected chapters are never drafted at all (A07). The stage of the first
+draft keeps its texts as revision, because nobody has written anything yet.
 """
 
 import logging
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 
-from alloq_offer.workshop.ai.agents import create_offer_ai
 from alloq_offer.workshop.ai.port import (
     AiTransientError,
     AiUnavailableError,
@@ -30,6 +31,7 @@ from alloq_offer.workshop.entities import (
     StatementStatus,
 )
 from alloq_offer.workshop.export.template_package import ChapterDef, load_template
+from alloq_offer.workshop.jobs.ai_access import job_ai
 from alloq_offer.workshop.jobs.registry import (
     JobContext,
     PermanentJobError,
@@ -40,9 +42,14 @@ from alloq_offer.workshop.repositories import workspace_repo
 from alloq_offer.workshop.services.chapter_draft import DRAFT_CHAPTERS_JOB
 from alloq_offer.workshop.services.chapters import (
     ChapterError,
+    ChapterService,
     add_proposal,
     find_chapter,
     revision_of,
+)
+from alloq_offer.workshop.services.draft_pipeline import (
+    finish_initial_draft,
+    is_initial,
 )
 from alloq_offer.workshop.services.map_apply import snapshot_map
 from appkit_commons.database.session import get_asyncdb_session
@@ -78,6 +85,10 @@ class DraftChapters:
         self._session_factory = session_factory
 
     async def run(self, ctx: JobContext) -> dict:
+        initial = is_initial(ctx.payload)
+        if initial:
+            # The chapters may not exist yet when nobody opened the chapter tab.
+            await ChapterService(self._session_factory, ctx.offer_id, "").open()
         basis = await self._load(ctx)
         if basis is None:
             return NO_BASIS
@@ -99,10 +110,13 @@ class DraftChapters:
                 raise TransientJobError(AI_BUSY) from exc
             except AiUnavailableError as exc:
                 raise PermanentJobError(AI_FAILED) from exc
-            if await self._store(ctx, basis, target, proposed.to_content()):
-                stored += 1
-            else:
+            proposal_id = await self._store(ctx, basis, target, proposed.to_content())
+            if proposal_id is None:
                 skipped += 1
+                continue
+            stored += 1
+            if initial:
+                await self._keep(ctx, proposal_id, target.base_revision)
         async with self._session_factory() as session:
             session.add(
                 GenerationRunEntity(
@@ -121,21 +135,39 @@ class DraftChapters:
             stored,
             skipped,
         )
+        if initial:
+            await finish_initial_draft(
+                self._session_factory,
+                ctx.offer_id,
+                now=datetime.now(UTC),
+                max_attempts=ctx.max_attempts,
+            )
         return {"status": "ok", "proposals": stored, "skipped": skipped}
+
+    async def _keep(self, ctx: JobContext, proposal_id: int, base: int) -> None:
+        """Take the first draft over as revision; on a conflict it stays a proposal."""
+        try:
+            await ChapterService(self._session_factory, ctx.offer_id, "").accept(
+                proposal_id, base
+            )
+        except ChapterError:
+            logger.info(
+                "Draft %s of offer %s kept as proposal", proposal_id, ctx.offer_id
+            )
 
     async def _store(
         self, ctx: JobContext, basis: _Basis, target: _Target, content: ProseContent
-    ) -> bool:
+    ) -> int | None:
         """Keep the proposal unless the chapter changed while the model worked."""
         key = target.definition.key
         async with self._session_factory() as session:
             try:
                 chapter = await find_chapter(session, ctx.offer_id, key)
             except ChapterError:
-                return False
+                return None
             if chapter.protected or chapter.revision != target.base_revision:
-                return False
-            await add_proposal(
+                return None
+            proposal = await add_proposal(
                 session,
                 offer_id=ctx.offer_id,
                 chapter_key=key,
@@ -145,7 +177,8 @@ class DraftChapters:
                 instruction=str(ctx.payload.get("instruction") or ""),
                 job_id=ctx.job_id,
             )
-            return True
+            await session.flush()
+            return proposal.id
 
     async def _load(self, ctx: JobContext) -> _Basis | None:
         wanted = ctx.payload.get("keys")
@@ -220,4 +253,4 @@ class DraftChapters:
 @register_handler(DRAFT_CHAPTERS_JOB)
 async def draft_chapters(ctx: JobContext) -> dict:
     config = service_registry().get(WorkshopConfig)
-    return await DraftChapters(create_offer_ai(config), get_asyncdb_session).run(ctx)
+    return await DraftChapters(job_ai(config), get_asyncdb_session).run(ctx)

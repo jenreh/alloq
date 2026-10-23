@@ -6,7 +6,6 @@ it cannot raise a blocker: that is left to the rule checks.
 
 import logging
 
-from alloq_offer.workshop.ai.agents import create_offer_ai
 from alloq_offer.workshop.ai.port import (
     AiTransientError,
     AiUnavailableError,
@@ -24,6 +23,7 @@ from alloq_offer.workshop.entities import (
     FindingSource,
     GenerationRunEntity,
 )
+from alloq_offer.workshop.jobs.ai_access import job_ai
 from alloq_offer.workshop.jobs.registry import (
     JobContext,
     PermanentJobError,
@@ -130,4 +130,4 @@ class ReviewOffer:
 @register_handler(REVIEW_JOB)
 async def review_offer(ctx: JobContext) -> dict:
     config = service_registry().get(WorkshopConfig)
-    return await ReviewOffer(create_offer_ai(config), get_asyncdb_session).run(ctx)
+    return await ReviewOffer(job_ai(config), get_asyncdb_session).run(ctx)

@@ -1,11 +1,14 @@
-"""Job ``initial_draft``: sources to story map and briefing in one pass (spec 9.1)."""
+"""Job ``initial_draft``: sources to story map and briefing, then the chapters.
+
+The first stage of the one-click draft (spec 9.1); see ``draft_pipeline``.
+"""
 
 import asyncio
 import logging
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from alloq_offer.workshop.ai.agents import create_offer_ai
 from alloq_offer.workshop.ai.port import (
     AiTransientError,
     AiUnavailableError,
@@ -15,6 +18,7 @@ from alloq_offer.workshop.ai.port import (
 from alloq_offer.workshop.configuration import WorkshopConfig
 from alloq_offer.workshop.db import SessionFactory
 from alloq_offer.workshop.entities import GenerationRunEntity
+from alloq_offer.workshop.jobs.ai_access import job_ai
 from alloq_offer.workshop.jobs.registry import (
     JobContext,
     PermanentJobError,
@@ -22,6 +26,7 @@ from alloq_offer.workshop.jobs.registry import (
     register_handler,
 )
 from alloq_offer.workshop.repositories import workspace_repo
+from alloq_offer.workshop.services.draft_pipeline import queue_initial_chapters
 from alloq_offer.workshop.services.map_apply import apply_briefing, apply_proposed_map
 from alloq_offer.workshop.services.source_texts import load_source_texts
 from alloq_offer.workshop.services.sources import INITIAL_DRAFT_JOB
@@ -68,6 +73,12 @@ class InitialDraft:
                 session, ctx.offer_id, briefing, valid_ids
             )
             self._add_run(session, ctx, sources, "ok")
+            await queue_initial_chapters(
+                session,
+                ctx.offer_id,
+                now=datetime.now(UTC),
+                max_attempts=ctx.max_attempts,
+            )
         logger.info(
             "Initial draft of offer %s: %d stories, %d skipped",
             ctx.offer_id,
@@ -120,4 +131,4 @@ class InitialDraft:
 @register_handler(INITIAL_DRAFT_JOB)
 async def initial_draft(ctx: JobContext) -> dict:
     config = service_registry().get(WorkshopConfig)
-    return await InitialDraft(create_offer_ai(config), get_asyncdb_session).run(ctx)
+    return await InitialDraft(job_ai(config), get_asyncdb_session).run(ctx)
