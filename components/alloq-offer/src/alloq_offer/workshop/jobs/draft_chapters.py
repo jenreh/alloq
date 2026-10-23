@@ -16,7 +16,7 @@ from alloq_offer.workshop.ai.port import (
     ChapterAi,
     ChapterRequest,
 )
-from alloq_offer.workshop.ai.render import map_outline
+from alloq_offer.workshop.ai.render import map_outline, statement_line
 from alloq_offer.workshop.configuration import WorkshopConfig
 from alloq_offer.workshop.content.schema import ProseContent
 from alloq_offer.workshop.content.text import stored_lines
@@ -52,7 +52,6 @@ logger = logging.getLogger(__name__)
 
 AI_FAILED = "Die KI konnte keinen Vorschlag liefern. Bitte prüfen Sie die Einrichtung."
 AI_BUSY = "Die KI ist gerade nicht erreichbar. Der Auftrag wird erneut versucht."
-CONFIRMED = " (fachlich bestätigt)"
 NO_BASIS = {"status": "skipped", "reason": "no map and no briefing"}
 
 
@@ -211,8 +210,7 @@ class DraftChapters:
             map_revision=workspace.map_revision,
             outline=map_outline(snapshot),
             statements=[
-                f"{s.type}: {s.text}"
-                + (CONFIRMED if s.status == StatementStatus.CONFIRMED else "")
+                statement_line(s.type, s.text, s.status == StatementStatus.CONFIRMED)
                 for s in statements
             ],
             targets=targets,

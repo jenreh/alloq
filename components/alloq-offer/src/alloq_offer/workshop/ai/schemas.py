@@ -75,3 +75,17 @@ class ProposedChapter(BaseModel):
 
     def to_content(self) -> ProseContent:
         return ProseContent(blocks=list(self.blocks))
+
+
+class ReviewRemark(BaseModel):
+    """One remark of the review; it never changes content."""
+
+    target: str = Field(
+        description="chapter:<key>, story:<US-nn> or workspace",
+    )
+    message: str
+    severity: Literal["Warnung", "Hinweis"] = "Hinweis"
+
+
+class ProposedReview(BaseModel):
+    findings: list[ReviewRemark] = Field(default_factory=list)

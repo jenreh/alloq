@@ -73,6 +73,7 @@ def repo() -> Iterator[AsyncMock]:
         patch(f"{MODULE}.offer_repo", mock),
         patch(f"{MODULE}.industry_repo", industries),
         patch(f"{MODULE}.get_asyncdb_session", _ctx),
+        patch(f"{MODULE}.void_after_offer_edit", AsyncMock(return_value=False)),
     ):
         yield mock
 

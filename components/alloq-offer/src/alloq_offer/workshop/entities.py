@@ -1,11 +1,12 @@
 """Tables of the offer workshop: workspace, blobs and background jobs."""
 
 import enum
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     JSON,
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -109,6 +110,23 @@ class ProposalStatus(enum.StrEnum):
     STALE = "veraltet"
 
 
+class FindingSeverity(enum.StrEnum):
+    BLOCKER = "Blocker"
+    WARNING = "Warnung"
+    NOTE = "Hinweis"
+
+
+class FindingSource(enum.StrEnum):
+    RULE = "Regel"
+    AI = "KI"
+
+
+class FindingDecision(enum.StrEnum):
+    OPEN = "offen"
+    FIXED = "behoben"
+    ACCEPTED = "akzeptiert"
+
+
 class WorkspaceEntity(Entity, Base):
     """Workshop state of one offer (one workspace per offer)."""
 
@@ -129,6 +147,21 @@ class WorkspaceEntity(Entity, Base):
     auto_draft: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
+    currency: Mapped[str] = mapped_column(
+        String(3), nullable=False, default="EUR", server_default="EUR"
+    )
+    validity_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    price_required: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
+    )
+    # The values a person confirmed; a later change of any of them voids this.
+    commercials_snapshot: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    commercials_confirmed_by: Mapped[str] = mapped_column(
+        String(255), nullable=False, default="", server_default=""
+    )
+    commercials_confirmed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_by: Mapped[str] = mapped_column(String(255), nullable=False, default="")
 
     def to_dict(self) -> dict:
@@ -144,6 +177,11 @@ class WorkspaceEntity(Entity, Base):
             "story_seq": self.story_seq,
             "doc_state": self.doc_state,
             "auto_draft": self.auto_draft,
+            "currency": self.currency,
+            "validity_date": self.validity_date,
+            "price_required": self.price_required,
+            "commercials_confirmed_by": self.commercials_confirmed_by,
+            "commercials_confirmed_at": self.commercials_confirmed_at,
             "created_by": self.created_by,
             "created": self.created,
             "updated": self.updated,
@@ -622,5 +660,54 @@ class ProposalEntity(Entity, Base):
             "map_revision": self.map_revision,
             "instruction": self.instruction,
             "status": self.status,
+            "created": self.created,
+        }
+
+
+class FindingEntity(Entity, Base):
+    """A check result or review remark; decisions are kept with their reason."""
+
+    __tablename__ = "offer_findings"
+    __table_args__ = (
+        UniqueConstraint(
+            "offer_id", "fingerprint", name="uq_offer_findings_fingerprint"
+        ),
+    )
+
+    offer_id: Mapped[int] = mapped_column(
+        ForeignKey("offers.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    rule: Mapped[str] = mapped_column(String(50), nullable=False)
+    severity: Mapped[str] = mapped_column(String(20), nullable=False)
+    source: Mapped[str] = mapped_column(String(20), nullable=False)
+    target: Mapped[str] = mapped_column(String(100), nullable=False, default="")
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    map_revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    decision: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=FindingDecision.OPEN
+    )
+    reason: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    decided_by: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    decided_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    def to_dict(self) -> dict:
+        """Convert entity to dictionary for Pydantic model creation."""
+        return {
+            "id": self.id,
+            "offer_id": self.offer_id,
+            "fingerprint": self.fingerprint,
+            "rule": self.rule,
+            "severity": self.severity,
+            "source": self.source,
+            "target": self.target,
+            "message": self.message,
+            "map_revision": self.map_revision,
+            "decision": self.decision,
+            "reason": self.reason,
+            "decided_by": self.decided_by,
+            "decided_at": self.decided_at,
             "created": self.created,
         }

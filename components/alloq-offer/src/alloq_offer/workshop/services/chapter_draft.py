@@ -3,13 +3,13 @@
 from datetime import datetime
 
 from alloq_offer.workshop.db import SessionFactory
-from alloq_offer.workshop.entities import JobEntity, JobStatus
+from alloq_offer.workshop.entities import JobEntity
 from alloq_offer.workshop.export.template_package import load_template
-from alloq_offer.workshop.jobs import queue
-from alloq_offer.workshop.repositories import job_repo, workspace_repo
+from alloq_offer.workshop.repositories import workspace_repo
+from alloq_offer.workshop.services.job_requests import enqueue_exclusive
+from alloq_offer.workshop.services.workspace import NO_WORKSPACE
 
 DRAFT_CHAPTERS_JOB = "draft_chapters"
-NO_WORKSPACE = "Zu diesem Angebot gibt es noch keine Werkstatt."
 NOT_DRAFTABLE = "Für dieses Kapitel gibt es keinen KI-Vorschlag."
 NOTHING_TO_DRAFT_FROM = "Es gibt noch keine Story Map und kein Briefing als Grundlage."
 
@@ -40,18 +40,10 @@ async def request_chapter_draft(
         for key in keys or []:
             if template.chapter(key).chapter_type != "prose":
                 raise ChapterDraftError(NOT_DRAFTABLE)
-        latest = await job_repo.find_latest(session, offer_id, DRAFT_CHAPTERS_JOB)
-        if latest is not None and latest.status in (
-            JobStatus.QUEUED,
-            JobStatus.RUNNING,
-        ):
-            return latest
-        number = await job_repo.count_of_kind(session, offer_id, DRAFT_CHAPTERS_JOB)
-        return await queue.enqueue(
+        return await enqueue_exclusive(
             session,
             kind=DRAFT_CHAPTERS_JOB,
             offer_id=offer_id,
-            idempotency_key=f"{DRAFT_CHAPTERS_JOB}:{offer_id}:{number + 1}",
             payload={"keys": keys, "instruction": instruction.strip()[:2000]},
             now=now,
             max_attempts=max_attempts,

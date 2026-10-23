@@ -8,17 +8,21 @@ from alloq_commons.components.list_view import empty_list, inspector, inspector_
 from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
+from alloq_offer.workshop.components.review_panel import calc_section, findings_section
 from alloq_offer.workshop.states.chapter_state import (
     SHORTEN,
     TECHNICAL,
     ChapterState,
 )
+from alloq_offer.workshop.states.review_state import ReviewState
 
 Row = ObjectVar[dict[str, Any]]
 
 LIST_TITLE = "Kapitel"
 DRAFT_ALL = "Fehlende Kapitel vorschlagen"
 NEEDS_REVIEW = "Bitte prüfen"
+BLOCKED = "Blocker"
+FINDINGS = "Befunde"
 PROPOSAL_BADGE = "Vorschlag"
 PROTECTED_LABEL = "Kapitel schützen"
 PROTECTED_BADGE = "Geschützt"
@@ -53,6 +57,14 @@ def _list_row(chapter: Row) -> rx.Component:
             fz="13px",
             fw=rx.cond(active, 650, 450),
             style={"flex": "1 1 auto", "minWidth": "0"},
+        ),
+        rx.cond(
+            ReviewState.blocker_keys.contains(chapter["key"].to(str)),
+            mn.badge(BLOCKED, color="red", variant="light", size="xs"),
+            rx.cond(
+                ReviewState.other_keys.contains(chapter["key"].to(str)),
+                mn.badge(FINDINGS, color="yellow", variant="light", size="xs"),
+            ),
         ),
         rx.cond(
             chapter["needs_review"].to(bool),
@@ -288,6 +300,8 @@ def _context() -> rx.Component:
             ),
         ),
         rx.cond(ChapterState.has_proposal, _proposal()),
+        rx.cond(ChapterState.active["type"].to(str) == "calc", calc_section()),
+        findings_section(),
         _ai_help(),
         rx.cond(
             ChapterState.history_open,

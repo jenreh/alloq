@@ -7,6 +7,7 @@ from alloq_offer.workshop.ai.schemas import (
     ProposedBriefing,
     ProposedChapter,
     ProposedMap,
+    ProposedReview,
 )
 
 
@@ -42,6 +43,22 @@ class ChapterRequest:
     statements: list[str]
 
 
+@dataclass(frozen=True)
+class ReviewChapter:
+    key: str
+    title: str
+    lines: list[str]
+
+
+@dataclass(frozen=True)
+class ReviewRequest:
+    """The offer as the review reads it: map, briefing and written chapters."""
+
+    map_outline: str
+    statements: list[str]
+    chapters: list[ReviewChapter]
+
+
 class AiUnavailableError(RuntimeError):
     """No model is configured or it cannot be reached for good."""
 
@@ -65,3 +82,10 @@ class ChapterAi(Protocol):
     chapter_prompt_version: str
 
     async def propose_chapter(self, request: ChapterRequest) -> ProposedChapter: ...
+
+
+class ReviewAi(Protocol):
+    model_name: str
+    review_prompt_version: str
+
+    async def propose_review(self, request: ReviewRequest) -> ProposedReview: ...

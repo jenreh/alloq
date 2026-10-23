@@ -8,7 +8,7 @@ arrive as proposals that a person accepts.
 import logging
 from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import select, tuple_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from alloq_offer.workshop.content.schema import ProseContent, parse_content
@@ -63,6 +63,22 @@ def default_content(definition: ChapterDef) -> Content:
 
 def _template(workspace: WorkspaceEntity) -> TemplatePackage:
     return load_template(workspace.template_key)
+
+
+async def mark_chapters_review(
+    session: AsyncSession, offer_id: int, keys: list[str], reason: str
+) -> None:
+    """Flag the chapters with ``keys`` for a new look."""
+    if not keys:
+        return
+    await session.execute(
+        update(ChapterEntity)
+        .where(
+            ChapterEntity.offer_id == offer_id,
+            ChapterEntity.chapter_key.in_(keys),
+        )
+        .values(needs_review=True, review_reason=reason)
+    )
 
 
 async def mark_dependent_review(
@@ -124,6 +140,22 @@ def _unchanged(stored: dict, content: Content) -> bool:
     return _without_block_ids(stored) == _without_block_ids(
         content.model_dump(mode="json")
     )
+
+
+async def current_revisions(
+    session: AsyncSession, chapters: list[ChapterEntity]
+) -> dict[int, ChapterRevisionEntity]:
+    """The current revision of every chapter in one query, keyed by chapter id."""
+    if not chapters:
+        return {}
+    rows = await session.scalars(
+        select(ChapterRevisionEntity).where(
+            tuple_(ChapterRevisionEntity.chapter_id, ChapterRevisionEntity.number).in_(
+                [(c.id, c.revision) for c in chapters]
+            )
+        )
+    )
+    return {row.chapter_id: row for row in rows.all()}
 
 
 def _add_revision(

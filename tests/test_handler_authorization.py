@@ -103,6 +103,7 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
     "DashboardState": frozenset({"close_drill_down", "open_drill_down"}),
     "ChapterState": frozenset({"close_history", "set_instruction"}),
     "MapState": frozenset({"close_story", "select_story"}),
+    "ReviewState": frozenset({"cancel_decide", "set_reason", "start_decide"}),
     "SourcesState": frozenset({"close_paste", "open_paste"}),
     "OfferState": frozenset(
         {

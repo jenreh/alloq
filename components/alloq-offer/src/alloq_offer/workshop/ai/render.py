@@ -1,6 +1,6 @@
 """Sources as clearly delimited data for a prompt."""
 
-from alloq_offer.workshop.ai.port import ChapterRequest, SourceText
+from alloq_offer.workshop.ai.port import ChapterRequest, ReviewRequest, SourceText
 
 TRUNCATED = "[Weitere Quellen wurden wegen der Länge ausgelassen.]"
 
@@ -29,6 +29,14 @@ def render_sources(sources: list[SourceText], max_chars: int) -> str:
         parts.append(text)
         used += len(text)
     return "\n\n".join(parts)
+
+
+CONFIRMED_MARK = " (fachlich bestätigt)"
+
+
+def statement_line(type_: str, text: str, confirmed: bool) -> str:
+    """A briefing statement as one prompt line."""
+    return f"{type_}: {text}" + (CONFIRMED_MARK if confirmed else "")
 
 
 def map_outline(snapshot: dict) -> str:
@@ -74,3 +82,15 @@ def render_chapter(request: ChapterRequest, max_chars: int) -> str:
     parts += ["<map>", _tags(request.map_outline)[:max_chars], "</map>"]
     parts += ["<briefing>", *map(_tags, request.statements), "</briefing>"]
     return "\n".join(parts)
+
+
+def render_review(request: ReviewRequest, max_chars: int) -> str:
+    """Map, briefing and chapters as delimited data for the review."""
+    parts = ["<map>", _tags(request.map_outline), "</map>"]
+    parts += ["<briefing>", *map(_tags, request.statements), "</briefing>"]
+    for chapter in request.chapters:
+        parts += [
+            f'<kapitel key="{_tags(chapter.key)}" titel="{_tags(chapter.title)}">'
+        ]
+        parts += [*map(_tags, chapter.lines), "</kapitel>"]
+    return "\n".join(parts)[:max_chars]

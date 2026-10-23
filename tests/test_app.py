@@ -112,7 +112,11 @@ class TestAuthPageLogos:
         assert logos["logo_dark"].startswith("/alloq/img/appkit_logo_dark.svg")
 
     def test_logos_at_site_root(self) -> None:
-        logos = auth_page_logos()
+        config = MagicMock()
+        config.prepend_frontend_path.side_effect = lambda path: path
+
+        with patch("reflex.assets.get_config", return_value=config):
+            logos = auth_page_logos()
 
         assert logos["logo"].startswith("/img/appkit_logo.svg")
         assert logos["logo_dark"].startswith("/img/appkit_logo_dark.svg")

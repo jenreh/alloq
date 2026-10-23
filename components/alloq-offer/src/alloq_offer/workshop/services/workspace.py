@@ -10,6 +10,8 @@ from alloq_offer.workshop.export.template_package import (
 )
 from alloq_offer.workshop.repositories import workspace_repo
 
+NO_WORKSPACE = "Zu diesem Angebot gibt es noch keine Werkstatt."
+
 
 async def open_workspace(
     session: AsyncSession, offer_id: int, user: str

@@ -7,6 +7,7 @@ from alloq_offer.workshop.jobs import (  # noqa: F401  (registers the handlers)
     draft_chapters,
     extract_source,
     initial_draft,
+    review_offer,
 )
 from alloq_offer.workshop.jobs.registry import registered_kinds
 from alloq_offer.workshop.jobs.runner import JobRunner

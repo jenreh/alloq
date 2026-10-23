@@ -17,13 +17,19 @@ from alloq_offer.workshop.ai.port import (
     AiTransientError,
     AiUnavailableError,
     ChapterRequest,
+    ReviewRequest,
     SourceText,
 )
-from alloq_offer.workshop.ai.render import render_chapter, render_sources
+from alloq_offer.workshop.ai.render import (
+    render_chapter,
+    render_review,
+    render_sources,
+)
 from alloq_offer.workshop.ai.schemas import (
     ProposedBriefing,
     ProposedChapter,
     ProposedMap,
+    ProposedReview,
 )
 from alloq_offer.workshop.configuration import WorkshopConfig
 
@@ -32,6 +38,7 @@ logger = logging.getLogger(__name__)
 MAP_PROMPT = "map_v1"
 BRIEFING_PROMPT = "briefing_v1"
 CHAPTER_PROMPT = "chapter_v1"
+REVIEW_PROMPT = "review_v1"
 NOT_CONFIGURED = "Die KI ist nicht eingerichtet."
 RATE_LIMITED = 429
 SERVER_ERROR = 500
@@ -64,6 +71,7 @@ class PydanticOfferAi:
     map_prompt_version = MAP_PROMPT
     briefing_prompt_version = BRIEFING_PROMPT
     chapter_prompt_version = CHAPTER_PROMPT
+    review_prompt_version = REVIEW_PROMPT
 
     def __init__(self, model: Model, config: WorkshopConfig, name: str) -> None:
         self._model = model
@@ -110,6 +118,10 @@ class PydanticOfferAi:
     async def propose_chapter(self, request: ChapterRequest) -> ProposedChapter:
         data = render_chapter(request, self._config.ai_max_input_chars)
         return await self._run(ProposedChapter, CHAPTER_PROMPT, data, "propose_chapter")
+
+    async def propose_review(self, request: ReviewRequest) -> ProposedReview:
+        data = render_review(request, self._config.ai_max_input_chars)
+        return await self._run(ProposedReview, REVIEW_PROMPT, data, "propose_review")
 
 
 def create_offer_ai(config: WorkshopConfig) -> PydanticOfferAi:
