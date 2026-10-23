@@ -30,6 +30,20 @@ app:
     max_overflow: 30 # change only when needed
     echo: False # Set to True to enable SQL logging
 
+  offer_workshop:
+    worker_enabled: false # true on the server that runs the background jobs
+    worker_concurrency: 2
+    poll_interval_seconds: 2
+    lease_seconds: 300
+    max_attempts: 3
+    max_blob_bytes: 52428800 # 50 MB
+    azure_openai:
+      endpoint: ""
+      api_key: ""
+      api_version: 2025-04-01-preview
+      chat_deployment: ""
+      transcription_deployment: ""
+
   authentication:
     session_timeout: 25 # minutes
     auth_token_refresh_delta: 10 # minutes

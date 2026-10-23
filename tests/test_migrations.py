@@ -472,3 +472,23 @@ def test_offer_project_migration_adds_and_drops_the_link() -> None:
         removed = {c["name"] for c in sa.inspect(conn).get_columns("offers")}
     assert "project_id" in added
     assert "project_id" not in removed
+
+
+# b3c4d5e6f7a8 — offer workshop foundation tables
+def test_offer_workshop_base_migration_creates_and_drops_tables() -> None:
+    migration = _load("2026_10_23_offer_workshop_base.py")
+    assert migration.down_revision == "a2b3c4d5e6f7"
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    tables = {"offer_workspaces", "offer_blobs", "offer_jobs"}
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        _run(migration, "upgrade", conn)
+        created = set(sa.inspect(conn).get_table_names())
+        job_indexes = {i["name"] for i in sa.inspect(conn).get_indexes("offer_jobs")}
+        _run(migration, "downgrade", conn)
+        dropped = set(sa.inspect(conn).get_table_names())
+    assert tables <= created
+    assert "ix_offer_jobs_status_run_after" in job_indexes
+    assert not tables & dropped

@@ -526,3 +526,20 @@ class TestAcceptOffer:
             out = await _run(state.accept_offer, {})
         assert "Berechtigung" in out
         projects.create.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_create_without_calculation(repo: AsyncMock) -> None:
+    state = _state()
+    state.form = {
+        **FORM,
+        "person_days": "",
+        "risk_buffer_days": "",
+        "production_cost": "",
+        "recommended_price": "",
+    }
+    assert not state.is_form_invalid
+    with _as_offer_editor(state):
+        out = await _run(state.create_offer, {})
+    assert offer_state.HINT_INVALID not in out
+    repo.create.assert_called_once()

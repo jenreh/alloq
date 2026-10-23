@@ -122,3 +122,21 @@ class TestIndustry:
     def test_offer_needs_an_industry(self) -> None:
         with pytest.raises(ValidationError):
             OfferCreate(**_valid(industry_id=0))
+
+
+class TestCalculationIsOptional:
+    def test_empty_calculation_means_zero(self) -> None:
+        data = _valid(
+            person_days="",
+            risk_buffer_days=None,
+            production_cost=" ",
+            recommended_price="",
+        )
+        offer = OfferCreate(**data)
+        assert offer.person_days == offer.recommended_price == Decimal(0)
+
+    def test_calculation_may_be_left_out(self) -> None:
+        data = _valid()
+        for field in ("person_days", "production_cost", "recommended_price"):
+            data.pop(field)
+        assert OfferCreate(**data).production_cost == Decimal(0)

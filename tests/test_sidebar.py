@@ -211,3 +211,8 @@ class TestSidebarComponent:
 
     def test_other_routes_match_exactly(self) -> None:
         assert '"/projects"' in str(is_route_active("/projects"))
+
+    def test_offers_stay_active_on_the_workshop_page(self) -> None:
+        rendered = str(is_route_active("/offers"))
+        assert '"/offers"' in rendered
+        assert '"/offers/"' in rendered

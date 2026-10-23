@@ -93,6 +93,9 @@ def is_route_active(url: str) -> rx.Var[bool]:
         return (current == "/") | (current == "/index")
     if url == "/plan":
         return (current == url) | (current == "/") | (current == "/index")
+    if url == OFFERS_ROUTE:
+        # The offer workshop (/offers/[offer_id]/werkstatt) belongs to the offers.
+        return (current == url) | current.startswith(f"{OFFERS_ROUTE}/")
     return current == url
 
 

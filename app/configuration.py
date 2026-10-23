@@ -1,6 +1,8 @@
 import logging
 from functools import lru_cache
 
+from alloq_offer.workshop.configuration import WorkshopConfig
+
 from appkit_commons.configuration.configuration import (
     ApplicationConfig,
     Configuration,
@@ -22,6 +24,8 @@ class AppConfig(ApplicationConfig):
     trusted_proxies: set[str] | None = None
     # Entra ID sign-in of the desktop app (configuration/config.desktop.yaml).
     desktop: DesktopConfig | None = None
+    # Background worker and Azure OpenAI access of the offer workshop.
+    offer_workshop: WorkshopConfig = WorkshopConfig()
 
 
 @lru_cache(maxsize=1)

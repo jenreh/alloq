@@ -60,17 +60,37 @@ class OfferCreate(BaseModel):
 
     title: _Text255
     customer: _Text255
-    person_days: Decimal = Field(..., ge=0, max_digits=8, decimal_places=2)
+    person_days: Decimal = Field(
+        default=Decimal(0), ge=0, max_digits=8, decimal_places=2
+    )
     risk_buffer_days: Decimal = Field(
         default=Decimal(0), ge=0, max_digits=8, decimal_places=2
     )
-    production_cost: Decimal = Field(..., ge=0, max_digits=12, decimal_places=2)
-    recommended_price: Decimal = Field(..., ge=0, max_digits=12, decimal_places=2)
+    production_cost: Decimal = Field(
+        default=Decimal(0), ge=0, max_digits=12, decimal_places=2
+    )
+    recommended_price: Decimal = Field(
+        default=Decimal(0), ge=0, max_digits=12, decimal_places=2
+    )
     key_accounter: _Text255
     industry_id: int = Field(..., gt=0)
     sharepoint_url: str | None = Field(default=None, max_length=2048)
     sent_date: date | None = None
     state: OfferStateEnum = OfferStateEnum.NEW
+
+    @field_validator(
+        "person_days",
+        "risk_buffer_days",
+        "production_cost",
+        "recommended_price",
+        mode="before",
+    )
+    @classmethod
+    def _empty_means_not_calculated(cls, value: object) -> object:
+        """The calculation is filled after the workshop; empty is 0."""
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return Decimal(0)
+        return value
 
     @field_validator("sharepoint_url")
     @classmethod

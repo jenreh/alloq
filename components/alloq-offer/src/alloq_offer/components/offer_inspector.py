@@ -23,10 +23,12 @@ from alloq_offer.components.offer_parts import (
 from alloq_offer.entities import OfferStateEnum
 from alloq_offer.models import Offer
 from alloq_offer.states.offer_state import OfferState
+from alloq_offer.workshop.routes import WORKSHOP_ROUTE_PREFIX, WORKSHOP_ROUTE_SUFFIX
 from appkit_user.authentication.components.components import requires_role
 from appkit_user.authentication.states import UserSession
 
 ACCEPT_LABEL = "Annehmen"
+WORKSHOP_LABEL = "Werkstatt öffnen"
 STATE_OPTIONS: list[str] = [s.value for s in OfferStateEnum]
 _CAN_EDIT = UserSession.user.roles.contains(OFFER_EDITOR_ROLE.name)
 
@@ -68,30 +70,52 @@ def _icon_button(icon: str, label: str, on_click: rx.EventHandler) -> rx.Compone
     )
 
 
+def _workshop_link(offer: ObjectVar[Offer]) -> rx.Component:
+    """The main action of an offer: the workshop that drafts it."""
+    return rx.link(
+        mn.button(
+            WORKSHOP_LABEL,
+            left_section=rx.icon("wand-sparkles", size=15, stroke_width=2),
+            size="xs",
+            h=30,
+            radius="md",
+            w="100%",
+        ),
+        href=WORKSHOP_ROUTE_PREFIX + offer.id.to(str) + WORKSHOP_ROUTE_SUFFIX,
+        style={"width": "100%"},
+    )
+
+
 def _actions(offer: ObjectVar[Offer]) -> rx.Component:
     return requires_role(
-        mn.group(
-            plain_button("Bearbeiten", OfferState.open_edit_modal(offer.id), flex="1"),
-            rx.cond(
-                OfferState.can_accept_inspected,
+        mn.stack(
+            _workshop_link(offer),
+            mn.group(
                 plain_button(
-                    ACCEPT_LABEL, OfferState.open_accept_modal(offer.id), flex="1"
+                    "Bearbeiten", OfferState.open_edit_modal(offer.id), flex="1"
                 ),
-                rx.fragment(),
-            ),
-            rx.cond(
-                offer.archived,
-                _icon_button(
-                    "archive-restore",
-                    "Wiederherstellen",
-                    OfferState.restore_offer(offer.id),
+                rx.cond(
+                    OfferState.can_accept_inspected,
+                    plain_button(
+                        ACCEPT_LABEL, OfferState.open_accept_modal(offer.id), flex="1"
+                    ),
+                    rx.fragment(),
                 ),
-                _icon_button(
-                    "archive", "Archivieren", OfferState.archive_offer(offer.id)
+                rx.cond(
+                    offer.archived,
+                    _icon_button(
+                        "archive-restore",
+                        "Wiederherstellen",
+                        OfferState.restore_offer(offer.id),
+                    ),
+                    _icon_button(
+                        "archive", "Archivieren", OfferState.archive_offer(offer.id)
+                    ),
                 ),
+                gap=8,
+                wrap="nowrap",
             ),
             gap=8,
-            wrap="nowrap",
         ),
         role=OFFER_EDITOR_ROLE.name,
     )

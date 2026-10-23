@@ -4,6 +4,8 @@ from alloq_commons.components.shell import SIDEBAR_SCRIPT
 from alloq_commons.desktop import is_desktop
 from alloq_dashboard.pages import create_dashboard_page
 from alloq_offer.pages import create_offers_page
+from alloq_offer.workshop.pages import create_offer_workshop_page
+from alloq_offer.workshop.worker import offer_workshop_worker
 from alloq_project.pages import create_planning_page, create_projects_overview_page
 from alloq_team.pages import create_team_overview_page
 from starlette.types import ASGIApp
@@ -66,6 +68,7 @@ create_industries_page(sidebar())
 create_team_overview_page(sidebar())
 create_projects_overview_page(sidebar())
 create_offers_page(sidebar())
+create_offer_workshop_page(sidebar())
 create_planning_page(sidebar(), route="/")
 create_planning_page(sidebar())
 create_dashboard_page(sidebar(), route="/dashboard")
@@ -89,3 +92,4 @@ app = rx.App(
 )
 
 install_session_filter(app)
+app.register_lifespan_task(offer_workshop_worker)

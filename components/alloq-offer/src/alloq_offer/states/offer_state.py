@@ -53,12 +53,10 @@ REQUIRED_FIELDS: Final = (
     "customer",
     "key_accounter",
     "industry_id",
-    "person_days",
-    "production_cost",
-    "recommended_price",
 )
 HINT_INVALID: Final = (
-    "Bitte alle Pflichtfelder ausfüllen (Zahlen nicht negativ, Link mit https://)."
+    "Bitte alle Pflichtfelder ausfüllen. Zahlen dürfen nicht negativ sein, "
+    "ein Link muss mit https:// beginnen."
 )
 ERROR_SAVE: Final = "Das Angebot konnte nicht gespeichert werden."
 NOT_FOUND: Final = "Angebot nicht gefunden."

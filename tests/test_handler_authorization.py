@@ -120,6 +120,7 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
             "toggle_sort",
         }
     ),
+    "WorkshopState": frozenset({"set_tab"}),
     "RoleState": frozenset(
         {
             "close_add_modal",

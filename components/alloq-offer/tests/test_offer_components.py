@@ -1,5 +1,6 @@
 """Render tests of the offer components."""
 
+import reflex as rx
 from alloq_commons.access import NO_ACCESS_MSG
 from alloq_commons.roles import OFFER_EDITOR_ROLE
 from alloq_offer.components import offer_inspector as offer_inspector_module
@@ -121,3 +122,11 @@ def test_labels_avoid_company_abbreviations() -> None:
     labels = {label for label, _field, _numeric in offer_table.COLUMNS}
     assert {"Account Manager", "Branche", "Kosten", "Preis"} <= labels
     assert not labels & {"CIU", "Key Accounter", "HK", "VK", "PT"}
+
+
+def test_zero_calculation_values_show_a_dash() -> None:
+    for component in (
+        offer_parts.euro(rx.Var.create(0)),
+        offer_parts.days(rx.Var.create(0)),
+    ):
+        assert "\\u2013" in str(component)

@@ -58,8 +58,10 @@ PROJECT_DURATION_DAYS: Final = 90
 
 
 def can_accept(offer: Offer) -> bool:
-    """Only archived-free offers without a project can be accepted."""
-    return not offer.archived and offer.project_id is None
+    """Only calculated, unarchived offers without a project can be accepted."""
+    return (
+        not offer.archived and offer.project_id is None and offer.recommended_price > 0
+    )
 
 
 def default_project_dates(today: date) -> tuple[date, date]:
