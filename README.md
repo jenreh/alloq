@@ -26,7 +26,7 @@ Alloq helps software teams plan which people work on which project in each week.
 - **Team** — Employees, roles, seniority levels, departments and absences
 - **Master Data** — Roles, departments, region-aware public holidays and daily rates with margin-based pricing
 - **Authentication** — Email and password sign-in and Microsoft sign-in (Entra ID)
-- **Role-Based Access** — Administrators can do everything, project managers edit planning, employees only read
+- **Role-Based Access** — Administrators can do everything, project managers edit planning, employees only read, and the Angebote role (`offer_editor`) edits offers only
 - **Desktop App** — macOS app (Tauri) that signs in with Entra ID and connects to Postgres with a personal token
 
 ## Documentation
@@ -121,6 +121,7 @@ components/
   alloq-dashboard/     # Portfolio overview (aggregation, charts)
   alloq-project/       # Project planning & forecasting
   alloq-team/          # Team management views
+  alloq-offer/         # Offers (Angebote): independent package, own table and offer_editor role
 configuration/         # YAML config files (per-environment profiles)
 alembic/               # Database migrations
 docs/                  # Developer documentation (VitePress)

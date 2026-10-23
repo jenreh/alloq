@@ -1,6 +1,7 @@
 """Tests for hand-written Alembic data migrations (run offline on SQLite)."""
 
 import importlib.util
+import json
 from collections.abc import Iterator
 from datetime import date, timedelta
 from pathlib import Path
@@ -339,3 +340,135 @@ def test_downgrade_drops_constraints(
     _insert_absence(planning_tables, "2026-06-10", "2026-06-01")
     _insert_capacity(planning_tables, "2026-01-01", "2026-01-31", 40.0)
     _insert_capacity(planning_tables, "2026-01-01", "2026-01-31", 40.0)
+
+
+# ---------------------------------------------------------------------------
+# e023b4c5d6f7 — grant planning roles for role-only access
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def role_grant() -> ModuleType:
+    return _load("2026_10_21_role_only_access.py")
+
+
+def test_role_grant_follows_planning_indexes(role_grant: ModuleType) -> None:
+    assert role_grant.down_revision == "df12a3b4c5e6"
+
+
+def test_upgrade_grants_roles_to_admins_and_project_managers(
+    role_grant: ModuleType,
+) -> None:
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    users = sa.Table(
+        "auth_users",
+        metadata,
+        sa.Column("id", sa.Integer, primary_key=True),
+        sa.Column("is_admin", sa.Boolean),
+        sa.Column("roles", sa.String),
+    )
+    rows = [
+        (1, True, "[]"),
+        (2, False, '["project_manager"]'),
+        (3, True, '["employee", "offer_editor"]'),
+        (4, False, '["offer_editor"]'),
+        (5, False, "[]"),
+    ]
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        conn.execute(
+            users.insert(),
+            [{"id": i, "is_admin": a, "roles": r} for i, a, r in rows],
+        )
+        _run(role_grant, "upgrade", conn)
+        result = dict(conn.execute(sa.text("SELECT id, roles FROM auth_users")).all())
+        _run(role_grant, "downgrade", conn)
+        after_downgrade = dict(
+            conn.execute(sa.text("SELECT id, roles FROM auth_users")).all()
+        )
+
+    assert {i: json.loads(r) for i, r in result.items()} == {
+        1: ["project_manager", "employee"],
+        2: ["project_manager", "employee"],
+        3: ["employee", "offer_editor", "project_manager"],
+        4: ["offer_editor"],
+        5: [],
+    }
+    assert after_downgrade == result
+
+
+# ---------------------------------------------------------------------------
+# f1a2b3c4d5e6 — CIU codes become editable industries
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def industries() -> ModuleType:
+    return _load("2026_10_21_industries.py")
+
+
+def test_industries_follow_role_grant(industries: ModuleType) -> None:
+    assert industries.down_revision == "e023b4c5d6f7"
+
+
+def test_industries_migration_links_offers_and_restores_codes(
+    industries: ModuleType,
+) -> None:
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    offers = sa.Table(
+        "offers",
+        metadata,
+        sa.Column("id", sa.Integer, primary_key=True),
+        sa.Column("title", sa.String, nullable=False),
+        sa.Column("ciu", sa.String(10), nullable=False),
+    )
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        conn.execute(
+            offers.insert(),
+            [
+                {"id": 1, "title": "A", "ciu": "FS"},
+                {"id": 2, "title": "B", "ciu": "P"},
+                {"id": 3, "title": "C", "ciu": "XY"},
+            ],
+        )
+        _run(industries, "upgrade", conn)
+        linked = dict(
+            conn.execute(
+                sa.text(
+                    "SELECT o.id, i.name FROM offers o "
+                    "JOIN industries i ON i.id = o.industry_id"
+                )
+            ).all()
+        )
+        count = conn.execute(sa.text("SELECT COUNT(*) FROM industries")).scalar()
+        columns = {c["name"] for c in sa.inspect(conn).get_columns("offers")}
+        _run(industries, "downgrade", conn)
+        restored = dict(conn.execute(sa.text("SELECT id, ciu FROM offers")).all())
+        tables = sa.inspect(conn).get_table_names()
+
+    assert linked == {1: "Finanzdienstleistungen", 2: "Öffentlicher Sektor", 3: "XY"}
+    assert count == 7
+    assert "ciu" not in columns
+    assert restored == {1: "FS", 2: "P", 3: "XY"}
+    assert "industries" not in tables
+
+
+# a2b3c4d5e6f7 — offers remember the project created on acceptance
+def test_offer_project_migration_adds_and_drops_the_link() -> None:
+    migration = _load("2026_10_22_offer_project.py")
+    assert migration.down_revision == "f1a2b3c4d5e6"
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("projects", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        _run(migration, "upgrade", conn)
+        added = {c["name"] for c in sa.inspect(conn).get_columns("offers")}
+        _run(migration, "downgrade", conn)
+        removed = {c["name"] for c in sa.inspect(conn).get_columns("offers")}
+    assert "project_id" in added
+    assert "project_id" not in removed

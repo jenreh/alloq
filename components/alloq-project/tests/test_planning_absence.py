@@ -6,15 +6,19 @@ from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from alloq_commons.roles import EMPLOYEE_ROLE, PROJECT_MANAGER_ROLE
 from alloq_project.states.planning_absence_state import PlanningAbsenceState
 from alloq_project.states.planning_grid_state import PlanningStore
 from alloq_team.states.team_state import TeamState
+
+# Allowed fakes hold the roles; the admin switch grants no planning access.
+_PLANNER_ROLES = [PROJECT_MANAGER_ROLE.name, EMPLOYEE_ROLE.name]
 
 
 class _AdminLogin:
     @property
     async def authenticated_user(self) -> Any:
-        return SimpleNamespace(user_id=1, is_admin=True)
+        return SimpleNamespace(user_id=1, is_admin=True, roles=_PLANNER_ROLES)
 
 
 def _get_state(team: SimpleNamespace) -> AsyncMock:

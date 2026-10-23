@@ -10,8 +10,12 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from alloq_commons.models.employee import Employee
 from alloq_commons.models.project import Project
+from alloq_commons.roles import EMPLOYEE_ROLE, PROJECT_MANAGER_ROLE
 from alloq_project.services.planning_builders import split_edits
 from alloq_project.states.planning_grid_state import PlanningStore
+
+# Allowed fakes hold the roles; the admin switch grants no planning access.
+_PLANNER_ROLES = [PROJECT_MANAGER_ROLE.name, EMPLOYEE_ROLE.name]
 
 
 class _FakeLogin:
@@ -22,7 +26,11 @@ class _FakeLogin:
 
     @property
     async def authenticated_user(self) -> Any:
-        return SimpleNamespace(user_id=1, is_admin=self.is_admin)
+        return SimpleNamespace(
+            user_id=1,
+            is_admin=self.is_admin,
+            roles=_PLANNER_ROLES if self.is_admin else [],
+        )
 
     async def redir(self) -> None:
         return None

@@ -1,4 +1,4 @@
-"""Sidebar data: project and employee counters."""
+"""Sidebar data: project, employee and offer counters."""
 
 import logging
 import time
@@ -9,6 +9,7 @@ import reflex as rx
 from alloq_commons.access import requires_editor
 from alloq_commons.entities.employee import EmployeeEntity
 from alloq_commons.entities.project import ProjectEntity, ProjectStateEnum
+from alloq_offer.entities import OfferEntity, OfferStateEnum
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,9 +38,20 @@ async def count_employees(session: AsyncSession) -> int:
     return int((await session.execute(statement)).scalar_one())
 
 
+async def count_open_offers(session: AsyncSession) -> int:
+    """Offers that are not sent yet (the "Angebote" badge)."""
+    statement = (
+        select(func.count())
+        .select_from(OfferEntity)
+        .where(OfferEntity.state != OfferStateEnum.SENT.value)
+    )
+    return int((await session.execute(statement)).scalar_one())
+
+
 class SidebarState(UserSession):
     project_count: int = 0
     employee_count: int = 0
+    offer_count: int = 0
     _loaded_at: float = 0.0
 
     @rx.event
@@ -50,11 +62,13 @@ class SidebarState(UserSession):
         async with get_asyncdb_session() as session:
             self.project_count = await count_open_projects(session)
             self.employee_count = await count_employees(session)
+            self.offer_count = await count_open_offers(session)
         self._loaded_at = time.monotonic()
         logger.debug(
-            "Sidebar loaded: %d projects, %d employees",
+            "Sidebar loaded: %d projects, %d employees, %d offers",
             self.project_count,
             self.employee_count,
+            self.offer_count,
         )
         yield
 

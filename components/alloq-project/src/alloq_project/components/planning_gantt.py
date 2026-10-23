@@ -1,4 +1,4 @@
-"""Absence timeline: day-precise bars, week coverage and upcoming absences."""
+"""Absence timeline: day-precise bars and week coverage."""
 
 import reflex as rx
 from alloq_commons import theme
@@ -26,11 +26,9 @@ from alloq_project.states.planning_models import (
     WEEK_COL_PX,
     AbsenceGanttBar,
     AbsenceGanttRow,
-    AffectedProject,
     GanttMark,
     GanttWeek,
     MonthSpan,
-    UpcomingAbsence,
 )
 from alloq_team.components.employee import absence_modal
 from alloq_team.states.team_state import TeamState
@@ -505,7 +503,6 @@ def _timeline() -> rx.Component:
             rx.cond(GANTT.rows.length() > 0, rx.fragment(), _empty()),
             style={"position": "relative", "width": _total_width()},
         ),
-        _upcoming_section(),
         id="planning-gantt-root",
         style={**GRID_WRAPPER_STYLE, "containerType": "inline-size"},
     )
@@ -539,154 +536,6 @@ def _footer() -> rx.Component:
             "Heute",
         ),
         hint=HINT,
-    )
-
-
-STATUS = {
-    "neg": ("triangle-alert", "var(--aq-negative)", "var(--aq-negative-soft)"),
-    "ok": ("circle-check", "var(--aq-positive)", "var(--aq-positive-soft)"),
-}
-
-
-def _status(item: ObjectVar[UpcomingAbsence], key: str) -> rx.Component:
-    icon, color, background = STATUS[key]
-    return mn.group(
-        rx.icon(icon, size=15, style={"flexShrink": "0"}),
-        mn.text(item.status_label, fz="12.5px", fw="600"),
-        gap=8,
-        wrap="nowrap",
-        px=10,
-        py=6,
-        c=color,
-        bg=background,
-        style={"borderRadius": "8px"},
-    )
-
-
-def _affected(project: ObjectVar[AffectedProject]) -> rx.Component:
-    return mn.group(
-        mn.box(
-            w=8,
-            h=8,
-            bg=project.color,
-            style={"borderRadius": "50%", "flexShrink": "0"},
-        ),
-        mn.text(project.name, fz="13px", truncate=True, style={"flex": "1"}),
-        mn.text(
-            project.days_label,
-            fz="12.5px",
-            fw="600",
-            style=NUMERIC,
-        ),
-        mn.text(
-            project.weeks,
-            fz="12px",
-            c="var(--aq-text-muted)",
-            w=72,
-            ta="right",
-            style=NUMERIC,
-        ),
-        gap=8,
-        wrap="nowrap",
-    )
-
-
-def _upcoming(item: ObjectVar[UpcomingAbsence]) -> rx.Component:
-    return mn.stack(
-        mn.group(
-            mn.avatar(
-                name=item.name,
-                size=34,
-                radius="xl",
-                color=item.avatar_color,
-                variant="filled",
-            ),
-            mn.stack(
-                mn.text(item.name, fz="14px", fw="650", truncate=True),
-                mn.text(
-                    item.period, fz="12.5px", c="var(--aq-text-muted)", style=NUMERIC
-                ),
-                gap=1,
-                miw=0,
-                style={"flex": "1"},
-            ),
-            mn.badge(
-                item.relative,
-                variant="light",
-                color=rx.cond(item.is_running, "blue", "gray"),
-                radius="xl",
-                size="lg",
-                tt="none",
-                fw=600,
-            ),
-            gap=12,
-            wrap="nowrap",
-            align="flex-start",
-        ),
-        rx.match(
-            item.status,
-            ("neg", _status(item, "neg")),
-            ("ok", _status(item, "ok")),
-            mn.text(item.status_label, fz="12.5px", c="var(--aq-text-muted)"),
-        ),
-        rx.cond(
-            item.projects.length() > 0,
-            mn.stack(
-                mn.text(
-                    "Eingeplant in diesen Wochen",
-                    fz="11px",
-                    fw="650",
-                    tt="uppercase",
-                    c="var(--aq-text-muted)",
-                    style={"letterSpacing": "0.03em"},
-                ),
-                rx.foreach(item.projects, _affected),
-                gap=6,
-            ),
-        ),
-        gap=12,
-        p=16,
-        bg="var(--aq-surface)",
-        style={"borderRadius": "12px", "boxShadow": "0 0 0 1px var(--aq-border)"},
-    )
-
-
-def _upcoming_section() -> rx.Component:
-    """Next absences with the projects booked in those weeks.
-
-    Pinned to the visible width of the scroll area, so it never scrolls sideways.
-    """
-    return rx.cond(
-        GANTT.upcoming.length() > 0,
-        mn.stack(
-            mn.stack(
-                mn.text("Nächste Abwesenheiten", fz="15px", fw="650"),
-                mn.text(
-                    "Welche Projekte in diesen Wochen eingeplant sind und ob die "
-                    "Kapazität reicht.",
-                    fz="12.5px",
-                    c="var(--aq-text-muted)",
-                ),
-                gap=2,
-            ),
-            mn.box(
-                rx.foreach(GANTT.upcoming, _upcoming),
-                style={
-                    "display": "grid",
-                    "gridTemplateColumns": "repeat(auto-fill, minmax(340px, 1fr))",
-                    "gap": "12px",
-                    "alignItems": "start",
-                },
-            ),
-            gap=12,
-            style={
-                "position": "sticky",
-                "left": "0",
-                "width": "100cqw",
-                "boxSizing": "border-box",
-                "padding": "24px 16px",
-            },
-        ),
     )
 
 

@@ -17,10 +17,17 @@ EMPLOYEE_ROLE = Role(
     description="Lesezugriff auf Projekte und Ressourcenplanung",
 )
 
+OFFER_EDITOR_ROLE = Role(
+    id=3,
+    name="offer_editor",
+    label="Angebote",
+    description="Lesen und Bearbeiten der Angebote",
+)
 
 ALL_ROLES: list[Role] = [
     PROJECT_MANAGER_ROLE,
     EMPLOYEE_ROLE,
+    OFFER_EDITOR_ROLE,
 ]
 
 DEPARTMENT_ROLE_GROUP = "Abteilungen"

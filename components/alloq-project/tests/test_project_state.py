@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from alloq_commons.models.employee import Employee
 from alloq_commons.models.project import Project, ProjectStatus, Risk
-from alloq_commons.roles import EMPLOYEE_ROLE
+from alloq_commons.roles import EMPLOYEE_ROLE, PROJECT_MANAGER_ROLE
 from alloq_project.states.project_state import (
     _EMPLOYEE_PAGE_SIZE,
     ProjectState,
@@ -18,6 +18,9 @@ from alloq_project.states.project_state import (
     _parse_localized_int,
 )
 from sqlalchemy.exc import IntegrityError
+
+# Allowed fakes hold the roles; the admin switch grants no planning access.
+_PLANNER_ROLES = [PROJECT_MANAGER_ROLE.name, EMPLOYEE_ROLE.name]
 
 
 class TestProjectState:
@@ -189,7 +192,13 @@ def _login_as(
     state: Any, *, is_admin: bool = True, roles: list[str] | None = None
 ) -> None:
     """Route the state's get_state(LoginState) to a fake (non-)admin user."""
-    login = _FakeLogin(SimpleNamespace(user_id=1, is_admin=is_admin, roles=roles or []))
+    login = _FakeLogin(
+        SimpleNamespace(
+            user_id=1,
+            is_admin=is_admin,
+            roles=[*(roles or []), *(_PLANNER_ROLES if is_admin else [])],
+        )
+    )
 
     async def _get_state(_cls: type) -> Any:
         return login

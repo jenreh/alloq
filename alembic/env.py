@@ -2,6 +2,7 @@ from logging.config import fileConfig
 from typing import Any
 
 import alloq_commons.entities  # noqa: F401  (registers tables on Base.metadata)
+import alloq_offer.entities  # noqa: F401  (registers the offers table)
 from sqlalchemy import engine_from_config, pool
 
 from appkit_commons.database.entities import Base

@@ -17,7 +17,7 @@ from alloq_commons.entities import (
 )
 from alloq_commons.models.project import Project
 from alloq_commons.repositories import capacity_allocation_repo
-from alloq_commons.roles import EMPLOYEE_ROLE
+from alloq_commons.roles import EMPLOYEE_ROLE, PROJECT_MANAGER_ROLE
 from alloq_project.services.planning_builders import (
     absence_days_for_week,
     anchor_date,
@@ -29,6 +29,9 @@ from alloq_project.services.planning_builders import (
 from alloq_project.states.planning_grid_state import PlanningStore
 from sqlalchemy.ext.asyncio import AsyncSession
 
+# Allowed fakes hold the roles; the admin switch grants no planning access.
+_PLANNER_ROLES = [PROJECT_MANAGER_ROLE.name, EMPLOYEE_ROLE.name]
+
 _STATE = "alloq_project.states.planning_grid_state"
 
 
@@ -39,7 +42,11 @@ class _FakeLogin:
 
     @property
     async def authenticated_user(self) -> Any:
-        return SimpleNamespace(user_id=1, is_admin=self.is_admin, roles=self.roles)
+        return SimpleNamespace(
+            user_id=1,
+            is_admin=self.is_admin,
+            roles=[*self.roles, *(_PLANNER_ROLES if self.is_admin else [])],
+        )
 
     async def redir(self) -> None:
         return None
@@ -468,7 +475,7 @@ async def test_load_entities_keeps_absences_in_displayed_past_weeks() -> None:
     state = PlanningStore()
     with (
         patch(f"{_STATE}.get_asyncdb_session", _mock_session_ctx(AsyncMock())),
-        patch(f"{_STATE}.project_repo.find_all", AsyncMock(return_value=[])),
+        patch(f"{_STATE}.load_planning_projects", AsyncMock(return_value=[])),
         patch(f"{_STATE}.employee_repo.find_all", AsyncMock(return_value=[employee])),
         patch(f"{_STATE}.role_repo.find_all", AsyncMock(return_value=[])),
         patch.object(PlanningStore, "_resolve_current_employee", AsyncMock()),

@@ -17,12 +17,10 @@ from alloq_project.states.planning_models import (
     AbsenceGanttBar,
     AbsenceGanttRow,
     AbsenceGanttView,
-    AffectedProject,
     CoverageCell,
     EmployeeBlock,
     GanttMark,
     GanttWeek,
-    UpcomingAbsence,
     WeekColumn,
 )
 
@@ -33,8 +31,6 @@ GANTT_PADDING_PX = 15
 GANTT_BAR_PX = 22
 GANTT_MIN_ROW_PX = 52
 INSIDE_LABEL_MIN_PX = 84
-UPCOMING_LIMIT = 6
-SOON_DAYS = 14
 
 
 @dataclass(frozen=True)
@@ -100,35 +96,18 @@ def _range_label(start: date, end: date) -> str:
     return f"{_day(start)}–{_day(end)}"
 
 
-def _long_day(d: date, *, year: bool = True) -> str:
-    return (
-        f"{WEEKDAYS[d.weekday()]} {d:%d.%m.%Y}"
-        if year
-        else (f"{WEEKDAYS[d.weekday()]} {_day(d)}")
-    )
+def _long_day(d: date) -> str:
+    return f"{WEEKDAYS[d.weekday()]} {d:%d.%m.%Y}"
 
 
-def _period_text(start: date, end: date, *, year: bool = True) -> str:
+def _period_text(start: date, end: date) -> str:
     if start == end:
-        return _long_day(start, year=year)
-    return f"{_long_day(start, year=year)} – {_long_day(end, year=year)}"
+        return _long_day(start)
+    return f"{_long_day(start)} – {_long_day(end)}"
 
 
 def _work_days_text(count: int) -> str:
     return "1 Arbeitstag" if count == 1 else f"{count} Arbeitstage"
-
-
-def _relative(period: _Period, today: date) -> str:
-    if period.start == today:
-        return "heute"
-    if period.start < today:
-        return f"läuft bis {_day(period.end)}"
-    days = (period.start - today).days
-    if days == 1:
-        return "morgen"
-    if days < SOON_DAYS:
-        return f"in {days} Tagen"
-    return f"in {round(days / DAYS_PER_WEEK)} Wochen"
 
 
 # === Collection ===
@@ -380,97 +359,6 @@ def _row(
     )
 
 
-def _pt(days: float) -> str:
-    text = f"{round(days, 2):.2f}".rstrip("0").rstrip(".")
-    return f"{text.replace('.', ',')} PT"
-
-
-def _affected_weeks(period: _Period, weeks: list[WeekColumn]) -> list[int]:
-    """Indexes of the displayed weeks the period touches."""
-    return [
-        i
-        for i, week in enumerate(weeks)
-        if _week_date(week) <= period.end
-        and period.start < _week_date(week) + timedelta(days=DAYS_PER_WEEK)
-    ]
-
-
-def _kw_list(weeks: list[WeekColumn], indexes: list[int]) -> str:
-    return "KW " + ", ".join(str(weeks[i].week_no) for i in indexes)
-
-
-def _plan_impact(
-    period: _Period, block: EmployeeBlock, weeks: list[WeekColumn]
-) -> tuple[list[AffectedProject], str, str]:
-    """Projects booked in the absence weeks and whether those weeks overflow."""
-    indexes = _affected_weeks(period, weeks)
-    projects: list[AffectedProject] = []
-    for project in block.projects:
-        if project.is_internal:
-            continue
-        booked = [
-            i for i in indexes if i < len(project.cells) and project.cells[i].value > 0
-        ]
-        if booked:
-            projects.append(
-                AffectedProject(
-                    name=project.name or project.code,
-                    color=project.color,
-                    days_label=_pt(sum(project.cells[i].value for i in booked)),
-                    weeks=_kw_list(weeks, booked),
-                )
-            )
-    over = [
-        i for i in indexes if i < len(block.gesamt) and block.gesamt[i].state == "over"
-    ]
-    if over:
-        worst = -min(block.gesamt[i].value for i in over)
-        text = (
-            f"{_kw_list(weeks, over)} überbucht um {_pt(worst)}"
-            if len(over) == 1
-            else f"{_kw_list(weeks, over)} überbucht, bis {_pt(worst)} zu viel"
-        )
-        return projects, "neg", text
-    if projects:
-        return projects, "ok", "Kapazität reicht"
-    return projects, "none", "Keine Projekte eingeplant"
-
-
-def _upcoming(
-    resources: list[_Resource], horizon: _Horizon, weeks: list[WeekColumn]
-) -> list[UpcomingAbsence]:
-    today = horizon.today
-    items = sorted(
-        (
-            (period, r.block)
-            for r in resources
-            for period in r.periods
-            if period.end >= today
-        ),
-        key=lambda item: (item[0].start, item[1].name),
-    )[:UPCOMING_LIMIT]
-    out: list[UpcomingAbsence] = []
-    for period, block in items:
-        projects, status, status_label = _plan_impact(period, block, weeks)
-        out.append(
-            UpcomingAbsence(
-                name=block.name,
-                initials=block.initials,
-                avatar_color=block.avatar_color,
-                period=(
-                    f"{_period_text(period.start, period.end, year=False)} · "
-                    f"{len(horizon.work_days(period.start, period.end))} AT"
-                ),
-                relative=_relative(period, today),
-                is_running=period.start <= today,
-                projects=projects,
-                status=status,
-                status_label=status_label,
-            )
-        )
-    return out
-
-
 # === Entry point ===
 
 
@@ -532,7 +420,6 @@ def build_absence_gantt(
         month_lines=[
             i * WEEK_COL_PX for i, week in enumerate(weeks) if week.is_month_start
         ],
-        upcoming=_upcoming(collected, horizon, weeks),
         today_px=(
             (today_index + 0.5) * horizon.day_px
             if 0 <= today_index < days_total

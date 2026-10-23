@@ -16,7 +16,8 @@ story_ids: [
   PLAN-25, PLAN-26, PLAN-27, DASH-01, DASH-02, DASH-03, DASH-04, DASH-05,
   DASH-06, DASH-07, DASH-08, DASH-09, DASH-10, DASH-11, DASH-12, DASH-15,
   DASH-16, DASH-13, DESK-09, DESK-10, DESK-08, DESK-01, DESK-02, DESK-03,
-  DESK-05, DESK-06, DESK-04, DESK-07, DESK-11, DESK-12
+  DESK-05, DESK-06, DESK-04, DESK-07, DESK-11, DESK-12, OFF-01, OFF-02,
+  OFF-03, OFF-04, OFF-05, OFF-06, OFF-07, OFF-08
 ]
 source_paths:
   - README.md
@@ -28,19 +29,20 @@ source_paths:
   - components/alloq-team/src/alloq_team/pages.py
   - components/alloq-project/src/alloq_project/pages.py
   - components/alloq-dashboard/src/alloq_dashboard/pages.py
+  - components/alloq-offer/src/alloq_offer/pages.py
   - tauri/src-tauri/src/main.rs
 last_verified_commit: "cb9d5b0 (v2.0.4)"
 ---
 
 # Story map
 
-This page lists all 118 user stories of Alloq on one map. The stories come from the code at v2.0.4. Each story lives on a feature page, and the map links to it. The map shows titles only. The acceptance criteria and the evidence are on the feature pages.
+This page lists all 126 user stories of Alloq on one map. The stories come from the code at v2.0.4, plus the offers that are not yet released. Each story lives on a feature page, and the map links to it. The map shows titles only. The acceptance criteria and the evidence are on the feature pages.
 
 ## Vision and goals
 
-Alloq helps a software team plan which people work on which project in each week. It counts the free capacity of each person after absences, public holidays, part time and internal work, and it shows the state of the project portfolio.
+Alloq helps a software team plan which people work on which project in each week. It counts the free capacity of each person after absences, public holidays, part time and internal work, and it shows the state of the project portfolio. It also keeps the offers that the company sends to customers.
 
-Alloq has four personas. Their goals come from the README and from the "so that" part of the stories.
+Alloq has five personas. Their goals come from the README and from the "so that" part of the stories.
 
 **Administrator.**
 
@@ -58,6 +60,12 @@ Alloq has four personas. Their goals come from the README and from the "so that"
 
 - Read the planning and the projects without changing them.
 - Keep their own account and password up to date.
+
+**Offer editor.**
+
+- Keep all customer offers with their person days, cost and price in one list.
+- Record when an offer was sent, and archive offers that are no longer relevant.
+- Work on offers without access to the planning, the projects or the team.
 
 **Desktop user.**
 
@@ -83,6 +91,7 @@ Slices are ordered by tag date. Tag v2.0.0 (2026-10-15) is an ancestor of v0.4.5
 | v0.4.3 | 2026-10-05 |
 | v2.0.0 | 2026-10-15 |
 | v2.0.4 | 2026-10-18 |
+| unreleased | not tagged yet |
 
 ## The journey
 
@@ -92,6 +101,7 @@ Slices are ordered by tag date. Tag v2.0.0 (2026-10-15) is an ancestor of v0.4.5
 
 People do not always follow this order:
 
+- Offer editors with only the role "Angebote" skip every other activity. They sign in and go straight to the offers (OFF-08).
 - Employees skip every setup step. They sign in and read the planning and the projects (AUTH-11, PLAN-28, PROJ-20).
 - Admins set up the organisation once and come back when a role, rate, department or holiday changes. Roles must exist before an employee gets a key role (TEAM-07) and before a project asks for days per role (PROJ-08).
 - Project managers can staff a new project with the wizard or the tab "Ressourcen" (PLAN-19, PROJ-18) instead of typing into the grid.
@@ -132,6 +142,14 @@ Feature pages: [Team](./team.md).
 | v0.2.0 | [TEAM-01 Open the team page](./team.md#team-01) **S**<br>[TEAM-06 List or cards](./team.md#team-06) | [TEAM-07 Add an employee](./team.md#team-07) **S**<br>[TEAM-09 Edit an employee](./team.md#team-09)<br>[TEAM-08 Validate the employee form](./team.md#team-08)<br>[TEAM-11 Delete an employee](./team.md#team-11) | [TEAM-14 Assign a project from the team page](./team.md#team-14)<br>[TEAM-16 Remove a project from an employee](./team.md#team-16) |
 | v2.0.0 | [TEAM-02 Load and free days for eight weeks](./team.md#team-02)<br>[TEAM-03 Direct reports, filter and search](./team.md#team-03)<br>[TEAM-04 Sort the team list](./team.md#team-04)<br>[TEAM-05 Team inspector](./team.md#team-05) |  |  |
 | v2.0.4 |  | [TEAM-10 Put an employee into a department](./team.md#team-10) |  |
+
+### Prepare offers
+
+Feature pages: [Offers](./offers.md).
+
+| Slice | Find an offer | Create an offer | Maintain an offer | Give access to offers |
+| --- | --- | --- | --- | --- |
+| unreleased | [OFF-01 Offer list grouped by status](./offers.md#off-01)<br>[OFF-03 Offer inspector](./offers.md#off-03)<br>[OFF-02 Search, filter and sort offers](./offers.md#off-02) | [OFF-04 Create an offer](./offers.md#off-04) | [OFF-05 Edit an offer](./offers.md#off-05)<br>[OFF-06 Change status and sent date in the inspector](./offers.md#off-06)<br>[OFF-07 Archive and restore an offer](./offers.md#off-07) | [OFF-08 Give a user access to the offers only](./offers.md#off-08) |
 
 ### Create and track projects
 

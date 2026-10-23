@@ -6,6 +6,7 @@ from sqlalchemy import (
     Date,
     Float,
     ForeignKey,
+    Index,
     Integer,
     UniqueConstraint,
 )
@@ -29,19 +30,25 @@ class CapacityAllocationEntity(Entity, Base):
             name="uq_capacity_alloc_proj_emp_role_week",
         ),
         CheckConstraint("person_days >= 0", name="ck_capacity_allocations_person_days"),
+        Index("ix_capacity_alloc_project_week", "project_id", "week_start"),
+        Index("ix_capacity_alloc_employee_week", "employee_id", "week_start"),
+        # The planning grid reads its week window from this index alone.
+        Index(
+            "ix_capacity_alloc_week_cover",
+            "week_start",
+            postgresql_include=["employee_id", "project_id", "role_id", "person_days"],
+        ),
     )
 
     project_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("projects.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
     employee_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("employees.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
     role_id: Mapped[int] = mapped_column(
         Integer,
@@ -49,7 +56,7 @@ class CapacityAllocationEntity(Entity, Base):
         nullable=False,
         index=True,
     )
-    week_start: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    week_start: Mapped[date] = mapped_column(Date, nullable=False)
     person_days: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
 
     # Not eager: loading a week range must not pull every allocated project

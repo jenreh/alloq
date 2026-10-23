@@ -115,7 +115,7 @@ def test_employee_header_pins_stats_to_the_right_edge() -> None:
     stats = rendered[rendered.index('["right"] : "0"') :]
 
     assert '["marginLeft"] : "auto"' in stats
-    assert "Geplant" in stats
+    assert "Geplant" not in stats
     assert "Frei" in stats
     assert "Projekt zuweisen" not in stats
 

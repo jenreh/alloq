@@ -14,7 +14,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol, Self
 
 import reflex as rx
-from alloq_commons.access import can_edit, requires_editor
+from alloq_commons.access import has_role, requires_editor
+from alloq_commons.roles import PROJECT_MANAGER_ROLE
 
 from alloq_dashboard.models import (
     BudgetBurnKpi,
@@ -49,14 +50,14 @@ def _is_fresh(last_loaded: str) -> bool:
 
 
 async def _can_edit(state: Any, action: str) -> bool:
-    """Server-side admin/project manager check for background handlers.
+    """Server-side project manager check for background handlers.
 
     Must be called inside ``async with state`` — a background StateProxy only
     allows ``get_state`` while it holds the lock.
     """
     login_state = await state.get_state(LoginState)
     user = await login_state.authenticated_user
-    if user is not None and can_edit(user):
+    if user is not None and has_role(user, PROJECT_MANAGER_ROLE):
         return True
     logger.warning(
         "Denied dashboard load '%s' for user_id=%s",

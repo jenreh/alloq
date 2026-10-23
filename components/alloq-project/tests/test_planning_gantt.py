@@ -12,10 +12,6 @@ from alloq_project.services.planning_gantt import build_absence_gantt
 from alloq_project.states.planning_grid_state import PlanningStore
 from alloq_project.states.planning_models import (
     AbsenceGanttView,
-    EmployeeBlock,
-    GesamtCell,
-    GridCell,
-    ProjectAllocationRow,
 )
 
 DAY = 60 / 7
@@ -217,18 +213,13 @@ def test_coverage_ignores_weekends_and_holidays(planning: PlanningStore) -> None
     assert view.bottleneck_label == ""
 
 
-def test_row_totals_next_absence_and_upcoming(planning: PlanningStore) -> None:
+def test_row_totals_and_next_absence(planning: PlanningStore) -> None:
     view = _view(planning)
     assert [row.total_days for row in view.rows] == [1, 3]
     assert [row.next_label for row in view.rows] == ["ab 30.09.", "ab 06.10."]
-    assert [item.relative for item in view.upcoming] == ["morgen", "in 7 Tagen"]
-    assert view.upcoming[1].period == "Di 06.10. – Do 08.10. · 3 AT"
-    assert view.upcoming[0].period == "Mi 30.09. · 1 AT"
     later = _view(planning, today=date(2026, 10, 7))
-    assert [item.relative for item in later.upcoming] == ["läuft bis 08.10."]
     assert later.rows[0].next_label == ""
     assert later.rows[1].next_label == "bis 08.10."
-    assert _view(planning, today=date(2026, 9, 30)).upcoming[0].relative == "heute"
 
 
 def test_state_view_uses_shared_filters_and_reacts_to_changes(
@@ -260,7 +251,6 @@ def test_avatars_use_key_role_color(planning: PlanningStore) -> None:
     view = _view(planning)
     assert view.rows[0].avatar_color == role_avatar_color(1)
     assert view.rows[1].avatar_color == AVATAR_FALLBACK_COLOR
-    assert view.upcoming[0].avatar_color == role_avatar_color(1)
 
 
 def test_changing_timeframe_and_show_all(planning: PlanningStore) -> None:
@@ -268,19 +258,6 @@ def test_changing_timeframe_and_show_all(planning: PlanningStore) -> None:
     assert [row.real_id for row in planning.absence_gantt.rows] == [1]
     planning.set_absence_show_all(True)
     assert [row.real_id for row in planning.absence_gantt.rows] == [1, 2]
-
-
-def _project(
-    name: str, values: list[float], *, internal: bool = False
-) -> ProjectAllocationRow:
-    return ProjectAllocationRow(
-        project_id=name,
-        code=name[:3].upper(),
-        name=name,
-        color="#2E6BD6",
-        is_internal=internal,
-        cells=[GridCell(week_key=str(i), value=v) for i, v in enumerate(values)],
-    )
 
 
 def test_employee_meta_retains_department_highlight_for_grid_grouping() -> None:
@@ -320,57 +297,6 @@ def test_unhighlighted_department_compartment_can_collapse_and_expand() -> None:
     planning.toggle_unhighlighted()
     assert planning.collapsed_employees == []
     assert planning.unhighlighted_collapsed is False
-
-
-def _with_plan(planning: PlanningStore, free_week_1: float) -> list[EmployeeBlock]:
-    ada, ben = planning.employee_blocks
-    ben = ben.model_copy(
-        update={
-            "projects": [
-                _project("Apollo", [2.0, 3.0]),
-                _project("Zeus", [1.0, 0.0]),
-                _project("Intern", [0.0, 1.0], internal=True),
-            ],
-            "gesamt": [
-                GesamtCell(week_key="0", value=1.0, bucket="", state="free"),
-                GesamtCell(
-                    week_key="1",
-                    value=free_week_1,
-                    bucket="",
-                    state="over" if free_week_1 < 0 else "free",
-                ),
-            ],
-        }
-    )
-    return [ada, ben]
-
-
-def _upcoming_view(planning: PlanningStore, free_week_1: float) -> AbsenceGanttView:
-    return build_absence_gantt(
-        _with_plan(planning, free_week_1),
-        planning.available_employees,
-        planning.weeks,
-        today=date(2026, 9, 29),
-    )
-
-
-def test_upcoming_lists_booked_projects_and_overbooking(
-    planning: PlanningStore,
-) -> None:
-    ada, ben = _upcoming_view(planning, -1.5).upcoming
-    assert ada.projects == []
-    assert (ada.status, ada.status_label) == ("none", "Keine Projekte eingeplant")
-    assert [(p.name, p.days_label, p.weeks) for p in ben.projects] == [
-        ("Apollo", "3 PT", "KW 41")
-    ]
-    assert (ben.status, ben.status_label) == ("neg", "KW 41 überbucht um 1,5 PT")
-
-
-def test_upcoming_without_overbooking_says_capacity_fits(
-    planning: PlanningStore,
-) -> None:
-    ben = _upcoming_view(planning, 0.5).upcoming[1]
-    assert (ben.status, ben.status_label) == ("ok", "Kapazität reicht")
 
 
 def test_weeks_mark_month_starts(planning: PlanningStore) -> None:

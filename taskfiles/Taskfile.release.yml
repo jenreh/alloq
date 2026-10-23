@@ -26,4 +26,7 @@ tasks:
       - git add -A
       - 'git diff --cached --quiet || git commit -m "chore: release v$(grep ''^version = '' pyproject.toml | cut -d ''"'' -f2)"'
       - git push
-      - 'gh release create v$(grep ''^version = '' pyproject.toml | cut -d ''"'' -f2) --generate-notes'
+      - git fetch --tags --quiet
+      - |
+        version=$(grep '^version = ' pyproject.toml | cut -d '"' -f2)
+        bash scripts/release_notes.sh | gh release create "v$version" --notes-file - --generate-notes

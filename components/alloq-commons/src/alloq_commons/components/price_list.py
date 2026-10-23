@@ -1,4 +1,7 @@
-"""Excel-style price sheets using the shared planning-grid controller."""
+"""Excel-style price sheets using the shared planning-grid controller.
+
+Every signed-in user reads the price lists; only admins edit them.
+"""
 
 from typing import Any
 
@@ -15,6 +18,8 @@ from alloq_commons.components.excel_grid import (
 from alloq_commons.components.toolbar import icon_button, primary_button
 from alloq_commons.models.price_list import PriceGridRow
 from alloq_commons.state.price_list_state import PriceListState as S
+from appkit_user.authentication.components.components import requires_admin
+from appkit_user.authentication.states import UserSession
 
 COLUMNS = [
     ("la", "LA", "", 64),
@@ -27,6 +32,8 @@ COLUMNS = [
     ("hourly_sales", "Stundensatz", "VK", 120),
 ]
 COLUMN_WIDTHS = {column: width for column, _, _, width in COLUMNS}
+CAN_EDIT_PRICES = UserSession.user.is_admin
+"""Frontend Var: the admin switch opens the price lists for editing."""
 ROLE_COLUMN_WIDTH = 190
 ACTION_COLUMN_WIDTH = 84
 CELL_STYLE = {
@@ -87,6 +94,16 @@ def _sticky(column: str) -> dict[str, Any]:
             "boxShadow": "inset -1px 0 0 var(--alloq-border)",
         }
     return {}
+
+
+def _pinned_right(background: str, z_index: int) -> dict[str, Any]:
+    return {
+        "position": "sticky",
+        "right": "0px",
+        "zIndex": z_index,
+        "boxShadow": "inset 1px 0 0 var(--alloq-border)",
+        "backgroundColor": background,
+    }
 
 
 def _cell(
@@ -170,43 +187,48 @@ def _row(row: ObjectVar[PriceGridRow], comparison: bool = False) -> rx.Component
                             size="xs",
                             w="100%",
                             on_change=lambda value: S.set_role(row.key, value),  # ty: ignore[invalid-argument-type]
-                            disabled=S.is_saving,
+                            disabled=S.is_saving | ~CAN_EDIT_PRICES,
                         )
                     ),
                     rx.fragment(),
                 ),
                 mn.table.td(
-                    mn.group(
-                        mn.action_icon(
-                            rx.icon("arrow-up", size=14),
-                            title="Zeile nach oben",
-                            variant="subtle",
-                            size="xs",
-                            aria_label="Zeile nach oben",
-                            on_click=S.move_row(row.key, -1),
-                        ),
-                        mn.action_icon(
-                            rx.icon("arrow-down", size=14),
-                            title="Zeile nach unten",
-                            variant="subtle",
-                            size="xs",
-                            aria_label="Zeile nach unten",
-                            on_click=S.move_row(row.key, 1),
-                        ),
-                        mn.action_icon(
-                            rx.icon("trash-2", size=14),
-                            title="Zeile löschen",
-                            variant="subtle",
-                            size="xs",
-                            aria_label="Zeile löschen",
-                            color="red",
-                            on_click=S.delete_row(row.key),
-                        ),
-                        gap=0,
-                        wrap="nowrap",
+                    requires_admin(
+                        mn.group(
+                            mn.action_icon(
+                                rx.icon("arrow-up", size=14),
+                                title="Zeile nach oben",
+                                variant="subtle",
+                                size="xs",
+                                aria_label="Zeile nach oben",
+                                on_click=S.move_row(row.key, -1),
+                            ),
+                            mn.action_icon(
+                                rx.icon("arrow-down", size=14),
+                                title="Zeile nach unten",
+                                variant="subtle",
+                                size="xs",
+                                aria_label="Zeile nach unten",
+                                on_click=S.move_row(row.key, 1),
+                            ),
+                            mn.action_icon(
+                                rx.icon("trash-2", size=14),
+                                title="Zeile löschen",
+                                variant="subtle",
+                                size="xs",
+                                aria_label="Zeile löschen",
+                                color="red",
+                                on_click=S.delete_row(row.key),
+                            ),
+                            gap=0,
+                            wrap="nowrap",
+                        )
                     ),
                     p="4px",
-                    style={"whiteSpace": "nowrap"},
+                    style={
+                        "whiteSpace": "nowrap",
+                        **_pinned_right("var(--alloq-surface-solid)", 3),
+                    },
                 ),
             ]
         )
@@ -265,7 +287,13 @@ def price_sheet(comparison: bool = False) -> rx.Component:
         headers.extend(
             [
                 rx.cond(S.show_roles, mn.table.th("Planungsrolle"), rx.fragment()),
-                mn.table.th("", style={"width": f"{ACTION_COLUMN_WIDTH}px"}),
+                mn.table.th(
+                    "",
+                    style={
+                        "width": f"{ACTION_COLUMN_WIDTH}px",
+                        **_pinned_right("var(--alloq-surface-muted)", 6),
+                    },
+                ),
             ]
         )
     table = mn.table(
@@ -300,7 +328,7 @@ def price_sheet(comparison: bool = False) -> rx.Component:
         revision=S.grid_revision,
         dirty=False if comparison else S.has_dirty,
         saving=S.is_saving,
-        read_only=True if comparison else S.is_saving,
+        read_only=True if comparison else S.is_saving | ~CAN_EDIT_PRICES,
         decimals=2,
         max_value=100_000,
         on_commit=S.apply_cell_changes,
@@ -330,18 +358,33 @@ def _setting(field: str, label: str, width: int) -> rx.Component:
     )
 
 
+def _list_select(on_change: Any) -> rx.Component:
+    return mn.select(
+        placeholder="Preisliste auswählen",
+        data=S.list_options,
+        value=S.selected_id,
+        on_change=on_change,
+        allow_deselect=False,
+        w=260,
+        size="xs",
+        custom_attrs={"aria-label": "Preisliste"},
+    )
+
+
 def price_list_toolbar() -> list[rx.Component]:
+    """List switch for everyone; admins switch with the unsaved-draft check."""
     return [
-        mn.select(
-            placeholder="Preisliste auswählen",
-            data=S.list_options,
-            value=S.selected_id,
-            on_change=lambda value: S.request_action("select", value),  # ty: ignore[invalid-argument-type]
-            allow_deselect=False,
-            w=260,
-            size="xs",
-            custom_attrs={"aria-label": "Preisliste"},
+        requires_admin(
+            _list_select(lambda value: S.request_action("select", value)),  # ty: ignore[invalid-argument-type]
+            fallback=_list_select(S.open_list),
         ),
+        requires_admin(*edit_actions()),
+    ]
+
+
+def edit_actions() -> list[rx.Component]:
+    """Toolbar actions that change or save price lists."""
+    return [
         icon_button("copy", "Duplizieren", S.request_action("duplicate", "")),
         icon_button(
             rx.cond(S.is_archived, "archive-restore", "archive"),
@@ -367,39 +410,44 @@ def price_list_toolbar() -> list[rx.Component]:
 
 
 def _settings() -> rx.Component:
-    return mn.group(
-        _setting("name", "Name", 240),
-        mn.date_input(
-            label="Stand",
-            value=S.settings_values["as_of"],
-            value_format="DD.MM.YYYY",
-            clearable=True,
-            size="xs",
-            w=150,
-            on_change=lambda value: S.set_setting("as_of", value),  # ty: ignore[invalid-argument-type]
+    """List settings; the fieldset disables them for readers."""
+    return rx.el.fieldset(
+        mn.group(
+            _setting("name", "Name", 240),
+            mn.date_input(
+                label="Stand",
+                value=S.settings_values["as_of"],
+                value_format="DD.MM.YYYY",
+                clearable=True,
+                size="xs",
+                w=150,
+                on_change=lambda value: S.set_setting("as_of", value),  # ty: ignore[invalid-argument-type]
+            ),
+            mn.select(
+                label="HK-Eingabe",
+                data=[
+                    {"value": "day", "label": "Pro Tag"},
+                    {"value": "hour", "label": "Pro Stunde"},
+                ],
+                value=S.cost_basis,
+                on_change=lambda value: S.set_setting("cost_basis", value),  # ty: ignore[invalid-argument-type]
+                size="xs",
+                w=140,
+                allow_deselect=False,
+            ),
+            _setting("hours_per_day", "Stunden / Tag", 110),
+            _setting("minimum_margin", "Mindest-DB (%)", 120),
+            rx.cond(
+                S.settings_values["target_margin"] != "",
+                _setting("target_margin", "Ziel-DB (%) · Bestand", 170),
+                rx.fragment(),
+            ),
+            gap="sm",
+            align="flex-end",
+            wrap="wrap",
         ),
-        mn.select(
-            label="HK-Eingabe",
-            data=[
-                {"value": "day", "label": "Pro Tag"},
-                {"value": "hour", "label": "Pro Stunde"},
-            ],
-            value=S.cost_basis,
-            on_change=lambda value: S.set_setting("cost_basis", value),  # ty: ignore[invalid-argument-type]
-            size="xs",
-            w=140,
-            allow_deselect=False,
-        ),
-        _setting("hours_per_day", "Stunden / Tag", 110),
-        _setting("minimum_margin", "Mindest-DB (%)", 120),
-        rx.cond(
-            S.settings_values["target_margin"] != "",
-            _setting("target_margin", "Ziel-DB (%) · Bestand", 170),
-            rx.fragment(),
-        ),
-        gap="sm",
-        align="flex-end",
-        wrap="wrap",
+        disabled=~CAN_EDIT_PRICES,
+        style={"display": "contents"},
     )
 
 
@@ -483,14 +531,16 @@ def price_list_editor() -> rx.Component:
             justify="space-between",
         ),
         price_sheet(),
-        mn.group(
-            mn.button(
-                "Zeile hinzufügen",
-                left_section=rx.icon("plus", size=14),
-                size="xs",
-                on_click=S.add_row,
-            ),
-            justify="space-between",
+        requires_admin(
+            mn.group(
+                mn.button(
+                    "Zeile hinzufügen",
+                    left_section=rx.icon("plus", size=14),
+                    size="xs",
+                    on_click=S.add_row,
+                ),
+                justify="space-between",
+            )
         ),
         rx.cond(
             S.compare_id != "",

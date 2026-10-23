@@ -3,6 +3,7 @@ from alloq_commons import theme
 from alloq_commons.components.shell import SIDEBAR_SCRIPT
 from alloq_commons.desktop import is_desktop
 from alloq_dashboard.pages import create_dashboard_page
+from alloq_offer.pages import create_offers_page
 from alloq_project.pages import create_planning_page, create_projects_overview_page
 from alloq_team.pages import create_team_overview_page
 from starlette.types import ASGIApp
@@ -26,6 +27,7 @@ from app.desktop.login_state import get_sign_in
 from app.pages.daily_rates import create_daily_rates_page
 from app.pages.departments import create_departments_page
 from app.pages.holidays import create_holidays_page
+from app.pages.industries import create_industries_page
 from app.pages.login import create_login_page
 from app.pages.profile import create_profile_page
 from app.pages.roles import create_roles_page
@@ -60,8 +62,10 @@ create_roles_page(sidebar())
 create_daily_rates_page(sidebar())
 create_departments_page(sidebar())
 create_holidays_page(sidebar())
+create_industries_page(sidebar())
 create_team_overview_page(sidebar())
 create_projects_overview_page(sidebar())
+create_offers_page(sidebar())
 create_planning_page(sidebar(), route="/")
 create_planning_page(sidebar())
 create_dashboard_page(sidebar(), route="/dashboard")
@@ -80,6 +84,7 @@ app = rx.App(
     ],
     stylesheets=base_stylesheets,
     style=base_style,
+    toaster=rx.toast.provider(close_button=True),
     api_transformer=[add_session_guard, add_https_middleware],
 )
 

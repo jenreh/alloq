@@ -7,6 +7,7 @@ members = [
     "alloq",
     "alloq-commons",
     "alloq-dashboard",
+    "alloq-offer",
     "alloq-project",
     "alloq-team",
 ]
@@ -44,13 +45,14 @@ wheels = [
 
 [[package]]
 name = "alloq"
-version = "2.0.5"
+version = "2.1.2"
 source = { editable = "." }
 default-groups = ["desktop", "dev"]
 dependencies = [
     { name = "alembic" },
     { name = "alloq-commons" },
     { name = "alloq-dashboard" },
+    { name = "alloq-offer" },
     { name = "alloq-project" },
     { name = "alloq-team" },
     { name = "appkit-commons", extra = ["azure"] },
@@ -85,6 +87,7 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.20.0" },
     { name = "alloq-commons", editable = "components/alloq-commons" },
     { name = "alloq-dashboard", editable = "components/alloq-dashboard" },
+    { name = "alloq-offer", editable = "components/alloq-offer" },
     { name = "alloq-project", editable = "components/alloq-project" },
     { name = "alloq-team", editable = "components/alloq-team" },
     { name = "appkit-commons", extras = ["azure"], specifier = "==1.16.2" },
@@ -114,12 +117,12 @@ dev = [
 
 [[package]]
 name = "alloq-commons"
-version = "2.0.5"
+version = "2.1.2"
 source = { editable = "components/alloq-commons" }
 
 [[package]]
 name = "alloq-dashboard"
-version = "2.0.5"
+version = "2.1.2"
 source = { editable = "components/alloq-dashboard" }
 dependencies = [
     { name = "alloq-project" },
@@ -133,8 +136,19 @@ requires-dist = [
 ]
 
 [[package]]
+name = "alloq-offer"
+version = "2.1.2"
+source = { editable = "components/alloq-offer" }
+dependencies = [
+    { name = "alloq-commons" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "alloq-commons", editable = "components/alloq-commons" }]
+
+[[package]]
 name = "alloq-project"
-version = "2.0.5"
+version = "2.1.2"
 source = { editable = "components/alloq-project" }
 dependencies = [
     { name = "alloq-commons" },
@@ -149,7 +163,7 @@ requires-dist = [
 
 [[package]]
 name = "alloq-team"
-version = "2.0.5"
+version = "2.1.2"
 source = { editable = "components/alloq-team" }
 dependencies = [
     { name = "alloq-commons" },

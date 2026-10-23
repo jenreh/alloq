@@ -26,7 +26,6 @@ from alloq_commons.repositories import (
     capacity_allocation_repo,
     capacity_repo,
     employee_repo,
-    project_repo,
     public_holiday_repo,
     role_repo,
 )
@@ -68,6 +67,7 @@ from alloq_project.services.planning_builders import (
     without_idle_projects,
     without_internal_projects,
 )
+from alloq_project.services.planning_projects import load_planning_projects
 from alloq_project.services.planning_view_settings import (
     READ_SCRIPT,
     ViewSettings,
@@ -81,6 +81,7 @@ from alloq_project.states.planning_display_mixin import (
     NORMAL,
     PlanningDisplayState,
 )
+from alloq_project.states.planning_edit_mixin import PlanningEditMixin
 from alloq_project.states.planning_filter_mixin import (
     GRID_VIEW,
     PROJECT_VIEW,
@@ -128,6 +129,7 @@ __all__ = [
 
 class PlanningStore(
     PlanningDisplayState,
+    PlanningEditMixin,
     PlanningDepartmentMixin,
     PlanningFilterMixin,
     PlanningAbsenceViewMixin,
@@ -150,13 +152,6 @@ class PlanningStore(
     holiday_dates: rx.Field[list[dt.date]] = rx.field(default_factory=list)
     is_loaded: rx.Field[bool] = rx.field(False)
 
-    cells: rx.Field[dict[str, float]] = rx.field(default_factory=dict)
-    saved_cells: rx.Field[dict[str, float]] = rx.field(default_factory=dict)
-    dirty_keys: rx.Field[list[str]] = rx.field(default_factory=list)
-    # Unsaved edits whose row/week is not part of the loaded time range.
-    hidden_edits: rx.Field[dict[str, float]] = rx.field(default_factory=dict)
-    grid_revision: rx.Field[int] = rx.field(0)
-
     employee_meta: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
     project_meta: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
     role_lookup: rx.Field[dict[str, str]] = rx.field(default_factory=dict)
@@ -167,7 +162,6 @@ class PlanningStore(
 
     view_mode: rx.Field[str] = rx.field("Grid")
     time_range: rx.Field[str] = rx.field("3 Monate")
-    is_saving: rx.Field[bool] = rx.field(False)
 
     current_employee_id: rx.Field[int | None] = rx.field(None)
     current_week: rx.Field[str] = rx.field("")
@@ -351,7 +345,6 @@ class PlanningStore(
         wks = self._week_keys()
         emp_idx = {e["id"]: e for e in self.employee_meta}
         role_abbrev_by_name = {r.name: r.abbreviation for r in self.available_roles}
-        from_key = self.current_week_key
         dirty = set(self.dirty_keys)
         blocks: list[ProjectBlock] = []
         for proj in self.project_meta:
@@ -391,7 +384,7 @@ class PlanningStore(
                 employees=emp_rows,
             )
             block.gesamt = compute_project_gesamt(weeks, block)
-            block.planned_days, block.role_totals = project_summary(block, from_key)
+            block.planned_days, block.role_totals = project_summary(block)
             blocks.append(block)
         return blocks
 
@@ -464,7 +457,6 @@ class PlanningStore(
         return filter_project_blocks(
             result,
             self.weeks,
-            self.current_week_key,
             project_ids=self.project_filter,
             role_ids=self.role_filter,
             employee_ids=self.employee_filter,
@@ -479,10 +471,6 @@ class PlanningStore(
     @rx.var(cache=True, backend=True)
     def projects(self) -> list[ProjectBlock]:
         return self.project_blocks
-
-    @rx.var(cache=True)
-    def has_dirty(self) -> bool:
-        return len(self.dirty_keys) > 0 or len(self.hidden_edits) > 0
 
     @rx.var(cache=True)
     def current_week_key(self) -> str:
@@ -534,13 +522,6 @@ class PlanningStore(
             ]
         return list(allocs), assignments
 
-    def _unsaved_edits(self) -> dict[str, float]:
-        """All unsaved edits, including those outside the loaded range."""
-        return {
-            **self.hidden_edits,
-            **{key: self.cells.get(key, 0.0) for key in self.dirty_keys},
-        }
-
     async def _populate(self, num_weeks: int, *, keep_edits: bool = False) -> None:
         pending = self._unsaved_edits() if keep_edits else {}
         holiday_dates = await self._fetch_holidays(num_weeks)
@@ -582,8 +563,7 @@ class PlanningStore(
 
     async def _load_entities(self) -> None:
         async with get_asyncdb_session() as session:
-            projects = await project_repo.find_all(session)
-            all_proj = sorted_projects([Project(**p.to_dict()) for p in projects])
+            all_proj = sorted_projects(await load_planning_projects(session))
             self.all_projects = all_proj
             self.available_projects = [
                 p for p in all_proj if p.state != "Abgeschlossen"

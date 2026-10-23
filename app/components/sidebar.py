@@ -32,25 +32,36 @@ PROJECTS_ROUTE: Final = "/projects"
 TEAM_ROUTE: Final = "/team"
 
 PLAN_ROUTE: Final = "/plan"
+OFFERS_ROUTE: Final = "/offers"
+PRICES_ROUTE: Final = "/daily-rates"
 
 PLANNING_ITEMS: Final[list[tuple[str, str, str]]] = [
-    ("/dashboard", "Übersicht", "layout-dashboard"),
     (PLAN_ROUTE, "Ressourcenplanung", "calendar-range"),
     (PROJECTS_ROUTE, "Projekte", "folder-kanban"),
+    (OFFERS_ROUTE, "Angebote", "file-text"),
+    (PRICES_ROUTE, "Tagessätze", "euro"),
     (TEAM_ROUTE, "Team", "users"),
 ]
 ADMIN_ITEMS: Final[list[tuple[str, str, str]]] = [
     ("/admin/users", "Benutzer", "user-cog"),
     ("/admin/roles", "Rollen", "shield"),
-    ("/admin/daily-rates", "Tagessätze", "euro"),
     ("/admin/departments", "Abteilungen", "building-2"),
+    ("/admin/industries", "Branchen", "factory"),
     ("/admin/holidays", "Feiertage", "calendar-days"),
 ]
 VIEWER_ROUTES: Final = frozenset({PLAN_ROUTE, PROJECTS_ROUTE})
 """Pages the employee role may read; the other planning pages need edit rights
 (admin or project manager)."""
+PUBLIC_ROUTES: Final = frozenset({OFFERS_ROUTE, PRICES_ROUTE})
+"""Pages every signed-in user may read; their states guard the edits."""
+ROUTE_GUARDS: Final[dict[str, Any]] = {
+    **dict.fromkeys(VIEWER_ROUTES, viewer_only),
+    **dict.fromkeys(PUBLIC_ROUTES, rx.fragment),
+}
+"""Guard per planning route; routes not listed need edit rights."""
 _COUNTS: Final[dict[str, Any]] = {
     PROJECTS_ROUTE: SidebarState.project_count,
+    OFFERS_ROUTE: SidebarState.offer_count,
     TEAM_ROUTE: SidebarState.employee_count,
 }
 # appkit_user declares ``user`` as a plain field; class access yields a Var.
@@ -168,7 +179,7 @@ def _nav_item(route: str, label: str, icon: str) -> rx.Component:
 
 def _guarded_nav_item(route: str, label: str, icon: str) -> rx.Component:
     """Nav item shown only to users who may open its page."""
-    guard = viewer_only if route in VIEWER_ROUTES else editor_only
+    guard = ROUTE_GUARDS.get(route, editor_only)
     return guard(_nav_item(route, label, icon))
 
 
@@ -320,11 +331,7 @@ def sidebar() -> rx.Component:
         _window_row(),
         _brand(),
         mn.box(
-            viewer_only(
-                _section(
-                    "Planung", *(_guarded_nav_item(*item) for item in PLANNING_ITEMS)
-                )
-            ),
+            _section("Planung", *(_guarded_nav_item(*item) for item in PLANNING_ITEMS)),
             editor_only(_capacity_section()),
             _admin_section(),
             custom_attrs={"role": "navigation", "aria-label": "Navigation"},

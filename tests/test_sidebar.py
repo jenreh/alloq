@@ -7,13 +7,16 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from alloq_commons.roles import PROJECT_MANAGER_ROLE
+from alloq_commons.roles import EMPLOYEE_ROLE, PROJECT_MANAGER_ROLE
 from alloq_dashboard.states import RoleCapacityState
 
 from app.components import sidebar_state
 from app.components.sidebar import (
     ADMIN_ITEMS,
+    OFFERS_ROUTE,
     PLANNING_ITEMS,
+    PRICES_ROUTE,
+    PUBLIC_ROUTES,
     VIEWER_ROUTES,
     _admin_section,
     _brand,
@@ -25,6 +28,9 @@ from app.components.sidebar import (
 )
 from app.components.sidebar_state import SidebarState
 from app.configuration import configure
+
+# Allowed fakes hold the roles; the admin switch grants no planning access.
+_PLANNER_ROLES = [PROJECT_MANAGER_ROLE.name, EMPLOYEE_ROLE.name]
 
 MODULE = "app.components.sidebar_state"
 
@@ -46,7 +52,8 @@ USER = SimpleNamespace(user_id=1, is_admin=True, roles=[], email="ada@example.co
 
 def _state(*, is_admin: bool = True, roles: list[str] | None = None) -> SidebarState:
     state = SidebarState()
-    user = SimpleNamespace(**{**vars(USER), "is_admin": is_admin, "roles": roles or []})
+    roles = [*(roles or []), *(_PLANNER_ROLES if is_admin else [])]
+    user = SimpleNamespace(**{**vars(USER), "is_admin": is_admin, "roles": roles})
     object.__setattr__(state, "get_state", AsyncMock(return_value=_FakeLogin(user)))
     return state
 
@@ -70,17 +77,20 @@ async def _run(state: SidebarState) -> None:
 
 
 class TestSidebarStateLoad:
-    async def test_load_counts_open_projects_and_employees(self) -> None:
+    async def test_load_counts_open_projects_employees_and_offers(self) -> None:
         state = _state()
-        ctx, session = _session([3, 2])
+        ctx, session = _session([3, 2, 4])
         with patch(f"{MODULE}.get_asyncdb_session", ctx):
             await _run(state)
         assert state.project_count == 3
         assert state.employee_count == 2
+        assert state.offer_count == 4
         statements = [str(c.args[0]) for c in session.execute.call_args_list]
         assert "count" in statements[0].lower()
         assert "state" in statements[0]
         assert "employees" in statements[1]
+        assert "offers" in statements[2]
+        assert "state" in statements[2]
 
     async def test_recent_data_is_not_reloaded(self) -> None:
         state = _state()
@@ -98,7 +108,7 @@ class TestSidebarStateLoad:
 
     async def test_project_manager_loads_counts(self) -> None:
         state = _state(is_admin=False, roles=[PROJECT_MANAGER_ROLE.name])
-        ctx, _session_mock = _session([3, 2])
+        ctx, _session_mock = _session([3, 2, 4])
         with patch(f"{MODULE}.get_asyncdb_session", ctx):
             await _run(state)
         assert state.project_count == 3
@@ -145,18 +155,41 @@ class TestSidebarComponent:
         assert "decimalScale:1" in rendered
         assert "fixedDecimalScale:true" in rendered
         assert "aq-sidebar" in rendered
+        assert "offer_count" in rendered
         assert "data-tauri-drag-region" in rendered
         assert "LucidePanelLeftClose" in rendered
+
+    def test_every_user_sees_the_offers_and_prices_entries(self) -> None:
+        assert {OFFERS_ROUTE, PRICES_ROUTE} == PUBLIC_ROUTES
+        for route, label, icon in PLANNING_ITEMS:
+            if route in PUBLIC_ROUTES:
+                rendered = str(_guarded_nav_item(route, label, icon))
+                assert "user.roles" not in rendered
+                assert "is_admin" not in rendered
+
+    def test_prices_follow_the_offers_outside_the_administration(self) -> None:
+        routes = [route for route, _label, _icon in PLANNING_ITEMS]
+        assert routes.index(PRICES_ROUTE) == routes.index(OFFERS_ROUTE) + 1
+        assert PRICES_ROUTE not in {route for route, _label, _icon in ADMIN_ITEMS}
+
+    def test_planning_section_is_shown_to_every_user(self) -> None:
+        rendered = str(sidebar())
+        assert "Planung" in rendered
+        assert "offer_editor" not in rendered
 
     def test_employees_see_only_planning_and_projects(self) -> None:
         assert {"/plan", "/projects"} == VIEWER_ROUTES
         for route, label, icon in PLANNING_ITEMS:
+            if route in PUBLIC_ROUTES:
+                continue
             rendered = str(_guarded_nav_item(route, label, icon))
             assert ('"employee"' in rendered) is (route in VIEWER_ROUTES)
-            assert "is_admin" in rendered
+            assert "is_admin" not in rendered
 
-    def test_project_managers_see_every_planning_page(self) -> None:
+    def test_project_managers_see_the_manager_pages(self) -> None:
         for route, label, icon in PLANNING_ITEMS:
+            if route in PUBLIC_ROUTES or route in VIEWER_ROUTES:
+                continue
             rendered = str(_guarded_nav_item(route, label, icon))
             assert f'"{PROJECT_MANAGER_ROLE.name}"' in rendered
 

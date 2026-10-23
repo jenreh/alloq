@@ -10,6 +10,7 @@ import pytest
 from alloq_commons.models.department import Department
 from alloq_commons.models.employee import Absence, Employee
 from alloq_commons.role_colors import role_avatar_color
+from alloq_commons.roles import EMPLOYEE_ROLE, PROJECT_MANAGER_ROLE
 from alloq_team.components.employee_table import (
     COLUMNS,
     employee_list,
@@ -26,6 +27,9 @@ from alloq_team.services.team_overview import (
 )
 from alloq_team.states.team_list_state import load_tone, to_detail
 from alloq_team.states.team_state import TeamState
+
+# Allowed fakes hold the roles; the admin switch grants no planning access.
+_PLANNER_ROLES = [PROJECT_MANAGER_ROLE.name, EMPLOYEE_ROLE.name]
 
 MONDAY = date(2026, 10, 12)
 WEEKS = week_starts(MONDAY, 4)
@@ -264,7 +268,11 @@ class TestTeamListState:
 
 class _FakeLogin:
     def __init__(self, is_admin: bool) -> None:
-        self._user = SimpleNamespace(user_id=1, is_admin=is_admin)
+        self._user = SimpleNamespace(
+            user_id=1,
+            is_admin=is_admin,
+            roles=_PLANNER_ROLES if is_admin else [],
+        )
 
     @property
     async def authenticated_user(self) -> Any:

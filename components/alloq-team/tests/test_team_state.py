@@ -12,10 +12,14 @@ from alloq_commons.entities.employee import EmployeeEntity
 from alloq_commons.models.department import Department
 from alloq_commons.models.employee import Employee
 from alloq_commons.models.project import Project
+from alloq_commons.roles import EMPLOYEE_ROLE, PROJECT_MANAGER_ROLE
 from alloq_team.states.employee_form import default_department_id
 from alloq_team.states.team_state import EmployeeValidationState, TeamState
 
 from appkit_user.authentication.states import LoginState
+
+# Allowed fakes hold the roles; the admin switch grants no planning access.
+_PLANNER_ROLES = [PROJECT_MANAGER_ROLE.name, EMPLOYEE_ROLE.name]
 
 MODULE = "alloq_team.states.team_state"
 
@@ -47,6 +51,7 @@ class _FakeLoginState:
 def _user(*, is_admin: bool) -> MagicMock:
     user = MagicMock()
     user.is_admin = is_admin
+    user.roles = _PLANNER_ROLES if is_admin else []
     user.user_id = 1
     user.email = "admin@corp.test"
     return user

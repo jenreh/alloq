@@ -196,7 +196,8 @@ The roles are `Role` objects from appkit-commons:
 | `/projects` | `viewer_only` | `viewer_only` (in `VIEWER_ROUTES`) |
 | `/team` | `editor_only` | `editor_only` |
 | `/dashboard` | `editor_only` | `editor_only` |
-| `/admin/users`, `/admin/roles`, `/admin/daily-rates`, `/admin/departments`, `/admin/holidays` | `admin_only=True` and `requires_admin` | `requires_admin` |
+| `/daily-rates` | signed in; edits behind `requires_admin` and `@requires_admin` | none (in `PUBLIC_ROUTES`) |
+| `/admin/users`, `/admin/roles`, `/admin/departments`, `/admin/holidays` | `admin_only=True` and `requires_admin` | `requires_admin` |
 | `/profile` | signed in | user menu |
 
 The sidebar in [`app/components/sidebar.py`](../../app/components/sidebar.py)

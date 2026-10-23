@@ -197,10 +197,7 @@ def _employee_info_cell(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
             ),
         ),
         background=EMP_HEADER_BG,
-        end=[
-            summary_stat("Geplant", emp.planned_days),
-            summary_stat("Frei", emp.available_days, color=FREE_COLOR),
-        ],
+        end=[summary_stat("Frei", emp.available_days, color=FREE_COLOR)],
     )
 
 

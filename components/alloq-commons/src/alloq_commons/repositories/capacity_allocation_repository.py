@@ -5,7 +5,11 @@ from typing import Any, cast
 from sqlalchemy import CursorResult, Row, and_, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from alloq_commons.entities import CapacityAllocationEntity, RoleEntity
+from alloq_commons.entities import (
+    CapacityAllocationEntity,
+    EmployeeEntity,
+    RoleEntity,
+)
 from appkit_commons.database.base_repository import BaseRepository
 
 logger = logging.getLogger(__name__)
@@ -115,6 +119,34 @@ class CapacityAllocationRepository(
                 CapacityAllocationEntity.project_id,
                 CapacityAllocationEntity.week_start,
                 CapacityAllocationEntity.id,
+            )
+        )
+        result = await session.execute(statement)
+        return list(result.all())
+
+    async def find_staffed_employees(self, session: AsyncSession) -> list[Row]:
+        """One row per project and employee with person days in any week.
+
+        Project dates are no limit: people may start earlier or stay longer.
+        Sorted by employee name.
+        """
+        alloc = CapacityAllocationEntity
+        statement = (
+            select(
+                alloc.project_id,
+                EmployeeEntity.first_name,
+                EmployeeEntity.last_name,
+            )
+            .join(EmployeeEntity, EmployeeEntity.id == alloc.employee_id)
+            .where(alloc.person_days > 0)
+            .group_by(
+                alloc.project_id,
+                alloc.employee_id,
+                EmployeeEntity.first_name,
+                EmployeeEntity.last_name,
+            )
+            .order_by(
+                EmployeeEntity.last_name, EmployeeEntity.first_name, alloc.project_id
             )
         )
         result = await session.execute(statement)

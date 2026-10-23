@@ -7,6 +7,8 @@ from alloq_project.states.project_plan_state import ProjectPlanState
 
 import appkit_mantine as mn
 
+DISCARD_LABEL = "Änderungen verwerfen"
+
 
 def _separator() -> rx.Component:
     return mn.box(w=1, h=18, mx=4, bg="var(--aq-border-strong)")
@@ -71,6 +73,12 @@ def planning_toolbar() -> list[rx.Component]:
         ),
         editor_only(
             _separator(),
+            icon_button(
+                "undo-2",
+                DISCARD_LABEL,
+                PlanningStore.discard_changes,
+                disabled=~PlanningStore.has_dirty | PlanningStore.is_saving,
+            ),
             icon_button(
                 "save",
                 "Änderungen speichern (⌘S)",

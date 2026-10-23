@@ -1,8 +1,10 @@
-"""Access levels of the alloq roles next to appkit's admin rights.
+"""Access levels of the alloq roles.
 
-Admins may do everything. Project managers may read and edit every planning
-page; the administration pages stay admin-only (``@requires_admin``). Users
-with the employee role may only read the projects and planning pages.
+Roles add up, and only roles grant access: the admin switch opens just the
+administration (``@requires_admin``). The employee role reads projects and
+planning; the project manager role edits them and opens dashboard and team, so
+a project manager needs the employee role on top. Every signed-in user may
+read the offers; only the offer editor role may change them.
 """
 
 import inspect
@@ -14,8 +16,10 @@ from typing import Any, Final
 import reflex as rx
 
 import appkit_mantine as mn
-from alloq_commons.roles import EMPLOYEE_ROLE, PROJECT_MANAGER_ROLE
+from alloq_commons.roles import EMPLOYEE_ROLE, OFFER_EDITOR_ROLE, PROJECT_MANAGER_ROLE
+from appkit_commons.roles import Role
 from appkit_user.authentication.backend.models import User
+from appkit_user.authentication.components.components import requires_role
 from appkit_user.authentication.states import LoginState, UserSession
 
 logger = logging.getLogger(__name__)
@@ -25,22 +29,13 @@ _NOT_AUTHORIZED_MSG: Final = "Sie haben keine Berechtigung für diese Aktion."
 ACCESS_LEVEL_ATTR: Final = "alloq_access_level"
 """Attribute naming the guard (``viewer``/``editor``) of a decorated handler."""
 
-IS_ADMIN: Final = UserSession.user.is_admin
-"""Frontend Var: the signed-in user is an admin."""
-CAN_EDIT: Final = IS_ADMIN | UserSession.user.roles.contains(PROJECT_MANAGER_ROLE.name)
-"""Frontend Var: the signed-in user may read and edit the planning pages."""
-CAN_VIEW: Final = CAN_EDIT | UserSession.user.roles.contains(EMPLOYEE_ROLE.name)
-"""Frontend Var: the signed-in user may read projects and planning."""
+CAN_EDIT: Final = UserSession.user.roles.contains(PROJECT_MANAGER_ROLE.name)
+"""Frontend Var: the signed-in user may edit the planning pages."""
 
 
-def can_edit(user: User) -> bool:
-    """Whether ``user`` may read and edit the planning pages."""
-    return user.is_admin or PROJECT_MANAGER_ROLE.name in user.roles
-
-
-def can_view(user: User) -> bool:
-    """Whether ``user`` may read the projects and planning pages."""
-    return can_edit(user) or EMPLOYEE_ROLE.name in user.roles
+def has_role(user: User, role: Role) -> bool:
+    """Whether ``user`` holds ``role``; the admin switch does not count."""
+    return role.name in user.roles
 
 
 NO_ACCESS_MSG: Final = (
@@ -50,28 +45,30 @@ NO_ACCESS_MSG: Final = (
 
 def no_access() -> rx.Component:
     """Page content for signed-in users without read access."""
-    return mn.center(mn.text(NO_ACCESS_MSG, fz="15px", fw=500), h="60vh", px=24)
+    return mn.center(
+        mn.stack(
+            mn.text(NO_ACCESS_MSG, fz="15px", fw=500),
+            rx.link("Zu den Angeboten", href="/offers"),
+            align="center",
+            gap=8,
+        ),
+        h="60vh",
+        px=24,
+    )
 
 
 def viewer_only(*children: Any, fallback: rx.Component | None = None) -> rx.Component:
-    """Render ``children`` for admins, project managers and employees."""
-    return rx.cond(CAN_VIEW, rx.fragment(*children), fallback)
+    """Render ``children`` for the employee role (reading)."""
+    return requires_role(*children, role=EMPLOYEE_ROLE.name, fallback=fallback)
 
 
 def editor_only(*children: Any, fallback: rx.Component | None = None) -> rx.Component:
-    """Render ``children`` for admins and project managers (edit controls)."""
-    return rx.cond(CAN_EDIT, rx.fragment(*children), fallback)
+    """Render ``children`` for the project manager role (edit controls)."""
+    return requires_role(*children, role=PROJECT_MANAGER_ROLE.name, fallback=fallback)
 
 
-def admin_only(*children: Any, fallback: rx.Component | None = None) -> rx.Component:
-    """Render ``children`` for admins only (administration)."""
-    return rx.cond(IS_ADMIN, rx.fragment(*children), fallback)
-
-
-def _guard[F: Callable[..., Any]](
-    func: F, allowed: Callable[[User], bool], level: str
-) -> F:
-    """Wrap event handler ``func`` so only users passing ``allowed`` run it.
+def _guard[F: Callable[..., Any]](func: F, role: Role, level: str) -> F:
+    """Wrap event handler ``func`` so only users holding ``role`` run it.
 
     Mirrors appkit's ``requires_admin``: unauthenticated callers are redirected
     to login, everyone else without the right gets a permission error.
@@ -84,7 +81,7 @@ def _guard[F: Callable[..., Any]](
         if user is None:
             logger.debug("User not authenticated, redirecting to login.")
             return False, await login_state.redir()
-        if not allowed(user):
+        if not has_role(user, role):
             logger.warning(
                 "User user_id=%s denied %s action '%s'",
                 user.user_id,
@@ -116,10 +113,15 @@ def _guard[F: Callable[..., Any]](
 
 
 def requires_viewer[F: Callable[..., Any]](func: F) -> F:
-    """Allow a read-only event for admins, project managers and employees."""
-    return _guard(func, can_view, "viewer")
+    """Allow a read-only event for the employee role."""
+    return _guard(func, EMPLOYEE_ROLE, "viewer")
 
 
 def requires_editor[F: Callable[..., Any]](func: F) -> F:
-    """Allow a reading or writing event for admins and project managers."""
-    return _guard(func, can_edit, "editor")
+    """Allow a reading or writing event for the project manager role."""
+    return _guard(func, PROJECT_MANAGER_ROLE, "editor")
+
+
+def requires_offer_editor[F: Callable[..., Any]](func: F) -> F:
+    """Allow an offer event for the offer editor role."""
+    return _guard(func, OFFER_EDITOR_ROLE, "offer_editor")

@@ -8,6 +8,8 @@ or an inline check for background handlers. Handlers that only change UI state
 are listed explicitly in ``UI_ONLY_HANDLERS``; they must not reach the
 database. Read-only loads of the projects and planning pages are also open to
 the employee role (``@requires_viewer``); they are listed in ``VIEWER_HANDLERS``.
+Offers and price lists may be read by every signed-in user
+(``@is_authenticated``); those loads are listed in ``SIGNED_IN_HANDLERS``.
 """
 
 import importlib
@@ -21,7 +23,13 @@ import pytest
 import reflex as rx
 from alloq_commons.access import ACCESS_LEVEL_ATTR
 
-PACKAGES = ("alloq_commons", "alloq_dashboard", "alloq_project", "alloq_team")
+PACKAGES = (
+    "alloq_commons",
+    "alloq_dashboard",
+    "alloq_offer",
+    "alloq_project",
+    "alloq_team",
+)
 EXTRA_MODULES = (
     "app.components.sidebar_state",
     "app.desktop.db_access_state",
@@ -30,11 +38,14 @@ EXTRA_MODULES = (
 OWN_PACKAGES = frozenset({*PACKAGES, "app"})
 
 # Administration needs the admin switch; project managers may not run these.
+# Price lists are edited here too, but every signed-in user may read them.
+# The offer industries are maintained here, although they live in alloq_offer.
 ADMIN_STATES = frozenset(
     {
         "DailyRateState",
         "PriceListState",
         "DepartmentState",
+        "IndustryState",
         "RoleState",
         "HolidayState",
         "DatabaseAccessState",
@@ -43,6 +54,8 @@ ADMIN_STATES = frozenset(
 # Planning states are open to project managers, so they use @requires_editor.
 EDITOR_PACKAGES = frozenset({"alloq_dashboard", "alloq_project", "alloq_team"})
 EDITOR_STATES = frozenset({"SidebarState"})
+# Offer states use their own level (admin, project manager, offer editor).
+OFFER_PACKAGES = frozenset({"alloq_offer"})
 
 # Reflex adds ``setvar`` to every state; it only sets a declared var.
 REFLEX_BUILTINS = frozenset({"setvar"})
@@ -78,10 +91,35 @@ VIEWER_HANDLERS: dict[str, frozenset[str]] = {
     "PlanningStore": frozenset({"load", "refresh", "reload_with_time_range"}),
 }
 
+# Loads every signed-in user may run (appkit's ``@is_authenticated``).
+SIGNED_IN_HANDLERS: dict[str, frozenset[str]] = {
+    "OfferState": frozenset({"load_offers"}),
+    "PriceListState": frozenset({"load", "open_list"}),
+}
+
 UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
     "SplashState": frozenset({"finish"}),
     "SidebarState": frozenset({"invalidate"}),
     "DashboardState": frozenset({"close_drill_down", "open_drill_down"}),
+    "OfferState": frozenset(
+        {
+            "close_accept_modal",
+            "close_modal",
+            "inspect",
+            "open_accept_modal",
+            "open_create_modal",
+            "open_edit_modal",
+            "reset_filters",
+            "set_accept_field",
+            "set_form_field",
+            "set_inspected_sent_date",
+            "set_list_filter",
+            "set_search_filter",
+            "set_sent_date_today",
+            "toggle_inspector",
+            "toggle_sort",
+        }
+    ),
     "RoleState": frozenset(
         {
             "close_add_modal",
@@ -94,11 +132,21 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
     "DailyRateState": frozenset(
         {"set_margin_draft", "set_min_margin_draft", "set_search_filter"}
     ),
+    "PriceListState": frozenset({"set_compare", "set_view"}),
     "DepartmentState": frozenset(
         {
             "close_add_modal",
             "close_edit_modal",
             "open_add_modal",
+            "set_search_filter",
+        }
+    ),
+    "IndustryState": frozenset(
+        {
+            "close_add_modal",
+            "close_edit_modal",
+            "open_add_modal",
+            "open_edit_modal",
             "set_search_filter",
         }
     ),
@@ -248,6 +296,7 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
             "apply_cell_changes",
             "apply_view_settings",
             "close_add_project_for_employee",
+            "discard_changes",
             "notify_rejected",
             "open_add_project_for_employee",
             "open_project",
@@ -352,8 +401,30 @@ def _is_requires_viewer(fn: Callable[..., Any]) -> bool:
     return _access_level(fn, "viewer")
 
 
+def _is_requires_offer_editor(fn: Callable[..., Any]) -> bool:
+    return _access_level(fn, "offer_editor")
+
+
+def _is_requires_login(fn: Callable[..., Any]) -> bool:
+    return _is_decorated_by(fn, "is_authenticated")
+
+
+def _is_allowed_reader(state_name: str, name: str, fn: Callable[..., Any]) -> bool:
+    """Read-only load guarded by its reader level and listed in its allowlist."""
+    return (
+        _is_requires_viewer(fn) and name in VIEWER_HANDLERS.get(state_name, frozenset())
+    ) or (
+        _is_requires_login(fn)
+        and name in SIGNED_IN_HANDLERS.get(state_name, frozenset())
+    )
+
+
 def _is_guarded(fn: Callable[..., Any]) -> bool:
-    return _is_requires_admin(fn) or _is_requires_editor(fn)
+    return (
+        _is_requires_admin(fn)
+        or _is_requires_editor(fn)
+        or _is_requires_offer_editor(fn)
+    )
 
 
 def _db_markers(
@@ -388,10 +459,7 @@ def test_every_handler_is_admin_guarded_or_ui_only() -> None:
         for state_name, state in STATES.items()
         for name, handler in _handlers(state).items()
         if not _is_guarded(handler.fn)
-        and not (
-            _is_requires_viewer(handler.fn)
-            and name in VIEWER_HANDLERS.get(state_name, frozenset())
-        )
+        and not _is_allowed_reader(state_name, name, handler.fn)
         and name not in INLINE_ADMIN_CHECK.get(state_name, frozenset())
         and name not in UI_ONLY_HANDLERS.get(state_name, frozenset())
         and name not in PRE_AUTH_HANDLERS.get(state_name, frozenset())
@@ -418,6 +486,60 @@ def test_planning_handlers_are_open_to_project_managers() -> None:
         if _is_requires_admin(handler.fn)
     )
     assert admin_guarded == [], "Use @requires_editor outside the administration"
+
+
+def _is_offer_state(state: type[rx.State]) -> bool:
+    """Offer states, without the industries administration (admin level)."""
+    return (
+        state.__module__.split(".")[0] in OFFER_PACKAGES
+        and state.__name__ not in ADMIN_STATES
+    )
+
+
+def test_offer_handlers_use_the_offer_editor_level() -> None:
+    wrong = sorted(
+        f"{state_name}.{name}"
+        for state_name, state in STATES.items()
+        if _is_offer_state(state)
+        for name, handler in _handlers(state).items()
+        if not _is_requires_offer_editor(handler.fn)
+        and not _is_allowed_reader(state_name, name, handler.fn)
+        and name not in UI_ONLY_HANDLERS.get(state_name, frozenset())
+    )
+    assert wrong == [], "Guard offer handlers with @requires_offer_editor"
+
+
+def test_signed_in_handlers_are_exactly_the_allowlist() -> None:
+    reader_guarded = {
+        (state_name, name)
+        for state_name, state in STATES.items()
+        for name, handler in _handlers(state).items()
+        if _is_requires_login(handler.fn)
+    }
+    allowed = {(s, n) for s, names in SIGNED_IN_HANDLERS.items() for n in names}
+    assert reader_guarded == allowed
+
+
+@pytest.mark.parametrize(
+    ("state_name", "name"),
+    sorted((s, n) for s, names in SIGNED_IN_HANDLERS.items() for n in names),
+)
+def test_signed_in_handler_does_not_write(state_name: str, name: str) -> None:
+    source = inspect.getsource(inspect.unwrap(_handlers(STATES[state_name])[name].fn))
+    assert not WRITE_MARKERS.findall(source)
+
+
+def test_offer_handlers_are_not_admin_or_editor_guarded() -> None:
+    wrong = sorted(
+        f"{state_name}.{name}"
+        for state_name, state in STATES.items()
+        if _is_offer_state(state)
+        for name, handler in _handlers(state).items()
+        if _is_requires_admin(handler.fn)
+        or _is_requires_editor(handler.fn)
+        or _is_requires_viewer(handler.fn)
+    )
+    assert wrong == []
 
 
 def test_administration_handlers_stay_admin_only() -> None:

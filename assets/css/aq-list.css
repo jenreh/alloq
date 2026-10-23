@@ -207,7 +207,9 @@
     margin: 0;
     font-variant-numeric: tabular-nums;
     min-width: 0;
-    overflow-wrap: anywhere;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .aq-badge {
@@ -316,4 +318,23 @@
     .aq-thead, .aq-tr {
         min-width: 640px;
     }
+}
+
+.aq-cell-text {
+    font-size: 12.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+/* Offer table: fits the pane, scrolls horizontally below its minimum width. */
+.aq-offer-list {
+    min-width: 760px;
+}
+
+.aq-offer-list .aq-thead > * {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }

@@ -15,7 +15,11 @@ from alloq_commons.models.project import (
     Risk,
 )
 from alloq_commons.models.role import Role
+from alloq_commons.roles import EMPLOYEE_ROLE, PROJECT_MANAGER_ROLE
 from alloq_project.states.project_state import ProjectState, ProjectValidationState
+
+# Allowed fakes hold the roles; the admin switch grants no planning access.
+_PLANNER_ROLES = [PROJECT_MANAGER_ROLE.name, EMPLOYEE_ROLE.name]
 
 MODULE = "alloq_project.states.project_state"
 FORM = {
@@ -47,7 +51,7 @@ class _FakeLogin:
 
 
 def _login_as_admin(state: Any) -> None:
-    login = _FakeLogin(SimpleNamespace(user_id=1, is_admin=True))
+    login = _FakeLogin(SimpleNamespace(user_id=1, is_admin=True, roles=_PLANNER_ROLES))
     object.__setattr__(state, "get_state", AsyncMock(return_value=login))
 
 

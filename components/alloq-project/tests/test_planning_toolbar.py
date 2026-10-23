@@ -1,6 +1,9 @@
 """Rendering checks for the planning toolbar."""
 
-from alloq_project.components.planning_toolbar import planning_toolbar
+from alloq_project.components.planning_toolbar import (
+    DISCARD_LABEL,
+    planning_toolbar,
+)
 
 
 def test_section_toggle_icon_tracks_collapsed_state() -> None:
@@ -17,3 +20,11 @@ def test_density_toggle_switches_row_height() -> None:
     assert "toggle_grid_density" in rendered
     assert "is_compact" in rendered
     assert "fold-vertical" in rendered
+
+
+def test_discard_button_sits_left_of_save() -> None:
+    rendered = str(planning_toolbar()[-1])
+
+    assert "discard_changes" in rendered
+    assert rendered.index("discard_changes") < rendered.index("save_grid")
+    assert DISCARD_LABEL.startswith("Änderungen verwerfen")
