@@ -52,8 +52,8 @@ def create_offer_workshop_page(
         padded=False,
         on_load=[
             WorkshopState.load_workshop,
-            SourcesState.load_sources,
             MapState.load_map,
+            SourcesState.load_sources,
             MapProposalState.load_proposal,
             BriefingState.load_briefing,
             ChapterState.load_chapters,

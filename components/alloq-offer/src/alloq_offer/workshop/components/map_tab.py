@@ -15,6 +15,7 @@ NO_MAP_TEXT = (
     "Tab „Entwurf“ Quellen hinzu und erzeugen Sie den Entwurf."
 )
 TO_DRAFT = "Zum Entwurf"
+LOADING_MAP = "Die Story Map wird geladen"
 
 
 def _no_map() -> rx.Component:
@@ -30,13 +31,33 @@ def _no_map() -> rx.Component:
     )
 
 
+def _skeleton() -> rx.Component:
+    """Placeholder cards in the shape of the map while it loads."""
+    return rx.box(
+        *(
+            mn.stack(
+                mn.skeleton(height=24, width="70%"),
+                *(mn.skeleton(height=56) for _ in range(rows)),
+                gap=8,
+            )
+            for rows in (4, 3, 4, 2, 3)
+        ),
+        class_name="aq-map-skeleton aq-map-empty",
+        custom_attrs={"aria-busy": "true", "aria-label": LOADING_MAP},
+    )
+
+
 def map_tab() -> rx.Component:
     return rx.box(
         rx.box(
             rx.cond(
-                MapState.has_map,
-                map_section(),
-                rx.box(_no_map(), class_name="aq-ws-pad aq-map-empty"),
+                MapState.map_loaded,
+                rx.cond(
+                    MapState.has_map,
+                    map_section(),
+                    rx.box(_no_map(), class_name="aq-ws-pad aq-map-empty"),
+                ),
+                _skeleton(),
             ),
             class_name="aq-split-main aq-map-main",
         ),

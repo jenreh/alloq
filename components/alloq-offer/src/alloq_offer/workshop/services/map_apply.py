@@ -223,6 +223,12 @@ async def snapshot_map(session: AsyncSession, workspace: WorkspaceEntity) -> dic
     tasks = await _rows(TaskEntity, TaskEntity.position)
     stories = await _rows(StoryEntity, StoryEntity.position)
     slices = await _rows(SliceEntity, SliceEntity.position)
+    stories_of: dict[int | None, list[dict]] = {}
+    for story in stories:
+        stories_of.setdefault(story.task_id, []).append(_story_dict(story))
+    tasks_of: dict[int, list[TaskEntity]] = {}
+    for task in tasks:
+        tasks_of.setdefault(task.activity_id, []).append(task)
     return {
         "vision": workspace.vision,
         "roles": list(workspace.roles),
@@ -237,17 +243,14 @@ async def snapshot_map(session: AsyncSession, workspace: WorkspaceEntity) -> dic
                         "id": t.id,
                         "title": t.title,
                         "archived": t.archived_at is not None,
-                        "stories": [
-                            _story_dict(s) for s in stories if s.task_id == t.id
-                        ],
+                        "stories": stories_of.get(t.id, []),
                     }
-                    for t in tasks
-                    if t.activity_id == a.id
+                    for t in tasks_of.get(a.id, [])
                 ],
             }
             for a in activities
         ],
-        "unassigned": [_story_dict(s) for s in stories if s.task_id is None],
+        "unassigned": stories_of.get(None, []),
     }
 
 

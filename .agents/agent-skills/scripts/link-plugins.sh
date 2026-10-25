@@ -27,19 +27,21 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-declare -a PLUGINS=(jenreh-core jenreh-python jenreh-reflex jenreh-terraform)
+declare -a PLUGINS=(jenreh-core jenreh-design jenreh-python jenreh-reflex jenreh-terraform)
 
 PLUGIN_SCHEMA="https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
 REPO_URL="https://github.com/jenreh/agent-skills"
 VERSION="0.3.0"
 
 desc_jenreh_core="Cross-cutting agent skills (boost, commit-msg, create-readme, release, …)."
-desc_jenreh_python="Python archetype skills (python-coding, runic-ogm, docker-multi-stage, …)."
+desc_jenreh_design="Design skills: brand, design, design-system, ui-styling, ui-ux-pro-max."
+desc_jenreh_python="Python archetype skills (python-coding, runic-ogm, code-review-high, docker-multi-stage, …)."
 desc_jenreh_reflex="reflex.dev / AppKit web skills (appkit-*, reflex-*)."
 desc_jenreh_terraform="Terraform / infra skills (terraform-*)."
 
 # JSON array bodies (without the brackets). Empty = omit the field.
 keywords_jenreh_core='"agent-skills", "claude-code", "git", "release", "documentation"'
+keywords_jenreh_design='"agent-skills", "claude-code", "design", "diagrams", "frontend"'
 keywords_jenreh_python='"agent-skills", "claude-code", "python", "docker", "ci-cd"'
 keywords_jenreh_reflex='"agent-skills", "claude-code", "reflex", "python", "frontend"'
 keywords_jenreh_terraform='"agent-skills", "claude-code", "terraform", "azure", "iac"'
@@ -47,6 +49,7 @@ keywords_jenreh_terraform='"agent-skills", "claude-code", "terraform", "azure", 
 # `dependencies` is a Claude Code field. Agent Plugins reports it as an unknown
 # top-level field and ignores it, which is a warning — not a rejection.
 deps_jenreh_core=''
+deps_jenreh_design=''
 deps_jenreh_python='{ "name": "jenreh-core" }'
 deps_jenreh_reflex='{ "name": "jenreh-core" }, { "name": "jenreh-python" }'
 deps_jenreh_terraform=''

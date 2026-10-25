@@ -12,23 +12,31 @@
       "name": "jenreh-core",
       "source": "./plugins/jenreh-core",
       "description": "Cross-cutting skills: boost, code-cleanup, commit-msg, create-readme, frontend-design, mein-schreibstil, plain-writing, release.",
-      "version": "0.3.2",
+      "version": "0.3.3",
+      "author": { "name": "Jens Rehpöhler" },
+      "license": "MIT"
+    },
+    {
+      "name": "jenreh-design",
+      "source": "./plugins/jenreh-design",
+      "description": "Design skills: brand, design, design-system, ui-styling, ui-ux-pro-max.",
+      "version": "0.1.0",
       "author": { "name": "Jens Rehpöhler" },
       "license": "MIT"
     },
     {
       "name": "jenreh-python",
       "source": "./plugins/jenreh-python",
-      "description": "Python archetype skills: python-coding, python-clean-code, docker-multi-stage, github-actions-cicd, runic-migrate, runic-ogm.",
-      "version": "0.3.0",
+      "description": "Python archetype skills: python-coding, python-clean-code, code-review-high, docker-multi-stage, github-actions-cicd, runic-migrate, runic-ogm.",
+      "version": "0.4.0",
       "author": { "name": "Jens Rehpöhler" },
       "license": "MIT"
     },
     {
       "name": "jenreh-reflex",
       "source": "./plugins/jenreh-reflex",
-      "description": "reflex.dev / AppKit web skills: appkit-commons, appkit-mantine-reference, reflex-docs, reflex-state-and-architecture, reflex-testing-state.",
-      "version": "0.3.1",
+      "description": "reflex.dev / AppKit web skills: appkit-commons, appkit-mantine-reference, appkit-user, reflex-docs, reflex-state-and-architecture, reflex-testing-state.",
+      "version": "0.3.2",
       "author": { "name": "Jens Rehpöhler" },
       "license": "MIT"
     },

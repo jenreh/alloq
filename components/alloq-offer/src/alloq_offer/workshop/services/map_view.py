@@ -18,12 +18,19 @@ def _with_count(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def _card(story: dict) -> dict[str, Any]:
-    refs = len(story["source_refs"])
+    """What a map card shows; the rest of a story only travels when it is opened."""
     return {
         "id": story["id"],
         "key": story["key"],
         "title": story["title"],
         "skeleton": story["skeleton"],
+    }
+
+
+def _detail(story: dict) -> dict[str, Any]:
+    refs = len(story["source_refs"])
+    return {
+        **_card(story),
         "origin": story["origin"],
         "sentence": story["sentence"],
         "description": story.get("description", ""),
@@ -85,7 +92,7 @@ def build_view(snapshot: dict) -> dict[str, Any]:
     ]
     lookup = {
         str(story["id"]): {
-            **_card(story),
+            **_detail(story),
             "role": story["role"],
             "goal": story["goal"],
             "benefit": story["benefit"],
@@ -168,21 +175,26 @@ def filter_rows(
 
 
 def list_rows(
-    columns: list[dict[str, Any]], rows: list[dict[str, Any]]
+    columns: list[dict[str, Any]],
+    rows: list[dict[str, Any]],
+    stories: dict[str, dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Stories as list lines: by activity, then slice, then their map order."""
+    """Stories as list lines: by activity, then slice, then their map order.
+
+    ``stories`` is the lookup of ``build_view``; the map cards stay slim.
+    """
     return [
         {
-            "id": story["id"],
-            "key": story["key"],
+            "id": card["id"],
+            "key": card["key"],
             "activity": column["title"],
-            "title": story["title"],
-            "story": story["sentence"],
-            "description": story["description"],
+            "title": card["title"],
+            "story": stories[str(card["id"])]["sentence"],
+            "description": stories[str(card["id"])]["description"],
         }
         for index, column in enumerate(columns)
         for row in rows
-        for story in row["cells"][index]["stories"]
+        for card in row["cells"][index]["stories"]
     ]
 
 

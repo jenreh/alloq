@@ -17,7 +17,6 @@ from alloq_offer.workshop.entities import (
     TaskEntity,
     WorkspaceEntity,
 )
-from alloq_offer.workshop.repositories import workspace_repo
 from alloq_offer.workshop.services.chapters import mark_dependent_review
 from alloq_offer.workshop.services.map_apply import next_story_key, snapshot_map
 from alloq_offer.workshop.services.story_rules import (
@@ -37,6 +36,8 @@ DEFAULT_TASK = "Hauptaufgabe"
 BLANK_TITLE = "Bitte geben Sie einen Namen ein."
 DESCRIPTION_TOO_LONG = "Die Beschreibung ist zu lang."
 NEW_STORY_TITLE = "Neue Story"
+SNAPSHOT_KEY = "map_snapshot"
+"""``Session.info`` key under which ``record`` leaves the snapshot it stored."""
 
 
 class MapConflictError(RuntimeError):
@@ -51,12 +52,19 @@ class MapEditError(ValueError):
 async def map_edit(
     session_factory: SessionFactory, offer_id: int, expected_revision: int
 ) -> AsyncIterator[tuple[AsyncSession, WorkspaceEntity]]:
-    """A transaction on the locked workspace; a stale ``expected_revision`` fails."""
+    """A transaction on the locked workspace; a stale ``expected_revision`` fails.
+
+    The lock and the load are one query, so an edit needs no second round trip.
+    """
     async with session_factory() as session:
-        workspace = await workspace_repo.find_by_offer(session, offer_id)
+        workspace = await session.scalar(
+            select(WorkspaceEntity)
+            .where(WorkspaceEntity.offer_id == offer_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
         if workspace is None:
             raise MapEditError(NOT_FOUND)
-        await session.refresh(workspace, with_for_update=True)
         if workspace.map_revision != expected_revision:
             raise MapConflictError(CONFLICT)
         yield session, workspace
@@ -67,11 +75,13 @@ async def record(session: AsyncSession, workspace: WorkspaceEntity, user: str) -
     await session.flush()
     workspace.map_revision += 1
     await mark_dependent_review(session, workspace)
+    snapshot = await snapshot_map(session, workspace)
+    session.info[SNAPSHOT_KEY] = snapshot
     session.add(
         MapRevisionEntity(
             offer_id=workspace.offer_id,
             revision=workspace.map_revision,
-            snapshot=await snapshot_map(session, workspace),
+            snapshot=snapshot,
             created_by=user,
         )
     )
@@ -154,9 +164,17 @@ class MapEditor:
         self._sessions = sessions
         self._offer_id = offer_id
         self._user = user
+        self.snapshot: dict | None = None
+        """Map after the last edit that changed it, so callers need no reload."""
 
-    def _edit(self, revision: int):  # noqa: ANN202
-        return map_edit(self._sessions, self._offer_id, revision)
+    @asynccontextmanager
+    async def _edit(
+        self, revision: int
+    ) -> AsyncIterator[tuple[AsyncSession, WorkspaceEntity]]:
+        self.snapshot = None
+        async with map_edit(self._sessions, self._offer_id, revision) as edit:
+            yield edit
+            self.snapshot = edit[0].info.get(SNAPSHOT_KEY)
 
     # --- activities, tasks, slices ---------------------------------------------
 

@@ -153,7 +153,7 @@ async def test_view_puts_stories_in_activity_columns_and_slice_rows(db, seeded) 
 async def test_archived_activities_and_stories_leave_the_view(db, seeded) -> None:
     editor = MapEditor(db.session, 1, "Anna")
     state = await _loaded(db)
-    story_id = int(next(iter(state.stories)))
+    story_id = int(next(iter(state._stories)))
     revision = await editor.archive_story(state.revision, story_id)
     async with db.session() as session:
         view = build_view(
@@ -165,7 +165,7 @@ async def test_archived_activities_and_stories_leave_the_view(db, seeded) -> Non
 
 async def test_archived_stories_are_listed_with_their_place(db, seeded) -> None:
     state = await _loaded(db)
-    story_id = int(next(iter(state.stories)))
+    story_id = int(next(iter(state._stories)))
     await MapEditor(db.session, 1, "Anna").archive_story(state.revision, story_id)
     async with db.session() as session:
         view = build_view(
@@ -231,13 +231,13 @@ async def test_load_fills_the_grid_and_summary(db, seeded) -> None:
     assert state.grid_template == (
         f"var(--grid-col-{first}, 230px) var(--grid-col-{second}, 230px)"
     )
-    assert [r["count_label"] for r in state.rows] == ["1 Story", "1 Story"]
+    assert [r["count_label"] for r in state._rows] == ["1 Story", "1 Story"]
     assert not state.has_selection
 
 
 async def test_filters_narrow_the_visible_rows(db, seeded) -> None:
     state = await _loaded(db)
-    assert _titles(state.visible_rows) == _titles(state.rows)
+    assert _titles(state.visible_rows) == _titles(state._rows)
     assert not state.is_filtered
     state.set_map_search("zweite")
     assert state.is_filtered
@@ -247,13 +247,13 @@ async def test_filters_narrow_the_visible_rows(db, seeded) -> None:
     assert _titles(state.visible_rows) == [["Erste"], []]
     state.set_skeleton_only(False)
     assert state.slice_filter_label == ""
-    state.set_slice_filter([str(state.rows[0]["slice_id"])])
+    state.set_slice_filter([str(state._rows[0]["slice_id"])])
     assert state.slice_filter_label == '"Schnitte (1)"'
     assert [r["title"] for r in state.visible_rows] == ["Kern"]
     state.reset_filters()
     assert not state.is_filtered
-    assert _titles(state.visible_rows) == _titles(state.rows)
-    kern = str(state.rows[0]["slice_id"])
+    assert _titles(state.visible_rows) == _titles(state._rows)
+    kern = str(state._rows[0]["slice_id"])
     state.toggle_slice(int(kern))
     assert state.collapsed_slices == [kern]
     state.toggle_slice(int(kern))
@@ -284,7 +284,7 @@ async def test_load_reports_failures(db) -> None:
 
 async def test_selecting_a_story_shows_its_sentence(db, seeded) -> None:
     state = await _loaded(db)
-    story_id = int(next(iter(state.stories)))
+    story_id = int(next(iter(state._stories)))
     state.select_story(999)
     assert not state.has_selection
     state.select_story(story_id)
@@ -324,7 +324,7 @@ async def test_adding_an_activity_reloads_the_map(db, seeded) -> None:
 async def test_the_edge_popup_inserts_at_its_position_and_closes(db, seeded) -> None:
     state = await _loaded(db)
     assert [c["index"] for c in state.columns] == [0, 1]
-    assert [r["index"] for r in state.rows] == [0, 1]
+    assert [r["index"] for r in state._rows] == [0, 1]
     state.open_insert("activity:1")
     assert state.insert_at == "activity:1"
     with _as_editor(state, db):
@@ -339,7 +339,7 @@ async def test_the_edge_popup_inserts_at_its_position_and_closes(db, seeded) -> 
     state.close_insert()
     assert state.insert_at == ""
     assert [c["title"] for c in state.columns] == ["Eingang", "Mitte", "Bearbeitung"]
-    assert [r["title"] for r in state.rows][:2] == ["Vorab", "Kern"]
+    assert [r["title"] for r in state._rows][:2] == ["Vorab", "Kern"]
 
 
 async def test_submit_insert_needs_an_open_popup(db, seeded) -> None:
@@ -385,16 +385,16 @@ async def test_activity_edits(db, seeded) -> None:
         await _run(state.move_activity, first, 1)
         assert "Stories" in await _run(state.archive_activity, first)
         await _run(state.add_slice, {"title": "Später"})
-        slice_id = state.rows[1]["slice_id"]
+        slice_id = state._rows[1]["slice_id"]
         await _run(state.rename_slice, slice_id, "Zweite Version")
         await _run(state.delete_slice, slice_id)
     assert [c["title"] for c in state.columns] == ["Bearbeitung", "An frage"]
-    assert [r["title"] for r in state.rows][:2] == ["Kern", NO_SLICE_TITLE]
+    assert [r["title"] for r in state._rows][:2] == ["Kern", NO_SLICE_TITLE]
 
 
 async def test_story_edits_through_the_drawer(db, seeded) -> None:
     state = await _loaded(db)
-    story_id = int(next(iter(state.stories)))
+    story_id = int(next(iter(state._stories)))
     state.select_story(story_id)
     with _as_editor(state, db):
         form = {
@@ -418,14 +418,24 @@ async def test_story_edits_through_the_drawer(db, seeded) -> None:
         await _run(state.place_story, other_task, "0")
         await _run(state.split_selected)
         await _run(state.archive_selected)
-    story = state.stories.get(str(story_id))
+    story = state._stories.get(str(story_id))
     assert story is None
     assert not state.has_selection
     assert state.story_count == 2
 
 
+async def test_map_cards_stay_slim_and_the_lookup_is_backend_only(db, seeded) -> None:
+    state = await _loaded(db)
+    card = state._rows[0]["cells"][0]["stories"][0]
+    assert set(card) == {"id", "key", "title", "skeleton"}
+    assert {"rows", "stories"}.isdisjoint(MapState.get_fields())
+    assert state._stories[str(card["id"])]["sentence"].startswith("Als Disponent")
+
+
 async def test_list_rows_follow_the_activity_order_and_filters(db, seeded) -> None:
     state = await _loaded(db)
+    assert state.list_rows == []  # not built while the map view is shown
+    state.set_view("list")
     assert [(r["activity"], r["title"]) for r in state.list_rows] == [
         ("Eingang", "Erste"),
         ("Bearbeitung", "Zweite"),
@@ -433,7 +443,6 @@ async def test_list_rows_follow_the_activity_order_and_filters(db, seeded) -> No
     assert state.list_rows[0]["story"].startswith("Als Disponent")
     state.set_map_search("zweite")
     assert [r["title"] for r in state.list_rows] == ["Zweite"]
-    state.set_view("list")
     assert state.view == "list"
     state.set_view("unbekannt")
     assert state.view == "list"
@@ -441,6 +450,7 @@ async def test_list_rows_follow_the_activity_order_and_filters(db, seeded) -> No
 
 async def test_list_edits_save_title_sentence_and_description(db, seeded) -> None:
     state = await _loaded(db)
+    state.set_view("list")
     first, second = (str(r["id"]) for r in state.list_rows)
     with _as_editor(state, db):
         toast = await _run(
@@ -459,9 +469,9 @@ async def test_list_edits_save_title_sentence_and_description(db, seeded) -> Non
         )
     assert "2" in toast
     assert state.revision == 2
-    assert state.stories[first]["title"] == "Erste neu"
-    assert state.stories[first]["description"] == "Details"
-    assert state.stories[second]["role"] == "Kunde"
+    assert state._stories[first]["title"] == "Erste neu"
+    assert state._stories[first]["description"] == "Details"
+    assert state._stories[second]["role"] == "Kunde"
     with _as_editor(state, db):
         assert await _run(state.apply_list_changes, []) == ""
         assert "Feld" in await _run(
@@ -485,21 +495,21 @@ async def test_story_handlers_ignore_calls_without_a_selection(db, seeded) -> No
 
 async def test_adding_a_story_needs_a_task(db, seeded) -> None:
     state = await _loaded(db)
-    cell = state.rows[0]["cells"][1]
+    cell = state._rows[0]["cells"][1]
     with _as_editor(state, db):
         for bad in ({}, {"task_id": "0"}, {"task_id": "x", "slice_id": "1"}):
             assert map_state.NO_TASK in await _run(state.add_story, bad)
         form = {
             "title": "Schnell erfasst",
             "task_id": str(cell["task_id"]),
-            "slice_id": str(state.rows[0]["slice_id"]),
+            "slice_id": str(state._rows[0]["slice_id"]),
         }
         await _run(state.add_story, form)
         no_slice = {"title": "", "task_id": str(cell["task_id"]), "slice_id": "0"}
         await _run(state.add_story, no_slice)
     assert state.story_count == 4
-    titles = {s["title"]: s["slice_id"] for s in state.stories.values()}
-    assert titles["Schnell erfasst"] == str(state.rows[0]["slice_id"])
+    titles = {s["title"]: s["slice_id"] for s in state._stories.values()}
+    assert titles["Schnell erfasst"] == str(state._rows[0]["slice_id"])
     assert titles["Neue Story"] == "0"
 
 
@@ -508,7 +518,7 @@ async def test_adding_a_story_needs_a_task(db, seeded) -> None:
 
 async def test_an_archived_story_is_restored_under_a_chosen_task(db, seeded) -> None:
     state = await _loaded(db)
-    story_id = int(next(iter(state.stories)))
+    story_id = int(next(iter(state._stories)))
     with _as_editor(state, db):
         state.select_story(story_id)
         await _run(state.archive_selected)
@@ -522,7 +532,7 @@ async def test_an_archived_story_is_restored_under_a_chosen_task(db, seeded) -> 
         assert PICK_TASK in await _run(state.restore_story, story_id)
         state.set_restore_task(story_id, state.task_options[1]["value"])
         assert RESTORED in await _run(state.restore_story, story_id)
-    assert str(story_id) in state.stories
+    assert str(story_id) in state._stories
     assert state.archived == []
     assert state.restore_tasks == {}
 
@@ -531,6 +541,8 @@ async def test_the_old_task_is_no_default_when_it_is_gone(db, seeded) -> None:
     state = await _loaded(db)
     entry = {"id": 5, "task_id": "999", "key": "K", "title": "T", "where": "A · B"}
     state.archived = [entry]
+    assert state.archived_rows == []  # built only while the dialog is open
+    state.open_archive()
     assert [r["task"] for r in state.archived_rows] == [""]
     state.set_archive_search("zzz")
     assert state.archived_rows == []
@@ -606,3 +618,39 @@ def test_map_and_drawer_render_constants() -> None:
     assert "data-read-only" in rows
     assert map_list.LIST_COLUMNS[2][1] in rows
     assert "has_map" in str(draft_tab())
+
+
+async def test_an_edit_shows_the_stored_snapshot_without_a_second_load(
+    db, seeded
+) -> None:
+    state = await _loaded(db)
+    before = state.revision
+    with (
+        _as_editor(state, db),
+        patch.object(MapState, "_reload", new=AsyncMock()) as reload,
+    ):
+        await _run(state.move_activity, state.columns[0]["id"], 1)
+    reload.assert_not_awaited()
+    assert state.revision == before + 1
+    assert state.columns[1]["title"] == "Eingang"
+    assert not state.saving
+
+
+async def test_saving_is_flagged_while_the_edit_runs_and_cleared_after(
+    db, seeded
+) -> None:
+    state = await _loaded(db)
+    flags: list[bool] = []
+    with _as_editor(state, db):
+        async for _ in state.move_activity(state.columns[0]["id"], 1):
+            flags.append(state.saving)
+    assert flags[0] is True
+    assert state.saving is False
+
+
+async def test_the_map_is_marked_loaded_after_loading(db, seeded) -> None:
+    state = _state()
+    assert state.map_loaded is False
+    with _as_editor(state, db):
+        await _run(state.load_map)
+    assert state.map_loaded is True

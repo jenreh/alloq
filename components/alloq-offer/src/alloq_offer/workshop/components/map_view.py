@@ -5,7 +5,7 @@ from typing import Any
 import reflex as rx
 from alloq_commons import theme
 from alloq_commons.components.excel_grid import column_resize, resize_handle
-from alloq_commons.components.toolbar import segmented, toolbar_search
+from alloq_commons.components.toolbar import segmented
 from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
@@ -28,6 +28,7 @@ from alloq_offer.workshop.states.map_state import (
 from alloq_offer.workshop.states.workshop_state import WorkshopState
 
 SEARCH_PLACEHOLDER = "Stories suchen"
+SEARCH_DEBOUNCE_MS = 250
 SLICE_PLACEHOLDER = "Umsetzungsschnitte"
 SKELETON_ONLY = "Nur Skeleton"
 RESET_FILTERS = "Filter zurücksetzen"
@@ -100,6 +101,8 @@ def _add_story_form(cell: Row, slice_id: rx.Var) -> rx.Component:
                 variant="subtle",
                 color="gray",
                 size="sm",
+                loading=MapState.saving_cell
+                == cell["task_id"].to_string() + ":" + slice_id.to_string(),
                 aria_label=ADD_STORY,
             ),
             right_section_pointer_events="all",
@@ -384,13 +387,34 @@ def _filter_select(
     )
 
 
+def _search() -> rx.Component:
+    """Story search that asks the server once the person stops typing.
+
+    The field is uncontrolled (a controlled one would jump back while the
+    debounced event is on its way); a filter reset remounts it through ``key``.
+    """
+    return mn.text_input(
+        placeholder=SEARCH_PLACEHOLDER,
+        left_section=rx.icon("search", size=14),
+        left_section_pointer_events="none",
+        default_value=MapState.map_search,
+        key=MapState.search_epoch.to_string(),
+        on_change=lambda value: MapState.set_map_search(value).debounce(  # ty: ignore[invalid-argument-type]
+            SEARCH_DEBOUNCE_MS
+        ),
+        size="xs",
+        radius="md",
+        w="200px",
+        class_name="aq-toolbar-search",
+        custom_attrs={"type": "search", "aria-label": SEARCH_PLACEHOLDER},
+    )
+
+
 def map_filter_row() -> rx.Component:
     """Filter bar of the map: view, story search, slices and skeleton filter."""
     return mn.group(
         segmented(MapState.view, MapState.set_view, VIEWS),
-        toolbar_search(
-            MapState.map_search, MapState.set_map_search, SEARCH_PLACEHOLDER
-        ),
+        _search(),
         _filter_select(
             MapState.slice_options,
             MapState.slice_filter,

@@ -2,6 +2,7 @@
 
 import logging
 from collections.abc import AsyncGenerator, Awaitable, Callable
+from functools import wraps
 from typing import Any
 
 import reflex as rx
@@ -53,6 +54,27 @@ def _rejected_toast(count: int) -> Any:
     return rx.toast.warning(REJECTED_FORMAT.format(count=count), position="top-right")
 
 
+def _busy[F: Callable[..., Any]](func: F) -> F:
+    """Show the saving bar while an edit handler runs.
+
+    The bare ``yield`` sends the flag before the database work starts; the
+    final delta (new map and ``saving`` off) arrives together.
+    """
+
+    @wraps(func)
+    async def wrapper(self: MapState, *args: Any, **kwargs: Any) -> Any:
+        self.saving = True
+        yield
+        try:
+            async for item in func(self, *args, **kwargs):
+                yield item
+        finally:
+            self.saving = False
+            self.saving_cell = ""
+
+    return wrapper  # type: ignore[return-value]
+
+
 def _count_label(name: str, picked: list[str]) -> str:
     """CSS content for the count pill of a filter select, empty when unused."""
     return f'"{name} ({len(picked)})"' if picked else ""
@@ -62,9 +84,16 @@ class MapState(rx.State):
     """The map of the open offer."""
 
     revision: rx.Field[int] = rx.field(0)
+    map_loaded: rx.Field[bool] = rx.field(False)
+    """False until the map of the open offer arrived; the page shows a skeleton."""
+    saving: rx.Field[bool] = rx.field(False)
+    saving_cell: rx.Field[str] = rx.field("")
+    """``<task>:<slice>`` of the cell whose new story is being saved."""
+    _loaded_offer: int = 0
     columns: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
-    rows: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
-    stories: rx.Field[dict[str, dict[str, Any]]] = rx.field(default_factory=dict)
+    _rows: list[dict[str, Any]] = []
+    _stories: dict[str, dict[str, Any]] = {}
+    """Backend only: ``visible_rows`` and ``selected`` send what the page shows."""
     task_options: rx.Field[list[dict[str, str]]] = rx.field(default_factory=list)
     task_groups: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
     slice_options: rx.Field[list[dict[str, str]]] = rx.field(default_factory=list)
@@ -77,6 +106,8 @@ class MapState(rx.State):
     selected_id: rx.Field[str] = rx.field("")
     drawer_wide: rx.Field[bool] = rx.field(False)
     map_search: rx.Field[str] = rx.field("")
+    search_epoch: rx.Field[int] = rx.field(0)
+    """Bumped by a filter reset so the uncontrolled search field starts empty."""
     slice_filter: rx.Field[list[str]] = rx.field(default_factory=list)
     skeleton_only: rx.Field[bool] = rx.field(False)
     view: rx.Field[str] = rx.field(VIEW_MAP)
@@ -94,6 +125,9 @@ class MapState(rx.State):
 
     @rx.var
     def archived_rows(self) -> list[dict[str, Any]]:
+        return self._archive_entries() if self.archive_open else []
+
+    def _archive_entries(self) -> list[dict[str, Any]]:
         live = {option["value"] for option in self.task_options}
 
         def target(story: dict[str, Any]) -> str:
@@ -111,7 +145,9 @@ class MapState(rx.State):
 
     @rx.var
     def list_rows(self) -> list[dict[str, Any]]:
-        return list_rows(self.columns, self.visible_rows)
+        if self.view != VIEW_LIST:
+            return []
+        return list_rows(self.columns, self.visible_rows, self._stories)
 
     @rx.var
     def slice_filter_label(self) -> str:
@@ -120,7 +156,7 @@ class MapState(rx.State):
     @rx.var
     def visible_rows(self) -> list[dict[str, Any]]:
         return filter_rows(
-            self.rows,
+            self._rows,
             search=self.map_search,
             slice_ids=self.slice_filter,
             skeleton_only=self.skeleton_only,
@@ -135,11 +171,11 @@ class MapState(rx.State):
 
     @rx.var
     def selected(self) -> dict[str, Any]:
-        return self.stories.get(self.selected_id, {})
+        return self._stories.get(self.selected_id, {})
 
     @rx.var
     def has_selection(self) -> bool:
-        return self.selected_id in self.stories
+        return self.selected_id in self._stories
 
     @rx.var
     def summary(self) -> str:
@@ -154,11 +190,19 @@ class MapState(rx.State):
             workspace = await workspace_repo.find_by_offer(session, offer_id)
             if workspace is None:
                 return
-            view = build_view(await snapshot_map(session, workspace))
-            self.revision = workspace.map_revision
+            snapshot = await snapshot_map(session, workspace)
+            revision = workspace.map_revision
+        self._show(offer_id, snapshot, revision)
+
+    def _show(self, offer_id: int, snapshot: dict, revision: int) -> None:
+        """Take a map snapshot into the vars the page renders."""
+        view = build_view(snapshot)
+        self.revision = revision
+        self._loaded_offer = offer_id
+        self.map_loaded = True
         self.columns = view["columns"]
-        self.rows = view["rows"]
-        self.stories = view["stories"]
+        self._rows = view["rows"]
+        self._stories = view["stories"]
         self.task_options = view["task_options"]
         self.slice_options = view["slice_options"]
         self.story_count = view["story_count"]
@@ -166,7 +210,7 @@ class MapState(rx.State):
         self.archived = view["archived"]
         kept = {str(story["id"]) for story in self.archived}
         self.restore_tasks = {k: v for k, v in self.restore_tasks.items() if k in kept}
-        if self.selected_id not in self.stories:
+        if self.selected_id not in self._stories:
             self.selected_id = ""
 
     async def _apply(self, edit: Edit) -> Any | None:
@@ -176,7 +220,7 @@ class MapState(rx.State):
             return None
         editor = MapEditor(get_asyncdb_session, offer_id, await current_user_name(self))
         try:
-            await edit(editor)
+            revision = await edit(editor)
         except MapConflictError as exc:
             await self._reload(offer_id)
             return rx.toast.warning(str(exc), position="top-right")
@@ -185,12 +229,15 @@ class MapState(rx.State):
         except Exception:
             logger.exception("Editing the map of offer %s failed", offer_id)
             return rx.toast.error(SAVE_ERROR, position="top-right")
-        await self._reload(offer_id)
+        if editor.snapshot is None:
+            await self._reload(offer_id)
+        else:
+            self._show(offer_id, editor.snapshot, revision)
         return None
 
     @rx.event
     def select_story(self, story_id: int) -> None:
-        if str(story_id) in self.stories:
+        if str(story_id) in self._stories:
             self.selected_id = str(story_id)
 
     @rx.event
@@ -259,6 +306,7 @@ class MapState(rx.State):
     @rx.event
     def reset_filters(self) -> None:
         self.map_search = ""
+        self.search_epoch += 1
         self.slice_filter = []
         self.skeleton_only = False
 
@@ -268,11 +316,15 @@ class MapState(rx.State):
         offer_id = await open_offer_id(self)
         if not offer_id:
             return
+        if offer_id != self._loaded_offer:
+            self.map_loaded = False
+            yield
         try:
             await self._reload(offer_id)
         except Exception:
             logger.exception("Loading the map of offer %s failed", offer_id)
             yield rx.toast.error(LOAD_ERROR, position="top-right")
+        self.map_loaded = True
 
     async def _insert(self, kind: str, title: str, index: int | None) -> Any | None:
         """Add an activity or slice at ``index``; a done insert closes the popup."""
@@ -284,6 +336,7 @@ class MapState(rx.State):
 
     @rx.event
     @requires_offer_editor
+    @_busy
     async def submit_insert(self, form: dict[str, Any]) -> AsyncGenerator[Any]:
         """Popup on a grid edge: kind and position come from ``insert_at``.
 
@@ -298,6 +351,7 @@ class MapState(rx.State):
 
     @rx.event
     @requires_offer_editor
+    @_busy
     async def add_activity(
         self, form: dict[str, Any], index: int | None = None
     ) -> AsyncGenerator[Any]:
@@ -307,6 +361,7 @@ class MapState(rx.State):
 
     @rx.event
     @requires_offer_editor
+    @_busy
     async def rename_activity(
         self, activity_id: int, title: str
     ) -> AsyncGenerator[Any]:
@@ -319,6 +374,7 @@ class MapState(rx.State):
 
     @rx.event
     @requires_offer_editor
+    @_busy
     async def move_activity(self, activity_id: int, step: int) -> AsyncGenerator[Any]:
         if event := await self._apply(
             lambda e: e.move_activity(self.revision, activity_id, step)
@@ -327,6 +383,7 @@ class MapState(rx.State):
 
     @rx.event
     @requires_offer_editor
+    @_busy
     async def archive_activity(self, activity_id: int) -> AsyncGenerator[Any]:
         if event := await self._apply(
             lambda e: e.archive_activity(self.revision, activity_id)
@@ -335,6 +392,7 @@ class MapState(rx.State):
 
     @rx.event
     @requires_offer_editor
+    @_busy
     async def add_slice(
         self, form: dict[str, Any], index: int | None = None
     ) -> AsyncGenerator[Any]:
@@ -344,6 +402,7 @@ class MapState(rx.State):
 
     @rx.event
     @requires_offer_editor
+    @_busy
     async def rename_slice(self, slice_id: int, title: str) -> AsyncGenerator[Any]:
         if event := await self._apply(
             lambda e: e.rename_slice(self.revision, slice_id, title)
@@ -352,6 +411,7 @@ class MapState(rx.State):
 
     @rx.event
     @requires_offer_editor
+    @_busy
     async def delete_slice(self, slice_id: int) -> AsyncGenerator[Any]:
         if event := await self._apply(
             lambda e: e.delete_slice(self.revision, slice_id)
@@ -360,6 +420,7 @@ class MapState(rx.State):
 
     @rx.event
     @requires_offer_editor
+    @_busy
     async def add_story(self, form: dict[str, Any]) -> AsyncGenerator[Any]:
         """Quick add in a map cell; task and slice come as hidden form fields.
 
@@ -373,6 +434,8 @@ class MapState(rx.State):
             return
         title = str(form.get("title", ""))
         target = int(slice_id) or None
+        self.saving_cell = f"{task_id}:{slice_id}"
+        yield
         if event := await self._apply(
             lambda e: e.add_story(self.revision, int(task_id), target, title)
         ):
@@ -380,6 +443,7 @@ class MapState(rx.State):
 
     @rx.event
     @requires_offer_editor
+    @_busy
     async def save_story(self, form: dict[str, Any]) -> AsyncGenerator[Any]:
         """Save the inspector form of the selected story."""
         if not self.has_selection:
@@ -400,6 +464,7 @@ class MapState(rx.State):
 
     @rx.event
     @requires_offer_editor
+    @_busy
     async def apply_list_changes(
         self, changes: list[dict[str, Any]]
     ) -> AsyncGenerator[Any]:
@@ -411,7 +476,7 @@ class MapState(rx.State):
             value = str(change.get("value", ""))
             if column not in LIST_COLUMNS:
                 continue
-            if story_id not in self.stories:
+            if story_id not in self._stories:
                 rejected += 1
                 continue
             if column == "story":
@@ -434,6 +499,7 @@ class MapState(rx.State):
 
     @rx.event
     @requires_offer_editor
+    @_busy
     async def place_story(self, task_id: str, slice_id: str) -> AsyncGenerator[Any]:
         """Move the selected story to a task and a slice (``"0"``: none)."""
         if not self.has_selection:
@@ -447,6 +513,7 @@ class MapState(rx.State):
 
     @rx.event
     @requires_offer_editor
+    @_busy
     async def split_selected(self) -> AsyncGenerator[Any]:
         if not self.has_selection:
             return
@@ -456,6 +523,7 @@ class MapState(rx.State):
 
     @rx.event
     @requires_offer_editor
+    @_busy
     async def archive_selected(self) -> AsyncGenerator[Any]:
         if not self.has_selection:
             return
@@ -468,9 +536,10 @@ class MapState(rx.State):
 
     @rx.event
     @requires_offer_editor
+    @_busy
     async def restore_story(self, story_id: int) -> AsyncGenerator[Any]:
         """Bring an archived story back under its chosen live task."""
-        row = next((r for r in self.archived_rows if r["id"] == story_id), None)
+        row = next((r for r in self._archive_entries() if r["id"] == story_id), None)
         if row is None:
             return
         if not row["task"]:

@@ -89,7 +89,9 @@ def _header() -> rx.Component:
                     },
                     on_click=MapState.toggle_drawer_width,
                 ),
-                _icon("save", SAVE, color="blue", type="submit"),
+                _icon(
+                    "save", SAVE, color="blue", type="submit", loading=MapState.saving
+                ),
                 _icon(
                     "archive", ARCHIVE, color="red", on_click=MapState.archive_selected
                 ),
@@ -186,7 +188,11 @@ def _body(story: Any) -> rx.Component:
         ),
         mn.group(
             mn.button(
-                SPLIT, variant="default", size="xs", on_click=MapState.split_selected
+                SPLIT,
+                variant="default",
+                size="xs",
+                loading=MapState.saving,
+                on_click=MapState.split_selected,
             ),
             mn.button(
                 SPLIT_AI,

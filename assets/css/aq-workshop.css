@@ -50,6 +50,13 @@
   background: var(--aq-background);
 }
 
+.aq-map-skeleton {
+  display: grid;
+  grid-template-columns: repeat(5, 230px);
+  gap: 12px;
+  padding: 16px;
+}
+
 .aq-map-scroll {
   flex: 1;
   min-height: 0;
