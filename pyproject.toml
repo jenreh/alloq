@@ -11,10 +11,10 @@ dependencies = [
     "alloq-offer",
     "alloq-project",
     "alloq-team",
-    "appkit-user==1.16.2",
-    "appkit-mantine==1.16.2",
-    "appkit-commons[azure]==1.16.2",
-    "appkit-ui==1.16.2",
+    "appkit-user==1.17.0",
+    "appkit-mantine==1.17.0",
+    "appkit-commons[azure]==1.17.0",
+    "appkit-ui==1.17.0",
     "psycopg[binary,pool]==3.3.6",
     "reflex==0.10.0",
     "msal==1.39.0",
@@ -28,14 +28,14 @@ desktop = [
 ]
 dev = [
     "aiosqlite==0.22.1",
-    "bump-my-version==1.6.3",
+    "bump-my-version==1.6.7",
     "detect-secrets==1.5.0",
     "faker==40.43.0",
     "pre-commit==4.7.0",
-    "pytest_asyncio==1.4.0",
+    "pytest_asyncio==1.4.1",
     "pytest-cov==7.1.0",
     "pytest==9.1.1",
-    "ruff==0.17.1",
+    "ruff==0.17.2",
 ]
 
 [tool.hatch.build.targets.wheel]
