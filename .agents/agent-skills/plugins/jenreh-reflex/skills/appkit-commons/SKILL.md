@@ -159,17 +159,17 @@ One setting drives it: `reflex.frontend_path`. `rxconfig.py` passes it to
 ```yaml
 # config.local.yaml
 reflex:
-  frontend_path: /knai # leave out for the site root
+  frontend_path: /knai   # leave out for the site root
 ```
 
 Derived from it automatically:
 
-| What                                          | Site root                                     | Below `/knai`         | Override                               |
-| --------------------------------------------- | --------------------------------------------- | --------------------- | -------------------------------------- |
-| Session cookie                                | `reflex_session`                              | `knai_session`        | `authentication.session_cookie_name`   |
-| Local storage prefix                          | `""`                                          | `knai_`               | `authentication.storage_key_prefix`    |
-| `AuthenticationConfiguration.public_base_url` | `https://x`                                   | `https://x/knai`      | `server_url` already ending in `/knai` |
-| OAuth `redirect_url`                          | `<public_base_url>/oauth/<provider>/callback` | same, carries `/knai` | `oauth_providers[].redirect_url`       |
+| What | Site root | Below `/knai` | Override |
+| --- | --- | --- | --- |
+| Session cookie | `reflex_session` | `knai_session` | `authentication.session_cookie_name` |
+| Local storage prefix | `""` | `knai_` | `authentication.storage_key_prefix` |
+| `AuthenticationConfiguration.public_base_url` | `https://x` | `https://x/knai` | `server_url` already ending in `/knai` |
+| OAuth `redirect_url` | `<public_base_url>/oauth/<provider>/callback` | same, carries `/knai` | `oauth_providers[].redirect_url` |
 
 Helpers in `appkit_commons.public_path` (no Reflex import needed by callers):
 
@@ -224,7 +224,7 @@ Rules:
 Single IoC container. All services registered as singletons by type.
 
 ```python
-from appkit_commons import service_registry
+from appkit_commons.registry import service_registry
 
 # Register (in app startup / _initialize_services, in dependency order)
 registry = service_registry()
@@ -239,6 +239,10 @@ config = service_registry().get(MyFeatureConfig)
 registry.has(MyService)  # bool
 registry.list_registered()  # list[type]
 registry.unregister(MyService)
+
+# Tests: save and restore the registry around a test
+saved = registry.snapshot()
+registry.restore(saved)
 ```
 
 Call `service_registry()` inside functions/methods — never at module level.
@@ -272,12 +276,8 @@ class MyEntityRepository(BaseRepository[MyEntity]):
     def model_class(self) -> type[MyEntity]:
         return MyEntity
 
-    async def find_by_name(
-        self, session: AsyncSession, name: str
-    ) -> MyEntity | None:
-        result = await session.execute(
-            select(MyEntity).where(MyEntity.name == name)
-        )
+    async def find_by_name(self, session: AsyncSession, name: str) -> MyEntity | None:
+        result = await session.execute(select(MyEntity).where(MyEntity.name == name))
         return result.scalar_one_or_none()
 
 
@@ -468,17 +468,19 @@ await scheduler.shutdown()
 
 ## 7. Anti-Patterns
 
-| Anti-pattern                                                           | Correct approach                                              |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `rx.asession()` in background tasks / callbacks                        | `get_asyncdb_session()`                                       |
-| `service_registry()` at module level                                   | Call inside functions/methods                                 |
-| SQLAlchemy entities in Reflex state                                    | Convert to Pydantic `BaseModel` via `to_dict()`               |
-| Duplicating CRUD in repos                                              | Use `BaseRepository` built-ins; add only custom query methods |
-| `--autogenerate` for Alembic                                           | Write migrations manually                                     |
-| Hardcoded credentials in YAML                                          | Use `secret:` prefix, resolve via `get_secret()`              |
-| Bare `/img/...` asset `src`, API URLs, ASGI redirects                  | `public_path()` / `public_url()`                              |
-| `rx.redirect(public_path("/x"))` / `rx.link(href=public_path("/x"))`   | App relative `"/x"`; React Router adds the prefix             |
-| Literal `rx.LocalStorage(name="...")` or `localStorage.setItem("...")` | `app_storage_key("...")`, one shared constant                 |
-| Hardcoded OAuth `redirect_url` in `config.yaml`                        | Leave unset; derived from `public_base_url`                   |
-| `router.url.path == "/login"`                                          | `strip_public_prefix(router.url.path) == "/login"`            |
-| `session.commit()` inside `get_asyncdb_session()` block                | Session auto-commits on context exit                          |
+| Anti-pattern | Correct approach |
+| --- | --- |
+| `rx.asession()` in background tasks / callbacks | `get_asyncdb_session()` |
+| `service_registry()` at module level | Call inside functions/methods |
+| SQLAlchemy entities in Reflex state | Convert to Pydantic `BaseModel` via `to_dict()` |
+| Duplicating CRUD in repos | Use `BaseRepository` built-ins; add only custom query methods |
+| `--autogenerate` for Alembic | Write migrations manually |
+| Hardcoded credentials in YAML | Use `secret:` prefix, resolve via `get_secret()` |
+| Bare `/img/...` asset `src`, API URLs, ASGI redirects | `public_path()` / `public_url()` |
+| `rx.redirect(public_path("/x"))` / `rx.link(href=public_path("/x"))` | App relative `"/x"`; React Router adds the prefix |
+| Literal `rx.LocalStorage(name="...")` or `localStorage.setItem("...")` | `app_storage_key("...")`, one shared constant |
+| Hardcoded OAuth `redirect_url` in `config.yaml` | Leave unset; derived from `public_base_url` |
+| `router.url.path == "/login"` | `strip_public_prefix(router.url.path) == "/login"` |
+| `session.commit()` inside `get_asyncdb_session()` block | Session auto-commits on context exit |
+| `State._backend_var` passed as prop/child, `State.var = x` (Reflex 0.10 descriptors) | `.default_value()` / `State.__fields__["x"].set_default(...)` |
+| Inherited vars written in a background task outside `async with self` | Wrap writes in `async with self` |
