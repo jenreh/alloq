@@ -33,8 +33,12 @@ def _no_map() -> rx.Component:
 def map_tab() -> rx.Component:
     return rx.box(
         rx.box(
-            rx.cond(MapState.has_map, map_section(), _no_map()),
-            class_name="aq-split-main aq-ws-pad",
+            rx.cond(
+                MapState.has_map,
+                map_section(),
+                rx.box(_no_map(), class_name="aq-ws-pad aq-map-empty"),
+            ),
+            class_name="aq-split-main aq-map-main",
         ),
         rx.cond(MapState.has_selection, story_drawer()),
         class_name="aq-split",

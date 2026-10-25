@@ -3,8 +3,7 @@
 
 Adds an offer with five customer sources (Word, PDF, PowerPoint, e-mail, pasted
 text), runs extraction, the one-click draft (map, briefing, chapters, review,
-Word draft), confirms the proposed scope and makes a second Word draft that
-contains the offered stories. Only jobs of the new offer are run here.
+Word draft). Only jobs of the new offer are run here.
 
 Needs ``ai_provider: demo`` (local profile) or a configured Azure OpenAI
 deployment. Run from the repository root: ``uv run python scripts/seed_workshop_demo.py``.
@@ -21,12 +20,9 @@ import alloq_commons.entities  # noqa: F401  (registers the projects table)
 import alloq_offer.workshop.worker  # noqa: F401  (registers the job handlers)
 from alloq_offer.entities import IndustryEntity, OfferEntity, OfferStateEnum
 from alloq_offer.workshop.configuration import WorkshopConfig
-from alloq_offer.workshop.entities import ExportKind, SourceKind
+from alloq_offer.workshop.entities import SourceKind
 from alloq_offer.workshop.jobs.runner import JobRunner
-from alloq_offer.workshop.repositories import workspace_repo
 from alloq_offer.workshop.routes import WORKSHOP_ROUTE_PREFIX, WORKSHOP_ROUTE_SUFFIX
-from alloq_offer.workshop.services import exports
-from alloq_offer.workshop.services.map_edit import MapEditor
 from alloq_offer.workshop.services.sources import add_source, request_initial_draft
 from alloq_offer.workshop.services.workspace import open_workspace
 from alloq_offer.workshop.storage import DbBlobStore
@@ -234,21 +230,6 @@ async def main() -> None:
     )
     logger.info("Draft pipeline ran %d jobs", await _run_jobs(runner))
 
-    async with get_asyncdb_session() as session:
-        workspace = await workspace_repo.find_by_offer(session, offer_id)
-        revision = workspace.map_revision if workspace else 0
-    await MapEditor(get_asyncdb_session, offer_id, USER).confirm_skeleton(revision)
-    await exports.request_export(
-        get_asyncdb_session,
-        offer_id,
-        ExportKind.DRAFT,
-        user=USER,
-        confirmed=False,
-        unsaved=False,
-        now=datetime.now(UTC),
-        max_attempts=config.max_attempts,
-    )
-    logger.info("Word draft with offered stories: %d job", await _run_jobs(runner))
     logger.info(
         "Demo offer %s ready: %s%s%s",
         offer_id,

@@ -1,6 +1,23 @@
-/* Offer workshop: story map titles are bold inline inputs. */
-.aq-map-title input {
+/* Offer workshop: story map titles are bold inline inputs that show their
+   field on hover and focus; long names end in an ellipsis. */
+.aq-map-title :is(input, textarea).mantine-Input-input {
   font-weight: 650;
+  text-overflow: ellipsis;
+  border-radius: 6px;
+  padding-inline: 6px;
+  margin-inline: -6px;
+  width: calc(100% + 12px);
+  transition: box-shadow 120ms ease;
+}
+
+.aq-map-title :is(input, textarea).mantine-Input-input:hover {
+  background: var(--aq-surface);
+  box-shadow: inset 0 0 0 1px var(--aq-border);
+}
+
+.aq-map-title :is(input, textarea).mantine-Input-input:focus {
+  background: var(--aq-surface);
+  box-shadow: inset 0 0 0 1px var(--aq-accent);
 }
 
 /* The shell body is overflow: hidden, so the workshop scrolls itself. */
@@ -18,4 +35,326 @@
 
 .aq-split-main.aq-ws-pad {
   background: var(--aq-background);
+}
+
+/* Story map: fills the pane like the planning grid and scrolls both ways. */
+.aq-split-main.aq-map-main {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.aq-map-empty {
+  flex: 1;
+  overflow: auto;
+  background: var(--aq-background);
+}
+
+.aq-map-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: var(--aq-surface);
+}
+
+/* Columns have their own widths (resizable), so the grid is as wide as they are
+   and at least as wide as the pane. Gutters on both sides hold the pluses on the
+   outer column edges, so nothing sticks out past the header and row backgrounds
+   when the map is scrolled to its end. */
+.aq-map-grid {
+  width: max-content;
+  min-width: 100%;
+}
+
+.aq-map-head {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  padding: 0 16px;
+  background: var(--alloq-surface-muted);
+  border-bottom: 2px solid var(--alloq-border-strong);
+}
+
+.aq-map-row {
+  padding: 0 16px;
+  border-bottom: 1px solid var(--alloq-border);
+}
+
+/* The last column closes with the same line as the column edges (COLUMN_LINE in
+   map_view.py), so the plus after it sits on an edge like the one before the
+   first column. */
+.aq-map-head > :last-child,
+.aq-map-row > :last-child {
+  border-right: 1px solid var(--alloq-border-strong);
+}
+
+/* Quick add sits at the bottom of each cell, so the inputs of a slice line up. */
+.aq-add-story {
+  margin-top: auto;
+}
+
+/* Slice row: spans the map like a planning block header and folds its stories. */
+.aq-map-band {
+  display: flex;
+  align-items: center;
+  height: 36px;
+  background: var(--alloq-surface-hover);
+  border-bottom: 1px solid var(--alloq-border);
+}
+
+.aq-band-pin {
+  position: sticky;
+  left: 0;
+  height: 100%;
+  padding: 0 12px 0 10px;
+}
+
+.aq-band-end {
+  position: sticky;
+  right: 0;
+  margin-left: auto;
+  padding: 0 10px;
+}
+
+/* Story cards: a very light blue (5 % accent), a subtle shadow on hover, a blue
+   border for the selected story. */
+.aq-story-card {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 10px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--aq-accent) 5%, var(--aq-surface));
+  box-shadow: 0 0 0 1px var(--aq-border);
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.aq-story-card:hover {
+  box-shadow: 0 0 0 1px var(--aq-border), var(--aq-control-shadow);
+}
+
+.aq-story-card[data-selected="true"] {
+  box-shadow: 0 0 0 2px var(--aq-accent);
+}
+
+.aq-story-card[data-selected="true"]:hover {
+  box-shadow: 0 0 0 2px var(--aq-accent), var(--aq-control-shadow);
+}
+
+.aq-map-proposal {
+  flex-shrink: 0;
+  max-height: 40%;
+  overflow: auto;
+  padding: 12px 16px;
+  border-top: 1px solid var(--aq-border);
+  background: var(--aq-background);
+}
+
+.aq-map-footer {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border-top: 1px solid var(--aq-separator);
+  background: var(--aq-surface);
+}
+
+/* Plus on a grid edge: inserts an activity (header) or a slice (slice rows).
+   No transform: Mantine's :active transform would replace it and move the button. */
+.aq-map-plus.mantine-ActionIcon-root {
+  position: absolute;
+  z-index: 3;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.aq-map-plus.mantine-ActionIcon-root:active {
+  transform: none;
+}
+
+/* Activity pluses sit at the top of a column edge; the column's resize handle
+   starts below them, so the two never overlap. */
+.aq-map-plus-x {
+  top: 4px;
+  right: -9px;
+}
+
+.aq-map-plus-xl {
+  top: 4px;
+  left: -9px;
+}
+
+.aq-map-head .grid-col-resize {
+  top: 26px;
+}
+
+/* A slice plus is part of its slice row, left of the chevron; it inserts the
+   new slice above that row. */
+.aq-map-plus.aq-map-plus-inline.mantine-ActionIcon-root {
+  position: static;
+}
+
+.aq-map-head:hover :is(.aq-map-plus-x, .aq-map-plus-xl),
+.aq-map-scroll:has(.aq-map-band:hover) .aq-map-plus-inline,
+.aq-map-plus[aria-expanded="true"] {
+  opacity: 1;
+}
+
+/* Story inspector: the form keeps the inspector's column layout; the header
+   with key, title and actions stays on top while the fields scroll. */
+.aq-insp-form {
+  display: contents;
+}
+
+.aq-insp-head {
+  position: sticky;
+  top: -20px;
+  z-index: 5;
+  margin: -20px -20px 0;
+  padding: 14px 20px 10px;
+  background: var(--aq-background);
+  border-bottom: 1px solid var(--aq-border);
+}
+
+.aq-story-title textarea.mantine-Input-input {
+  font-size: 16px;
+  line-height: 1.35;
+  padding-block: 4px;
+  resize: none;
+}
+
+/* Story list: header and rows like the map grid; cells are excel grid cells. */
+.aq-list-head,
+.aq-list-row {
+  display: grid;
+  min-width: max-content;
+}
+
+.aq-list-head {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  height: 34px;
+  background: var(--alloq-surface-muted);
+  border-bottom: 2px solid var(--alloq-border-strong);
+}
+
+.aq-list-head-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 650;
+  border-left: 1px solid var(--aq-separator);
+}
+
+.aq-list-row {
+  border-bottom: 1px solid var(--alloq-border);
+}
+
+.aq-list-row[data-selected="true"] {
+  background: var(--aq-accent-soft);
+}
+
+.aq-list-cell {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  min-width: 0;
+  padding: 0 10px;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-left: 1px solid var(--aq-separator);
+  cursor: cell;
+  user-select: none;
+}
+
+.aq-list-cell[data-read-only="true"] {
+  cursor: default;
+}
+
+.aq-list-details {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-left: 1px solid var(--aq-separator);
+}
+
+/* Inspector actions stay at the bottom, level with the map footer
+   (same padding, 30px controls and top border). */
+.aq-insp-foot {
+  position: sticky;
+  bottom: -20px;
+  z-index: 5;
+  flex-shrink: 0;
+  margin: auto -20px -20px;
+  padding: 10px 20px;
+  border-top: 1px solid var(--aq-separator);
+  background: var(--aq-background);
+}
+
+/* Activity titles use the size and weight of the story card titles. The text
+   shows at most two lines and then ends in an ellipsis; a transparent text
+   area on top edits it and only shows its own text while focused. */
+.aq-clamp-edit {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.aq-clamp-view,
+.aq-clamp-input textarea.mantine-Input-input {
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 2px 6px;
+  overflow-wrap: anywhere;
+}
+
+.aq-clamp-view {
+  margin: 0 -6px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.aq-clamp-input {
+  position: absolute;
+  inset: 0 -6px;
+}
+
+.aq-clamp-input .mantine-Input-wrapper,
+.aq-clamp-input textarea.mantine-Input-input {
+  height: 100%;
+}
+
+.aq-clamp-input textarea.mantine-Input-input {
+  min-height: 0;
+  resize: none;
+  overflow: hidden;
+  color: transparent;
+  caret-color: var(--aq-text);
+  border-radius: 6px;
+  transition: box-shadow 120ms ease;
+}
+
+.aq-clamp-input textarea.mantine-Input-input:hover {
+  box-shadow: inset 0 0 0 1px var(--aq-border);
+}
+
+.aq-clamp-input textarea.mantine-Input-input:focus {
+  color: var(--aq-text);
+  background: var(--aq-surface);
+  box-shadow: inset 0 0 0 1px var(--aq-accent);
+  overflow-y: auto;
+}
+
+.aq-clamp-edit:focus-within .aq-clamp-view {
+  visibility: hidden;
 }

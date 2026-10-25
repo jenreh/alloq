@@ -102,11 +102,32 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
     "SidebarState": frozenset({"invalidate"}),
     "DashboardState": frozenset({"close_drill_down", "open_drill_down"}),
     "ChapterState": frozenset({"close_history", "set_instruction"}),
-    "MapState": frozenset({"close_story", "select_story"}),
+    "MapState": frozenset(
+        {
+            "close_archive",
+            "close_insert",
+            "close_story",
+            "notify_rejected",
+            "open_archive",
+            "open_insert",
+            "reset_filters",
+            "select_story",
+            "set_archive_search",
+            "set_map_search",
+            "set_restore_task",
+            "set_skeleton_only",
+            "set_slice_filter",
+            "set_view",
+            "toggle_drawer_width",
+            "toggle_slice",
+        }
+    ),
     "ExportState": frozenset({"set_confirmed"}),
     "MapProposalState": frozenset({"set_instruction"}),
     "ReviewState": frozenset({"cancel_decide", "set_reason", "start_decide"}),
-    "SourcesState": frozenset({"close_paste", "close_viewer", "open_paste"}),
+    "SourcesState": frozenset(
+        {"close_paste", "close_viewer", "open_paste", "set_viewer_tab"}
+    ),
     "OfferState": frozenset(
         {
             "close_accept_modal",

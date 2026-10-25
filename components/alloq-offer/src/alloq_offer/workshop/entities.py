@@ -64,15 +64,6 @@ class SourceStatus(enum.StrEnum):
     MANUAL = "manuell nötig"
 
 
-class Scope(enum.StrEnum):
-    """How far a story is part of the offer."""
-
-    OPEN = "offen"
-    OFFERED = "angeboten"
-    OPTION = "option"
-    EXCLUDED = "ausgeschlossen"
-
-
 class Origin(enum.StrEnum):
     """Where a story comes from."""
 
@@ -438,7 +429,9 @@ class StoryEntity(Entity, Base):
     role: Mapped[str] = mapped_column(String(300), nullable=False)
     goal: Mapped[str] = mapped_column(String(300), nullable=False)
     benefit: Mapped[str] = mapped_column(String(300), nullable=False)
-    scope: Mapped[str] = mapped_column(String(20), nullable=False, default=Scope.OPEN)
+    description: Mapped[str] = mapped_column(
+        Text, nullable=False, default="", server_default=""
+    )
     origin: Mapped[str] = mapped_column(String(20), nullable=False)
     task_id: Mapped[int | None] = mapped_column(
         ForeignKey("offer_tasks.id", ondelete="RESTRICT"), nullable=True
@@ -469,7 +462,7 @@ class StoryEntity(Entity, Base):
             "role": self.role,
             "goal": self.goal,
             "benefit": self.benefit,
-            "scope": self.scope,
+            "description": self.description,
             "origin": self.origin,
             "task_id": self.task_id,
             "slice_id": self.slice_id,

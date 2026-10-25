@@ -19,6 +19,8 @@ from alloq_offer.workshop.content.schema import (
     plain_text,
 )
 
+STORIES_LINE = "Stories der Story Map"
+
 Content = ProseContent | TableContent | StoriesContent | CalcContent
 
 
@@ -56,7 +58,7 @@ def content_lines(content: Content) -> list[str]:
         return [" | ".join(content.columns), *(_row(row) for row in content.rows)]
     if isinstance(content, CalcContent):
         return [plain_text(content.intro), *(row.label for row in content.rows)]
-    return [f"Stories: {', '.join(content.scopes)}"]
+    return [STORIES_LINE]
 
 
 def stored_lines(data: dict[str, Any]) -> list[str]:

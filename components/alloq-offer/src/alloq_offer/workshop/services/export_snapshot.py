@@ -64,7 +64,6 @@ def _stories(snapshot: dict) -> list[dict[str, str]]:
                 key=s["key"],
                 title=s["title"],
                 sentence=s["sentence"],
-                scope=s["scope"],
                 group=groups.get(s["key"], ""),
             )
         )

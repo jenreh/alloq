@@ -1,5 +1,6 @@
 """State of the sources panel: list, upload, pasted text and retry."""
 
+import base64
 import logging
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
@@ -20,6 +21,7 @@ from alloq_offer.workshop.services import sources as source_service
 from alloq_offer.workshop.services.source_revocation import revoke_source
 from alloq_offer.workshop.services.sources import (
     READABLE_STATUSES,
+    SourceOriginal,
     SourceRejectedError,
 )
 from alloq_offer.workshop.states.helpers import current_user_name, open_offer_id
@@ -57,6 +59,13 @@ DRAFT_STATUS: dict[str, str] = {
     JobStatus.FAILED: "Der Entwurf ist fehlgeschlagen. Sie können es erneut versuchen.",
 }
 TOO_LARGE = "Die Datei ist zu groß: "
+# Files reach the viewer as base64 over the state socket; past this, don't.
+PREVIEW_LIMIT = 30 * 1024 * 1024
+TOO_LARGE_TO_SHOW = (
+    "Die Datei ist zu groß für die Vorschau. Der gelesene Text bleibt verfügbar."
+)
+VIEWER_TAB_ORIGINAL = "original"
+VIEWER_TAB_TEXT = "text"
 KNOWN = "Diese Quelle gibt es schon: "
 
 
@@ -86,6 +95,11 @@ class SourcesState(rx.State):
     viewer_open: rx.Field[bool] = rx.field(False)
     viewer_title: rx.Field[str] = rx.field("")
     viewer_blocks: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
+    viewer_kind: rx.Field[str] = rx.field("")
+    viewer_file: rx.Field[str] = rx.field("")
+    viewer_encoded: rx.Field[str] = rx.field("")
+    viewer_note: rx.Field[str] = rx.field("")
+    viewer_tab: rx.Field[str] = rx.field(VIEWER_TAB_TEXT)
     draft_job: rx.Field[str] = rx.field("")
     draft_error: rx.Field[str] = rx.field("")
     has_map: rx.Field[bool] = rx.field(False)
@@ -167,15 +181,40 @@ class SourcesState(rx.State):
     @rx.event
     def close_viewer(self) -> None:
         self.viewer_open = False
+        # Release the file instead of keeping megabytes in the state.
+        self.viewer_encoded = ""
+
+    @rx.event
+    def set_viewer_tab(self, tab: str | None) -> None:
+        self.viewer_tab = tab or VIEWER_TAB_TEXT
+
+    def _show_original(self, original: SourceOriginal | None) -> None:
+        self.viewer_kind = original.kind if original else ""
+        self.viewer_file = original.filename if original else ""
+        too_large = original is not None and len(original.data) > PREVIEW_LIMIT
+        self.viewer_note = TOO_LARGE_TO_SHOW if too_large else ""
+        self.viewer_encoded = (
+            base64.b64encode(original.data).decode("ascii")
+            if original and not too_large
+            else ""
+        )
+        self.viewer_tab = VIEWER_TAB_ORIGINAL if original else VIEWER_TAB_TEXT
 
     @rx.event
     @requires_offer_editor
     async def open_viewer(self, source_id: int) -> AsyncGenerator[Any]:
-        """Show the extracted blocks of a source with the place they came from."""
+        """Show the uploaded file and the extracted blocks of a source."""
         offer_id = await self._offer_id()
+        config = service_registry().get(WorkshopConfig)
         try:
             title, blocks = await source_service.load_blocks(
                 get_asyncdb_session, offer_id, source_id
+            )
+            original = await source_service.load_original(
+                get_asyncdb_session,
+                DbBlobStore(config.max_blob_bytes),
+                offer_id,
+                source_id,
             )
         except Exception:
             logger.exception("Loading blocks of source %s failed", source_id)
@@ -183,6 +222,7 @@ class SourcesState(rx.State):
             return
         self.viewer_title = title
         self.viewer_blocks = blocks
+        self._show_original(original)
         self.viewer_open = True
 
     @rx.event

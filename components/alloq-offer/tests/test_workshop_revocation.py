@@ -1,6 +1,7 @@
 """Revoking a source: use is closed at once, content deleted, dependents flagged."""
 
 from datetime import UTC, datetime
+from unittest.mock import AsyncMock
 
 from alloq_offer.workshop.content.schema import Paragraph, ProseContent, Run
 from alloq_offer.workshop.entities import (
@@ -23,8 +24,13 @@ from alloq_offer.workshop.services.source_revocation import (
     REVIEW_REASON,
     revoke_source,
 )
-from alloq_offer.workshop.services.sources import load_blocks
+from alloq_offer.workshop.services.sources import (
+    SourceOriginal,
+    load_blocks,
+    load_original,
+)
 from alloq_offer.workshop.services.workspace import open_workspace
+from alloq_offer.workshop.storage import BlobNotFoundError, DbBlobStore
 from sqlalchemy import select
 
 NOW = datetime(2026, 10, 29, 9, 0, tzinfo=UTC)
@@ -169,3 +175,35 @@ async def test_viewer_lists_blocks_with_place_and_hides_revoked_sources(db) -> N
     assert await load_blocks(db.session, 2, source_id) == ("", [])
     await revoke_source(db.session, 1, source_id, now=NOW)
     assert await load_blocks(db.session, 1, source_id) == ("", [])
+
+
+async def test_original_of_a_document_source_is_loaded_until_revoked(db) -> None:  # noqa: ANN001
+    store = DbBlobStore(1_000_000, db.session)
+    source_id = await _source(db)
+    async with db.session() as session:
+        source = await session.get(SourceEntity, source_id)
+        assert source is not None
+        source.kind = SourceKind.PDF
+        source.filename = "angebot.pdf"
+    original = await load_original(db.session, store, 1, source_id)
+    assert original == SourceOriginal(SourceKind.PDF, "angebot.pdf", b"abc")
+    assert await load_original(db.session, store, 2, source_id) is None
+    await revoke_source(db.session, 1, source_id, now=NOW)
+    assert await load_original(db.session, store, 1, source_id) is None
+
+
+async def test_original_is_none_for_text_sources_and_missing_blobs(db) -> None:  # noqa: ANN001
+    store = DbBlobStore(1_000_000, db.session)
+    assert await load_original(db.session, store, 1, await _source(db)) is None
+    missing = AsyncMock(get=AsyncMock(side_effect=BlobNotFoundError(1)))
+    source_id = await _source(db, blob=False)
+    async with db.session() as session:
+        source = await session.get(SourceEntity, source_id)
+        assert source is not None
+        source.kind = SourceKind.DOCX
+    assert await load_original(db.session, missing, 1, source_id) is None
+    async with db.session() as session:
+        source = await session.get(SourceEntity, source_id)
+        assert source is not None
+        source.blob_id = 1
+    assert await load_original(db.session, missing, 1, source_id) is None

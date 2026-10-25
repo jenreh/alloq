@@ -1,5 +1,6 @@
 """The story map as a grid of plain values for the page (from a map snapshot)."""
 
+from collections.abc import Collection
 from typing import Any
 
 NO_SLICE_ID = 0
@@ -7,17 +8,25 @@ NO_SLICE_TITLE = "Ohne Umsetzungsschnitt"
 ORIGIN_SOURCE = "Quellenstellen"
 
 
-def _card(story: dict, task_title: str) -> dict[str, Any]:
+def count_label(count: int) -> str:
+    return f"{count} {'Story' if count == 1 else 'Stories'}"
+
+
+def _with_count(row: dict[str, Any]) -> dict[str, Any]:
+    count = sum(len(cell["stories"]) for cell in row["cells"])
+    return {**row, "count_label": count_label(count)}
+
+
+def _card(story: dict) -> dict[str, Any]:
     refs = len(story["source_refs"])
     return {
         "id": story["id"],
         "key": story["key"],
         "title": story["title"],
-        "meta": f"{task_title} · {story['scope']} · {story['origin']}",
-        "scope": story["scope"],
         "skeleton": story["skeleton"],
         "origin": story["origin"],
         "sentence": story["sentence"],
+        "description": story.get("description", ""),
         "refs": f"{refs} {ORIGIN_SOURCE}" if refs else "ohne Quellenbezug",
     }
 
@@ -32,6 +41,7 @@ def build_view(snapshot: dict) -> dict[str, Any]:
     columns = [
         {
             "id": a["id"],
+            "index": index,
             "title": a["title"],
             "tasks": " · ".join(t["title"] for t in tasks_of[a["id"]]),
             "task_id": tasks_of[a["id"]][0]["id"] if tasks_of[a["id"]] else 0,
@@ -43,7 +53,7 @@ def build_view(snapshot: dict) -> dict[str, Any]:
 
     def cell(activity: dict, slice_id: int) -> dict[str, Any]:
         stories = [
-            _card(s, t["title"])
+            _card(s)
             for t in tasks_of[activity["id"]]
             for s in t["stories"]
             if not s["archived"] and (s["slice_id"] or NO_SLICE_ID) == slice_id
@@ -61,17 +71,21 @@ def build_view(snapshot: dict) -> dict[str, Any]:
         (NO_SLICE_ID, NO_SLICE_TITLE, False)
     ]
     rows = [
-        {
-            "slice_id": slice_id,
-            "title": title,
-            "editable": editable,
-            "cells": [cell(a, slice_id) for a in activities],
-        }
-        for slice_id, title, editable in row_defs
+        _with_count(
+            {
+                "slice_id": slice_id,
+                # A new slice inserted at this row's top edge gets this index.
+                "index": index,
+                "title": title,
+                "editable": editable,
+                "cells": [cell(a, slice_id) for a in activities],
+            }
+        )
+        for index, (slice_id, title, editable) in enumerate(row_defs)
     ]
     lookup = {
         str(story["id"]): {
-            **_card(story, task["title"]),
+            **_card(story),
             "role": story["role"],
             "goal": story["goal"],
             "benefit": story["benefit"],
@@ -83,11 +97,37 @@ def build_view(snapshot: dict) -> dict[str, Any]:
         for story in task["stories"]
         if not story["archived"]
     }
+    archived = [
+        {
+            "id": story["id"],
+            "key": story["key"],
+            "title": story["title"],
+            "task_id": str(task["id"]),
+            "where": f"{activity['title']} · {task['title']}",
+            "sentence": story["sentence"],
+        }
+        for activity in snapshot["activities"]
+        for task in activity["tasks"]
+        for story in task["stories"]
+        if story["archived"]
+    ]
     return {
+        "archived": archived,
         "columns": columns,
         "rows": rows,
         "stories": lookup,
         "story_count": len(lookup),
+        "task_groups": [
+            {
+                "group": a["title"],
+                "items": [
+                    {"value": str(t["id"]), "label": t["title"]}
+                    for t in tasks_of[a["id"]]
+                ],
+            }
+            for a in activities
+            if tasks_of[a["id"]]
+        ],
         "task_options": [
             {"value": str(t["id"]), "label": f"{a['title']} · {t['title']}"}
             for a in activities
@@ -96,3 +136,63 @@ def build_view(snapshot: dict) -> dict[str, Any]:
         "slice_options": [{"value": str(NO_SLICE_ID), "label": NO_SLICE_TITLE}]
         + [{"value": str(s["id"]), "label": s["title"]} for s in slices],
     }
+
+
+def filter_rows(
+    rows: list[dict[str, Any]],
+    *,
+    search: str = "",
+    slice_ids: Collection[str] = (),
+    skeleton_only: bool = False,
+) -> list[dict[str, Any]]:
+    """Rows of the chosen slices with only the stories matching every filter."""
+    needle = search.strip().casefold()
+
+    def keep(story: dict[str, Any]) -> bool:
+        text = f"{story['key']} {story['title']}".casefold()
+        return (not skeleton_only or story["skeleton"]) and needle in text
+
+    return [
+        _with_count(
+            {
+                **row,
+                "cells": [
+                    {**cell, "stories": [s for s in cell["stories"] if keep(s)]}
+                    for cell in row["cells"]
+                ],
+            }
+        )
+        for row in rows
+        if not slice_ids or str(row["slice_id"]) in slice_ids
+    ]
+
+
+def list_rows(
+    columns: list[dict[str, Any]], rows: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Stories as list lines: by activity, then slice, then their map order."""
+    return [
+        {
+            "id": story["id"],
+            "key": story["key"],
+            "activity": column["title"],
+            "title": story["title"],
+            "story": story["sentence"],
+            "description": story["description"],
+        }
+        for index, column in enumerate(columns)
+        for row in rows
+        for story in row["cells"][index]["stories"]
+    ]
+
+
+def filter_archived(
+    stories: list[dict[str, Any]], search: str = ""
+) -> list[dict[str, Any]]:
+    """Archived stories whose key, title or old place contain the search text."""
+    needle = search.strip().casefold()
+    return [
+        s
+        for s in stories
+        if needle in f"{s['key']} {s['title']} {s['where']}".casefold()
+    ]

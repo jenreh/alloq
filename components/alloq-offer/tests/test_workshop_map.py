@@ -33,7 +33,6 @@ from alloq_offer.workshop.entities import (
     JobStatus,
     MapRevisionEntity,
     Origin,
-    Scope,
     SourceBlockEntity,
     SourceEntity,
     SourceKind,
@@ -55,6 +54,7 @@ from alloq_offer.workshop.services.sources import (
     request_initial_draft,
 )
 from alloq_offer.workshop.services.story_rules import (
+    parse_story_sentence,
     story_problems,
     story_sentence,
 )
@@ -101,6 +101,22 @@ def test_simple_story_sentence_has_the_fixed_shape() -> None:
         "Als Disponent möchte ich Aufträge ordnen, um zu planen."
     )
     assert story_problems("Titel", "Disponent", "Aufträge ordnen", "zu planen") == []
+
+
+def test_a_story_sentence_parses_back_into_its_parts() -> None:
+    sentence = story_sentence("Disponent", "Aufträge ordnen", "zu planen")
+    assert parse_story_sentence(sentence) == (
+        "Disponent",
+        "Aufträge ordnen",
+        "zu planen",
+    )
+    assert parse_story_sentence(" als Kunde möchte ich zahlen, um fertig zu sein ") == (
+        "Kunde",
+        "zahlen",
+        "fertig zu sein",
+    )
+    assert parse_story_sentence("Ich will etwas") is None
+    assert parse_story_sentence("Als möchte ich x, um y.") is None
 
 
 @pytest.mark.parametrize(
@@ -251,7 +267,7 @@ async def _workspace(session):  # noqa: ANN001, ANN202
     return workspace
 
 
-async def test_applied_stories_get_app_keys_and_never_start_as_offered(db) -> None:
+async def test_applied_stories_get_app_keys_and_a_checked_origin(db) -> None:
     proposal = _map(
         _story(),
         _story(title="Zweite", origin="Vorschlag", skeleton=True, slice="Kern"),
@@ -275,7 +291,6 @@ async def test_applied_stories_get_app_keys_and_never_start_as_offered(db) -> No
             await session.scalars(select(StoryEntity).order_by(StoryEntity.key))
         ).all()
         assert [s.key for s in stories] == ["US-01", "US-02"]
-        assert {s.scope for s in stories} == {Scope.OPEN}
         assert [s.origin for s in stories] == [Origin.CUSTOMER, Origin.PROPOSAL]
         assert stories[1].skeleton
         assert stories[1].slice_id is not None

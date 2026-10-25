@@ -176,7 +176,7 @@ MATRIX: dict[str, tuple[str, tuple[str, ...]]] = {
         "Story IDs stay stable when stories move",
         (
             "map_edit::test_archived_keys_are_never_reused",
-            "map_edit::test_scope_and_move",
+            "map_edit::test_move_story_to_another_task_and_slice",
             "map::test_story_keys_continue_and_are_never_reused",
         ),
     ),
@@ -189,8 +189,8 @@ MATRIX: dict[str, tuple[str, tuple[str, ...]]] = {
         ),
     ),
     "A25": (
-        "AI stories keep their origin and never widen the offered scope",
-        ("map::test_applied_stories_get_app_keys_and_never_start_as_offered",),
+        "AI stories keep their origin",
+        ("map::test_applied_stories_get_app_keys_and_a_checked_origin",),
     ),
     "A26": (
         "Technical-only sources give open questions, not invented decisions",

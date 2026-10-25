@@ -85,10 +85,10 @@ def test_bound_value_must_be_known_field() -> None:
 def test_stories_holds_only_settings() -> None:
     content = parse_content({"chapter_type": "stories"})
     assert isinstance(content, StoriesContent)
-    assert content.scopes == ["angeboten", "option"]
     assert content.group_by == "activity"
-    with pytest.raises(ContentValidationError):
-        parse_content({"chapter_type": "stories", "scopes": ["alle"]})
+    # Content stored while stories still had a scope stays readable.
+    old = parse_content({"chapter_type": "stories", "scopes": ["angeboten"]})
+    assert old == StoriesContent()
     with pytest.raises(ContentValidationError):
         parse_content({"chapter_type": "stories", "group_by": "rolle"})
 

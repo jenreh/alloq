@@ -11,7 +11,6 @@ from alloq_offer.workshop.entities import (
     ActivityEntity,
     MapRevisionEntity,
     Origin,
-    Scope,
     SliceEntity,
     StoryEntity,
     TaskEntity,
@@ -20,6 +19,9 @@ from alloq_offer.workshop.services.map_apply import apply_proposed_map
 from alloq_offer.workshop.services.map_edit import (
     ACTIVITY_NOT_EMPTY,
     BLANK_TITLE,
+    NEW_STORY_TITLE,
+    NOT_ARCHIVED,
+    NOT_FOUND,
     MapConflictError,
     MapEditError,
     MapEditor,
@@ -137,6 +139,42 @@ async def test_tasks_and_slices_can_be_added_and_renamed(db, editor) -> None:
     assert (await _all(db, SliceEntity))[-1].position == 2
 
 
+async def test_deleting_a_slice_keeps_its_stories_without_slice(db, editor) -> None:
+    kern = (await _all(db, SliceEntity))[0]
+    story = (await _all(db, StoryEntity))[0]
+    revision = await editor.move_story(1, story.id, story.task_id, kern.id)
+    assert (await _all(db, StoryEntity))[0].slice_id == kern.id
+    revision = await editor.delete_slice(revision, kern.id)
+    assert await _all(db, SliceEntity) == []
+    stories = await _all(db, StoryEntity)
+    assert stories
+    assert all(s.slice_id is None for s in stories)
+    with pytest.raises(MapEditError):
+        await editor.delete_slice(revision, kern.id)
+
+
+async def _ordered_titles(db, entity) -> list[str]:  # noqa: ANN001
+    rows = [r for r in await _all(db, entity) if not getattr(r, "archived_at", None)]
+    return [r.title for r in sorted(rows, key=lambda r: (r.position, r.id))]
+
+
+async def test_activities_and_slices_can_be_inserted_at_an_edge(db, editor) -> None:
+    revision = await editor.add_activity(1, "Start", index=0)
+    revision = await editor.add_activity(revision, "Mitte", index=2)
+    revision = await editor.add_activity(revision, "Ende", index=99)
+    assert await _ordered_titles(db, ActivityEntity) == [
+        "Start",
+        "Eingang",
+        "Mitte",
+        "Bearbeitung",
+        "Ende",
+    ]
+    revision = await editor.add_slice(revision, "Vorab", index=0)
+    await editor.add_slice(revision, "Danach", index=2)
+    assert await _ordered_titles(db, SliceEntity) == ["Vorab", "Kern", "Danach"]
+    assert [a.position for a in await _all(db, ActivityEntity)] == [2, 4, 1, 3, 5]
+
+
 async def test_story_text_must_keep_the_simple_format(db, editor) -> None:
     story = (await _all(db, StoryEntity))[0]
     revision = await editor.update_story(
@@ -152,11 +190,52 @@ async def test_story_text_must_keep_the_simple_format(db, editor) -> None:
     assert await _revision(db) == revision
 
 
-async def test_new_stories_get_fresh_keys_and_start_open(db, editor) -> None:
+async def test_description_is_free_text_with_a_length_limit(db, editor) -> None:
+    story = (await _all(db, StoryEntity))[0]
+    revision = await editor.update_story(
+        1, story.id, {"description": "Zeile eins\n- Punkt"}
+    )
+    assert (await _all(db, StoryEntity))[0].description == "Zeile eins\n- Punkt"
+    with pytest.raises(MapEditError, match="Beschreibung"):
+        await editor.update_story(revision, story.id, {"description": "x" * 4001})
+
+
+async def test_several_stories_change_in_one_revision(db, editor) -> None:
+    first, second = await _all(db, StoryEntity)
+    revision = await editor.update_stories(
+        1,
+        {
+            first.id: {"title": "Eins", "description": "Text"},
+            second.id: {"goal": "neu ordnen"},
+        },
+    )
+    assert revision == 2
+    first, second = await _all(db, StoryEntity)
+    assert (first.title, first.description, second.goal) == (
+        "Eins",
+        "Text",
+        "neu ordnen",
+    )
+    with pytest.raises(MapEditError):
+        await editor.update_stories(revision, {first.id: {"role": ""}})
+    assert await editor.update_stories(revision, {first.id: {"title": "Eins"}}) == 2
+
+
+async def test_new_stories_get_fresh_keys_and_the_user_origin(db, editor) -> None:
     task = (await _all(db, TaskEntity))[0]
     await editor.add_story(1, task.id, None)
     story = (await _all(db, StoryEntity))[-1]
-    assert (story.key, story.scope, story.origin) == ("US-03", Scope.OPEN, Origin.USER)
+    assert (story.key, story.origin) == ("US-03", Origin.USER)
+    assert story.title == NEW_STORY_TITLE
+    assert "scope" not in story.to_dict()
+
+
+async def test_a_typed_title_names_the_new_story(db, editor) -> None:
+    task = (await _all(db, TaskEntity))[0]
+    revision = await editor.add_story(1, task.id, None, "  Zählerstand melden ")
+    await editor.add_story(revision, task.id, None, "x" * 400)
+    titles = [s.title for s in await _all(db, StoryEntity)][-2:]
+    assert titles == ["Zählerstand melden", "x" * 300]
 
 
 async def test_archived_keys_are_never_reused(db, editor) -> None:
@@ -179,20 +258,13 @@ async def test_split_keeps_the_origin_link_and_gives_a_new_key(db, editor) -> No
     assert copy.source_refs == story.source_refs
 
 
-async def test_scope_and_move(db, editor) -> None:
+async def test_move_story_to_another_task_and_slice(db, editor) -> None:
     story = (await _all(db, StoryEntity))[0]
     other_task = (await _all(db, TaskEntity))[1]
-    revision = await editor.set_scope(1, story.id, "angeboten")
     sl = (await _all(db, SliceEntity))[0]
-    await editor.move_story(revision, story.id, other_task.id, sl.id)
+    assert await editor.move_story(1, story.id, other_task.id, sl.id) == 2
     moved = (await _all(db, StoryEntity))[0]
-    assert (moved.scope, moved.task_id, moved.slice_id) == (
-        Scope.OFFERED,
-        other_task.id,
-        sl.id,
-    )
-    with pytest.raises(MapEditError):
-        await editor.set_scope(await _revision(db), story.id, "nope")
+    assert (moved.task_id, moved.slice_id) == (other_task.id, sl.id)
 
 
 async def test_missing_or_foreign_rows_are_refused(db, editor) -> None:
@@ -211,7 +283,7 @@ async def test_archived_rows_cannot_be_edited_again(db, editor) -> None:
     revision = await editor.archive_story(1, story.id)
     for call in (
         editor.archive_story(revision, story.id),
-        editor.set_scope(revision, story.id, "option"),
+        editor.update_story(revision, story.id, {"title": "x"}),
         editor.split_story(revision, story.id),
     ):
         with pytest.raises(MapEditError):
@@ -222,9 +294,6 @@ async def test_archived_rows_cannot_be_edited_again(db, editor) -> None:
 async def test_edits_without_a_change_keep_the_revision(db, editor) -> None:
     story = (await _all(db, StoryEntity))[0]
     assert await editor.update_story(1, story.id, {"title": story.title}) == 1
-    assert await editor.set_scope(1, story.id, story.scope) == 1
-    with pytest.raises(MapEditError, match="Umfang"):
-        await editor.set_scope(1, story.id, "nope")
     assert len(await _all(db, MapRevisionEntity)) == 1
 
 
@@ -234,3 +303,42 @@ async def test_split_and_new_stories_get_distinct_positions(db, editor) -> None:
     await editor.add_story(revision, story.task_id, None)
     positions = [s.position for s in await _all(db, StoryEntity)]
     assert len(set(positions)) == len(positions)
+
+
+async def test_an_archived_story_returns_under_a_live_task(db, editor) -> None:
+    story = (await _all(db, StoryEntity))[0]
+    revision = await editor.archive_story(1, story.id)
+    target = (await _all(db, TaskEntity))[1]
+    revision = await editor.unarchive_story(revision, story.id, target.id)
+    restored = (await _all(db, StoryEntity))[0]
+    assert restored.archived_at is None
+    assert (restored.task_id, restored.key) == (target.id, story.key)
+    assert revision == 3
+
+
+async def test_a_story_cannot_return_to_an_archived_task_or_twice(db, editor) -> None:
+    first, second = (await _all(db, StoryEntity))[:2]
+    revision = await editor.archive_story(1, first.id)
+    revision = await editor.archive_story(revision, second.id)
+    gone = (await _all(db, ActivityEntity))[1]
+    revision = await editor.archive_activity(revision, gone.id)
+    with pytest.raises(MapEditError, match=NOT_FOUND):
+        await editor.unarchive_story(revision, first.id, second.task_id)
+    live = (await _all(db, TaskEntity))[0]
+    revision = await editor.unarchive_story(revision, first.id, live.id)
+    with pytest.raises(MapEditError, match=NOT_ARCHIVED):
+        await editor.unarchive_story(revision, first.id, live.id)
+    assert (await _all(db, StoryEntity))[1].archived_at is not None
+
+
+async def test_a_story_returns_without_the_slice_that_was_deleted(db, editor) -> None:
+    story = (await _all(db, StoryEntity))[0]
+    kern = (await _all(db, SliceEntity))[0]
+    revision = await editor.move_story(1, story.id, story.task_id, kern.id)
+    revision = await editor.archive_story(revision, story.id)
+    revision = await editor.delete_slice(revision, kern.id)
+    await editor.unarchive_story(revision, story.id, story.task_id)
+    sliced = story
+    restored = next(s for s in await _all(db, StoryEntity) if s.id == sliced.id)
+    assert restored.archived_at is None
+    assert restored.slice_id is None

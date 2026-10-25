@@ -14,7 +14,6 @@ from alloq_offer.workshop.entities import (
     ExportKind,
     ExportStatus,
     JobStatus,
-    Scope,
     SourceStatus,
     StatementEntity,
     StatementStatus,
@@ -50,7 +49,6 @@ JOB_STAGES: tuple[tuple[str, str], ...] = (
 OPEN_POINT_TYPES = (StatementType.OPEN_POINT, StatementType.CONFLICT)
 
 # Where a decision is made; the tab values of ``WorkshopState``.
-DECISION_SCOPE = "scope"
 TARGET_BRIEFING = "briefing"
 TARGET_CHAPTERS = "chapters"
 
@@ -60,7 +58,6 @@ class Overview:
     stages: list[dict[str, str]] = field(default_factory=list)
     activities: int = 0
     stories: int = 0
-    offered: int = 0
     chapters_written: int = 0
     chapters_total: int = 0
     map_revision: int = 0
@@ -99,20 +96,8 @@ async def _count(session: AsyncSession, entity: type, *where: object) -> int:
     )
 
 
-async def _decisions(
-    session: AsyncSession, offer_id: int, skeleton_open: int
-) -> list[dict[str, Any]]:
+async def _decisions(session: AsyncSession, offer_id: int) -> list[dict[str, Any]]:
     decisions: list[dict[str, Any]] = []
-    if skeleton_open:
-        decisions.append(
-            {
-                "key": DECISION_SCOPE,
-                "title": "Umfang bestätigen",
-                "text": f"{skeleton_open} Stories des Grundgerüsts sind als Umfang "
-                "vorgeschlagen. Erst nach Ihrer Bestätigung gelten sie als angeboten.",
-                "action": "Umfang bestätigen",
-            }
-        )
     open_points = await _count(
         session,
         StatementEntity,
@@ -174,16 +159,6 @@ async def load_overview(session: AsyncSession, offer_id: int) -> Overview:
         ActivityEntity.archived_at.is_(None),
     )
     overview.stories = await _count(session, StoryEntity, *live)
-    overview.offered = await _count(
-        session, StoryEntity, *live, StoryEntity.scope == Scope.OFFERED
-    )
-    skeleton_open = await _count(
-        session,
-        StoryEntity,
-        *live,
-        StoryEntity.skeleton.is_(True),
-        StoryEntity.scope == Scope.OPEN,
-    )
     overview.chapters_total = await _count(
         session, ChapterEntity, ChapterEntity.offer_id == offer_id
     )
@@ -203,5 +178,5 @@ async def load_overview(session: AsyncSession, offer_id: int) -> Overview:
         )
         or 0
     )
-    overview.decisions = await _decisions(session, offer_id, skeleton_open)
+    overview.decisions = await _decisions(session, offer_id)
     return overview

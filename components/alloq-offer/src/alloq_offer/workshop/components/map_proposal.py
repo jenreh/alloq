@@ -14,8 +14,7 @@ INSTRUCTION_PLACEHOLDER = "Fehlende Prozessschritte (oder eigene Anweisung)"
 PROPOSE_BUTTON = "Vorschlagen"
 PROPOSAL_TITLE = "Vorschlag der KI"
 PROPOSAL_HINT = (
-    "Der Vorschlag ergänzt die Map um neue Elemente mit dem Umfang „offen“. "
-    "Bestehendes bleibt unverändert."
+    "Der Vorschlag ergänzt die Map um neue Elemente. Bestehendes bleibt unverändert."
 )
 STALE_HINT = "Veraltet: Die Map wurde seit diesem Vorschlag geändert."
 ACCEPT = "Übernehmen"
@@ -76,35 +75,28 @@ def _proposal_card() -> rx.Component:
             gap=6,
         ),
         gap=8,
-        p=14,
-        style=theme.CARD,
     )
 
 
 def map_proposal() -> rx.Component:
-    return mn.stack(
-        mn.group(
-            mn.text(PROPOSE_TITLE, fw=650, fz="14px"),
-            gap=14,
+    """Request row for a new proposal, shown in the map footer."""
+    return mn.group(
+        mn.text(PROPOSE_TITLE, fz="12px", c=theme.TEXT_MUTED),
+        mn.text_input(
+            placeholder=INSTRUCTION_PLACEHOLDER,
+            value=MapProposalState.instruction,
+            on_change=MapProposalState.set_instruction,
+            size="xs",
+            w=320,
+            custom_attrs={"aria-label": PROPOSE_TITLE},
         ),
-        mn.group(
-            mn.text_input(
-                placeholder=INSTRUCTION_PLACEHOLDER,
-                value=MapProposalState.instruction,
-                on_change=MapProposalState.set_instruction,
-                size="xs",
-                w=360,
-            ),
-            mn.button(
-                PROPOSE_BUTTON,
-                size="xs",
-                variant="default",
-                loading=MapProposalState.working,
-                on_click=MapProposalState.propose_steps,
-            ),
-            gap=8,
+        mn.button(
+            PROPOSE_BUTTON,
+            size="xs",
+            variant="default",
+            loading=MapProposalState.working,
+            on_click=MapProposalState.propose_steps,
         ),
-        rx.cond(MapProposalState.has_proposal, _proposal_card()),
         rx.cond(
             MapProposalState.working,
             rx.moment(
@@ -113,5 +105,14 @@ def map_proposal() -> rx.Component:
                 display="none",
             ),
         ),
-        gap=10,
+        gap=8,
+        wrap="nowrap",
+    )
+
+
+def map_proposal_panel() -> rx.Component:
+    """The open proposal as a strip between the map and its footer."""
+    return rx.cond(
+        MapProposalState.has_proposal,
+        rx.box(_proposal_card(), class_name="aq-map-proposal"),
     )

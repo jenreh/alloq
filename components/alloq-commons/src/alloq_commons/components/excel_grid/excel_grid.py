@@ -19,7 +19,12 @@ from reflex.event import EventHandler, no_args_event_spec, passthrough_event_spe
 from reflex.vars.base import Var
 
 rx.asset("grid_logic.js", shared=True)
+rx.asset("column_widths.js", shared=True)
+rx.asset("column_resize.js", shared=True)
 _JSX_IMPORT = rx.asset("excel_grid.jsx", shared=True).importable_path
+# Shared assets land in a folder per Python module; the resize wrapper must sit
+# next to the helpers it imports, so it is registered here too.
+RESIZE_JSX_IMPORT = rx.asset("column_resize.jsx", shared=True).importable_path
 
 
 class ExcelGrid(rx.Component):
@@ -42,6 +47,9 @@ class ExcelGrid(rx.Component):
 
     navigation_guard: Var[bool]
     """Disable on secondary grids so a page registers only one router blocker."""
+
+    resize_key: Var[str]
+    """localStorage key for column widths; set it to make columns resizable."""
 
     grid_label: Var[str]
     min_value: Var[float]

@@ -29,7 +29,6 @@ class ResolvedStory:
     key: str
     title: str
     sentence: str
-    scope: str
     group: str = ""
 
 

@@ -16,6 +16,7 @@ from alloq_offer.workshop.content.schema import (
     TableBlock,
     TableContent,
 )
+from alloq_offer.workshop.export.chapter_renderers import NO_STORIES_TEXT
 from alloq_offer.workshop.export.docx_renderer import DRAFT_MARKER, render_document
 from alloq_offer.workshop.export.models import (
     MISSING_MARK,
@@ -66,7 +67,7 @@ def _chapters() -> list[ChapterInput]:
             "user_stories",
             "Angebotene User Stories",
             2,
-            StoriesContent(scopes=["angeboten"], group_by="activity"),
+            StoriesContent(group_by="activity"),
         ),
         ChapterInput(
             "mitwirkung",
@@ -98,7 +99,6 @@ def _context(draft: bool = True) -> RenderContext:
             key=f"US-{i:02d}",
             title=f"Story {i}",
             sentence=f"Als Rolle möchte ich Ziel {i}, um Nutzen zu haben.",
-            scope="angeboten" if i % 5 else "option",
             group=f"Aktivität {i // 10 + 1}",
         )
         for i in range(1, 41)
@@ -183,12 +183,11 @@ def test_prose_blocks_and_special_characters(rendered: bytes) -> None:
 def test_stories_chapter_written_stories_grouped(rendered: bytes) -> None:
     doc = _doc(rendered)
     texts = [p.text for p in doc.paragraphs]
-    assert "US-01 – Story 1 (Angeboten)" in texts
+    assert "US-01 – Story 1" in texts
+    assert "US-05 – Story 5" in texts  # every live story belongs to the offer
     assert "Als Rolle möchte ich Ziel 1, um Nutzen zu haben." in texts
-    assert not any(t.startswith("US-05 ") for t in texts)  # scope option filtered out
     assert "Aktivität 1" in texts
-    assert "Aktivität 4" in texts
-    assert "Aktivität 5" not in texts  # only option stories, filtered out
+    assert "Aktivität 5" in texts
 
 
 def test_calc_marks_unconfirmed_and_missing(rendered: bytes) -> None:
@@ -211,11 +210,11 @@ def test_draft_marker_toc_and_no_map(rendered: bytes) -> None:
     assert not any(p.text == DRAFT_MARKER for p in _doc(final).paragraphs)
 
 
-def test_stories_without_match_are_visible() -> None:
-    chapters = [ChapterInput("s", "Stories", 2, StoriesContent(scopes=["offen"]))]
+def test_a_map_without_stories_is_visible() -> None:
+    chapters = [ChapterInput("s", "Stories", 2, StoriesContent())]
     ctx = RenderContext(cover=_context().cover, stories=[])
     doc = _doc(render_document(load_template(), chapters, ctx))
-    assert any(p.text == "Keine Stories im gewählten Umfang." for p in doc.paragraphs)
+    assert any(p.text == NO_STORIES_TEXT for p in doc.paragraphs)
 
 
 def test_unsupported_content_raises() -> None:
@@ -232,11 +231,11 @@ def test_rendered_file_reopens(rendered: bytes, tmp_path: Path) -> None:
 
 def test_stories_of_one_group_stay_together_when_unsorted() -> None:
     stories = [
-        ResolvedStory("US-01", "A", "Als A möchte ich a, um x.", "angeboten", "G1"),
-        ResolvedStory("US-02", "B", "Als B möchte ich b, um y.", "angeboten", "G2"),
-        ResolvedStory("US-03", "C", "Als C möchte ich c, um z.", "angeboten", "G1"),
+        ResolvedStory("US-01", "A", "Als A möchte ich a, um x.", "G1"),
+        ResolvedStory("US-02", "B", "Als B möchte ich b, um y.", "G2"),
+        ResolvedStory("US-03", "C", "Als C möchte ich c, um z.", "G1"),
     ]
-    chapters = [ChapterInput("s", "Stories", 2, StoriesContent(scopes=["angeboten"]))]
+    chapters = [ChapterInput("s", "Stories", 2, StoriesContent())]
     ctx = RenderContext(cover=_context().cover, stories=stories)
     doc = _doc(render_document(load_template(), chapters, ctx))
     headings = [p.text for p in doc.paragraphs if p.text in {"G1", "G2"}]

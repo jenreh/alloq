@@ -224,7 +224,7 @@ async def test_open_proposal_lists_lines_and_turns_stale(db) -> None:  # noqa: A
         assert row.status == ProposalStatus.STALE
 
 
-async def test_accept_adds_new_items_with_open_scope_and_a_revision(db) -> None:  # noqa: ANN001
+async def test_accept_adds_new_items_and_a_revision(db) -> None:  # noqa: ANN001
     revision = await _map(db)
     proposal_id = await _store(
         db, _proposed(activity="bestellen", task="Neue Aufgabe"), revision
@@ -239,7 +239,7 @@ async def test_accept_adds_new_items_with_open_scope_and_a_revision(db) -> None:
     # The activity matched by title (ignoring case); only the task is new.
     assert [a.title for a in activities] == ["Bestellen"]
     assert sorted(t.title for t in tasks) == ["Hauptaufgabe", "Neue Aufgabe"]
-    assert (story.scope, story.origin, story.key) == ("offen", "Vorschlag", "US-01")
+    assert (story.origin, story.key) == ("Vorschlag", "US-01")
     assert row is not None
     assert row.status == ProposalStatus.ACCEPTED
     with pytest.raises(MapProposalError, match="nicht mehr"):

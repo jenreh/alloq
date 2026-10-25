@@ -6,7 +6,9 @@ offer stays untouched, and a new export is a fresh request.
 """
 
 import asyncio
+import dataclasses
 import logging
+from typing import Any
 
 from alloq_offer.workshop.configuration import WorkshopConfig
 from alloq_offer.workshop.content.schema import parse_content
@@ -46,11 +48,17 @@ FAILED = "Der Export ist fehlgeschlagen. Bitte versuchen Sie es erneut."
 MISSING = "Der Export oder sein Dokumentstand ist nicht mehr vorhanden."
 
 
+def _story(data: dict[str, Any]) -> ResolvedStory:
+    """A stored story; exports made before the scope was removed still carry it."""
+    names = {f.name for f in dataclasses.fields(ResolvedStory)}
+    return ResolvedStory(**{k: v for k, v in data.items() if k in names})
+
+
 def render_inputs(snapshot: SnapshotEntity, kind: str) -> RenderContext:
     data = snapshot.content
     return RenderContext(
         cover=dict(data["cover"]),
-        stories=[ResolvedStory(**story) for story in data["stories"]],
+        stories=[_story(story) for story in data["stories"]],
         values={
             name: ResolvedValue(value["text"], value["confirmed"])
             for name, value in data["values"].items()

@@ -8,6 +8,7 @@ from alloq_commons.roles import OFFER_EDITOR_ROLE
 import appkit_mantine as mn
 from alloq_offer.workshop.components.workshop_view import (
     workshop_body,
+    workshop_scope,
     workshop_tabs,
 )
 from alloq_offer.workshop.routes import WORKSHOP_ROUTE
@@ -47,6 +48,7 @@ def create_offer_workshop_page(
                 )
             ],
         ),
+        scope=workshop_scope(),
         padded=False,
         on_load=[
             WorkshopState.load_workshop,

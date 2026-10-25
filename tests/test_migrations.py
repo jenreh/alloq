@@ -619,3 +619,60 @@ def test_offer_exports_migration_creates_and_drops_tables() -> None:
     assert {"offer_snapshots", "offer_exports"} <= tables
     assert "uq_offer_snapshots_number" in uniques
     assert not {"offer_snapshots", "offer_exports"} & left
+
+
+# ---------------------------------------------------------------------------
+# b9c0d1e2f3a4 — offer story description
+# ---------------------------------------------------------------------------
+
+
+def test_offer_story_description_migration_adds_and_drops_the_column() -> None:
+    base = _load("2026_10_23_offer_workshop_base.py")
+    sources = _load("2026_10_24_offer_sources.py")
+    story_map = _load("2026_10_25_offer_story_map.py")
+    migration = _load("2026_10_29_offer_story_description.py")
+    assert migration.down_revision == "a8b9c0d1e2f3"
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        for step in (base, sources, story_map, migration):
+            _run(step, "upgrade", conn)
+        columns = {c["name"] for c in sa.inspect(conn).get_columns("offer_stories")}
+        _run(migration, "downgrade", conn)
+        left = {c["name"] for c in sa.inspect(conn).get_columns("offer_stories")}
+    assert "description" in columns
+    assert "description" not in left
+
+
+# ---------------------------------------------------------------------------
+# c0d1e2f3a4b5 — offer story scope removed
+# ---------------------------------------------------------------------------
+
+
+def test_offer_story_scope_migration_drops_and_restores_the_column() -> None:
+    steps = [
+        _load(name)
+        for name in (
+            "2026_10_23_offer_workshop_base.py",
+            "2026_10_24_offer_sources.py",
+            "2026_10_25_offer_story_map.py",
+            "2026_10_29_offer_story_description.py",
+        )
+    ]
+    migration = _load("2026_10_30_offer_story_scope_removed.py")
+    assert migration.down_revision == "b9c0d1e2f3a4"
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        for step in (*steps, migration):
+            _run(step, "upgrade", conn)
+        columns = {c["name"] for c in sa.inspect(conn).get_columns("offer_stories")}
+        _run(migration, "downgrade", conn)
+        restored = {c["name"]: c for c in sa.inspect(conn).get_columns("offer_stories")}
+    assert "scope" not in columns
+    assert "scope" in restored
+    assert not restored["scope"]["nullable"]

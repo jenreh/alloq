@@ -78,7 +78,6 @@ def test_render_chapter_marks_data_and_escapes_the_instruction() -> None:
 def test_map_outline_skips_archived_rows() -> None:
     story = {
         "key": "US-01",
-        "scope": "angeboten",
         "title": "T",
         "sentence": "Als A möchte ich b, um c.",
         "archived": False,
@@ -103,7 +102,7 @@ def test_map_outline_skips_archived_rows() -> None:
     }
     outline = map_outline(snapshot)
     assert "Vision: Ziel" in outline
-    assert "US-01 [angeboten] T: Als A möchte ich b, um c." in outline
+    assert "US-01 T: Als A möchte ich b, um c." in outline
     assert "US-02" not in outline
     assert "T2" not in outline
     assert "A2" not in outline

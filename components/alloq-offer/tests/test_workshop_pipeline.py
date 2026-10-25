@@ -14,7 +14,6 @@ from alloq_offer.workshop.entities import (
     ChapterEntity,
     ExportEntity,
     ExportStatus,
-    Scope,
     SourceBlockEntity,
     SourceKind,
     SourceStatus,
@@ -36,7 +35,6 @@ from alloq_offer.workshop.services import draft_overview, exports
 from alloq_offer.workshop.services.chapter_draft import DRAFT_CHAPTERS_JOB
 from alloq_offer.workshop.services.chapters import ChapterService, revision_of
 from alloq_offer.workshop.services.exports import EXPORT_JOB
-from alloq_offer.workshop.services.map_edit import MapEditor
 from alloq_offer.workshop.services.review_request import REVIEW_JOB
 from alloq_offer.workshop.services.source_revocation import revoke_source
 from alloq_offer.workshop.services.sources import (
@@ -147,9 +145,10 @@ class Pipeline:
         ran: list[str] = []
         for _ in range(50):
             async with self.db.session() as session:
+                # Follow-up stages are queued with the real clock, not NOW.
                 job = await queue.claim_next(
                     session,
-                    now=NOW + timedelta(days=1),
+                    now=datetime.now(UTC) + timedelta(days=1),
                     lease_seconds=60,
                 )
                 ctx = _context(job) if job is not None else None
@@ -223,7 +222,6 @@ async def test_one_click_turns_uploaded_files_into_a_downloadable_word_draft(
     # Stories quote the uploaded documents and cite the block they came from.
     goals = {s.goal: s for s in stories}
     story = goals["ihre Zählerstände online melden können"]
-    assert story.scope == Scope.OPEN
     assert DOCX_REQUIREMENT in blocks[story.source_refs[0]]
     assert "Rechnungen als PDF herunterladen" in goals
     assert "Abschlagszahlungen pruefen koennen" in goals
@@ -237,33 +235,12 @@ async def test_one_click_turns_uploaded_files_into_a_downloadable_word_draft(
     # The Word draft is stored and downloadable with the chapter text.
     text = await _download_text(db, pipeline.store)
     assert DOCX_REQUIREMENT in text
-    assert "Ihre Zählerstände online melden können" not in text
-
-    # Confirming the proposed scope puts the skeleton stories into the Word file.
+    # Every live story is part of the offer, so the first draft lists it.
+    assert "Ihre Zählerstände online melden können" in text
     async with db.session() as session:
         overview = await draft_overview.load_overview(session, 1)
     assert [stage["status"] for stage in overview.stages] == [draft_overview.DONE] * 5
     assert overview.draft_export_id > 0
-    assert overview.decisions[0]["key"] == draft_overview.DECISION_SCOPE
-    await MapEditor(db.session, 1, "Anna").confirm_skeleton(overview.map_revision)
-    await exports.request_export(
-        db.session,
-        1,
-        exports.ExportKind.DRAFT,
-        user="Anna",
-        confirmed=False,
-        unsaved=False,
-        now=NOW,
-        max_attempts=3,
-    )
-    assert await pipeline.drain() == [EXPORT_JOB]
-    assert "Ihre Zählerstände online melden können" in await _download_text(
-        db, pipeline.store
-    )
-    async with db.session() as session:
-        overview = await draft_overview.load_overview(session, 1)
-    assert overview.offered == len(FILES)
-    assert draft_overview.DECISION_SCOPE not in {d["key"] for d in overview.decisions}
 
 
 async def test_auto_draft_starts_the_pipeline_when_sources_are_usable(db) -> None:  # noqa: ANN001

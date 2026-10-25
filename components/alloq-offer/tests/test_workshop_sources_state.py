@@ -1,5 +1,6 @@
 """Tests of the sources panel state and components."""
 
+import base64
 from collections.abc import AsyncGenerator, Generator
 from contextlib import asynccontextmanager, contextmanager
 from datetime import UTC, datetime
@@ -8,12 +9,15 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from alloq_commons.components.document_viewer import VIEWERS
 from alloq_offer.workshop.components import draft_tab, sources_panel
 from alloq_offer.workshop.configuration import WorkshopConfig
 from alloq_offer.workshop.entities import SourceEntity, SourceKind, SourceStatus
 from alloq_offer.workshop.services.sources import (
     ACCEPTED_EXTENSIONS,
+    VIEWABLE_KINDS,
     DraftNotPossibleError,
+    SourceOriginal,
     SourceRejectedError,
 )
 from alloq_offer.workshop.states import sources_state
@@ -24,6 +28,9 @@ from alloq_offer.workshop.states.sources_state import (
     REVOKE_ERROR,
     REVOKED,
     TOO_LARGE,
+    TOO_LARGE_TO_SHOW,
+    VIEWER_TAB_ORIGINAL,
+    VIEWER_TAB_TEXT,
     SourcesState,
     source_row,
 )
@@ -405,10 +412,12 @@ async def test_viewer_opens_with_blocks_and_closes() -> None:
     with (
         _as_offer_editor(state),
         patch(f"{SERVICE}.load_blocks", AsyncMock(return_value=("Mail", blocks))),
+        patch(f"{SERVICE}.load_original", AsyncMock(return_value=None)),
     ):
         await _run(state.open_viewer, 1)
     assert state.viewer_open
     assert (state.viewer_title, state.viewer_blocks) == ("Mail", blocks)
+    assert (state.viewer_kind, state.viewer_tab) == ("", VIEWER_TAB_TEXT)
     state.close_viewer()
     assert not state.viewer_open
     with (
@@ -416,3 +425,63 @@ async def test_viewer_opens_with_blocks_and_closes() -> None:
         patch(f"{SERVICE}.load_blocks", AsyncMock(side_effect=RuntimeError)),
     ):
         assert "geladen" in await _run(state.open_viewer, 1)
+
+
+@pytest.mark.usefixtures("repo")
+async def test_viewer_shows_the_original_file_and_releases_it_on_close() -> None:
+    state = _state()
+    original = SourceOriginal(SourceKind.PDF, "angebot.pdf", b"%PDF")
+    with (
+        _as_offer_editor(state),
+        patch(f"{SERVICE}.load_blocks", AsyncMock(return_value=("PDF", []))),
+        patch(f"{SERVICE}.load_original", AsyncMock(return_value=original)),
+    ):
+        await _run(state.open_viewer, 1)
+    assert (state.viewer_kind, state.viewer_file) == ("pdf", "angebot.pdf")
+    assert state.viewer_encoded == base64.b64encode(b"%PDF").decode()
+    assert (state.viewer_tab, state.viewer_note) == (VIEWER_TAB_ORIGINAL, "")
+    state.set_viewer_tab(VIEWER_TAB_TEXT)
+    assert state.viewer_tab == VIEWER_TAB_TEXT
+    state.set_viewer_tab(None)
+    assert state.viewer_tab == VIEWER_TAB_TEXT
+    state.close_viewer()
+    assert state.viewer_encoded == ""
+
+
+@pytest.mark.usefixtures("repo")
+async def test_viewer_does_not_send_files_over_the_preview_limit() -> None:
+    state = _state()
+    original = SourceOriginal(SourceKind.DOCX, "gross.docx", b"x" * 11)
+    with (
+        _as_offer_editor(state),
+        patch(f"{MODULE}.PREVIEW_LIMIT", 10),
+        patch(f"{SERVICE}.load_blocks", AsyncMock(return_value=("Doc", []))),
+        patch(f"{SERVICE}.load_original", AsyncMock(return_value=original)),
+    ):
+        await _run(state.open_viewer, 1)
+    assert (state.viewer_kind, state.viewer_encoded) == ("docx", "")
+    assert state.viewer_note == TOO_LARGE_TO_SHOW
+
+
+def test_viewer_dialog_offers_original_and_read_text() -> None:
+    panel = str(sources_panel.sources_panel())
+    assert sources_panel.ORIGINAL_TAB in panel
+    assert "viewer_encoded" in panel
+    assert "aq-viewer" in panel
+
+
+def test_view_is_an_icon_button_with_a_label() -> None:
+    panel = str(sources_panel.sources_panel())
+    assert "LucideEye" in panel
+    assert sources_panel.VIEW_LABEL in panel
+
+
+def test_viewer_slides_in_from_the_right() -> None:
+    panel = str(sources_panel.sources_panel())
+    assert "Drawer" in panel
+    assert '"right"' in panel
+    assert sources_panel.VIEWER_DRAWER_SIZE in panel
+
+
+def test_every_viewable_source_kind_has_a_viewer() -> None:
+    assert set(VIEWERS) == {str(k) for k in VIEWABLE_KINDS}

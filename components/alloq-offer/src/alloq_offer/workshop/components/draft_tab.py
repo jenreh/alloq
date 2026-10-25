@@ -25,7 +25,7 @@ Row = ObjectVar[dict[str, Any]]
 START_TITLE = "Ersten Angebotsentwurf erzeugen"
 START_TEXT = (
     "Die Werkstatt erstellt aus den ausgewählten Quellen in einem Durchlauf die "
-    "Story Map, die Stories, das Briefing, einen Umfangsvorschlag, alle Kapitel "
+    "Story Map, die Stories, das Briefing, alle Kapitel "
     "der Vorlage und einen Word-Entwurf. Danach entscheiden Sie nur noch, was die "
     "KI nicht festlegen darf."
 )
@@ -169,10 +169,6 @@ def _decision_button(decision: Row) -> rx.Component:
     label = decision["action"].to(str)
     return rx.match(
         decision["key"].to(str),
-        (
-            draft_overview.DECISION_SCOPE,
-            mn.button(label, size="xs", on_click=DraftState.confirm_scope),
-        ),
         (
             draft_overview.TARGET_BRIEFING,
             mn.button(

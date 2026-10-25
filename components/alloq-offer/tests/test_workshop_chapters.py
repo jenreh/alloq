@@ -50,10 +50,8 @@ async def test_open_creates_template_chapters_once(db) -> None:
     assert all(v["revision"] == 1 for v in views)
     stories = next(v for v in views if v["type"] == "stories")
     loaded = await service.load(stories["key"])
-    assert StoriesContent.model_validate(loaded["content"]).scopes == [
-        "angeboten",
-        "option",
-    ]
+    assert StoriesContent.model_validate(loaded["content"]) == StoriesContent()
+    assert "scopes" not in loaded["content"]
 
 
 async def test_open_without_workspace_is_empty(db) -> None:

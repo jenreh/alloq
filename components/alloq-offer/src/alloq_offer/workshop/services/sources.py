@@ -21,7 +21,7 @@ from alloq_offer.workshop.repositories import (
     source_repo,
     workspace_repo,
 )
-from alloq_offer.workshop.storage import BlobStore, sha256_hex
+from alloq_offer.workshop.storage import BlobNotFoundError, BlobStore, sha256_hex
 from appkit_commons.database.session import get_asyncdb_session
 
 logger = logging.getLogger(__name__)
@@ -235,6 +235,38 @@ async def request_initial_draft(
             now=now,
             max_attempts=max_attempts,
         )
+
+
+VIEWABLE_KINDS = frozenset({SourceKind.PDF, SourceKind.DOCX, SourceKind.PPTX})
+
+
+@dataclass(frozen=True)
+class SourceOriginal:
+    kind: SourceKind
+    filename: str
+    data: bytes
+
+
+async def load_original(
+    session_factory: SessionFactory, store: BlobStore, offer_id: int, source_id: int
+) -> SourceOriginal | None:
+    """The uploaded file of a source the browser can show; None otherwise."""
+    async with session_factory() as session:
+        source = await source_repo.find_in_offer(session, offer_id, source_id)
+        if (
+            source is None
+            or source.revoked_at is not None
+            or source.blob_id is None
+            or source.kind not in VIEWABLE_KINDS
+        ):
+            return None
+        kind, blob_id = SourceKind(source.kind), source.blob_id
+        filename = source.filename or source.title
+    try:
+        data = await store.get(blob_id)
+    except BlobNotFoundError:
+        return None
+    return SourceOriginal(kind, filename, data)
 
 
 async def load_blocks(

@@ -15,7 +15,6 @@ from alloq_offer.workshop.entities import (
     ActivityEntity,
     MapRevisionEntity,
     Origin,
-    Scope,
     SliceEntity,
     StatementEntity,
     StatementType,
@@ -62,7 +61,7 @@ def new_story(
     position: int,
     valid_block_ids: set[int],
 ) -> StoryEntity:
-    """A stored story from a proposal: app key, scope ``offen``, checked origin."""
+    """A stored story from a proposal: app key and checked origin."""
     refs = _known_refs(story.source_refs, valid_block_ids)
     return StoryEntity(
         offer_id=workspace.offer_id,
@@ -71,7 +70,6 @@ def new_story(
         role=story.role.strip(),
         goal=story.goal.strip(),
         benefit=story.benefit.strip(),
-        scope=Scope.OPEN,
         # Without a surviving source ref the wish is not verifiable.
         origin=(
             Origin.CUSTOMER
@@ -92,11 +90,7 @@ async def apply_proposed_map(
     proposed: ProposedMap,
     valid_block_ids: set[int],
 ) -> ApplyResult:
-    """Store an initial map. The app assigns keys and scope; the model never does.
-
-    Every story starts with scope ``offen``, also the ones that sum up customer
-    wishes: only a person puts a story into the offer (A25).
-    """
+    """Store an initial map. The app assigns the keys; the model never does."""
     result = ApplyResult()
     offer_id = workspace.offer_id
     if proposed.vision and not workspace.vision:
@@ -266,7 +260,7 @@ def _story_dict(story: StoryEntity) -> dict:
         "goal": story.goal,
         "benefit": story.benefit,
         "sentence": story_sentence(story.role, story.goal, story.benefit),
-        "scope": story.scope,
+        "description": story.description,
         "origin": story.origin,
         "slice_id": story.slice_id,
         "skeleton": story.skeleton,

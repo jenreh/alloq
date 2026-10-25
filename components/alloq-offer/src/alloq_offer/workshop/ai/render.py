@@ -58,8 +58,7 @@ def map_outline(snapshot: dict) -> str:
                 continue
             lines.append(f"  Aufgabe: {task['title']}")
             lines.extend(
-                f"    {story['key']} [{story['scope']}] {story['title']}: "
-                f"{story['sentence']}"
+                f"    {story['key']} {story['title']}: {story['sentence']}"
                 for story in task["stories"]
                 if not story["archived"]
             )

@@ -45,7 +45,7 @@ from sqlalchemy import select
 NOW = datetime(2026, 10, 24, 9, 0, tzinfo=UTC)
 
 
-def _story(key: str = "US-01", scope: str = "angeboten", **over) -> dict:
+def _story(key: str = "US-01", **over) -> dict:
     return {
         "id": 1,
         "key": key,
@@ -53,7 +53,6 @@ def _story(key: str = "US-01", scope: str = "angeboten", **over) -> dict:
         "role": "Disponent",
         "goal": "Anfragen ordnen",
         "benefit": "besser zu planen",
-        "scope": scope,
         "archived": False,
         "source_refs": [],
         **over,
@@ -126,15 +125,13 @@ def test_empty_required_chapters_block() -> None:
     ] * 2
 
 
-def test_stories_chapter_needs_offered_stories_in_its_scopes() -> None:
-    chapter = _chapter(
-        "user_stories", StoriesContent(scopes=["option"]), chapter_type="stories"
-    )
-    assert _rules(chapters=[chapter]) == {"stories_scope_missing"}
-    open_map = _snapshot(_story(scope="offen"))
-    assert _rules(chapters=[chapter], snapshot=open_map) == {"no_offered_stories"}
-    fine = _chapter("user_stories", StoriesContent(), chapter_type="stories")
-    assert _rules(chapters=[fine]) == set()
+def test_stories_chapter_needs_stories_on_the_map() -> None:
+    chapter = _chapter("user_stories", StoriesContent(), chapter_type="stories")
+    assert _rules(chapters=[chapter]) == set()
+    assert _rules(chapters=[chapter], snapshot=_snapshot()) == {"no_stories"}
+    archived = _snapshot(_story(archived=True))
+    assert _rules(chapters=[chapter], snapshot=archived) == {"no_stories"}
+    assert _rules(chapters=[_chapter()], snapshot=_snapshot()) == set()
 
 
 def test_story_format_and_placement() -> None:
@@ -574,7 +571,7 @@ async def test_checks_see_map_statements_and_revoked_sources(db) -> None:
     assert revision == 1
     await findings.run_checks(db.session, 1)
     rules = {r["rule"] for r in await findings.list_findings(db.session, 1)}
-    assert {"conflict_open", "source_revoked", "no_offered_stories"} <= rules
+    assert {"conflict_open", "source_revoked"} <= rules
 
 
 def test_ai_findings_are_identified_by_their_text() -> None:

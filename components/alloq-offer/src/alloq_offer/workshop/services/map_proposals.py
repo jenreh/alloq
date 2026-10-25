@@ -2,7 +2,7 @@
 
 A proposal is bound to the map revision it was made for. Once the map moved on, it
 is marked stale and cannot be taken over (A07). Taking over adds new activities,
-tasks and stories with scope ``offen``; nothing existing is changed.
+tasks and stories; nothing existing is changed.
 """
 
 import logging

@@ -29,7 +29,6 @@ chapters:
     required: true
     chapter_type: stories
     defaults:
-      scopes: [angeboten, option]
       group_by: activity
     guiding_question: Welche Stories sind Teil des Angebots?
     content_rules:

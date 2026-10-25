@@ -23,7 +23,7 @@ Das Beispiel zeigt einen möglichen Kundenprozess für ein Software-/AI-Projekt.
 | Erste durchgängige Fassung | [ANF-01 Anfrage erfassen](#anf-01) **S** | [ANF-02 Anliegen verstehen](#anf-02) **S** | [ANF-03 Zuständigkeit zuweisen](#anf-03) **S** | [ANF-04 Antwort überarbeiten](#anf-04) **S** | [ANF-05 Vorgang abschließen](#anf-05) **S** |
 | Mögliche Erweiterung, noch nicht angeboten | Mehrere Eingangskanäle bündeln | Ähnliche Vorgänge erkennen | Übergaben und Rückfragen unterstützen | Antwortvorschläge vorbereiten | Wiederkehrende Anliegen auswerten |
 
-**S** bezeichnet den vorgeschlagenen Walking Skeleton: einen kleinen, aber nutzbaren Ablauf über die relevanten Aktivitäten hinweg. Erweiterungen sind hier Ideentitel, keine ausformulierten Stories und keine automatisch zugesagten Leistungen. Im echten Angebot erhalten vorgeschlagene Stories eine Herkunftskennzeichnung und einen ausdrücklich festgelegten Scope-Status.
+**S** bezeichnet den vorgeschlagenen Walking Skeleton: einen kleinen, aber nutzbaren Ablauf über die relevanten Aktivitäten hinweg. Erweiterungen sind hier Ideentitel, keine ausformulierten Stories und keine automatisch zugesagten Leistungen. Im echten Angebot erhalten vorgeschlagene Stories eine Herkunftskennzeichnung.
 
 #### ANF-01
 
@@ -290,7 +290,7 @@ Die erste Umsetzung wird als durchgängiger fachlicher Pfad gedacht. Ein Schnitt
 
 Mehrere Rollen und alternative Journeys dürfen eigene Teilkarten oder Rollensichten erhalten. Es gibt keine feste Zahl von Aktivitäten, Stories oder Hierarchieebenen. IDs bleiben bei Umbenennung und Umsortierung stabil; bei Aufteilung entstehen neue Stories mit nachvollziehbarer Herkunft. Entfernte Stories werden archiviert und nicht stillschweigend für andere Inhalte wiederverwendet.
 
-Die Map-Zuordnung, fachliche Herkunft und der Scope sind getrennte Dimensionen. Beispielsweise kann eine ausdrücklich vom Kunden gewünschte Story zunächst offen sein; ein vorgeschlagener Skeleton ist noch kein bestätigtes Angebot. Scope-Werte sind `offen`, `angeboten`, `option` und `ausgeschlossen`. Ein geplanter Slice ist keine zugesagte Deadline.
+Die Map-Zuordnung und die fachliche Herkunft sind getrennte Dimensionen. Jede nicht archivierte Story der Map gehört zum Angebot; eine Story, die nicht angeboten werden soll, wird archiviert. Ein geplanter Slice ist keine zugesagte Deadline.
 
 ### 8.4 Einfaches Story-Format ohne Akzeptanzkriterien
 
@@ -304,7 +304,7 @@ Beispiel:
 
 > Als Disponent möchte ich offene Aufträge nach Dringlichkeit ordnen, um die nächsten Einsätze zu planen.
 
-Stabile ID, Map-Zuordnung, Quelle beziehungsweise Herkunft als Vorschlag, Scope, optionale Priorität und offene Fragen werden separat gespeichert. Sie blähen den Story-Satz nicht auf. Fehlende Rollen oder ein unklarer Nutzen werden als offene Frage oder gekennzeichneter Formulierungsvorschlag behandelt.
+Stabile ID, Map-Zuordnung, Quelle beziehungsweise Herkunft als Vorschlag, optionale Priorität, Beschreibung und offene Fragen werden separat gespeichert. Sie blähen den Story-Satz nicht auf. Fehlende Rollen oder ein unklarer Nutzen werden als offene Frage oder gekennzeichneter Formulierungsvorschlag behandelt.
 
 Ein technischer Baustein wie „Vektordatenbank einrichten“ wird nicht ohne fachlichen Nutzen zur User Story erklärt. Integrationen, Migration, Betrieb oder technische Vorarbeiten können als unterstützende Leistungen an Stories oder Prozesse angebunden werden. Bei automatisierten Prozessen beschreibt die Story den Nutzen für eine tatsächliche beteiligte Rolle; eine erfundene Persona „KI-Agent“ ist dafür nicht erforderlich.
 
@@ -330,7 +330,7 @@ Eine Verknüpfung zeigt, dass ein Bedarf im Entwurf berücksichtigt wurde. Sie b
 | Anforderung | Beschreibung, Priorität, Herkunft, Zuordnung und Bearbeitungsstatus |
 | Kundenprozess | Ziel, Rollen, Auslöser, typische Schritte, Ergebnisse, Ist-/Soll-Bezug, Varianten und offene Fragen |
 | Story-Map-Revision | Aktivitäten, Aufgaben, Reihenfolge, Story-Zuordnungen, Slices und vorgeschlagener Skeleton |
-| User Story | Stabile ID, Titel, ein Satz aus Rolle/Ziel/Nutzen, Scope und Quellen- oder Vorschlagsherkunft; keine Akzeptanzkriterien |
+| User Story | Stabile ID, Titel, ein Satz aus Rolle/Ziel/Nutzen, freie Beschreibung und Quellen- oder Vorschlagsherkunft; keine Akzeptanzkriterien |
 | Lösungsentscheidung | Vorschlag oder bestätigte Wahl, Begründung, Alternativen und Abhängigkeiten |
 | Arbeitspaket | Zugeordnete Stories oder unterstützende Leistungen, Ergebnisse, Mitwirkung, Aufwand und Abhängigkeiten |
 | Kaufmännische Daten | Aufwände, Sätze, Optionen, Währung, Steuern, Gültigkeit und Bestätigung |
@@ -711,7 +711,7 @@ Die folgenden Prüffälle betreffen die Umsetzung dieser Angebotswerkstatt. Sie 
 | A22 | Kundenprozess enthält Rückfragen, Übergaben oder Varianten | Zusammenhänge werden verständlich erfasst oder als offen markiert; es wird keine durchgängig lineare Reihenfolge erfunden |
 | A23 | Nutzer ordnet Stories neu oder verschiebt sie in eine Option | IDs bleiben stabil; angebotener Scope, Map und abhängige Kapitel werden nachvollziehbar abgeglichen |
 | A24 | Word wird erzeugt | Fachlicher Inhalt beginnt mit einer lesbaren editierbaren Map und einfachen Stories; sie verwenden denselben Revisionsstand wie die Kapitel |
-| A25 | KI schlägt zusätzliche Stories oder einen Skeleton vor | Vorschlagsherkunft bleibt sichtbar; neue Stories erweitern den angebotenen Umfang nicht automatisch |
+| A25 | KI schlägt zusätzliche Stories oder einen Skeleton vor | Vorschlagsherkunft bleibt sichtbar |
 | A26 | Quelldokument beschreibt nur technischen Bedarf oder lässt Prozessschritte offen | Offene Fragen oder nachvollziehbare Prozessvorschläge; keine erfundenen Kundenentscheidungen |
 | A27 | Nutzer ändert eine Story nach manueller Kapitelbearbeitung | Map und Story werden versioniert; betroffene Kapitel werden markiert, manuelle Texte nicht stillschweigend überschrieben |
 

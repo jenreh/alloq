@@ -11,10 +11,24 @@ FORBIDDEN_PATTERNS = (
     re.compile(r"^\s*([-*•]|\d+[.)])\s", re.MULTILINE),
 )
 MAX_FIELD_LENGTH = 300
+MAX_DESCRIPTION_LENGTH = 4000
+SENTENCE_PATTERN = re.compile(
+    r"^\s*als\s+(?P<role>\S.*?)\s+möchte ich\s+(?P<goal>\S.*?),\s*um\s+"
+    r"(?P<benefit>\S.*?)\.?\s*$",
+    re.IGNORECASE,
+)
 
 
 def story_sentence(role: str, goal: str, benefit: str) -> str:
     return f"Als {role} möchte ich {goal}, um {benefit}."
+
+
+def parse_story_sentence(text: str) -> tuple[str, str, str] | None:
+    """Role, goal and benefit of an "Als … möchte ich …, um …" sentence."""
+    match = SENTENCE_PATTERN.match(text)
+    if match is None:
+        return None
+    return match["role"], match["goal"], match["benefit"]
 
 
 def story_problems(title: str, role: str, goal: str, benefit: str) -> list[str]:

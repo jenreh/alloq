@@ -6,8 +6,10 @@ from typing import Any
 import reflex as rx
 from alloq_commons import theme
 from alloq_commons.components.dialogs import delete_dialog
+from alloq_commons.components.document_viewer import document_viewer
 from alloq_commons.components.list_view import inspector, inspector_section
 from alloq_commons.components.modal_layout import (
+    DRAWER_CLASS,
     MODAL_CLASS,
     modal_footer,
     modal_form_layout,
@@ -19,7 +21,12 @@ from alloq_offer.workshop.services.sources import TEXT_EXTENSIONS
 from alloq_offer.workshop.states.briefing_state import BriefingState
 from alloq_offer.workshop.states.draft_state import DraftState
 from alloq_offer.workshop.states.map_state import MapState
-from alloq_offer.workshop.states.sources_state import UPLOAD_ID, SourcesState
+from alloq_offer.workshop.states.sources_state import (
+    UPLOAD_ID,
+    VIEWER_TAB_ORIGINAL,
+    VIEWER_TAB_TEXT,
+    SourcesState,
+)
 
 SOURCES_TITLE = "Quellen"
 NO_SOURCES = "Noch keine Quellen. Fügen Sie Texte, E-Mails oder Dokumente hinzu."
@@ -35,6 +42,8 @@ REVOKE_TITLE = "Quelle zurückziehen"
 VIEW_LABEL = "Ansehen"
 GAP_LABEL = "Nicht gelesen"
 NO_BLOCKS = "Aus dieser Quelle wurde noch nichts gelesen."
+ORIGINAL_TAB = "Original"
+TEXT_TAB = "Gelesener Text"
 RETRY_LABEL = "Erneut versuchen"
 READING_TITLE = "Quellen werden gelesen"
 UPLOAD_ACCEPT: dict[str, Sequence] = {
@@ -50,6 +59,25 @@ UPLOAD_ACCEPT: dict[str, Sequence] = {
     "audio/*": [".wav", ".mp3", ".m4a"],
 }
 STATUS_POLL_MS = 3000
+# Mantine's "sm" checkbox is 20px wide; the status line indents by it plus the gap.
+CHECKBOX_SIZE = "sm"
+CHECKBOX_PX = 20
+HEAD_GAP_PX = 12
+# The viewer puts its page rail beside the page only above 768px of container.
+VIEWER_DRAWER_SIZE = "min(1120px, 94vw)"
+_GROW = {"flex": "1 1 0%", "minHeight": 0}
+# Mantine lays Tabs out through these variables and its stylesheet beats a
+# class; inline `styles` make the tabs a column whose active panel fills the
+# drawer, so the viewer below gets a real height.
+VIEWER_TABS_STYLES = {
+    "root": {
+        "--tabs-display": "flex",
+        "--tabs-flex-direction": "column",
+        "--tabs-panel-grow": "1",
+        **_GROW,
+    },
+    "panel": {**_GROW, "display": "flex", "flexDirection": "column"},
+}
 
 
 def _read_progress() -> rx.Component:
@@ -92,29 +120,46 @@ def _drop_area() -> rx.Component:
 
 
 def _source_row(source: ObjectVar[dict[str, Any]]) -> rx.Component:
+    """Name and actions in one line; the status below uses the full card width."""
+    return mn.stack(
+        _source_head(source),
+        mn.text(
+            source["summary"],
+            fz="12px",
+            c=rx.cond(source["ok"], theme.POSITIVE, theme.WARNING),
+            # Starts under the name, not under the checkbox.
+            pl=CHECKBOX_PX + HEAD_GAP_PX,
+        ),
+        gap=6,
+        p=10,
+        style={"borderRadius": "8px", "background": theme.SURFACE_MUTED},
+    )
+
+
+def _source_head(source: ObjectVar[dict[str, Any]]) -> rx.Component:
     return mn.group(
         mn.checkbox(
             checked=source["included"],
             disabled=~source["usable"],
+            size=CHECKBOX_SIZE,
             on_change=lambda checked: SourcesState.toggle_source(  # ty: ignore[invalid-argument-type]
                 source["id"], checked
             ),
         ),
-        mn.stack(
-            mn.text(source["name"], fw=600, fz="13px"),
-            mn.text(
-                source["summary"],
-                fz="12px",
-                c=rx.cond(source["ok"], theme.POSITIVE, theme.WARNING),
-            ),
-            gap=2,
-            style={"minWidth": "0", "flex": "1"},
+        mn.text(
+            source["name"],
+            fw=600,
+            fz="13px",
+            style={"minWidth": "0", "flex": "1", "overflowWrap": "anywhere"},
         ),
-        mn.button(
-            VIEW_LABEL,
+        mn.action_icon(
+            rx.icon("eye", size=16),
             variant="subtle",
-            size="compact-xs",
+            color="gray",
+            size="sm",
             on_click=SourcesState.open_viewer(source["id"]),
+            aria_label=VIEW_LABEL,
+            custom_attrs={"title": VIEW_LABEL},
         ),
         rx.cond(
             source["retryable"],
@@ -134,10 +179,9 @@ def _source_row(source: ObjectVar[dict[str, Any]]) -> rx.Component:
             color="gray",
             size="sm",
         ),
+        gap=HEAD_GAP_PX,
         wrap="nowrap",
         align="flex-start",
-        p=10,
-        style={"borderRadius": "8px", "background": theme.SURFACE_MUTED},
     )
 
 
@@ -167,23 +211,60 @@ def _block(block: ObjectVar[dict[str, Any]]) -> rx.Component:
     )
 
 
-def _viewer_modal() -> rx.Component:
-    return mn.modal(
-        mn.stack(
-            rx.cond(
-                SourcesState.viewer_blocks.length() > 0,
-                mn.stack(rx.foreach(SourcesState.viewer_blocks, _block), gap=0),
-                mn.text(NO_BLOCKS, fz="13px", c=theme.TEXT_MUTED),
-            ),
-            gap=8,
+def _blocks() -> rx.Component:
+    return mn.box(
+        rx.cond(
+            SourcesState.viewer_blocks.length() > 0,
+            mn.stack(rx.foreach(SourcesState.viewer_blocks, _block), gap=0),
+            mn.text(NO_BLOCKS, fz="13px", c=theme.TEXT_MUTED),
         ),
+        class_name="alloq-modal-scroll",
+    )
+
+
+def _original() -> rx.Component:
+    return rx.cond(
+        SourcesState.viewer_note != "",
+        mn.text(SourcesState.viewer_note, fz="13px", c=theme.TEXT_MUTED, p=18),
+        document_viewer(
+            SourcesState.viewer_kind,
+            SourcesState.viewer_encoded,
+            SourcesState.viewer_file,
+        ),
+    )
+
+
+def _viewer_tabs() -> rx.Component:
+    """Original file and extracted text; the viewer mounts only on its tab."""
+    return mn.tabs(
+        mn.tabs.list(
+            mn.tabs.tab(ORIGINAL_TAB, value=VIEWER_TAB_ORIGINAL),
+            mn.tabs.tab(TEXT_TAB, value=VIEWER_TAB_TEXT),
+            px=26,
+        ),
+        mn.tabs.panel(_original(), value=VIEWER_TAB_ORIGINAL),
+        mn.tabs.panel(_blocks(), value=VIEWER_TAB_TEXT),
+        value=SourcesState.viewer_tab,
+        on_change=SourcesState.set_viewer_tab,
+        custom_attrs={"styles": VIEWER_TABS_STYLES},
+    )
+
+
+def _viewer_drawer() -> rx.Component:
+    """Slides in from the right, wide enough for the page rail beside a page."""
+    has_original = SourcesState.viewer_kind != ""
+    return mn.drawer(
+        rx.cond(has_original, _viewer_tabs(), _blocks()),
         title=SourcesState.viewer_title,
         opened=SourcesState.viewer_open,
         on_close=SourcesState.close_viewer,
-        size="lg",
-        centered=True,
-        class_name=MODAL_CLASS,
-        overlay_props={"backgroundOpacity": 0.5, "blur": 4},
+        position="right",
+        size=rx.cond(has_original, VIEWER_DRAWER_SIZE, "lg"),
+        offset="15px",
+        radius="md",
+        keep_mounted=False,
+        class_name=DRAWER_CLASS,
+        overlay_props={"backgroundOpacity": 0.3, "blur": 3},
     )
 
 
@@ -257,6 +338,6 @@ def sources_panel() -> rx.Component:
             ),
         ),
         _paste_modal(),
-        _viewer_modal(),
+        _viewer_drawer(),
         label=SOURCES_TITLE,
     )

@@ -21,7 +21,6 @@ from alloq_offer.workshop.services.story_rules import story_problems
 BLOCKER = FindingSeverity.BLOCKER
 WARNING = FindingSeverity.WARNING
 NOTE = FindingSeverity.NOTE
-OFFERED = "angeboten"
 
 PLACEHOLDER = re.compile(
     r"\b(TODO|TBD|XXX|Lorem ipsum)\b|\[\s*(…|\.\.\.)?\s*\]|^\s*Offen:",
@@ -132,32 +131,20 @@ def required_chapters(inp: CheckInput) -> list[RuleFinding]:
     ]
 
 
-def offered_stories(inp: CheckInput) -> list[RuleFinding]:
-    stories = live_stories(inp.snapshot)
-    chapters = [c for c in inp.chapters if isinstance(c.content, StoriesContent)]
-    findings: list[RuleFinding] = []
-    for chapter in chapters:
-        scopes = chapter.content.scopes  # ty: ignore[unresolved-attribute]
-        if OFFERED not in scopes and any(s["scope"] == OFFERED for s in stories):
-            findings.append(
-                RuleFinding(
-                    "stories_scope_missing",
-                    BLOCKER,
-                    chapter_target(chapter.key),
-                    "Das Kapitel zeigt die angebotenen Stories nicht.",
-                )
-            )
-        elif not any(s["scope"] in scopes for s in stories):
-            findings.append(
-                RuleFinding(
-                    "no_offered_stories",
-                    BLOCKER,
-                    chapter_target(chapter.key),
-                    "Im Angebot ist noch keine Story als angeboten oder Option "
-                    "festgelegt.",
-                )
-            )
-    return findings
+def stories_present(inp: CheckInput) -> list[RuleFinding]:
+    """A stories chapter needs at least one live story on the map."""
+    if live_stories(inp.snapshot):
+        return []
+    return [
+        RuleFinding(
+            "no_stories",
+            BLOCKER,
+            chapter_target(chapter.key),
+            "Die Story Map enthält noch keine Stories.",
+        )
+        for chapter in inp.chapters
+        if isinstance(chapter.content, StoriesContent)
+    ]
 
 
 def story_format(inp: CheckInput) -> list[RuleFinding]:
@@ -359,7 +346,7 @@ def revoked_sources(inp: CheckInput) -> list[RuleFinding]:
 
 RULES: tuple[Rule, ...] = (
     required_chapters,
-    offered_stories,
+    stories_present,
     story_format,
     unplaced_stories,
     review_marks,

@@ -3,7 +3,7 @@
 import reflex as rx
 from alloq_commons import theme
 from alloq_commons.components.list_view import empty_list
-from alloq_commons.components.toolbar import segmented
+from alloq_commons.components.toolbar import scope_bar, segmented
 
 import appkit_mantine as mn
 from alloq_offer.workshop.components.briefing_tab import briefing_tab
@@ -11,6 +11,8 @@ from alloq_offer.workshop.components.chapters_tab import chapters_tab
 from alloq_offer.workshop.components.draft_tab import draft_tab
 from alloq_offer.workshop.components.export_tab import export_tab
 from alloq_offer.workshop.components.map_tab import map_tab
+from alloq_offer.workshop.components.map_view import map_filter_row
+from alloq_offer.workshop.states.map_state import MapState
 from alloq_offer.workshop.states.workshop_state import (
     TAB_BRIEFING,
     TAB_CHAPTERS,
@@ -26,6 +28,14 @@ NOT_FOUND_TEXT = "Dieses Angebot gibt es nicht."
 
 def workshop_tabs() -> rx.Component:
     return segmented(WorkshopState.active_tab, WorkshopState.set_tab, TABS)
+
+
+def workshop_scope() -> rx.Component:
+    """Filter row below the toolbar; only the story map has one."""
+    return rx.cond(
+        (WorkshopState.active_tab == TAB_MAP) & MapState.has_map,
+        scope_bar(map_filter_row()),
+    )
 
 
 def workshop_body() -> rx.Component:

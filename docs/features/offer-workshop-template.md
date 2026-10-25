@@ -36,7 +36,7 @@ Customer data is removed from the layout. There is no story map chapter: the doc
 | --- | --- | --- | --- |
 | `management_summary` | 1 | prose | yes |
 | `leistungen` | 1 | prose | no |
-| `user_stories` | 2 | stories (angeboten + option, grouped by activity) | yes |
+| `user_stories` | 2 | stories (all live stories, grouped by activity) | yes |
 | `loesung` | 2 | prose | yes |
 | `leistungsumfang` | 2 | prose | yes |
 | `mitwirkung` | 2 | table (Mitwirkung, Verantwortlich, Zeitpunkt) | yes |
@@ -62,7 +62,7 @@ The consumption chapter of the QUO file is not part of Etappe 1.
 ## Rendering rules
 
 - Content is rendered by one renderer per chapter type; unknown content raises a typed error and is never dropped.
-- `stories` chapters list the stories of the bound map revision: a heading per group, then key, title and scope, then the one sentence "Als … möchte ich …, um …".
+- `stories` chapters list the stories of the bound map revision: a heading per group, then key and title, then the one sentence "Als … möchte ich …, um …".
 - `calc` values are shown only when confirmed; an unconfirmed value carries `[nicht bestätigt]`, a missing one `[Wert fehlt]`.
 - A draft export starts with the marker "ENTWURF – nicht zur Weitergabe an den Kunden".
 - `docs/features/offer-workshop-sample.docx` is a reference export for the manual check in Word.

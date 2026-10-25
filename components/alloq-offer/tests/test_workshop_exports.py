@@ -276,3 +276,15 @@ async def test_final_needs_required_chapters_to_be_reviewed(db) -> None:  # noqa
     ):
         await _request(db, ExportKind.FINAL, confirmed=True)
     assert caught.value.reasons == [f"{exports.UNREVIEWED_PREFIX}Management Summary"]
+
+
+def test_stories_stored_with_the_old_scope_still_load() -> None:
+    stored = {
+        "key": "US-01",
+        "title": "T",
+        "sentence": "Als A möchte ich b, um c.",
+        "scope": "angeboten",
+        "group": "G",
+    }
+    story = export_docx._story(stored)  # noqa: SLF001
+    assert (story.key, story.group) == ("US-01", "G")

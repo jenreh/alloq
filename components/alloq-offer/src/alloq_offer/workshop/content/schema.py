@@ -22,14 +22,6 @@ from pydantic import (
 )
 from pydantic_core import ErrorDetails
 
-SCOPE_LABELS: dict[str, str] = {
-    "offen": "Offen",
-    "angeboten": "Angeboten",
-    "option": "Option",
-    "ausgeschlossen": "Ausgeschlossen",
-}
-STORY_SCOPES: tuple[str, ...] = tuple(SCOPE_LABELS)
-
 BOUND_FIELDS: dict[str, str] = {
     "offer.person_days": "Personentage",
     "offer.risk_buffer_days": "Risikopuffer (Personentage)",
@@ -147,19 +139,13 @@ class TableContent(BaseModel):
 
 
 class StoriesContent(BaseModel):
-    """Settings only; stories are resolved from the map revision at render time."""
+    """Settings only; all live stories of the map revision, resolved at render time.
+
+    Stored content from before may still carry ``scopes``; it is ignored.
+    """
 
     chapter_type: Literal["stories"] = "stories"
-    scopes: list[str] = Field(default_factory=lambda: ["angeboten", "option"])
     group_by: Literal["activity", "slice"] = "activity"
-
-    @field_validator("scopes")
-    @classmethod
-    def _known_scopes(cls, scopes: list[str]) -> list[str]:
-        unknown = [scope for scope in scopes if scope not in STORY_SCOPES]
-        if unknown:
-            raise ValueError(f"Unbekannter Umfang: {', '.join(unknown)}")
-        return scopes
 
 
 class CalcRow(BaseModel):

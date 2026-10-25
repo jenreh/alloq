@@ -7,7 +7,6 @@ from typing import Any
 import reflex as rx
 from alloq_commons.access import requires_offer_editor
 
-from alloq_offer.workshop.entities import Scope
 from alloq_offer.workshop.repositories import workspace_repo
 from alloq_offer.workshop.services.map_apply import snapshot_map
 from alloq_offer.workshop.services.map_edit import (
@@ -15,19 +14,48 @@ from alloq_offer.workshop.services.map_edit import (
     MapEditError,
     MapEditor,
 )
-from alloq_offer.workshop.services.map_view import NO_SLICE_ID, build_view
+from alloq_offer.workshop.services.map_view import (
+    NO_SLICE_ID,
+    build_view,
+    filter_archived,
+    filter_rows,
+    list_rows,
+)
+from alloq_offer.workshop.services.story_rules import parse_story_sentence
 from alloq_offer.workshop.states.helpers import current_user_name, open_offer_id
 from appkit_commons.database.session import get_asyncdb_session
 
 logger = logging.getLogger(__name__)
 
-SCOPES: list[str] = [scope.value for scope in Scope]
+COLUMN_PX = 230
+INSERT_ACTIVITY = "activity"
+INSERT_SLICE = "slice"
+VIEW_MAP = "map"
+VIEW_LIST = "list"
+VIEWS = [{"value": VIEW_MAP, "label": "Map"}, {"value": VIEW_LIST, "label": "Liste"}]
+LIST_COLUMNS = ("title", "story", "description")
+SAVED = "Story gespeichert."
+REJECTED_FORMAT = (
+    "{count} Eingaben nicht übernommen. Die User Story braucht die Form "
+    "„Als … möchte ich …, um …“."
+)
 LOAD_ERROR = "Die Story Map konnte nicht geladen werden."
 SAVE_ERROR = "Die Änderung konnte nicht gespeichert werden."
 NO_TASK = "Diese Aktivität hat noch keine Aufgabe."
+PICK_TASK = "Bitte wählen Sie eine Aufgabe für die Story."
+RESTORED = "Story wiederhergestellt."
 SENTENCE_HINT = "Ein Satz aus Rolle, Ziel und Nutzen, ohne Akzeptanzkriterien."
 
 Edit = Callable[[MapEditor], Awaitable[int]]
+
+
+def _rejected_toast(count: int) -> Any:
+    return rx.toast.warning(REJECTED_FORMAT.format(count=count), position="top-right")
+
+
+def _count_label(name: str, picked: list[str]) -> str:
+    """CSS content for the count pill of a filter select, empty when unused."""
+    return f'"{name} ({len(picked)})"' if picked else ""
 
 
 class MapState(rx.State):
@@ -38,21 +66,72 @@ class MapState(rx.State):
     rows: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
     stories: rx.Field[dict[str, dict[str, Any]]] = rx.field(default_factory=dict)
     task_options: rx.Field[list[dict[str, str]]] = rx.field(default_factory=list)
+    task_groups: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
     slice_options: rx.Field[list[dict[str, str]]] = rx.field(default_factory=list)
     story_count: rx.Field[int] = rx.field(0)
+    archived: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
+    archive_open: rx.Field[bool] = rx.field(False)
+    archive_search: rx.Field[str] = rx.field("")
+    restore_tasks: rx.Field[dict[str, str]] = rx.field(default_factory=dict)
+    """Target task per archived story id, as far as the person changed it."""
     selected_id: rx.Field[str] = rx.field("")
+    drawer_wide: rx.Field[bool] = rx.field(False)
+    map_search: rx.Field[str] = rx.field("")
+    slice_filter: rx.Field[list[str]] = rx.field(default_factory=list)
+    skeleton_only: rx.Field[bool] = rx.field(False)
+    view: rx.Field[str] = rx.field(VIEW_MAP)
+    insert_at: rx.Field[str] = rx.field("")
+    collapsed_slices: rx.Field[list[str]] = rx.field(default_factory=list)
+    """Edge whose insert popup is open, e.g. ``activity:2`` or ``slice:0``."""
 
     @rx.var
     def has_map(self) -> bool:
         return self.revision > 0
 
     @rx.var
-    def grid_template(self) -> str:
-        return f"200px repeat({len(self.columns)}, minmax(230px, 1fr))"
+    def archive_label(self) -> str:
+        return f"Archiv ({len(self.archived)})"
 
     @rx.var
-    def grid_min_width(self) -> str:
-        return f"{200 + 230 * len(self.columns)}px"
+    def archived_rows(self) -> list[dict[str, Any]]:
+        live = {option["value"] for option in self.task_options}
+
+        def target(story: dict[str, Any]) -> str:
+            old = story["task_id"] if story["task_id"] in live else ""
+            return self.restore_tasks.get(str(story["id"]), old)
+
+        return filter_archived(
+            [{**story, "task": target(story)} for story in self.archived],
+            self.archive_search,
+        )
+
+    @rx.var
+    def is_filtered(self) -> bool:
+        return bool(self.map_search.strip() or self.slice_filter or self.skeleton_only)
+
+    @rx.var
+    def list_rows(self) -> list[dict[str, Any]]:
+        return list_rows(self.columns, self.visible_rows)
+
+    @rx.var
+    def slice_filter_label(self) -> str:
+        return _count_label("Schnitte", self.slice_filter)
+
+    @rx.var
+    def visible_rows(self) -> list[dict[str, Any]]:
+        return filter_rows(
+            self.rows,
+            search=self.map_search,
+            slice_ids=self.slice_filter,
+            skeleton_only=self.skeleton_only,
+        )
+
+    @rx.var
+    def grid_template(self) -> str:
+        """One resizable track per activity (see ``column_width``)."""
+        return " ".join(
+            f"var(--grid-col-{column['id']}, {COLUMN_PX}px)" for column in self.columns
+        )
 
     @rx.var
     def selected(self) -> dict[str, Any]:
@@ -83,6 +162,10 @@ class MapState(rx.State):
         self.task_options = view["task_options"]
         self.slice_options = view["slice_options"]
         self.story_count = view["story_count"]
+        self.task_groups = view["task_groups"]
+        self.archived = view["archived"]
+        kept = {str(story["id"]) for story in self.archived}
+        self.restore_tasks = {k: v for k, v in self.restore_tasks.items() if k in kept}
         if self.selected_id not in self.stories:
             self.selected_id = ""
 
@@ -115,6 +198,71 @@ class MapState(rx.State):
         self.selected_id = ""
 
     @rx.event
+    def toggle_drawer_width(self) -> None:
+        self.drawer_wide = not self.drawer_wide
+
+    @rx.event
+    def set_view(self, value: str) -> None:
+        if value in (VIEW_MAP, VIEW_LIST):
+            self.view = value
+
+    @rx.event
+    def notify_rejected(self, count: int) -> Any:
+        return _rejected_toast(count)
+
+    @rx.event
+    def toggle_slice(self, slice_id: int) -> None:
+        key = str(slice_id)
+        if key in self.collapsed_slices:
+            self.collapsed_slices = [k for k in self.collapsed_slices if k != key]
+        else:
+            self.collapsed_slices = [*self.collapsed_slices, key]
+
+    @rx.event
+    def open_archive(self) -> None:
+        self.archive_open = True
+
+    @rx.event
+    def close_archive(self) -> None:
+        self.archive_open = False
+        self.archive_search = ""
+        self.restore_tasks = {}
+
+    @rx.event
+    def set_archive_search(self, value: str) -> None:
+        self.archive_search = value
+
+    @rx.event
+    def set_restore_task(self, story_id: int, value: str) -> None:
+        self.restore_tasks = {**self.restore_tasks, str(story_id): value}
+
+    @rx.event
+    def open_insert(self, edge: str) -> None:
+        self.insert_at = edge
+
+    @rx.event
+    def close_insert(self) -> None:
+        self.insert_at = ""
+
+    @rx.event
+    def set_map_search(self, value: str) -> None:
+        self.map_search = value
+
+    @rx.event
+    def set_slice_filter(self, value: list[str]) -> None:
+        self.slice_filter = value
+
+    @rx.event
+    def set_skeleton_only(self, value: bool) -> None:
+        self.skeleton_only = value
+
+    @rx.event
+    def reset_filters(self) -> None:
+        self.map_search = ""
+        self.slice_filter = []
+        self.skeleton_only = False
+
+    @rx.event
     @requires_offer_editor
     async def load_map(self) -> AsyncGenerator[Any]:
         offer_id = await open_offer_id(self)
@@ -126,11 +274,35 @@ class MapState(rx.State):
             logger.exception("Loading the map of offer %s failed", offer_id)
             yield rx.toast.error(LOAD_ERROR, position="top-right")
 
+    async def _insert(self, kind: str, title: str, index: int | None) -> Any | None:
+        """Add an activity or slice at ``index``; a done insert closes the popup."""
+        add = MapEditor.add_activity if kind == INSERT_ACTIVITY else MapEditor.add_slice
+        event = await self._apply(lambda e: add(e, self.revision, title, index))
+        if event is None:
+            self.insert_at = ""
+        return event
+
     @rx.event
     @requires_offer_editor
-    async def add_activity(self, form: dict[str, Any]) -> AsyncGenerator[Any]:
+    async def submit_insert(self, form: dict[str, Any]) -> AsyncGenerator[Any]:
+        """Popup on a grid edge: kind and position come from ``insert_at``.
+
+        The form sends only the name, because Reflex moves a form's submit
+        handler out of the ``rx.foreach`` that renders the edge.
+        """
+        kind, _, index = self.insert_at.partition(":")
+        if kind not in (INSERT_ACTIVITY, INSERT_SLICE) or not index.isdigit():
+            return
+        if event := await self._insert(kind, str(form.get("title", "")), int(index)):
+            yield event
+
+    @rx.event
+    @requires_offer_editor
+    async def add_activity(
+        self, form: dict[str, Any], index: int | None = None
+    ) -> AsyncGenerator[Any]:
         title = str(form.get("title", ""))
-        if event := await self._apply(lambda e: e.add_activity(self.revision, title)):
+        if event := await self._insert(INSERT_ACTIVITY, title, index):
             yield event
 
     @rx.event
@@ -138,8 +310,10 @@ class MapState(rx.State):
     async def rename_activity(
         self, activity_id: int, title: str
     ) -> AsyncGenerator[Any]:
+        # The title wraps over two lines in the header but stays one line.
+        name = " ".join(title.split())
         if event := await self._apply(
-            lambda e: e.rename_activity(self.revision, activity_id, title)
+            lambda e: e.rename_activity(self.revision, activity_id, name)
         ):
             yield event
 
@@ -161,9 +335,11 @@ class MapState(rx.State):
 
     @rx.event
     @requires_offer_editor
-    async def add_slice(self, form: dict[str, Any]) -> AsyncGenerator[Any]:
+    async def add_slice(
+        self, form: dict[str, Any], index: int | None = None
+    ) -> AsyncGenerator[Any]:
         title = str(form.get("title", ""))
-        if event := await self._apply(lambda e: e.add_slice(self.revision, title)):
+        if event := await self._insert(INSERT_SLICE, title, index):
             yield event
 
     @rx.event
@@ -176,38 +352,85 @@ class MapState(rx.State):
 
     @rx.event
     @requires_offer_editor
-    async def add_story(self, task_id: int, slice_id: int) -> AsyncGenerator[Any]:
-        if not task_id:
+    async def delete_slice(self, slice_id: int) -> AsyncGenerator[Any]:
+        if event := await self._apply(
+            lambda e: e.delete_slice(self.revision, slice_id)
+        ):
+            yield event
+
+    @rx.event
+    @requires_offer_editor
+    async def add_story(self, form: dict[str, Any]) -> AsyncGenerator[Any]:
+        """Quick add in a map cell; task and slice come as hidden form fields.
+
+        Reflex moves a form's submit handler out of the ``rx.foreach`` that
+        renders the cell, so the cell's ids travel in the form, not the call.
+        """
+        task_id = str(form.get("task_id", ""))
+        slice_id = str(form.get("slice_id", ""))
+        if not task_id.isdigit() or not int(task_id) or not slice_id.isdigit():
             yield rx.toast.error(NO_TASK, position="top-right")
             return
-        target = slice_id or None
+        title = str(form.get("title", ""))
+        target = int(slice_id) or None
         if event := await self._apply(
-            lambda e: e.add_story(self.revision, task_id, target)
+            lambda e: e.add_story(self.revision, int(task_id), target, title)
         ):
             yield event
 
     @rx.event
     @requires_offer_editor
-    async def save_story_field(self, name: str, value: str) -> AsyncGenerator[Any]:
-        story = self.selected
-        if not story or value.strip() == story.get(name, ""):
+    async def save_story(self, form: dict[str, Any]) -> AsyncGenerator[Any]:
+        """Save the inspector form of the selected story."""
+        if not self.has_selection:
             return
         story_id = int(self.selected_id)
+        # Title and story parts wrap in the inspector but stay one line.
+        fields = {
+            name: str(value) if name == "description" else " ".join(str(value).split())
+            for name, value in form.items()
+        }
+        before = self.revision
         if event := await self._apply(
-            lambda e: e.update_story(self.revision, story_id, {name: value})
+            lambda e: e.update_story(self.revision, story_id, fields)
         ):
             yield event
+        elif self.revision != before:
+            yield rx.toast.success(SAVED, position="top-right")
 
     @rx.event
     @requires_offer_editor
-    async def set_scope(self, scope: str) -> AsyncGenerator[Any]:
-        if not self.has_selection or scope not in SCOPES:
-            return
-        story_id = int(self.selected_id)
-        if event := await self._apply(
-            lambda e: e.set_scope(self.revision, story_id, scope)
+    async def apply_list_changes(
+        self, changes: list[dict[str, Any]]
+    ) -> AsyncGenerator[Any]:
+        """Save cells edited in the list; keys are ``<story id>|<column>``."""
+        fields: dict[int, dict[str, str]] = {}
+        rejected = 0
+        for change in changes:
+            story_id, _, column = str(change.get("key", "")).partition("|")
+            value = str(change.get("value", ""))
+            if column not in LIST_COLUMNS:
+                continue
+            if story_id not in self.stories:
+                rejected += 1
+                continue
+            if column == "story":
+                parts = parse_story_sentence(value)
+                if parts is None:
+                    rejected += 1
+                    continue
+                update = dict(zip(("role", "goal", "benefit"), parts, strict=True))
+            else:
+                update = {column: value}
+            fields.setdefault(int(story_id), {}).update(update)
+        if fields and (
+            event := await self._apply(
+                lambda e: e.update_stories(self.revision, fields)
+            )
         ):
             yield event
+        if rejected:
+            yield _rejected_toast(rejected)
 
     @rx.event
     @requires_offer_editor
@@ -242,3 +465,21 @@ class MapState(rx.State):
             yield event
         else:
             self.selected_id = ""
+
+    @rx.event
+    @requires_offer_editor
+    async def restore_story(self, story_id: int) -> AsyncGenerator[Any]:
+        """Bring an archived story back under its chosen live task."""
+        row = next((r for r in self.archived_rows if r["id"] == story_id), None)
+        if row is None:
+            return
+        if not row["task"]:
+            yield rx.toast.error(PICK_TASK, position="top-right")
+            return
+        task_id = int(row["task"])
+        if event := await self._apply(
+            lambda e: e.unarchive_story(self.revision, story_id, task_id)
+        ):
+            yield event
+        else:
+            yield rx.toast.success(RESTORED, position="top-right")

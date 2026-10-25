@@ -11,7 +11,6 @@ from docx.text.paragraph import Paragraph as DocxParagraph
 
 from alloq_offer.workshop.content.schema import (
     BOUND_FIELDS,
-    SCOPE_LABELS,
     BoundValue,
     BulletList,
     CalcContent,
@@ -39,7 +38,7 @@ from alloq_offer.workshop.export.models import (
 TABLE_STYLE = "arvato-Tabelle blau"
 BULLET_STYLE = "Aufzählung 1"
 ORDERED_STYLE = "List Number"
-NO_STORIES_TEXT = "Keine Stories im gewählten Umfang."
+NO_STORIES_TEXT = "Die Story Map enthält keine Stories."
 _ILLEGAL_XML = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 
 
@@ -144,7 +143,7 @@ def _render_stories(writer: Writer, chapter: ChapterInput, ctx: RenderContext) -
     content = chapter.content
     if not isinstance(content, StoriesContent):
         raise UnsupportedContentError(chapter.key)
-    stories = [s for s in ctx.stories if s.scope in content.scopes]
+    stories = ctx.stories
     if not stories:
         writer.paragraph(_text(NO_STORIES_TEXT))
         return
@@ -155,10 +154,7 @@ def _render_stories(writer: Writer, chapter: ChapterInput, ctx: RenderContext) -
     for group, items in groups.items():
         writer.heading(group, heading_level)
         for story in items:
-            label = SCOPE_LABELS.get(story.scope, story.scope)
-            head = _bold(f"{story.key} – {story.title}")
-            head.extend(_text(f" ({label})"))
-            writer.paragraph(head)
+            writer.paragraph(_bold(f"{story.key} – {story.title}"))
             writer.paragraph(_text(story.sentence))
 
 
