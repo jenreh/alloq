@@ -32,16 +32,39 @@ PRIVATE_PARTS = (
     "/customXml",
     "/custom-properties",
     "/extended-properties",
+    "/thumbnail",
 )
 HYPERLINK = "/hyperlink"
-PRIVATE_PROPERTIES = ("author", "last_modified_by", "comments", "keywords", "category")
-# Comment anchors and deleted text of tracked changes; insertions are kept.
+PRIVATE_PROPERTIES = (
+    "author",
+    "last_modified_by",
+    "comments",
+    "keywords",
+    "category",
+    "subject",
+)
+# Comment anchors and tracked changes with their authors: deleted and moved-away
+# text and the old formatting go; inserted and moved-in text stays (KEPT_MARKUP).
 DROPPED_MARKUP = (
     "w:commentRangeStart",
     "w:commentRangeEnd",
     "w:commentReference",
     "w:del",
+    "w:moveFrom",
+    "w:moveFromRangeStart",
+    "w:moveFromRangeEnd",
+    "w:moveToRangeStart",
+    "w:moveToRangeEnd",
+    "w:rPrChange",
+    "w:pPrChange",
+    "w:sectPrChange",
+    "w:tblPrChange",
+    "w:tblGridChange",
+    "w:trPrChange",
+    "w:tcPrChange",
+    "w:numberingChange",
 )
+KEPT_MARKUP = ("w:ins", "w:moveTo")
 
 
 class TemplateError(ValueError):
@@ -134,10 +157,11 @@ def _strip_markup(element: BaseOxmlElement) -> None:
     for name in DROPPED_MARKUP:
         for node in list(element.iter(qn(name))):
             node.getparent().remove(node)
-    for inserted in list(element.iter(qn("w:ins"))):
-        for child in list(inserted):
-            inserted.addprevious(child)
-        inserted.getparent().remove(inserted)
+    for name in KEPT_MARKUP:
+        for wrapper in list(element.iter(qn(name))):
+            for child in list(wrapper):
+                wrapper.addprevious(child)
+            wrapper.getparent().remove(wrapper)
 
 
 def clean_layout(layout: bytes) -> bytes:
@@ -153,8 +177,13 @@ def clean_layout(layout: bytes) -> bytes:
         _drop_private_rels(part)
         if isinstance(part, XmlPart):
             _strip_markup(part.element)
+    properties = document.core_properties
     for name in PRIVATE_PROPERTIES:
-        setattr(document.core_properties, name, "")
+        setattr(properties, name, "")
+    properties.revision = 1
+    printed = properties._element.find(qn("cp:lastPrinted"))  # noqa: SLF001
+    if printed is not None:
+        properties._element.remove(printed)  # noqa: SLF001
     out = io.BytesIO()
     document.save(out)
     return out.getvalue()

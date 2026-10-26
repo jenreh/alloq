@@ -43,6 +43,8 @@ class ChapterEditor(NoSSRComponent):
     content: Var[str]
     editable: Var[bool]
     control_groups: Var[list[list[str]]]
+    float_class_name: Var[str]
+    """The row around the toolbar card; floating over the block by default."""
     toolbar_class_name: Var[str]
     toolbar_label: Var[str]
     content_class_name: Var[str]

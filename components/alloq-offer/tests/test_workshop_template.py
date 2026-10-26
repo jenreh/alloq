@@ -2,6 +2,7 @@
 
 import io
 import zipfile
+from datetime import UTC, datetime
 
 import pytest
 from alloq_offer.workshop.entities import BlobEntity
@@ -135,6 +136,13 @@ def test_clean_layout_drops_tracked_changes_and_linked_files() -> None:
     paragraph.append(deleted)
     paragraph.append(inserted)
     inserted.append(run)
+    moved_away, moved_in = OxmlElement("w:moveFrom"), OxmlElement("w:moveTo")
+    paragraph.append(moved_away)
+    paragraph.append(moved_in)
+    run_props = run.get_or_add_rPr()
+    run_props.append(OxmlElement("w:rPrChange"))
+    document.core_properties.last_printed = datetime(2024, 1, 1, tzinfo=UTC)
+    document.core_properties.subject = "Kunde"
     document.part.relate_to(
         "file://server/vorlage.dotm", ATTACHED_TEMPLATE, is_external=True
     )
@@ -144,7 +152,10 @@ def test_clean_layout_drops_tracked_changes_and_linked_files() -> None:
     cleaned = Document(io.BytesIO(clean_layout(out.getvalue())))
     body = cleaned.element.body
     assert not list(body.iter(qn("w:del")))
-    assert not list(body.iter(qn("w:ins")))
+    for name in ("w:ins", "w:moveFrom", "w:moveTo", "w:rPrChange"):
+        assert not list(body.iter(qn(name))), name
+    assert cleaned.core_properties.last_printed is None
+    assert cleaned.core_properties.subject == ""
     assert cleaned.paragraphs[1].text == "Alt"
     targets = {rel.target_ref for rel in cleaned.part.rels.values() if rel.is_external}
     assert targets == {"https://example.org"}

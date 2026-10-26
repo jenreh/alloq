@@ -24,6 +24,7 @@ export function ChapterEditor({
   onUpdate,
   onBlur,
   controlGroups = [],
+  floatClassName = "aq-doc-float",
   toolbarClassName,
   toolbarLabel,
   contentClassName,
@@ -80,7 +81,7 @@ export function ChapterEditor({
       labels={labels}
       classNames={{ root: "aq-doc-editor", content: contentClassName }}
     >
-      <div className="aq-doc-float">
+      <div className={floatClassName}>
         <div className={toolbarClassName} role="toolbar" aria-label={toolbarLabel}>
           {editable && (
             <RichTextEditor.Toolbar className="aq-doc-controls">

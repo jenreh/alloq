@@ -47,6 +47,7 @@ ADMIN_ITEMS: Final[list[tuple[str, str, str]]] = [
     ("/admin/roles", "Rollen", "shield"),
     ("/admin/departments", "Abteilungen", "building-2"),
     ("/admin/industries", "Branchen", "factory"),
+    ("/admin/offers", "Angebote", "file-text"),
     ("/admin/holidays", "Feiertage", "calendar-days"),
 ]
 VIEWER_ROUTES: Final = frozenset({PLAN_ROUTE, PROJECTS_ROUTE})

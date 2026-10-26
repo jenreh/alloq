@@ -46,6 +46,10 @@ ADMIN_STATES = frozenset(
         "PriceListState",
         "DepartmentState",
         "IndustryState",
+        "BlockAdminState",
+        "TemplateAdminState",
+        "PromptAdminState",
+        "OfferAdminState",
         "RoleState",
         "HolidayState",
         "DatabaseAccessState",
@@ -101,6 +105,11 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
     "SplashState": frozenset({"finish"}),
     "SidebarState": frozenset({"invalidate"}),
     "DashboardState": frozenset({"close_drill_down", "open_drill_down"}),
+    "BlockAdminState": frozenset(
+        {"close_editor", "open_create", "open_edit", "set_field"}
+    ),
+    "OfferAdminState": frozenset({"set_tab"}),
+    "PromptAdminState": frozenset({"set_text"}),
     "ChapterState": frozenset(
         {
             "ask_remove",

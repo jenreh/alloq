@@ -11,6 +11,7 @@ import reflex as rx
 from alloq_commons.access import requires_offer_editor
 
 from alloq_offer.workshop.services.outline import OutlineService
+from alloq_offer.workshop.states.helpers import browser_int
 
 TAB_LIBRARY = "library"
 TAB_BLANK = "blank"
@@ -26,14 +27,6 @@ ADDED = "Das Kapitel wurde eingefügt."
 REMOVED = "Das Kapitel wurde entfernt. Sie können es wiederherstellen."
 
 OutlineAction = Callable[[OutlineService], Awaitable[Any]]
-
-
-def _number(value: object) -> int | None:
-    """A number from the browser; anything else means no change."""
-    try:
-        return int(value)  # ty: ignore[invalid-argument-type]
-    except TypeError, ValueError:
-        return None
 
 
 class OutlineMixin(rx.State, mixin=True):
@@ -136,7 +129,7 @@ class OutlineMixin(rx.State, mixin=True):
     @requires_offer_editor
     async def reorder(self, key: str, index: int) -> AsyncGenerator[Any]:
         """Dropped in the outline (mouse or keyboard)."""
-        position = _number(index)
+        position = browser_int(index)
         if position is None:
             return
         _, toast = await self._outline_change(lambda s: s.move_chapter(key, position))
@@ -149,7 +142,7 @@ class OutlineMixin(rx.State, mixin=True):
         """ "Nach oben" / "Nach unten" in the panel."""
         if not self.active_key or self.active_index < 0:
             return
-        step = _number(delta)
+        step = browser_int(delta)
         if step is None:
             return
         key, position = self.active_key, self.active_index + step
@@ -198,7 +191,7 @@ class OutlineMixin(rx.State, mixin=True):
     async def set_active_level(self, level: str) -> AsyncGenerator[Any]:
         if not self.active_key:
             return
-        key, number = self.active_key, _number(level)
+        key, number = self.active_key, browser_int(level)
         if number is None:
             return
         _, toast = await self._outline_change(lambda s: s.set_level(key, number))

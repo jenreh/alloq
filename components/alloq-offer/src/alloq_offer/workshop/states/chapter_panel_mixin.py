@@ -13,6 +13,7 @@ from alloq_commons.access import requires_offer_editor
 from alloq_offer.workshop.content.schema import (
     BOUND_FIELDS,
     MAX_CELL,
+    MAX_COLUMNS,
     MAX_TABLE_ROWS,
     CalcContent,
     CalcRow,
@@ -24,13 +25,13 @@ from alloq_offer.workshop.content.text import Content
 from alloq_offer.workshop.services.chapter_document import (
     free_fields as missing_fields,
 )
+from alloq_offer.workshop.states.helpers import browser_int
 
 GROUP_OPTIONS: list[dict[str, str]] = [
     {"value": "activity", "label": "Aktivität"},
     {"value": "slice", "label": "Umsetzungsschnitt"},
 ]
 NEW_COLUMN = "Neue Spalte"
-MAX_COLUMNS = 8
 
 
 def _cell(text: str) -> list[Run]:
@@ -39,10 +40,8 @@ def _cell(text: str) -> list[Run]:
 
 def _index(value: object) -> int:
     """A position from the browser; anything else is -1, which no range holds."""
-    try:
-        return int(value)  # ty: ignore[invalid-argument-type]
-    except TypeError, ValueError:
-        return -1
+    index = browser_int(value)
+    return -1 if index is None else index
 
 
 class ChapterPanelMixin(rx.State, mixin=True):

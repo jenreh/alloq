@@ -35,6 +35,7 @@ BOUND_FIELDS: dict[str, str] = {
 # Limits of a table chapter, for people and the AI alike.
 MAX_TABLE_ROWS = 200
 MAX_CELL = 2000
+MAX_COLUMNS = 8
 
 
 class ContentValidationError(ValueError):
