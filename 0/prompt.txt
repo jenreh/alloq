@@ -1,0 +1,1 @@
+hide the role badge and right align the hours/week
