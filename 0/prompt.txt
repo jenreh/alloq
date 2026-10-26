@@ -1,0 +1,1 @@
+the offer_editor role should be able to edit or change offers, all users should be able to read offers
