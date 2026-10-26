@@ -1,0 +1,1 @@
+do not use badges for the cells, use a colored background, the rows should have more padding above the name and below the role in the name column, the cols should have a fixed size like in the other views (but optimized)
