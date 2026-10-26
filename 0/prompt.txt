@@ -1,0 +1,1 @@
+Only the offer_editor role should edit offers, also on the server side.
