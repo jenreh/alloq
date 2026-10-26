@@ -1,0 +1,1 @@
+the calc of the planned days is missing the week before the current week
