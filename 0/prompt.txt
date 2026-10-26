@@ -1,0 +1,1 @@
+u user with the projectmanager role has full access, except for the administration (for that you need the admin switch)
