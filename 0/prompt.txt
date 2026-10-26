@@ -1,0 +1,1 @@
+Continue with the next three unticked steps in docs/.work/PROGRESS.md, one agent per step, one after the other.
