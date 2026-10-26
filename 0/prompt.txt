@@ -1,0 +1,1 @@
+use an icon button and improve the paddings, it should be more aligend with the rest of the app
