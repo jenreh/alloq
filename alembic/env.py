@@ -4,6 +4,7 @@ from typing import Any
 import alloq_commons.entities  # noqa: F401  (registers tables on Base.metadata)
 import alloq_offer.entities  # noqa: F401  (registers the offers table)
 import alloq_offer.workshop.entities  # noqa: F401  (registers the workshop tables)
+import alloq_offer.workshop.template_entities  # noqa: F401  (registers the template tables)
 from sqlalchemy import engine_from_config, pool
 
 from appkit_commons.database.entities import Base

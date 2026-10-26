@@ -7,6 +7,7 @@ from pathlib import Path
 
 import alloq_commons.entities  # noqa: F401  (registers the projects table)
 import alloq_offer.workshop.entities  # noqa: F401  (registers the workshop tables)
+import alloq_offer.workshop.template_entities  # noqa: F401  (registers the template tables)
 import pytest
 from alloq_offer.entities import IndustryEntity, OfferEntity
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine

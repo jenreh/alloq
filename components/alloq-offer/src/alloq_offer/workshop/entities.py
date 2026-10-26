@@ -591,6 +591,18 @@ class ChapterEntity(Entity, Base):
         Boolean, nullable=False, default=False, server_default=false()
     )
     review_reason: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # The offer's own outline, copied from the template version on creation.
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    title: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    chapter_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    level: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    block_key: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # Guiding question, rules, prompt text, required info and checks of the chapter.
+    settings: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    removed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     def to_dict(self) -> dict:
         """Convert entity to dictionary for Pydantic model creation."""
@@ -602,6 +614,14 @@ class ChapterEntity(Entity, Base):
             "protected": self.protected,
             "needs_review": self.needs_review,
             "review_reason": self.review_reason,
+            "position": self.position,
+            "title": self.title,
+            "chapter_type": self.chapter_type,
+            "level": self.level,
+            "required": self.required,
+            "block_key": self.block_key,
+            "settings": self.settings,
+            "removed_at": self.removed_at,
         }
 
 

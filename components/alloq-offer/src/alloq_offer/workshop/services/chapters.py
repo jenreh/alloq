@@ -251,11 +251,27 @@ class ChapterService:
         template: TemplatePackage,
         existing: dict[str, ChapterEntity],
     ) -> None:
-        for definition in template.chapters:
+        for position, definition in enumerate(template.chapters):
             if definition.key in existing:
                 continue
+            rules = template.rules.get(definition.key, {})
             chapter = ChapterEntity(
-                offer_id=self._offer_id, chapter_key=definition.key, revision=0
+                offer_id=self._offer_id,
+                chapter_key=definition.key,
+                revision=0,
+                position=position,
+                title=definition.title,
+                chapter_type=definition.chapter_type,
+                level=definition.level,
+                required=definition.required,
+                block_key=definition.key,
+                settings={
+                    "guiding_question": definition.guiding_question,
+                    "content_rules": definition.content_rules,
+                    "prompt_text": "",
+                    "required_info": rules.get("required_info", []),
+                    "checks": rules.get("checks", []),
+                },
             )
             session.add(chapter)
             await session.flush()

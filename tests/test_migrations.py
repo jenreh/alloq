@@ -1,7 +1,9 @@
 """Tests for hand-written Alembic data migrations (run offline on SQLite)."""
 
+import hashlib
 import importlib.util
 import json
+import zipfile
 from collections.abc import Iterator
 from datetime import date, timedelta
 from pathlib import Path
@@ -676,3 +678,171 @@ def test_offer_story_scope_migration_drops_and_restores_the_column() -> None:
     assert "scope" not in columns
     assert "scope" in restored
     assert not restored["scope"]["nullable"]
+
+
+# ---------------------------------------------------------------------------
+# d1e2f3a4b5c6 — offer templates, chapter blocks and prompts in the database
+# ---------------------------------------------------------------------------
+
+WORKSHOP_STEPS = (
+    "2026_10_23_offer_workshop_base.py",
+    "2026_10_24_offer_sources.py",
+    "2026_10_25_offer_story_map.py",
+    "2026_10_26_offer_chapters.py",
+    "2026_10_27_offer_findings.py",
+    "2026_10_28_offer_exports.py",
+    "2026_10_29_offer_story_description.py",
+    "2026_10_30_offer_story_scope_removed.py",
+)
+
+
+@pytest.fixture(scope="module")
+def templates() -> ModuleType:
+    return _load("2026_10_31_offer_templates.py")
+
+
+def test_templates_follow_scope_removal(templates: ModuleType) -> None:
+    assert templates.down_revision == "c0d1e2f3a4b5"
+
+
+def test_template_seed_content_is_valid(templates: ModuleType) -> None:
+    from alloq_offer.workshop.content.schema import parse_content  # noqa: PLC0415
+
+    chapters = templates.payload()["chapters"]
+    assert [c["key"] for c in chapters] == [b["key"] for b in templates.BLOCKS]
+    for chapter in chapters:
+        content = parse_content(chapter["default_content"])
+        assert content.chapter_type == chapter["chapter_type"]
+    assert set(templates.PROMPTS) == {
+        "chapter",
+        "map",
+        "map_additions",
+        "briefing",
+        "review",
+    }
+    names = zipfile.ZipFile(templates.LAYOUT_PATH).namelist()
+    assert not [n for n in names if "comments" in n or "people" in n or "custom" in n]
+
+
+def _workshop_with_chapters(conn: Connection) -> None:
+    for name in WORKSHOP_STEPS:
+        _run(_load(name), "upgrade", conn)
+    conn.execute(
+        sa.text(
+            "INSERT INTO offer_chapters (id, offer_id, chapter_key, revision, "
+            "protected, needs_review, review_reason, created, updated) VALUES "
+            "(1, 1, 'verguetung', 1, 0, 0, '', '2026-10-01', '2026-10-01'), "
+            "(2, 1, 'unbekannt', 1, 0, 0, '', '2026-10-01', '2026-10-01')"
+        )
+    )
+
+
+def test_templates_migration_seeds_and_backfills(templates: ModuleType) -> None:
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        conn.execute(sa.text("INSERT INTO offers (id) VALUES (1)"))
+        _workshop_with_chapters(conn)
+        _run(templates, "upgrade", conn)
+        chapters = conn.execute(
+            sa.text(
+                "SELECT chapter_key, position, title, chapter_type, required, "
+                "block_key, settings FROM offer_chapters ORDER BY id"
+            )
+        ).all()
+        prompts = conn.execute(
+            sa.text("SELECT name, version FROM offer_prompts WHERE active")
+        ).all()
+        versions = conn.execute(
+            sa.text("SELECT number, payload FROM offer_template_versions")
+        ).all()
+        outline = conn.scalar(sa.text("SELECT count(*) FROM offer_template_chapters"))
+        nullable = {
+            c["name"]: c["nullable"]
+            for c in sa.inspect(conn).get_columns("offer_chapters")
+        }
+        with pytest.raises(IntegrityError):
+            conn.execute(
+                sa.text(
+                    "INSERT INTO offer_prompts (name, version, text, active, author, "
+                    "created, updated) VALUES ('map', 2, 'x', 1, '', "
+                    "'2026-10-01', '2026-10-01')"
+                )
+            )
+    verguetung, unknown = chapters
+    assert verguetung[:6] == (
+        "verguetung",
+        9,
+        "Vergütung",
+        "calc",
+        1,
+        "verguetung",
+    )
+    assert json.loads(verguetung[6])["checks"] == ["commercials_confirmed"]
+    assert unknown[1:6] == (len(templates.BLOCKS), "unbekannt", "prose", 0, None)
+    assert sorted(prompts) == sorted((name, 1) for name in templates.PROMPTS)
+    assert versions[0][0] == 1
+    assert json.loads(versions[0][1]) == templates.payload()
+    assert outline == len(templates.BLOCKS)
+    assert not any(nullable[name] for name in templates.CHAPTER_COLUMNS)
+
+
+def test_templates_migration_downgrade_drops_tables_and_columns(
+    templates: ModuleType,
+) -> None:
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        _workshop_with_chapters(conn)
+        _run(templates, "upgrade", conn)
+        _run(templates, "downgrade", conn)
+        tables = set(sa.inspect(conn).get_table_names())
+        columns = {c["name"] for c in sa.inspect(conn).get_columns("offer_chapters")}
+        blobs = conn.scalar(sa.text("SELECT count(*) FROM offer_blobs"))
+    assert not set(templates.NEW_TABLES) & tables
+    assert not {"position", "settings", "removed_at", "block_key"} & columns
+    assert blobs == 0
+
+
+def test_templates_migration_reuses_and_keeps_shared_layout_blob(
+    templates: ModuleType,
+) -> None:
+    layout = templates.LAYOUT_PATH.read_bytes()
+    digest = hashlib.sha256(layout).hexdigest()
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        conn.execute(sa.text("INSERT INTO offers (id) VALUES (1)"))
+        _workshop_with_chapters(conn)
+        conn.execute(
+            sa.text(
+                "INSERT INTO offer_blobs (id, sha256, size, mime, data, created, "
+                "updated) VALUES (5, :sha, 1, 'x', :data, '2026-10-01', "
+                "'2026-10-01')"
+            ),
+            {"sha": digest, "data": layout},
+        )
+        conn.execute(
+            sa.text(
+                "INSERT INTO offer_sources (offer_id, kind, title, filename, mime, "
+                "blob_id, sha256, version, status, status_detail, included, "
+                "created_by, created, updated) VALUES (1, 'docx', 'Vorlage', "
+                "'a.docx', 'x', 5, :sha, 1, 'nutzbar', '', 1, '', '2026-10-01', "
+                "'2026-10-01')"
+            ),
+            {"sha": digest},
+        )
+        _run(templates, "upgrade", conn)
+        used = conn.scalar(
+            sa.text("SELECT layout_blob_id FROM offer_template_versions")
+        )
+        _run(templates, "downgrade", conn)
+        left = conn.scalar(sa.text("SELECT count(*) FROM offer_blobs"))
+    assert used == 5
+    assert left == 1
