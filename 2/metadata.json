@@ -1,0 +1,90 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M5WQYA87TH9GQBG8QCM1ZTYS",
+  "session_id": "6bc8027d-ec20-4695-b012-db696d04045f",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-26T18:35:40.127548Z",
+  "branch": "feature/offer-doc",
+  "checkpoints_count": 1,
+  "save_step_count": 2,
+  "files_touched": [
+    "components/alloq-offer/src/alloq_offer/workshop/components/draft_tab.py",
+    "components/alloq-offer/src/alloq_offer/workshop/pages.py",
+    "components/alloq-offer/src/alloq_offer/workshop/services/chapter_document.py",
+    "components/alloq-offer/src/alloq_offer/workshop/services/chapters.py",
+    "components/alloq-offer/src/alloq_offer/workshop/services/draft_overview.py",
+    "components/alloq-offer/src/alloq_offer/workshop/services/outline.py",
+    "components/alloq-offer/src/alloq_offer/workshop/services/templates.py",
+    "components/alloq-offer/src/alloq_offer/workshop/states/draft_state.py",
+    "components/alloq-offer/tests/test_workshop_document.py"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-opus-5-5",
+  "turn_id": "5ed3fe6f1fc1",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 10,
+    "cache_creation_tokens": 9558,
+    "cache_read_tokens": 1652504,
+    "output_tokens": 2631,
+    "api_call_count": 5,
+    "subagent_tokens": {
+      "input_tokens": 0,
+      "cache_creation_tokens": 0,
+      "cache_read_tokens": 0,
+      "output_tokens": 0,
+      "api_call_count": 0
+    }
+  },
+  "redaction": {
+    "replacements": 109,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 2,
+      "credentialed_uri": 0,
+      "entropy": 107,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "skill_events_version": 1,
+  "skill_events": [
+    {
+      "id": "claude-skill-toolu_014VCizmWGoSLXmmdkKtNmWk",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "alloq-implementation"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "5ed3fe6f1fc1",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 40,
+        "end": 41,
+        "entry_ids": [
+          "ad5a3a20-d342-47ac-a581-e9b9b4371bbf"
+        ],
+        "tool_use_id": "toolu_014VCizmWGoSLXmmdkKtNmWk"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_014VCizmWGoSLXmmdkKtNmWk"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: alloq-implementation",
+        "default_collapsed": true
+      }
+    }
+  ],
+  "session_metrics": {
+    "turn_count": 1
+  }
+}

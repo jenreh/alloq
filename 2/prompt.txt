@@ -1,0 +1,1 @@
+there needs to be a new role offer_admin the will allow user with this role and admin role to manage the offer configuration
