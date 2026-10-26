@@ -1,0 +1,2 @@
+* the calculation is not correct when changing the db to 30% the expected tagessatz is 1120
+* tagessätze should not be added, there should be a table with all roles and inputs for the Herstellkosten, the Empf. Verkaufspreis and Listenpreis
