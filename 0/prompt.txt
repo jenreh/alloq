@@ -1,0 +1,1 @@
+there is missing a homepage for the docs. the vite server shows an empty page
