@@ -1,0 +1,1 @@
+the row with the "umsetzungscrhitt" should be deleteable. the delete button should be right aligned in the row (x) like in the cols
