@@ -1,0 +1,1 @@
+in the planning grid, employee view: switch absence and add project in the employee row
