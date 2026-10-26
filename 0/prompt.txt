@@ -1,0 +1,1 @@
+use claude design to generate 3 prototypes based on this plan and the original spec
