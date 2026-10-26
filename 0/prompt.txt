@@ -1,0 +1,1 @@
+exclude .agents, .claude, .github and .codex from linting
