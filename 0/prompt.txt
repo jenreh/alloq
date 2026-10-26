@@ -1,0 +1,1 @@
+show me the prompt of the "code-review" skill (it seems to be a claude internal skill)
