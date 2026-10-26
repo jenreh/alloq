@@ -1,0 +1,148 @@
+task desktop:dev should start with the fake login.
+
+ 
+
+<pasted_content id="935d">
+task desktop:dev
+reflex-desktop: scaffolded dev shell at /Users/jens/Workspace/work/alloq/tauri-dev
+2026-10-15 09:07:42 WARNING : reflex.deprecation - console.info has been deprecated in version 0.9.9. use logger.info(msg) on logging.getLogger(__name__) instead. It will be completely removed in 1.0. (.venv.mac/lib/python3.14/site-packages/reflex_desktop/plugin.py:542)
+Info: reflex-desktop: applied icon alloq_icon.png; for full platform icons (.ico/.icns + every size) run `cargo tauri
+icon <path>` in src-tauri.
+reflex-desktop: starting `reflex run` (dev server on http://localhost:8080)...
+──────────────────────────────────────────────── Starting Reflex App ────────────────────────────────────────────────
+2026-10-15 09:07:43 INFO    : alembic.runtime.plugins - setup plugin alembic.autogenerate.schemas
+2026-10-15 09:07:43 INFO    : alembic.runtime.plugins - setup plugin alembic.autogenerate.tables
+2026-10-15 09:07:43 INFO    : alembic.runtime.plugins - setup plugin alembic.autogenerate.types
+2026-10-15 09:07:43 INFO    : alembic.runtime.plugins - setup plugin alembic.autogenerate.constraints
+2026-10-15 09:07:43 INFO    : alembic.runtime.plugins - setup plugin alembic.autogenerate.defaults
+2026-10-15 09:07:43 INFO    : alembic.runtime.plugins - setup plugin alembic.autogenerate.comments
+2026-10-15 09:07:43 INFO    : alembic.runtime.plugins - setup plugin alembic.ext.checkconstraint_byname
+Traceback (most recent call last):
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/msal/authority.py", line 98, in __init__
+    openid_config = tenant_discovery(
+        tenant_discovery_endpoint,
+        self._http_client)
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/msal/authority.py", line 298, in tenant_discovery
+    raise ValueError("OIDC Discovery failed on {}. HTTP status: {}, Error: {}".format(
+    ...<3 lines>...
+        ))
+ValueError: OIDC Discovery failed on https://login.microsoftonline.com/secret:common-oauth-azure-tenant-id/v2.0/.well-known/openid-configuration. HTTP status: 400, Error: {"error":"invalid_tenant","error_description":"AADSTS90002: Tenant 'secret:common-oauth-azure-tenant-id' not found. Check to make sure you have the correct tenant ID and are signing into the correct cloud. Check with your subscription administrator, this may happen if there are no active subscriptions for the tenant. Trace ID: 8a59e26d-706d-4933-8470-c32d8a284c00 Correlation ID: eb5dfc94-8873-4833-b8de-d53ab5c1b370 Timestamp: 2026-10-15 07:07:43Z","error_codes":[90002],"timestamp":"2026-10-15 07:07:43Z","trace_id":"8a59e26d-706d-4933-8470-c32d8a284c00","correlation_id":"eb5dfc94-8873-4833-b8de-d53ab5c1b370","error_uri":"https://login.microsoftonline.com/error?code=90002"}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/reflex/utils/prerequisites.py", line427, in compile_or_validate_app
+    get_compiled_app(
+    ~~~~~~~~~~~~~~~~^
+        check_if_schema_up_to_date=check_if_schema_up_to_date,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        prerender_routes=prerender_routes,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        trigger=trigger,
+        ^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/reflex/utils/prerequisites.py", line336, in get_compiled_app
+    app, app_module = get_and_validate_app(
+                      ~~~~~~~~~~~~~~~~~~~~^
+        reload=reload, check_if_schema_up_to_date=check_if_schema_up_to_date
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/reflex/utils/prerequisites.py", line310, in get_and_validate_app
+    check_schema_up_to_date()
+    ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/reflex/utils/prerequisites.py", line860, in check_schema_up_to_date
+    with model.get_engine().connect() as connection:
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 3295, in connect
+    return self._connection_cls(self)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 144, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 3319, in raw_connection
+    return self.pool.connect()
+           ~~~~~~~~~~~~~~~~~^^
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 448, in connect
+    return _ConnectionFairy._checkout(self)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 1272,in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 712, in checkout
+    rec = pool._do_get()
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/sqlalchemy/pool/impl.py", line 178, in _do_get
+    with util.safe_reraise():
+         ~~~~~~~~~~~~~~~~~^^
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/sqlalchemy/util/langhelpers.py", line 122, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/sqlalchemy/pool/impl.py", line 176, in _do_get
+    return self._create_connection()
+           ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 389, in _create_connection
+    return _ConnectionRecord(self)
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 674, in __init__
+    self.__connect()
+    ~~~~~~~~~~~~~~^^
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 900, in __connect
+    with util.safe_reraise():
+         ~~~~~~~~~~~~~~~~~^^
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/sqlalchemy/util/langhelpers.py", line 122, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 896, in __connect
+    self.dbapi_connection = connection = pool._invoke_creator(self)
+                                         ~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/sqlalchemy/engine/create.py", line 656, in connect
+    fn(
+    ~~^
+        dialect,
+        ^^^^^^^^
+    ...<2 lines>...
+        mutable_cparams,
+        ^^^^^^^^^^^^^^^^
+    ),
+    ^
+  File "/Users/jens/Workspace/work/alloq/app/desktop/entra.py", line 271, in _token_password
+    connect_params(_installed[0], cparams)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jens/Workspace/work/alloq/app/desktop/entra.py", line 250, in connect_params
+    account = sign_in.restore()
+  File "/Users/jens/Workspace/work/alloq/app/desktop/entra.py", line 202, in restore
+    return self.sign_in_silently()
+           ~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/jens/Workspace/work/alloq/app/desktop/entra.py", line 181, in sign_in_silently
+    result = self._silent_result()
+  File "/Users/jens/Workspace/work/alloq/app/desktop/entra.py", line 142, in _silent_result
+    app = self._app()
+  File "/Users/jens/Workspace/work/alloq/app/desktop/entra.py", line 134, in _app
+    self._client = self._client_factory(
+                   ~~~~~~~~~~~~~~~~~~~~^
+        self._config.client_id,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+        authority=self._config.authority,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        token_cache=self._cache if self._cache is not None else token_cache(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/msal/application.py", line 2263, in __init__
+    super(PublicClientApplication, self).__init__(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        client_id, client_credential=None, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/msal/application.py", line 741, in __init__
+    self.authority = Authority(
+                     ~~~~~~~~~^
+        authority_to_use,
+        ^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+        oidc_authority_url=oidc_authority,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        )
+        ^
+  File "/Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/msal/authority.py", line 114, in __init__
+    raise ValueError(error_message)
+ValueError: Unable to get authority configuration for https://login.microsoftonline.com/secret:common-oauth-azure-tenant-id. Authority would typically be in a format of https://login.microsoftonline.com/your_tenant or https://tenant_name.ciamlogin.com or https://tenant_name.b2clogin.com/tenant.onmicrosoft.com/policy.  Also please double check your tenant name or GUID is correct.
+Error: `reflex run` exited with code 1 before the dev server came up.
+task: Failed to run task "desktop:dev": exit status 1
+</pasted_content id="935d">
