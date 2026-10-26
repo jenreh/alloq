@@ -1,0 +1,2 @@
+* in the inspector the "um" should be a textarea with at least 2 rows, growing when the user types more
+* same for the hovering title edit
