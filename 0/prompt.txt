@@ -1,0 +1,1 @@
+optimize the performance of the entwurf page of the offer workshop. it takes very long until something is shown. Analyse where the performance is lost and then optimize
