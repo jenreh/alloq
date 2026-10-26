@@ -1,0 +1,1 @@
+values in all inspectors should be trimmed and not break
