@@ -1,0 +1,11 @@
+<task-notification>
+<task-id>aa986c711fb8d209b</task-id>
+<tool-use-id>toolu_01QQn5ReKSBDs71JUE4e3sdh</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jens-Workspace-work-alloq/c6abb66f-d4ff-4e15-90c6-ce0161f49c20/tasks/aa986c711fb8d209b.output</output-file>
+<status>completed</status>
+<summary>Agent "Altitude review" finished</summary>
+<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>
+<result>This agent's report was delivered to you as a message from "aa986c711fb8d209b" (its SubagentHandback call). Read it there; it is not repeated here.
+</result>
+<usage><subagent_tokens>58900</subagent_tokens><tool_uses>3</tool_uses><duration_ms>19919</duration_ms></usage>
+</task-notification>
