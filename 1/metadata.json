@@ -1,0 +1,92 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M5WQYA87TH9GQBG8QCM1ZTYS",
+  "session_id": "5f8f4a58-3010-4923-98a6-91aac4643fa1",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-26T18:35:39.745721Z",
+  "branch": "feature/offer-doc",
+  "checkpoints_count": 4,
+  "save_step_count": 4,
+  "files_touched": [
+    "components/alloq-offer/src/alloq_offer/workshop/components/draft_tab.py",
+    "components/alloq-offer/src/alloq_offer/workshop/pages.py",
+    "components/alloq-offer/src/alloq_offer/workshop/repositories.py",
+    "components/alloq-offer/src/alloq_offer/workshop/services/chapter_document.py",
+    "components/alloq-offer/src/alloq_offer/workshop/services/chapters.py",
+    "components/alloq-offer/src/alloq_offer/workshop/services/draft_overview.py",
+    "components/alloq-offer/src/alloq_offer/workshop/services/map_apply.py",
+    "components/alloq-offer/src/alloq_offer/workshop/services/outline.py",
+    "components/alloq-offer/src/alloq_offer/workshop/services/templates.py",
+    "components/alloq-offer/src/alloq_offer/workshop/states/chapter_state.py",
+    "components/alloq-offer/src/alloq_offer/workshop/states/draft_state.py",
+    "components/alloq-offer/tests/conftest.py",
+    "components/alloq-offer/tests/test_workshop_chapter_state.py",
+    "components/alloq-offer/tests/test_workshop_document.py",
+    "components/alloq-offer/tests/test_workshop_draft_state.py",
+    "components/alloq-offer/tests/test_workshop_map.py",
+    "components/alloq-offer/tests/test_workshop_review_state.py",
+    "pyproject.toml"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-sonnet-5-5",
+  "turn_id": "55b86794cbb5",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 56,
+    "cache_creation_tokens": 72310,
+    "cache_read_tokens": 2079475,
+    "output_tokens": 9414,
+    "api_call_count": 26
+  },
+  "redaction": {
+    "replacements": 0,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 0,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "skill_events_version": 1,
+  "skill_events": [
+    {
+      "id": "claude-skill-toolu_017STcpYQaFeMkekB5T2E3Vy",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "alloq-implementation"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "55b86794cbb5",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 28,
+        "end": 29,
+        "entry_ids": [
+          "65ad01c3-e5f6-4c86-aec2-c17b83c97101"
+        ],
+        "tool_use_id": "toolu_017STcpYQaFeMkekB5T2E3Vy"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_017STcpYQaFeMkekB5T2E3Vy"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: alloq-implementation",
+        "default_collapsed": true
+      }
+    }
+  ],
+  "session_metrics": {
+    "turn_count": 4
+  }
+}
