@@ -1,0 +1,1 @@
+the story seitenleiste is not shown, nothing is scrolling or moving. so, i' not sure if the current story board works as intendet
