@@ -1,0 +1,42 @@
+Stop hook feedback:
+["$CLAUDE_PROJECT_DIR"/.claude/hooks/stop-tests.sh]: Tests failed for changed components:
+components/alloq-offer/tests/test_industry_state.py: 6 warnings
+components/alloq-offer/tests/test_offer_components.py: 507 warnings
+components/alloq-offer/tests/test_workshop_state.py: 1 warning
+  /Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/reflex_base/utils/types.py:581: PydanticDeprecatedSince20: The `__fields__` attribute is deprecated, use the `model_fields` class property instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    and field_name in cls.__fields__
+
+.venv.mac/lib/python3.14/site-packages/reflex_base/utils/types.py:582: 254 warnings
+components/alloq-offer/tests/test_industry_state.py: 6 warnings
+components/alloq-offer/tests/test_offer_components.py: 507 warnings
+components/alloq-offer/tests/test_workshop_state.py: 1 warning
+  /Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/reflex_base/utils/types.py:582: PydanticDeprecatedSince20: The `__fields__` attribute is deprecated, use the `model_fields` class property instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    and hasattr(cls.__fields__[field_name], "annotation")
+
+.venv.mac/lib/python3.14/site-packages/reflex_base/utils/types.py:583: 254 warnings
+components/alloq-offer/tests/test_industry_state.py: 6 warnings
+components/alloq-offer/tests/test_offer_components.py: 507 warnings
+components/alloq-offer/tests/test_workshop_state.py: 1 warning
+  /Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/reflex_base/utils/types.py:583: PydanticDeprecatedSince20: The `__fields__` attribute is deprecated, use the `model_fields` class property instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    and not isinstance(cls.__fields__[field_name].annotation, (str, ForwardRef))
+
+.venv.mac/lib/python3.14/site-packages/reflex_base/utils/types.py:585: 254 warnings
+components/alloq-offer/tests/test_industry_state.py: 6 warnings
+components/alloq-offer/tests/test_offer_components.py: 507 warnings
+components/alloq-offer/tests/test_workshop_state.py: 1 warning
+  /Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/reflex_base/utils/types.py:585: PydanticDeprecatedSince20: The `__fields__` attribute is deprecated, use the `model_fields` class property instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    return cls.__fields__[field_name].annotation
+
+components/alloq-offer/tests/test_industry_state.py::TestUiHandlers::test_search_filters_by_name
+  /Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/pytest_asyncio/plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+components/alloq-offer/tests/test_industry_state.py::TestUiHandlers::test_search_filters_by_name
+  /Users/jens/Workspace/work/alloq/.venv.mac/lib/python3.14/site-packages/appkit_commons/testing.py:109: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
+    return asyncio.get_event_loop_policy()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_app.py::TestAuthPageLogos::test_logos_at_site_root - Assert...
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 430 passed, 5380 warnings in 13.96s
