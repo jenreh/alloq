@@ -1,0 +1,1 @@
+the green text should be left aligned with the title
