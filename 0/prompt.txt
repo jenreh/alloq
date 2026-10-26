@@ -1,0 +1,1 @@
+the uploaded documents should be viewable. reuse the view from the mail-archive project
