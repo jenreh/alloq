@@ -1,0 +1,1 @@
+Start with the planning project load: stop project_repo.find_all from loading the whole allocation history on the planning page.
