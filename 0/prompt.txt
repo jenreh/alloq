@@ -1,0 +1,5 @@
+<bash-input>task db:upgrade</bash-input><bash-stdout>INFO: alembic.runtime.migration Context impl PostgresqlImpl.
+INFO: alembic.runtime.migration Will assume transactional DDL.
+INFO: alembic.runtime.migration Running upgrade f7a8b9c0d1e2 -&gt; a8b9c0d1e2f3, Offer workshop snapshots and Word exports.
+
+  ~/Workspace/work/alloq   feature/offer-doc !29 ?21 ·  alloq  3.14  23:25:29</bash-stdout><bash-stderr></bash-stderr>
