@@ -1,0 +1,1 @@
+on the offers page: if no offer is selected the inspector should show a user friendly empty message
