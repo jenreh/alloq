@@ -1,0 +1,1 @@
+dimming makes it worse, now it flickers. the bar should only be shown where it is needed, in the card
