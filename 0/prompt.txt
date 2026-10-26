@@ -1,0 +1,1 @@
+the bars in the people inspector should be normalized to 100% with a stacked bar, green: planned capacity, light grey: free capacity
