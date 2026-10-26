@@ -3,7 +3,7 @@
   "checkpoint_id": "01M5WQ5Q73V5S95M4R81Z10XEM",
   "strategy": "manual-commit",
   "branch": "feature/offer-doc",
-  "checkpoints_count": 1,
+  "checkpoints_count": 2,
   "files_touched": [
     "components/alloq-offer/src/alloq_offer/workshop/components/draft_tab.py",
     "components/alloq-offer/src/alloq_offer/workshop/pages.py",
@@ -17,14 +17,21 @@
       "compact_transcript": "/0/transcript.jsonl",
       "content_hash": "/0/content_hash.txt",
       "prompt": "/0/prompt.txt"
+    },
+    {
+      "metadata": "/1/metadata.json",
+      "transcript": "/1/full.jsonl",
+      "compact_transcript": "/1/transcript.jsonl",
+      "content_hash": "/1/content_hash.txt",
+      "prompt": "/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 112,
-    "cache_creation_tokens": 212469,
-    "cache_read_tokens": 8430944,
-    "output_tokens": 33832,
-    "api_call_count": 57
+    "input_tokens": 122,
+    "cache_creation_tokens": 258065,
+    "cache_read_tokens": 8724297,
+    "output_tokens": 39952,
+    "api_call_count": 62
   },
   "redaction": {
     "replacements": 8,
