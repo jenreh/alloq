@@ -253,10 +253,6 @@ unresolved-import = "warn"
 [[tool.ty.overrides]]
 include = [
     "**/components/**",
-    "**/states/**",
-    "**/state/**",
-    "**/pages.py",
-    "**/pages/**",
     "rxconfig.py",
 ]
 

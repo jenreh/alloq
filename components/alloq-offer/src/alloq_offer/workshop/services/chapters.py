@@ -6,6 +6,7 @@ arrive as proposals that a person accepts.
 """
 
 import logging
+from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import select, tuple_, update
@@ -282,6 +283,13 @@ def _add_revision(
     return chapter.revision
 
 
+@dataclass(frozen=True)
+class Outline:
+    chapters: list[ChapterEntity]
+    proposals: list[ProposalEntity]
+    views: list[dict[str, Any]]
+
+
 class ChapterService:
     """The chapters of one offer as one person works on them."""
 
@@ -316,24 +324,35 @@ class ChapterService:
             workspace = await workspace_repo.find_by_offer(session, self._offer_id)
             if workspace is None:
                 return []
+            return (await self.outline(session, workspace)).views
+
+    async def outline(
+        self, session: AsyncSession, workspace: WorkspaceEntity
+    ) -> Outline:
+        """``open`` inside a session the caller keeps using."""
+        chapters = await live_chapters(session, self._offer_id)
+        if not chapters and not await self._has_chapters(session):
+            # Only creating chapters needs the lock that serialises with map edits.
+            await session.refresh(workspace, with_for_update=True)
+            if not await self._has_chapters(session):
+                template = await load_template(
+                    session, workspace.template_key, workspace.template_version
+                )
+                await create_chapters(
+                    session, self._offer_id, template, workspace.map_revision
+                )
             chapters = await live_chapters(session, self._offer_id)
-            if not chapters and not await self._has_chapters(session):
-                # Only creating chapters needs the lock that serialises with map edits.
-                await session.refresh(workspace, with_for_update=True)
-                if not await self._has_chapters(session):
-                    template = await load_template(
-                        session, workspace.template_key, workspace.template_version
-                    )
-                    await create_chapters(
-                        session, self._offer_id, template, workspace.map_revision
-                    )
-                chapters = await live_chapters(session, self._offer_id)
-            pending = {p.chapter_key for p in await self._open_proposals(session)}
-            numbers = outline_numbers([c.level for c in chapters])
-            return [
+        proposals = await self._open_proposals(session)
+        pending = {p.chapter_key for p in proposals}
+        numbers = outline_numbers([c.level for c in chapters])
+        return Outline(
+            chapters=chapters,
+            proposals=proposals,
+            views=[
                 _view(c, number, c.chapter_key in pending)
                 for c, number in zip(chapters, numbers, strict=True)
-            ]
+            ],
+        )
 
     async def _has_chapters(self, session: AsyncSession) -> bool:
         found = await session.scalar(
@@ -362,22 +381,7 @@ class ChapterService:
         async with self._sessions() as session:
             chapter = await find_chapter(session, self._offer_id, key)
             current = await revision_of(session, chapter)
-            proposal = next(
-                (
-                    p
-                    for p in reversed(await self._open_proposals(session))
-                    if p.chapter_key == key
-                ),
-                None,
-            )
-            return {
-                "revision": chapter.revision,
-                "content": current.content,
-                "origin": current.origin,
-                "proposal": _proposal_dict(proposal, current.content)
-                if proposal
-                else None,
-            }
+            return chapter_detail(chapter, current, await self._open_proposals(session))
 
     async def save(self, key: str, expected: int, content: Content) -> int:
         """Store a person's text as a new revision; ``expected`` must be current."""
@@ -522,6 +526,24 @@ def _view(chapter: ChapterEntity, number: str, proposal: bool) -> dict:
         "proposal": proposal,
         "guiding_question": settings.guiding_question,
         "rules": settings.content_rules,
+    }
+
+
+def chapter_detail(
+    chapter: ChapterEntity,
+    current: ChapterRevisionEntity,
+    proposals: list[ProposalEntity],
+) -> dict[str, Any]:
+    """Revision, content and the newest open proposal of a chapter."""
+    proposal = next(
+        (p for p in reversed(proposals) if p.chapter_key == chapter.chapter_key),
+        None,
+    )
+    return {
+        "revision": chapter.revision,
+        "content": current.content,
+        "origin": current.origin,
+        "proposal": _proposal_dict(proposal, current.content) if proposal else None,
     }
 
 

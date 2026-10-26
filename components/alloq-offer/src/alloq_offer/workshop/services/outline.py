@@ -75,6 +75,23 @@ def _renumber(chapters: list[ChapterEntity]) -> None:
         chapters[0].level = 1
 
 
+async def removed_chapters(
+    session: AsyncSession, offer_id: int
+) -> list[dict[str, str]]:
+    """Removed chapters, last removed first."""
+    rows = (
+        await session.scalars(
+            select(ChapterEntity)
+            .where(
+                ChapterEntity.offer_id == offer_id,
+                ChapterEntity.removed_at.is_not(None),
+            )
+            .order_by(ChapterEntity.removed_at.desc(), ChapterEntity.id)
+        )
+    ).all()
+    return [{"key": row.chapter_key, "title": row.title} for row in rows]
+
+
 class OutlineService:
     """Outline changes of one offer; each serialises on the workspace row."""
 
@@ -129,17 +146,7 @@ class OutlineService:
     async def removed(self) -> list[dict[str, str]]:
         """Removed chapters, last removed first."""
         async with self._sessions() as session:
-            rows = (
-                await session.scalars(
-                    select(ChapterEntity)
-                    .where(
-                        ChapterEntity.offer_id == self._offer_id,
-                        ChapterEntity.removed_at.is_not(None),
-                    )
-                    .order_by(ChapterEntity.removed_at.desc(), ChapterEntity.id)
-                )
-            ).all()
-        return [{"key": row.chapter_key, "title": row.title} for row in rows]
+            return await removed_chapters(session, self._offer_id)
 
     async def _block_definition(
         self, session: AsyncSession, key: str, block_key: str, title: str

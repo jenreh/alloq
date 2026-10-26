@@ -11,7 +11,6 @@ from alloq_offer.workshop.components.sources_panel import sources_panel
 from alloq_offer.workshop.services import draft_overview
 from alloq_offer.workshop.states.draft_state import DraftState
 from alloq_offer.workshop.states.export_state import ExportState
-from alloq_offer.workshop.states.map_state import MapState
 from alloq_offer.workshop.states.sources_state import SourcesState
 from alloq_offer.workshop.states.workshop_state import (
     TAB_BRIEFING,
@@ -221,9 +220,9 @@ def draft_tab() -> rx.Component:
     return rx.box(
         rx.box(
             mn.stack(
-                rx.cond(MapState.has_map, summary_card(), start_card()),
+                rx.cond(DraftState.has_map, summary_card(), start_card()),
                 rx.cond(DraftState.started, progress_card()),
-                rx.cond(MapState.has_map, decisions_card()),
+                rx.cond(DraftState.has_map, decisions_card()),
                 rx.cond(
                     DraftState.working,
                     rx.moment(

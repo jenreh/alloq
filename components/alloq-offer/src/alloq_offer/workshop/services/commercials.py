@@ -152,24 +152,28 @@ async def load_view(session_factory: SessionFactory, offer_id: int) -> Commercia
     async with session_factory() as session:
         workspace, offer = await _open(session, offer_id)
         await void_if_changed(session, workspace, offer)
-        resolved = resolve_values(offer, workspace)
-        return CommercialsView(
-            rows=[
-                {"label": label, "value": resolved[field].text or "–"}
-                for field, label in _LABELS.items()
-            ],
-            confirmed=is_confirmed(workspace, current_values(offer, workspace)),
-            confirmed_by=workspace.commercials_confirmed_by,
-            confirmed_at=(
-                workspace.commercials_confirmed_at.strftime("%d.%m.%Y %H:%M")
-                if workspace.commercials_confirmed_at
-                else ""
-            ),
-            price_required=workspace.price_required,
-            validity_date=(
-                workspace.validity_date.isoformat() if workspace.validity_date else ""
-            ),
-        )
+        return view_of(workspace, offer)
+
+
+def view_of(workspace: WorkspaceEntity, offer: OfferEntity) -> CommercialsView:
+    resolved = resolve_values(offer, workspace)
+    return CommercialsView(
+        rows=[
+            {"label": label, "value": resolved[field].text or "–"}
+            for field, label in _LABELS.items()
+        ],
+        confirmed=is_confirmed(workspace, current_values(offer, workspace)),
+        confirmed_by=workspace.commercials_confirmed_by,
+        confirmed_at=(
+            workspace.commercials_confirmed_at.strftime("%d.%m.%Y %H:%M")
+            if workspace.commercials_confirmed_at
+            else ""
+        ),
+        price_required=workspace.price_required,
+        validity_date=(
+            workspace.validity_date.isoformat() if workspace.validity_date else ""
+        ),
+    )
 
 
 _LABELS = {

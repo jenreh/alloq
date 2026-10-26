@@ -204,7 +204,9 @@ class ChapterState(OutlineMixin, ChapterPanelMixin, rx.State):
         return None
 
     async def _load_active(self, service: ChapterService) -> None:
-        loaded = await service.load(self.active_key)
+        self._show_active(await service.load(self.active_key))
+
+    def _show_active(self, loaded: dict[str, Any]) -> None:
         self._content = loaded["content"]
         content = parse_content(loaded["content"])
         self.revision = loaded["revision"]
@@ -234,18 +236,14 @@ class ChapterState(OutlineMixin, ChapterPanelMixin, rx.State):
         self.chapters = document.chapters
         self.frame_before = document.frame_before
         self.frame_after = document.frame_after
-        self.removed_chapters = await self._outline_for(service).removed()
+        self.removed_chapters = document.removed
         keys = [c["key"] for c in self.chapters]
         if self.active_key not in keys:
             # A removed chapter leaves nothing selected; a new page starts at 1.
             self.active_key = keys[0] if select_first and keys else ""
         if self.active_key:
-            await self._load_active(service)
-        async with get_asyncdb_session() as session:
-            job = await job_repo.find_latest(
-                session, service.offer_id, DRAFT_CHAPTERS_JOB
-            )
-        self.draft_job = job.status if job is not None else ""
+            self._show_active(document.details[self.active_key])
+        self.draft_job = document.draft_job
 
     @rx.event
     @requires_offer_editor

@@ -1,10 +1,9 @@
 """The offer as one document: every chapter with what its block shows read-only."""
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
-from alloq_offer.entities import OfferEntity
 from alloq_offer.workshop.content.editor_io import content_to_html
 from alloq_offer.workshop.content.schema import (
     BOUND_FIELDS,
@@ -21,15 +20,17 @@ from alloq_offer.workshop.export.models import (
     ResolvedValue,
     group_stories,
 )
-from alloq_offer.workshop.repositories import workspace_repo
+from alloq_offer.workshop.repositories import job_repo, workspace_repo
+from alloq_offer.workshop.services.chapter_draft import DRAFT_CHAPTERS_JOB
 from alloq_offer.workshop.services.chapters import (
     ChapterService,
+    chapter_detail,
     current_revisions,
-    live_chapters,
 )
 from alloq_offer.workshop.services.commercials import resolve_values
 from alloq_offer.workshop.services.export_snapshot import resolve_stories
-from alloq_offer.workshop.services.map_apply import snapshot_map
+from alloq_offer.workshop.services.map_apply import current_snapshot
+from alloq_offer.workshop.services.outline import removed_chapters
 from alloq_offer.workshop.services.templates import load_template
 
 
@@ -38,6 +39,10 @@ class OfferDocument:
     chapters: list[dict[str, Any]]
     frame_before: list[str]
     frame_after: list[str]
+    # What ``ChapterService.load`` returns, for every chapter of the outline.
+    details: dict[str, dict[str, Any]] = field(default_factory=dict)
+    removed: list[dict[str, str]] = field(default_factory=list)
+    draft_job: str = ""
 
 
 def render_block(
@@ -93,28 +98,37 @@ def free_fields(rows: Sequence[dict[str, Any]]) -> list[dict[str, str]]:
 async def load_document(
     sessions: SessionFactory, offer_id: int, user: str
 ) -> OfferDocument | None:
-    """Outline, block contents and the fixed frame of the offer."""
-    views = await ChapterService(sessions, offer_id, user).open()
+    """Everything the chapter tab shows, read in one session."""
     async with sessions() as session:
-        workspace = await workspace_repo.find_by_offer(session, offer_id)
-        offer = await session.get(OfferEntity, offer_id)
-        if workspace is None or offer is None:
+        found = await workspace_repo.find_with_offer(session, offer_id)
+        if found is None:
             return None
+        workspace, offer = found
+        outline = await ChapterService(sessions, offer_id, user).outline(
+            session, workspace
+        )
         template = await load_template(
             session, workspace.template_key, workspace.template_version
         )
-        chapters = await live_chapters(session, offer_id)
-        stored = await current_revisions(session, chapters)
-        stories = resolve_stories(await snapshot_map(session, workspace))
-        values = resolve_values(offer, workspace)
+        stored = await current_revisions(session, outline.chapters)
+        stories = resolve_stories(await current_snapshot(session, workspace))
+        removed = await removed_chapters(session, offer_id)
+        job = await job_repo.find_latest(session, offer_id, DRAFT_CHAPTERS_JOB)
+    values = resolve_values(offer, workspace)
     blocks = {
         c.chapter_key: render_block(
             parse_content(stored[c.id].content), stories, values
         )
-        for c in chapters
+        for c in outline.chapters
     }
     return OfferDocument(
-        chapters=[{**view, **blocks.get(view["key"], {})} for view in views],
+        chapters=[{**view, **blocks.get(view["key"], {})} for view in outline.views],
         frame_before=template.frame_before,
         frame_after=template.frame_after,
+        details={
+            c.chapter_key: chapter_detail(c, stored[c.id], outline.proposals)
+            for c in outline.chapters
+        },
+        removed=removed,
+        draft_job=job.status if job is not None else "",
     )

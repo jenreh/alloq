@@ -30,6 +30,8 @@ NO_VERSION = "Die Vorlage hat noch keine veröffentlichte Version."
 LEGACY_VERSIONS = {"quo_v1.0": 1}
 
 _cache: dict[int, TemplatePackage] = {}
+# Published versions never change: (key, number) finds a cached one without SQL.
+_by_number: dict[tuple[str, int], TemplatePackage] = {}
 
 
 def version_number(version: str) -> int:
@@ -44,6 +46,7 @@ def version_number(version: str) -> int:
 
 def clear_cache() -> None:
     _cache.clear()
+    _by_number.clear()
 
 
 async def _package(
@@ -94,14 +97,18 @@ async def load_template(
     session: AsyncSession, key: str, version: str | int
 ) -> TemplatePackage:
     """The published version ``version`` of template ``key``."""
-    row_id = await session.scalar(_version_query(key, version))
+    number = version if isinstance(version, int) else version_number(version)
+    if (key, number) in _by_number:
+        return _by_number[key, number]
+    row_id = await session.scalar(_version_query(key, number))
     if row_id is None:
         raise TemplateError(UNKNOWN_VERSION)
-    if row_id in _cache:
-        return _cache[row_id]
-    row = await session.get(OfferTemplateVersionEntity, row_id)
-    assert row is not None  # noqa: S101  # found above
-    return await _package(session, key, row)
+    if row_id not in _cache:
+        row = await session.get(OfferTemplateVersionEntity, row_id)
+        assert row is not None  # noqa: S101  # found above
+        await _package(session, key, row)
+    _by_number[key, number] = _cache[row_id]
+    return _cache[row_id]
 
 
 async def latest_template(session: AsyncSession, key: str) -> TemplatePackage:

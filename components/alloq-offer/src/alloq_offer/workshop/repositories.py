@@ -3,6 +3,7 @@
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from alloq_offer.entities import OfferEntity
 from alloq_offer.workshop.entities import (
     JobEntity,
     SourceBlockEntity,
@@ -25,6 +26,20 @@ class WorkspaceRepository(BaseRepository[WorkspaceEntity, AsyncSession]):
         return await session.scalar(
             select(WorkspaceEntity).where(WorkspaceEntity.offer_id == offer_id)
         )
+
+    async def find_with_offer(
+        self, session: AsyncSession, offer_id: int, *, lock: bool = False
+    ) -> tuple[WorkspaceEntity, OfferEntity] | None:
+        """Workspace and offer in one query; ``lock`` locks the workspace row."""
+        query = (
+            select(WorkspaceEntity, OfferEntity)
+            .join(OfferEntity, OfferEntity.id == WorkspaceEntity.offer_id)
+            .where(WorkspaceEntity.offer_id == offer_id)
+        )
+        if lock:
+            query = query.with_for_update(of=WorkspaceEntity)
+        row = (await session.execute(query)).one_or_none()
+        return (row[0], row[1]) if row is not None else None
 
 
 class JobRepository(BaseRepository[JobEntity, AsyncSession]):

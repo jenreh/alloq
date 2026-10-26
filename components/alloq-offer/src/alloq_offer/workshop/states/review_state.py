@@ -21,6 +21,7 @@ from alloq_offer.workshop.services.review_request import (
     ReviewNotPossibleError,
     request_review,
 )
+from alloq_offer.workshop.services.review_view import load_review
 from alloq_offer.workshop.states.helpers import current_user_name, open_offer_id
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
@@ -74,27 +75,32 @@ class ReviewState(rx.State):
     def reviewing(self) -> bool:
         return self.review_job in WORKING
 
-    async def _reload(self, offer_id: int) -> None:
-        self.findings = await findings.list_findings(get_asyncdb_session, offer_id)
-        view = await commercials.load_view(get_asyncdb_session, offer_id)
+    async def _reload(self, offer_id: int, *, check: bool = False) -> None:
+        loaded = await load_review(get_asyncdb_session, offer_id, check=check)
+        self.findings = loaded.findings
+        view = loaded.commercials
         self.calc_rows = view.rows
         self.calc_confirmed = view.confirmed
         self.calc_confirmed_by = view.confirmed_by
         self.calc_confirmed_at = view.confirmed_at
         self.price_required = view.price_required
         self.validity_date = view.validity_date
-        async with get_asyncdb_session() as session:
-            job = await job_repo.find_latest(session, offer_id, REVIEW_JOB)
-        self.review_job = job.status if job is not None else ""
+        self.review_job = loaded.review_job
 
-    async def _guarded(self, action: Any, error: str) -> Any | None:
-        """Run a service call and reload; a toast comes back on failure."""
+    async def _guarded(
+        self, action: Any, error: str, *, check: bool = False
+    ) -> Any | None:
+        """Run a service call and reload; a toast comes back on failure.
+
+        ``check`` runs the rule checks in the reload, after the call.
+        """
         offer_id = await open_offer_id(self)
         if not offer_id:
             return None
         try:
-            await action(offer_id)
-            await self._reload(offer_id)
+            if action is not None:
+                await action(offer_id)
+            await self._reload(offer_id, check=check)
         except (findings.FindingError, commercials.CommercialsError) as exc:
             return rx.toast.error(str(exc), position="top-right")
         except Exception:
@@ -106,10 +112,7 @@ class ReviewState(rx.State):
     @requires_offer_editor
     async def run_checks(self) -> AsyncGenerator[Any]:
         """Run the rule checks and load findings; also runs when the tab opens."""
-        toast = await self._guarded(
-            lambda offer_id: findings.run_checks(get_asyncdb_session, offer_id),
-            LOAD_ERROR,
-        )
+        toast = await self._guarded(None, LOAD_ERROR, check=True)
         if toast:
             yield toast
 
@@ -216,7 +219,11 @@ class ReviewState(rx.State):
     async def confirm_calculation(self) -> AsyncGenerator[Any]:
         user = await current_user_name(self)
         toast = await self._guarded(
-            lambda offer_id: _confirm_and_check(offer_id, user), SAVE_ERROR
+            lambda offer_id: commercials.confirm(
+                get_asyncdb_session, offer_id, user, datetime.now(UTC)
+            ),
+            SAVE_ERROR,
+            check=True,
         )
         if toast:
             yield toast
@@ -225,7 +232,11 @@ class ReviewState(rx.State):
     @requires_offer_editor
     async def set_price_required(self, value: bool) -> AsyncGenerator[Any]:
         toast = await self._guarded(
-            lambda offer_id: _set_price_required(offer_id, value), SAVE_ERROR
+            lambda offer_id: commercials.set_price_required(
+                get_asyncdb_session, offer_id, value
+            ),
+            SAVE_ERROR,
+            check=True,
         )
         if toast:
             yield toast
@@ -239,7 +250,11 @@ class ReviewState(rx.State):
             yield rx.toast.error("Bitte geben Sie ein gültiges Datum ein.")
             return
         toast = await self._guarded(
-            lambda offer_id: _set_validity(offer_id, parsed), SAVE_ERROR
+            lambda offer_id: commercials.set_validity_date(
+                get_asyncdb_session, offer_id, parsed
+            ),
+            SAVE_ERROR,
+            check=True,
         )
         if toast:
             yield toast
@@ -256,18 +271,3 @@ def _chapter_keys(rows: list[dict[str, Any]], *, blockers: bool) -> list[str]:
             and (row["severity"] == FindingSeverity.BLOCKER) == blockers
         }
     )
-
-
-async def _confirm_and_check(offer_id: int, user: str) -> None:
-    await commercials.confirm(get_asyncdb_session, offer_id, user, datetime.now(UTC))
-    await findings.run_checks(get_asyncdb_session, offer_id)
-
-
-async def _set_price_required(offer_id: int, value: bool) -> None:
-    await commercials.set_price_required(get_asyncdb_session, offer_id, value)
-    await findings.run_checks(get_asyncdb_session, offer_id)
-
-
-async def _set_validity(offer_id: int, value: date | None) -> None:
-    await commercials.set_validity_date(get_asyncdb_session, offer_id, value)
-    await findings.run_checks(get_asyncdb_session, offer_id)

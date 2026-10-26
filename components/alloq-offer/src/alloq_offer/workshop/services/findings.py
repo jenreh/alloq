@@ -8,10 +8,11 @@ comes back opens again.
 import hashlib
 import logging
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import ScalarSelect, func, literal, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -50,7 +51,7 @@ from alloq_offer.workshop.services.commercials import (
     is_confirmed,
     void_if_changed,
 )
-from alloq_offer.workshop.services.map_apply import snapshot_map
+from alloq_offer.workshop.services.map_apply import current_snapshot
 from alloq_offer.workshop.services.workspace import NO_WORKSPACE
 
 logger = logging.getLogger(__name__)
@@ -100,10 +101,15 @@ async def _revoked_block_ids(
 
 
 async def load_check_input(session: AsyncSession, offer_id: int) -> CheckInput | None:
-    workspace = await workspace_repo.find_by_offer(session, offer_id)
-    offer = await session.get(OfferEntity, offer_id)
-    if workspace is None or offer is None:
-        return None
+    found = await workspace_repo.find_with_offer(session, offer_id)
+    return await check_input(session, *found) if found is not None else None
+
+
+async def check_input(
+    session: AsyncSession, workspace: WorkspaceEntity, offer: OfferEntity
+) -> CheckInput:
+    """What the rules look at; a changed calculation loses its confirmation."""
+    offer_id = workspace.offer_id
     await void_if_changed(session, workspace, offer)
     chapters = await live_chapters(session, offer_id)
     stored = await current_revisions(session, chapters)
@@ -125,7 +131,7 @@ async def load_check_input(session: AsyncSession, offer_id: int) -> CheckInput |
             select(StatementEntity).where(StatementEntity.offer_id == offer_id)
         )
     ).all()
-    snapshot = await snapshot_map(session, workspace)
+    snapshot = await current_snapshot(session, workspace)
     revoked = await _revoked_block_ids(session, offer_id, snapshot, statements)
     return CheckInput(
         chapters=facts,
@@ -176,8 +182,13 @@ async def sync(
     source: FindingSource,
     issues: list[RuleFinding],
     map_revision: int,
+    *,
+    waiting: set[str] | None = None,
 ) -> None:
-    """Store ``issues`` of one source; decisions of unchanged problems are kept."""
+    """Store ``issues`` of one source; decisions of unchanged problems are kept.
+
+    ``waiting`` are the targets of removed chapters, when the caller has them.
+    """
     stored = {
         f.fingerprint: f
         for f in (
@@ -214,7 +225,8 @@ async def sync(
         if row.decision == FindingDecision.FIXED:
             row.decision = FindingDecision.OPEN
             row.reason = ""
-    waiting = await removed_targets(session, offer_id)
+    if waiting is None:
+        waiting = await removed_targets(session, offer_id)
     for key, row in stored.items():
         if key in seen or row.target in waiting:
             continue
@@ -225,21 +237,36 @@ async def sync(
 async def run_checks(session_factory: SessionFactory, offer_id: int) -> int:
     """Run all rule checks; returns the number of open findings of the rules."""
     async with session_factory() as session:
-        # Runs of one offer queue up here, so they never store the same finding twice.
-        await session.execute(
-            select(WorkspaceEntity.id)
-            .where(WorkspaceEntity.offer_id == offer_id)
-            .with_for_update()
-        )
-        data = await load_check_input(session, offer_id)
-        if data is None:
-            raise FindingError(NO_WORKSPACE)
-        workspace = await workspace_repo.find_by_offer(session, offer_id)
-        assert workspace is not None  # noqa: S101  # load_check_input found it
-        found = run_rules(data)
-        await sync(session, offer_id, FindingSource.RULE, found, workspace.map_revision)
+        return (await check_offer(session, offer_id)).found
+
+
+@dataclass(frozen=True)
+class CheckRun:
+    workspace: WorkspaceEntity
+    offer: OfferEntity
+    found: int
+    waiting: set[str]
+
+
+async def check_offer(session: AsyncSession, offer_id: int) -> CheckRun:
+    """``run_checks`` inside a session the caller keeps using."""
+    # Runs of one offer queue up here, so they never store the same finding twice.
+    locked = await workspace_repo.find_with_offer(session, offer_id, lock=True)
+    if locked is None:
+        raise FindingError(NO_WORKSPACE)
+    workspace, offer = locked
+    found = run_rules(await check_input(session, workspace, offer))
+    waiting = await removed_targets(session, offer_id)
+    await sync(
+        session,
+        offer_id,
+        FindingSource.RULE,
+        found,
+        workspace.map_revision,
+        waiting=waiting,
+    )
     logger.info("Checks of offer %s found %d problems", offer_id, len(found))
-    return len(found)
+    return CheckRun(workspace, offer, len(found), waiting)
 
 
 def finding_row(row: FindingEntity) -> dict[str, Any]:
@@ -261,26 +288,52 @@ async def list_findings(
     session_factory: SessionFactory, offer_id: int
 ) -> list[dict[str, Any]]:
     """Open and accepted findings, blockers first."""
+    async with session_factory() as session:
+        return await findings_in(session, offer_id)
+
+
+async def findings_in(
+    session: AsyncSession, offer_id: int, waiting: set[str] | None = None
+) -> list[dict[str, Any]]:
+    """``list_findings`` inside a session the caller keeps using."""
     order = {
         str(FindingSeverity.BLOCKER): 0,
         str(FindingSeverity.WARNING): 1,
         str(FindingSeverity.NOTE): 2,
     }
-    async with session_factory() as session:
-        rows = (
-            await session.scalars(
-                select(FindingEntity).where(
-                    FindingEntity.offer_id == offer_id,
-                    FindingEntity.decision != FindingDecision.FIXED,
-                )
+    rows = (
+        await session.scalars(
+            select(FindingEntity).where(
+                FindingEntity.offer_id == offer_id,
+                FindingEntity.decision != FindingDecision.FIXED,
             )
-        ).all()
+        )
+    ).all()
+    if waiting is None:
         waiting = await removed_targets(session, offer_id)
     return [
         finding_row(r)
         for r in sorted(rows, key=lambda r: (order[r.severity], r.id))
         if r.target not in waiting
     ]
+
+
+def open_blocker_count(offer_id: int) -> ScalarSelect[int]:
+    """How many ``open_blockers`` there are, as a subquery for a bigger select."""
+    removed = select(literal(chapter_target("")) + ChapterEntity.chapter_key).where(
+        ChapterEntity.offer_id == offer_id, ChapterEntity.removed_at.is_not(None)
+    )
+    return (
+        select(func.count())
+        .select_from(FindingEntity)
+        .where(
+            FindingEntity.offer_id == offer_id,
+            FindingEntity.severity == FindingSeverity.BLOCKER,
+            FindingEntity.decision == FindingDecision.OPEN,
+            FindingEntity.target.not_in(removed),
+        )
+        .scalar_subquery()
+    )
 
 
 async def open_blockers(session: AsyncSession, offer_id: int) -> list[FindingEntity]:

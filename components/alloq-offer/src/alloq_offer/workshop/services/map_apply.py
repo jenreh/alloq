@@ -1,5 +1,6 @@
 """Turn a proposed map and briefing into stored rows and a map revision."""
 
+import copy
 import logging
 from dataclasses import dataclass, field
 
@@ -29,6 +30,11 @@ logger = logging.getLogger(__name__)
 
 KEY_PREFIX = "US-"
 EVIDENCE_TYPES = (StatementType.REQUIREMENT, StatementType.FACT)
+SNAPSHOT_CACHE_SIZE = 64
+
+# Every change of the map rows bumps ``map_revision``, so a snapshot of one
+# revision never changes. Keyed by (offer id, map revision).
+_snapshots: dict[tuple[int, int], dict] = {}
 
 
 @dataclass
@@ -252,6 +258,23 @@ async def snapshot_map(session: AsyncSession, workspace: WorkspaceEntity) -> dic
         ],
         "unassigned": stories_of.get(None, []),
     }
+
+
+async def current_snapshot(session: AsyncSession, workspace: WorkspaceEntity) -> dict:
+    """``snapshot_map`` for readers; a revision read before is not loaded again.
+
+    Writers keep calling ``snapshot_map``: their revision is not committed yet.
+    """
+    key = (workspace.offer_id, workspace.map_revision)
+    if key not in _snapshots:
+        if len(_snapshots) >= SNAPSHOT_CACHE_SIZE:
+            del _snapshots[next(iter(_snapshots))]
+        _snapshots[key] = await snapshot_map(session, workspace)
+    return copy.deepcopy(_snapshots[key])
+
+
+def clear_snapshot_cache() -> None:
+    _snapshots.clear()
 
 
 def _story_dict(story: StoryEntity) -> dict:

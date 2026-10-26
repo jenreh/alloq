@@ -43,6 +43,7 @@ from alloq_offer.workshop.template_entities import ChapterBlockEntity
 from appkit_user.authentication.states import LoginState
 
 MODULE = "alloq_offer.workshop.states.chapter_state"
+DOCUMENT_STATEMENTS = 6
 
 
 def _u(text: str) -> str:
@@ -169,6 +170,28 @@ async def test_load_document_has_frame_and_blocks(db) -> None:  # noqa: ANN001
     assert by_key["verguetung"]["values"][0]["label"] == "Personentage"
     assert by_key["user_stories"]["groups"] == []
     assert by_key["user_stories"]["number"] == "2.1"
+
+
+async def test_load_document_brings_everything_the_tab_needs_in_one_session(
+    db,  # noqa: ANN001
+) -> None:
+    async with db.session() as session:
+        await open_workspace(session, 1, "Anna")
+    service = ChapterService(db.session, 1, "Anna")
+    await service.open()
+    await OutlineService(db.session, 1, "Anna").remove_chapter("annahmen_risiken")
+    await load_document(db.session, 1, "Anna")  # fills the template and map caches
+    with db.round_trips() as trips:
+        loaded = await load_document(db.session, 1, "Anna")
+    # Was 5 sessions with 19 statements.
+    assert (trips.sessions, trips.statements) == (1, DOCUMENT_STATEMENTS)
+    assert loaded is not None
+    assert loaded.removed == [
+        {"key": "annahmen_risiken", "title": "Annahmen und Risiken"}
+    ]
+    assert loaded.draft_job == ""
+    assert loaded.details["laufzeit"] == await service.load("laufzeit")
+    assert "annahmen_risiken" not in loaded.details
 
 
 # --- state ---------------------------------------------------------------------

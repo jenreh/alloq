@@ -3,8 +3,9 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, Row, ScalarSelect, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from alloq_offer.entities import OfferEntity
 from alloq_offer.workshop.entities import (
@@ -13,14 +14,17 @@ from alloq_offer.workshop.entities import (
     ExportEntity,
     ExportKind,
     ExportStatus,
+    JobEntity,
     JobStatus,
+    SourceEntity,
     SourceStatus,
     StatementEntity,
     StatementStatus,
     StatementType,
     StoryEntity,
+    WorkspaceEntity,
 )
-from alloq_offer.workshop.repositories import job_repo, source_repo, workspace_repo
+from alloq_offer.workshop.repositories import workspace_repo
 from alloq_offer.workshop.services import commercials, findings
 from alloq_offer.workshop.services.chapter_draft import DRAFT_CHAPTERS_JOB
 from alloq_offer.workshop.services.exports import EXPORT_JOB
@@ -69,60 +73,121 @@ class Overview:
         return any(stage["status"] in (RUNNING, WAITING) for stage in self.stages)
 
 
-async def _sources_stage(session: AsyncSession, offer_id: int) -> str:
-    rows = [s for s in await source_repo.list_current(session, offer_id) if s.included]
-    if not rows:
-        return OPEN
-    if any(s.status in (SourceStatus.UPLOADED, SourceStatus.PROCESSING) for s in rows):
-        return RUNNING
-    return DONE
+def _count(entity: type, *where: ColumnElement[bool]) -> ScalarSelect[int]:
+    return select(func.count()).select_from(entity).where(*where).scalar_subquery()
 
 
-async def _stages(session: AsyncSession, offer_id: int) -> list[dict[str, str]]:
-    stages = [
-        {"label": SOURCES_STAGE, "status": await _sources_stage(session, offer_id)}
-    ]
-    for label, kind in JOB_STAGES:
-        job = await job_repo.find_latest(session, offer_id, kind)
-        status = JOB_STATES.get(job.status, OPEN) if job is not None else OPEN
-        stages.append({"label": label, "status": status})
+def _current_sources(offer_id: int) -> tuple[ColumnElement[bool], ...]:
+    """Included sources that are neither revoked nor replaced by a newer version."""
+    newer = aliased(SourceEntity)
+    return (
+        SourceEntity.offer_id == offer_id,
+        SourceEntity.revoked_at.is_(None),
+        SourceEntity.included.is_(True),
+        ~exists().where(
+            newer.replaces_id == SourceEntity.id, newer.revoked_at.is_(None)
+        ),
+    )
+
+
+def _latest_status(offer_id: int, kind: str) -> ScalarSelect[str]:
+    return (
+        select(JobEntity.status)
+        .where(JobEntity.offer_id == offer_id, JobEntity.kind == kind)
+        .order_by(JobEntity.id.desc())
+        .limit(1)
+        .scalar_subquery()
+    )
+
+
+async def _numbers(session: AsyncSession, offer_id: int) -> Row[Any]:
+    """Stages, counts and blockers of the tab in one round trip to the database."""
+    in_outline = (
+        ChapterEntity.offer_id == offer_id,
+        ChapterEntity.removed_at.is_(None),
+    )
+    sources = _current_sources(offer_id)
+    return (
+        await session.execute(
+            select(
+                _count(SourceEntity, *sources).label("sources"),
+                _count(
+                    SourceEntity,
+                    *sources,
+                    SourceEntity.status.in_(
+                        (SourceStatus.UPLOADED, SourceStatus.PROCESSING)
+                    ),
+                ).label("sources_working"),
+                *(
+                    _latest_status(offer_id, kind).label(f"job_{index}")
+                    for index, (_, kind) in enumerate(JOB_STAGES)
+                ),
+                _count(
+                    ActivityEntity,
+                    ActivityEntity.offer_id == offer_id,
+                    ActivityEntity.archived_at.is_(None),
+                ).label("activities"),
+                _count(
+                    StoryEntity,
+                    StoryEntity.offer_id == offer_id,
+                    StoryEntity.archived_at.is_(None),
+                ).label("stories"),
+                _count(ChapterEntity, *in_outline).label("chapters_total"),
+                _count(ChapterEntity, *in_outline, ChapterEntity.revision > 1).label(
+                    "chapters_written"
+                ),
+                select(func.max(ExportEntity.id))
+                .where(
+                    ExportEntity.offer_id == offer_id,
+                    ExportEntity.kind == ExportKind.DRAFT,
+                    ExportEntity.status == ExportStatus.READY,
+                )
+                .scalar_subquery()
+                .label("draft_export_id"),
+                _count(
+                    StatementEntity,
+                    StatementEntity.offer_id == offer_id,
+                    StatementEntity.type.in_(OPEN_POINT_TYPES),
+                    StatementEntity.status != StatementStatus.CONFIRMED,
+                ).label("open_points"),
+                findings.open_blocker_count(offer_id).label("blockers"),
+            )
+        )
+    ).one()
+
+
+def _stages(numbers: Row[Any]) -> list[dict[str, str]]:
+    if not numbers.sources:
+        sources = OPEN
+    elif numbers.sources_working:
+        sources = RUNNING
+    else:
+        sources = DONE
+    stages = [{"label": SOURCES_STAGE, "status": sources}]
+    for index, (label, _) in enumerate(JOB_STAGES):
+        status = getattr(numbers, f"job_{index}")
+        stages.append({"label": label, "status": JOB_STATES.get(status, OPEN)})
     return stages
 
 
-async def _count(session: AsyncSession, entity: type, *where: object) -> int:
-    return (
-        await session.scalar(select(func.count()).select_from(entity).where(*where))
-        or 0
-    )
-
-
-async def _decisions(session: AsyncSession, offer_id: int) -> list[dict[str, Any]]:
+def _decisions(
+    workspace: WorkspaceEntity, offer: OfferEntity, numbers: Row[Any]
+) -> list[dict[str, Any]]:
     decisions: list[dict[str, Any]] = []
-    open_points = await _count(
-        session,
-        StatementEntity,
-        StatementEntity.offer_id == offer_id,
-        StatementEntity.type.in_(OPEN_POINT_TYPES),
-        StatementEntity.status != StatementStatus.CONFIRMED,
-    )
-    if open_points:
+    if numbers.open_points:
         decisions.append(
             {
                 "key": TARGET_BRIEFING,
                 "title": "Offene Punkte klären",
-                "text": f"{open_points} offene Punkte oder Widersprüche im Briefing.",
+                "text": (
+                    f"{numbers.open_points} offene Punkte oder Widersprüche "
+                    "im Briefing."
+                ),
                 "action": "Briefing öffnen",
             }
         )
-    workspace = await workspace_repo.find_by_offer(session, offer_id)
-    offer = await session.get(OfferEntity, offer_id)
-    if (
-        workspace is not None
-        and offer is not None
-        and workspace.price_required
-        and not commercials.is_confirmed(
-            workspace, commercials.current_values(offer, workspace)
-        )
+    if workspace.price_required and not commercials.is_confirmed(
+        workspace, commercials.current_values(offer, workspace)
     ):
         decisions.append(
             {
@@ -132,13 +197,14 @@ async def _decisions(session: AsyncSession, offer_id: int) -> list[dict[str, Any
                 "action": "Kapitel öffnen",
             }
         )
-    blockers = len(await findings.open_blockers(session, offer_id))
-    if blockers:
+    if numbers.blockers:
         decisions.append(
             {
                 "key": TARGET_CHAPTERS,
                 "title": "Blocker auflösen",
-                "text": f"{blockers} Prüfergebnisse verhindern die finale Fassung.",
+                "text": (
+                    f"{numbers.blockers} Prüfergebnisse verhindern die finale Fassung."
+                ),
                 "action": "Kapitel öffnen",
             }
         )
@@ -146,36 +212,18 @@ async def _decisions(session: AsyncSession, offer_id: int) -> list[dict[str, Any
 
 
 async def load_overview(session: AsyncSession, offer_id: int) -> Overview:
-    workspace = await workspace_repo.find_by_offer(session, offer_id)
-    overview = Overview(stages=await _stages(session, offer_id))
-    if workspace is None:
+    """What the tab shows, in two queries."""
+    numbers = await _numbers(session, offer_id)
+    overview = Overview(stages=_stages(numbers))
+    found = await workspace_repo.find_with_offer(session, offer_id)
+    if found is None:
         return overview
-    live = (StoryEntity.offer_id == offer_id, StoryEntity.archived_at.is_(None))
+    workspace, offer = found
     overview.map_revision = workspace.map_revision
-    overview.activities = await _count(
-        session,
-        ActivityEntity,
-        ActivityEntity.offer_id == offer_id,
-        ActivityEntity.archived_at.is_(None),
-    )
-    overview.stories = await _count(session, StoryEntity, *live)
-    in_outline = (
-        ChapterEntity.offer_id == offer_id,
-        ChapterEntity.removed_at.is_(None),
-    )
-    overview.chapters_total = await _count(session, ChapterEntity, *in_outline)
-    overview.chapters_written = await _count(
-        session, ChapterEntity, *in_outline, ChapterEntity.revision > 1
-    )
-    overview.draft_export_id = (
-        await session.scalar(
-            select(func.max(ExportEntity.id)).where(
-                ExportEntity.offer_id == offer_id,
-                ExportEntity.kind == ExportKind.DRAFT,
-                ExportEntity.status == ExportStatus.READY,
-            )
-        )
-        or 0
-    )
-    overview.decisions = await _decisions(session, offer_id)
+    overview.activities = numbers.activities or 0
+    overview.stories = numbers.stories or 0
+    overview.chapters_total = numbers.chapters_total or 0
+    overview.chapters_written = numbers.chapters_written or 0
+    overview.draft_export_id = numbers.draft_export_id or 0
+    overview.decisions = _decisions(workspace, offer, numbers)
     return overview

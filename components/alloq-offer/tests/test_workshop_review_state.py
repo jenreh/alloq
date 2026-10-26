@@ -20,6 +20,7 @@ from sqlalchemy import select
 from appkit_user.authentication.states import LoginState
 
 MODULE = "alloq_offer.workshop.states.review_state"
+CHECK_STATEMENTS = 10
 
 
 @contextmanager
@@ -80,6 +81,17 @@ async def test_load_runs_the_checks_and_fills_the_panel(db) -> None:
     assert state.general_findings == [
         f for f in state.findings if not f["target"].startswith("chapter:")
     ]
+
+
+async def test_checks_and_panel_load_in_one_session(db) -> None:
+    state = await _loaded(db)
+    before = state.findings
+    with db.round_trips() as trips, _as_editor(state, db):
+        await _run(state.run_checks)
+    assert state.findings == before
+    # Was 4 sessions with 18 statements; the map snapshot now comes from the cache.
+    assert trips.sessions == 1
+    assert trips.statements <= CHECK_STATEMENTS
 
 
 async def test_confirm_calculation_voids_blocker_and_records_user(db) -> None:
@@ -188,7 +200,7 @@ async def test_errors_show_a_toast(db) -> None:
     with (
         _as_editor(state, db),
         patch(
-            f"{MODULE}.findings.run_checks", AsyncMock(side_effect=RuntimeError("x"))
+            f"{MODULE}.findings.check_offer", AsyncMock(side_effect=RuntimeError("x"))
         ),
     ):
         assert review_state.LOAD_ERROR in await _run(state.run_checks)

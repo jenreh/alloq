@@ -19,7 +19,17 @@ from alloq_offer.workshop.components import (
     sources_panel,
     workshop_view,
 )
-from alloq_offer.workshop.entities import JobEntity, JobStatus
+from alloq_offer.workshop.entities import (
+    ChapterEntity,
+    FindingEntity,
+    FindingSeverity,
+    FindingSource,
+    JobEntity,
+    JobStatus,
+    SourceEntity,
+    SourceKind,
+    SourceStatus,
+)
 from alloq_offer.workshop.pages import create_offer_workshop_page
 from alloq_offer.workshop.services import draft_overview
 from alloq_offer.workshop.services.exports import EXPORT_JOB
@@ -29,13 +39,12 @@ from alloq_offer.workshop.states import draft_state
 from alloq_offer.workshop.states.draft_state import DraftState
 from alloq_offer.workshop.states.sources_state import SourcesState
 from alloq_offer.workshop.states.workshop_state import TAB_MAP, TABS
-from sqlalchemy import event
 
 from appkit_user.authentication.states import LoginState
 
 MODULE = "alloq_offer.workshop.states.draft_state"
-# Was 16; every statement is a round trip to the database.
-OVERVIEW_STATEMENTS = 8
+# Was 16 in 1 session; every statement is a round trip to the database.
+OVERVIEW_STATEMENTS = 2
 
 
 @contextmanager
@@ -115,21 +124,70 @@ async def test_overview_counts_and_lists_open_decisions(db) -> None:  # noqa: AN
     assert "Angeboten" not in {c["label"] for c in state.counts}
 
 
-async def test_overview_loads_with_few_statements(db) -> None:  # noqa: ANN001
+async def test_overview_loads_in_one_session_with_two_statements(db) -> None:  # noqa: ANN001
     await _with_map(db)
-    statements: list[str] = []
-
-    def _count(*args: Any) -> None:
-        statements.append(args[2])
-
-    event.listen(db.engine.sync_engine, "before_cursor_execute", _count)
-    try:
+    with db.round_trips() as trips:
         async with db.session() as session:
             overview = await draft_overview.load_overview(session, 1)
-    finally:
-        event.remove(db.engine.sync_engine, "before_cursor_execute", _count)
     assert (overview.activities, overview.stories) == (1, 2)
-    assert len(statements) <= OVERVIEW_STATEMENTS
+    assert (trips.sessions, trips.statements) == (1, OVERVIEW_STATEMENTS)
+
+
+async def test_overview_counts_sources_and_blockers_in_sql(db) -> None:  # noqa: ANN001
+    await _with_map(db)
+    async with db.session() as session:
+        first = SourceEntity(
+            offer_id=1, kind=SourceKind.TEXT, title="a", sha256="a", included=True
+        )
+        session.add(first)
+        await session.flush()
+        session.add_all(
+            [
+                SourceEntity(
+                    offer_id=1,
+                    kind=SourceKind.TEXT,
+                    title="a2",
+                    sha256="a2",
+                    included=True,
+                    replaces_id=first.id,
+                    status=SourceStatus.USABLE,
+                ),
+                SourceEntity(
+                    offer_id=1,
+                    kind=SourceKind.TEXT,
+                    title="b",
+                    sha256="b",
+                    included=False,
+                ),
+            ]
+        )
+        for key, target in (("x", "chapter:gone"), ("y", "general")):
+            session.add(
+                FindingEntity(
+                    offer_id=1,
+                    fingerprint=key,
+                    rule="r",
+                    severity=FindingSeverity.BLOCKER,
+                    source=FindingSource.RULE,
+                    target=target,
+                    message="m",
+                )
+            )
+        session.add(
+            ChapterEntity(
+                offer_id=1,
+                chapter_key="gone",
+                title="Weg",
+                chapter_type="prose",
+                removed_at=datetime.now(UTC),
+            )
+        )
+    async with db.session() as session:
+        overview = await draft_overview.load_overview(session, 1)
+    # The replaced source is still uploaded; only its ready successor counts.
+    assert overview.stages[0]["status"] == draft_overview.DONE
+    blockers = [d for d in overview.decisions if d["title"] == "Blocker auflösen"]
+    assert blockers[0]["text"].startswith("1 ")
 
 
 async def test_overview_shows_the_latest_job_of_each_stage(db) -> None:  # noqa: ANN001

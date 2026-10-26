@@ -2,7 +2,8 @@
 
 import importlib.util
 from collections.abc import AsyncIterator, Iterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from functools import cache
@@ -16,8 +17,9 @@ import pytest
 from alloq_offer.entities import IndustryEntity, OfferEntity
 from alloq_offer.workshop.ai.agents import PromptLoader
 from alloq_offer.workshop.export.template_package import TemplatePackage
-from alloq_offer.workshop.services import templates
+from alloq_offer.workshop.services import map_apply, templates
 from alloq_offer.workshop.services.prompts import Prompt
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from appkit_commons.database.entities import Base
@@ -53,12 +55,21 @@ def quo_v1() -> TemplatePackage:
     )
 
 
+@dataclass
+class RoundTrips:
+    """Round trips to the database; each one costs a network hop in production."""
+
+    sessions: int = 0
+    statements: int = 0
+
+
 class Database:
     """File-based SQLite; sessions commit on exit like appkit's session manager."""
 
     def __init__(self, path: Path) -> None:
         self.engine = create_async_engine(f"sqlite+aiosqlite:///{path}")
         self._maker = async_sessionmaker(self.engine, expire_on_commit=False)
+        self.sessions_opened = 0
 
     async def create(self) -> None:
         seed = template_seed()
@@ -85,6 +96,7 @@ class Database:
 
     @asynccontextmanager
     async def session(self) -> AsyncIterator[AsyncSession]:
+        self.sessions_opened += 1
         async with self._maker() as session:
             try:
                 yield session
@@ -92,6 +104,22 @@ class Database:
             except Exception:
                 await session.rollback()
                 raise
+
+    @contextmanager
+    def round_trips(self) -> Iterator[RoundTrips]:
+        """Count the sessions and SQL statements of the code inside the block."""
+        trips = RoundTrips()
+        opened = self.sessions_opened
+
+        def _count(*_: object) -> None:
+            trips.statements += 1
+
+        event.listen(self.engine.sync_engine, "before_cursor_execute", _count)
+        try:
+            yield trips
+        finally:
+            event.remove(self.engine.sync_engine, "before_cursor_execute", _count)
+            trips.sessions = self.sessions_opened - opened
 
     async def dispose(self) -> None:
         await self.engine.dispose()
@@ -110,8 +138,10 @@ def prompts() -> PromptLoader:
 @pytest.fixture(autouse=True)
 def _fresh_template_cache() -> Iterator[None]:
     templates.clear_cache()
+    map_apply.clear_snapshot_cache()
     yield
     templates.clear_cache()
+    map_apply.clear_snapshot_cache()
 
 
 @pytest.fixture

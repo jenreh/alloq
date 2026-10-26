@@ -9,7 +9,7 @@ import reflex as rx
 from alloq_commons.access import requires_offer_editor
 
 from alloq_offer.workshop.repositories import workspace_repo
-from alloq_offer.workshop.services.map_apply import snapshot_map
+from alloq_offer.workshop.services.map_apply import current_snapshot
 from alloq_offer.workshop.services.map_edit import (
     MapConflictError,
     MapEditError,
@@ -190,7 +190,7 @@ class MapState(rx.State):
             workspace = await workspace_repo.find_by_offer(session, offer_id)
             if workspace is None:
                 return
-            snapshot = await snapshot_map(session, workspace)
+            snapshot = await current_snapshot(session, workspace)
             revision = workspace.map_revision
         self._show(offer_id, snapshot, revision)
 

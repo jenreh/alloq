@@ -57,6 +57,11 @@ class DraftState(rx.State):
         return round(100 * done / len(self.stages))
 
     @rx.var
+    def has_map(self) -> bool:
+        """Own copy of ``MapState.has_map``, so the tab need not wait for the map."""
+        return self.map_revision > 0
+
+    @rx.var
     def has_draft_file(self) -> bool:
         return self.draft_export_id > 0
 

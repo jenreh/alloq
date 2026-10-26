@@ -252,7 +252,9 @@ async def test_load_errors_show_a_toast(db) -> None:
     state = await _loaded(db)
     with (
         _as_editor(state, db),
-        patch.object(ChapterService, "open", AsyncMock(side_effect=RuntimeError("x"))),
+        patch.object(
+            ChapterService, "outline", AsyncMock(side_effect=RuntimeError("x"))
+        ),
     ):
         assert chapter_state.LOAD_ERROR in await _run(state.load_chapters)
 

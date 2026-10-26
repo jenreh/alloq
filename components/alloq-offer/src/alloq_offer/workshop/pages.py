@@ -50,15 +50,18 @@ def create_offer_workshop_page(
         ),
         scope=workshop_scope(),
         padded=False,
+        # Events of one client run one after another: the "Entwurf" tab first,
+        # the slow chapter and check loads last.
         on_load=[
             WorkshopState.load_workshop,
-            MapState.load_map,
+            DraftState.load_overview,
             SourcesState.load_sources,
+            MapState.load_map,
             MapProposalState.load_proposal,
             BriefingState.load_briefing,
+            ExportState.load_exports,
             ChapterState.load_chapters,
             ReviewState.run_checks,
-            ExportState.load_exports,
             DraftState.load_overview,
         ],
     )

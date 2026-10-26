@@ -29,6 +29,7 @@ from alloq_offer.workshop.ai.schemas import (
 )
 from alloq_offer.workshop.configuration import AzureOpenAiConfig, WorkshopConfig
 from alloq_offer.workshop.entities import (
+    ActivityEntity,
     GenerationRunEntity,
     JobStatus,
     MapRevisionEntity,
@@ -47,6 +48,7 @@ from alloq_offer.workshop.jobs.registry import (
     PermanentJobError,
     TransientJobError,
 )
+from alloq_offer.workshop.services import map_apply
 from alloq_offer.workshop.services.map_apply import apply_proposed_map
 from alloq_offer.workshop.services.prompts import (
     PROMPT_NAMES,
@@ -567,3 +569,20 @@ async def test_conflicts_have_their_own_type_and_dropped_stories_are_noted(db) -
         }
         assert rows[StatementType.CONFLICT] == "A und B widersprechen sich"
         assert "„Kaputt“" in rows[StatementType.OPEN_POINT]
+
+
+async def test_current_snapshot_is_cached_per_map_revision(db) -> None:  # noqa: ANN001
+    async with db.session() as session:
+        workspace = await open_workspace(session, 1, "Anna")
+        first = await map_apply.current_snapshot(session, workspace)
+    with db.round_trips() as trips:
+        async with db.session() as session:
+            again = await map_apply.current_snapshot(session, workspace)
+    assert (trips.statements, again) == (0, first)
+    again["activities"].append({"id": 0})
+    async with db.session() as session:
+        assert await map_apply.current_snapshot(session, workspace) == first
+        workspace.map_revision += 1
+        session.add(ActivityEntity(offer_id=1, title="Neu", position=0))
+        changed = await map_apply.current_snapshot(session, workspace)
+    assert [a["title"] for a in changed["activities"]] == ["Neu"]
