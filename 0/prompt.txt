@@ -1,0 +1,1 @@
+Save the approved plan as spec/plans/ki-angebotswerkstatt.md
