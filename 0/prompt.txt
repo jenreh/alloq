@@ -1,0 +1,1 @@
+für projekte soll eine CATs number (Buchungsnr) hinterlegt werden können. die Nummer soll im Inspektor angezeigt werden, da hinter ein Copy icon (ctrl+c) um die nummer einfach übernehmen zu können
