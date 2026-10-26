@@ -1,0 +1,2 @@
+* the viewer should not be in a card, it should use the full space
+* also fit slide decks open fitted to the panel width instead of at 100 %
