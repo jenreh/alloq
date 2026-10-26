@@ -1,0 +1,1 @@
+use claude design to make a suggestion for a more usable, optimized version of this view
