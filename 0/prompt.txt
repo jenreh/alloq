@@ -1,0 +1,1 @@
+the bottom buttons should be fixed and aligned with the "Ki-Vorschlag..." row
