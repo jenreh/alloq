@@ -1,0 +1,5 @@
+there seems to be a problem with the dashboard:
+
+components/alloq-dashboard/tests/test_aggregation_utilization.py .........                                                                               [ 54%]
+components/alloq-dashboard/tests/test_components.py ........                                                                                             [ 54%]
+components/alloq-dashboard/tests/test_dashboard_states.py .....F.F......F
