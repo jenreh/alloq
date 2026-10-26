@@ -1,0 +1,1 @@
+in der planning view sollen alle ansichten den gleichen week header habe (wie in abewesenheiten)
