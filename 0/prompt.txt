@@ -1,0 +1,1 @@
+move the pricing page from the admin menu to the regular menu below the offers. everybody can read only admins can edit
