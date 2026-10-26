@@ -1,0 +1,1 @@
+verify in browser with a test set of 100 stories in the board and the database spread in 8 activities and two slides
