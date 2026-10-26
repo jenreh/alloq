@@ -1,0 +1,1 @@
+the user story map should not be a card it should look more like the planning grid (no padding on the page, no rounded corners, look and feel of the header, scroll behaviour, ...) the cols  and story cards should not change, they look good
