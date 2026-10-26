@@ -1,0 +1,1 @@
+I upgraded to appkit 1.6 which contains the path prefix feature. i updated the @configuration/config.local.yaml but the app is still starting without the "/alloq" path prefix
