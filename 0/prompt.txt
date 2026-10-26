@@ -1,0 +1,193 @@
+Base directory for this skill: /Users/jens/Workspace/work/alloq/.claude/skills/alloq-implementation
+
+# Alloq implementation
+
+Alloq is a Reflex 0.10 app for resource and project planning. The generic skills
+explain Python, Reflex and appkit in general. This skill is the Alloq layer: where
+code goes in this repo, which guards it must keep green, and how Alloq tests look.
+When the two disagree, this skill wins, because it describes the code as it is.
+
+Stack: Python 3.14, uv workspace (`UV_PROJECT_ENVIRONMENT=.venv.mac`), Reflex 0.10,
+appkit-* (`appkit_mantine as mn`, `appkit_commons`, `appkit_user`, `appkit_ui`),
+SQLAlchemy 2.0 async, Pydantic, Alembic, PostgreSQL in production and SQLite in tests.
+UI text is German. Code, comments and log messages are English.
+
+## Workflow for every task
+
+1. **Search memory** for the feature words and for error text you see. Past sessions
+   stored traps here (for example the mixin rule and the umlaut escaping in tests).
+2. **Read the reference code of the layer you touch** before writing. The canonical
+   slice is departments (see the architecture map). Copying its shape is faster and
+   keeps reviews short.
+3. **Plan the smallest diff.** Change the layers the task needs and nothing else. Do
+   not move files, rename folders or refactor neighbours unless asked.
+4. **Write or adjust the test first**, in the test file of the package you change.
+   For a bug, first write a test that fails because of the bug. Run the touched test
+   files once before changing code, so you know which failures were already there;
+   report those instead of fixing them inside the same diff.
+5. **Implement.**
+6. **Run the gates**: `task format && task lint && task typecheck && task test`.
+   For a quick loop run only the touched test files with
+   `uv run pytest <file> -q`, but run `tests/test_handler_authorization.py` whenever
+   you add or change an event handler.
+7. **Check file sizes**: `python .claude/skills/alloq-implementation/scripts/check_file_sizes.py`.
+8. **Update memory** with any new trap or decision that the code itself does not show.
+
+## Architecture map
+
+Host app `app/` (entry `app/app.py`, admin pages `app/pages/*.py`, sidebar in
+`app/components/sidebar.py`) plus uv workspace packages in `components/`:
+
+| Package | Holds |
+| --- | --- |
+| `alloq-commons` | shared kernel: entities, models, repositories, shared services, shared UI, `theme.py`, `roles.py`, `access.py` |
+| `alloq-project` | projects and planning: `components/`, `services/`, `states/`, `pages.py` |
+| `alloq-dashboard` | dashboard and portfolio: same layout, `models.py` for card payloads |
+| `alloq-team` | team overview and employees: same layout |
+
+Layers, in the order data flows (paths for departments under
+`components/alloq-commons/src/alloq_commons/`):
+
+| Layer | Where | Rule |
+| --- | --- | --- |
+| Entity | `entities/department.py` | `class XEntity(Entity, Base)`, `to_dict()` with every field |
+| Model | `models/department.py` | Pydantic read model plus `XCreate` write model with `Field` limits |
+| Repository | `repositories/department_repository.py` | `BaseRepository[XEntity, AsyncSession]`, `model_class`, module singleton `x_repo` |
+| Service | `<pkg>/services/*.py` | pure functions and dataclasses; DB loading kept in `*_inputs.py` or loader functions |
+| State | `state/department_states.py` | `rx.State`, `rx.Field` vars, `@rx.event` handlers |
+| Component | `components/department.py` | plain functions returning `rx.Component`, built from `mn.*` and shared parts |
+| Page | `app/pages/departments.py` or `<pkg>/pages.py` | page factory `create_x_page(sidebar, route, title)` using `app_page` |
+| Registration | `app/app.py` | call the factory with `sidebar()`; add a sidebar entry if needed |
+| Migration | `alembic/versions/YYYY_MM_DD_<topic>.py` | hand-written, real `downgrade()` |
+
+Dependency direction: feature packages import `alloq_commons` and appkit, never
+`app` (`tests/test_component_boundaries.py` fails otherwise). Feature packages do not
+import each other unless that import already exists. `app` may import everything.
+
+`alloq_commons` has both `state/` (departments, roles) and `states/` (holidays). Put
+new code next to its closest neighbour and do not merge the folders unasked.
+
+Details, snippets and the background-load pattern: `references/architecture.md`.
+
+## Where does this code belong?
+
+- **Pure calculation** (scores, sums, sorting, grouping, labels) goes into a service
+  function or a small dataclass, testable without a database. Examples:
+  `alloq_dashboard/services/resource_path.py`, `alloq_project/services/project_sorting.py`.
+- **Database reads and writes** go through a repository method, or a loader function
+  such as `load_departments()` or `portfolio_inputs.py`. States do not build SQL.
+- **UI state** (open dialogs, filters, toggles, selection) lives in the state. When the
+  state file is large, put new vars and handlers into a mixin
+  (`class XListState(rx.State, mixin=True)`), never into a substate; substates break
+  tests that create the state on its own.
+- **Rendering** goes into function components that read state vars. No logic beyond
+  `rx.cond` / `rx.foreach` and formatting.
+- **A value both the UI and a test need** (labels, messages, column lists) becomes a
+  module constant, so tests can assert on it.
+
+## Security: the handler authorization contract
+
+Access levels (`alloq_commons.access`): admins may do everything; the project
+manager role may read and edit every planning page (dashboard, planning, projects,
+team) but not the administration; the employee role may only read planning and
+projects. Page guards (`admin_only=True`, `editor_only`, `viewer_only`) only hide
+the page. Event handlers run over the websocket for anyone with a session, so every
+handler protects itself. `tests/test_handler_authorization.py` enforces this for all
+states in the four packages. For each new or changed handler pick exactly one case:
+
+1. **Reads or writes data in a planning package** (`alloq_dashboard`,
+   `alloq_project`, `alloq_team`, `SidebarState`) → `@rx.event` then
+   `@requires_editor` from `alloq_commons.access`. This is the default; the guard
+   test rejects `@requires_admin` there.
+1b. **Administration state** (`DepartmentState`, `RoleState`, `HolidayState`,
+   `DatabaseAccessState`, listed in `ADMIN_STATES`) → `@requires_admin` from
+   `appkit_user.authentication.decorators`.
+2. **Read-only load the employee role may also run** → `@requires_viewer` from
+   `alloq_commons.access`, and add the name to `VIEWER_HANDLERS`. It must not write.
+3. **Only changes UI state** (open/close, set filter, toggle) → no decorator, add the
+   name to `UI_ONLY_HANDLERS["<ConcreteState>"]`. The test scans its source and the
+   `self.` helpers it calls for DB markers (`get_asyncdb_session`, `_repo.`,
+   `aggregation.`, ...), so a UI-only handler must not touch a repository or session.
+4. **Background handler** (`@rx.event(background=True)`) → guard decorators are not
+   allowed (they need the state lock). Check edit rights inside `async with self`
+   through `_CardLoadMixin._run_card_load` (`_can_edit`) and list it in
+   `INLINE_ADMIN_CHECK`.
+
+Edit controls in the planning UI go inside `editor_only(...)` or use
+`disabled=~CAN_EDIT`; `admin_only(...)` is for administration only.
+
+Handlers defined in a mixin are listed under the concrete state that mixes it in
+(`TeamState`, `ProjectState`, `PlanningStore`), because the test skips mixins.
+Remove allowlist entries when you delete or guard a handler; stale entries fail too.
+Run the test after every handler change.
+
+## Style that ruff does not catch
+
+- German UI strings, including toasts: `rx.toast.error("Fehler beim Erstellen der
+  Abteilung.", position="top-right")`. English for code, comments, docstrings, logs.
+- `logger = logging.getLogger(__name__)` per module; `%s` arguments, never f-strings
+  in log calls; `logger.exception(...)` in the final `except Exception` of a handler.
+- Handler error shape: `ValidationError` → German hint, `IntegrityError` → duplicate
+  message, `Exception` → `logger.exception` plus a generic German error toast.
+- Colors, radii and shadows only from `alloq_commons.theme` (`theme.CARD`,
+  `theme.TEXT_MUTED`, `theme.BLUE[6]`, ...). The theme is macOS blue; ignore the old
+  teal design artifact.
+- Use `mn.*` components. Load `appkit-mantine-reference` before using one you have
+  not used in this task; its props are not in your training data.
+- HTML attributes on `mn` inputs: `max_length=20` turns into CSS and limits nothing.
+  Use `custom_attrs={"maxLength": 20}` for the browser limit, and keep the real check
+  in the write model (`Field(max_length=20)`).
+- State vars: `name: rx.Field[T] = rx.field(default)`; lists use
+  `rx.field(default_factory=list)`. Type hints on every function, including tests.
+- Prefer shared parts over new ones: `modal_form_layout`, `modal_footer`,
+  `delete_dialog`, `toolbar_search`, `primary_button`, `section`, `app_page`,
+  `window_toolbar`, `de_number`.
+
+## Testing standards
+
+Coverage must stay at 80 % or more (branch coverage, `fail_under = 80`). Put tests in
+the package that owns the code: `components/<pkg>/tests/test_<feature>.py`. App-level
+tests and the guards live in `tests/`.
+
+- **Entity/model**: `to_dict()` keys, `XCreate` rejects bad input.
+- **Service**: plain unit tests with hand-built inputs, no mocks needed.
+- **State**: create the state directly, patch `MODULE.x_repo` and
+  `MODULE.get_asyncdb_session`, fake the admin with `_as_admin`, and drive handlers
+  with `_run`, which returns the toast text. Copy the helpers from
+  `components/alloq-commons/tests/test_departments.py`.
+- **Component**: render with `str(component())` and assert on var names or module
+  constants. `str()` escapes umlauts (`ä` becomes `\u00e4`), so assert on the constant.
+- **Migration with data changes**: add a test in `tests/test_migrations.py` that runs
+  the migration offline on SQLite.
+
+Recipes and snippets: `references/testing.md`.
+
+## Definition of done
+
+- [ ] Test written first; new behaviour and the bug case are covered
+- [ ] `task format && task lint && task typecheck && task test` all green
+- [ ] `tests/test_handler_authorization.py` and `tests/test_component_boundaries.py` green
+- [ ] Every new handler has its guard or its allowlist entry
+- [ ] New migration is hand-written, uses `op.batch_alter_table` for column changes,
+      has a real `downgrade()`, and its revision is added to `KNOWN_REVISIONS` in
+      `app/desktop/schema.py`
+- [ ] Schema change → `doc/database/schema.erd.json` updated and `schema.html`
+      re-rendered (`doc/database/README.md`); `tests/test_schema_doc.py` green
+- [ ] No touched file grew past 1000 lines; files already over it did not grow
+      without reason (see `references/pitfalls.md`)
+- [ ] German UI text, theme tokens, no `print`, no f-strings in logs
+- [ ] Memory updated with new traps or decisions
+
+Per change type (new field, new handler, new page, new service, bug fix):
+`references/checklists.md`. Known traps: `references/pitfalls.md`.
+
+## Which generic skill for what
+
+| Need | Skill |
+| --- | --- |
+| Python style, logging, typing, design patterns | `python-coding`, `python-clean-code` |
+| Reflex state design, events, background tasks | `reflex-state-and-architecture`, `reflex-docs` |
+| Writing state tests in general | `reflex-testing-state` |
+| Config, service registry, repositories, column types | `appkit-commons` |
+| Any `mn.*` component or prop | `appkit-mantine-reference` |
+| Shrinking a big file you touched | `code-cleanup` |
