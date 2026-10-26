@@ -1,0 +1,11 @@
+<task-notification>
+<task-id>a738f07b2a5c2a504</task-id>
+<tool-use-id>toolu_01KGZi6vfyo6KpvvFJ7chmVb</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jens-Workspace-work-alloq/c6abb66f-d4ff-4e15-90c6-ce0161f49c20/tasks/a738f07b2a5c2a504.output</output-file>
+<status>completed</status>
+<summary>Agent "Simplify review: simplification" finished</summary>
+<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>
+<result>This agent's report was delivered to you as a message from "a738f07b2a5c2a504" (its SubagentHandback call). Read it there; it is not repeated here.
+</result>
+<usage><subagent_tokens>65524</subagent_tokens><tool_uses>6</tool_uses><duration_ms>46826</duration_ms></usage>
+</task-notification>
