@@ -1,0 +1,21 @@
+adding abschnitte and new cols is not working anymore:
+
+<pasted_content id="7fce">
+2026-10-25 18:44:58 INFO    : alloq_offer.workshop.services.findings - Checks of offer 5 found 11 problems
+[Reflex Frontend Exception]
+ ReferenceError: row_rx_state_ is not defined
+Foreach_comp_2863518c704efcb769969dfb99af5f90_b95366a6</handleSubmit_2a54b46c7dc71c2670c19337f5ccee84</<@http://localhost:8080/alloq/
+app_components/appkit_user/authentication/templates.jsx?t=1792950188797:17:924148
+Foreach_comp_2863518c704efcb769969dfb99af5f90_b95366a6</handleSubmit_2a54b46c7dc71c2670c19337f5ccee84<@http://localhost:8080/alloq/ap
+p_components/appkit_user/authentication/templates.jsx?t=1792950188797:17:924198
+handleEvent@http://localhost:8080/alloq/node_modules/.vite/deps/dist-8ekEz8Y6.js?v=3f0fa2d6:15:25
+executeDispatch@http://localhost:8080/alloq/node_modules/.vite/deps/react-dom_client.js?v=3f0fa2d6:9906:13
+runWithFiberInDEV@http://localhost:8080/alloq/node_modules/.vite/deps/react-dom_client.js?v=3f0fa2d6:944:123
+processDispatchQueue@http://localhost:8080/alloq/node_modules/.vite/deps/react-dom_client.js?v=3f0fa2d6:9932:27
+require_react_dom_client_development</dispatchEventForPluginEventSystem/<@http://localhost:8080/alloq/node_modules/.vite/deps/react-d
+om_client.js?v=3f0fa2d6:10201:25
+batchedUpdates$1@http://localhost:8080/alloq/node_modules/.vite/deps/react-dom_client.js?v=3f0fa2d6:2145:12
+dispatchEventForPluginEventSystem@http://localhost:8080/alloq/node_modules/.vite/deps/react-dom_client.js?v=3f0fa2d6:10005:20
+dispatchEvent@http://localhost:8080/alloq/node_modules/.vite/deps/react-dom_client.js?v=3f0fa2d6:12513:62
+dispatchDiscreteEvent@http://localhost:8080/alloq/node_modules/.vite/deps/react-dom_client.js?v=3f0fa2d6:12495:56
+</pasted_content id="7fce">
