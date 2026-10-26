@@ -1,0 +1,1 @@
+fit the width to the content, do not break the header
