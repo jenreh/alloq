@@ -1,0 +1,1 @@
+Die feiertage sollen wie im abwesenheits view angezeigt werden (als balken). die feiertage sollen im hintergrund liegen, wenn eine zelle editiert wird, sollen sie nicht sichtbar sein
