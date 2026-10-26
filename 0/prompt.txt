@@ -1,0 +1,1 @@
+the font in the cards should have the size "sm"
