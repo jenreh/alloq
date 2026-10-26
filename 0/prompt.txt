@@ -1,0 +1,1 @@
+remove the summary in the inspector, remove the "Umfang" completely with all required code to support this feature
