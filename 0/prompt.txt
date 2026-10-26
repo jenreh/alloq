@@ -1,0 +1,3 @@
+Planning team initials now count everyone with person days on a project, before the start or after the end too. All gates are green, with 1540 tests passed. The projects list and dashboard still use the old cut to the project dates, and nothing is committed.
+
+Should the projects list and dashboard drop the date cut too?
