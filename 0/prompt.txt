@@ -1,0 +1,3 @@
+implement the complete plan in @spec/plans/angebot-kapitel-und-vorlagen.md , do a code review and a security review and a simplification after each phase. commit each phase to the current branch, then continue. do not leav anything open.
+
+/goal the complete plan is implemented, has a clean architecture, has clean and simple code and reuses as much as possible
