@@ -1,0 +1,8 @@
+<pasted_content id="6d75">
+57 files skipped due to complete coverage.
+Required test coverage of 80.0% reached. Total coverage: 83.55%
+================================================================ short test summary info ================================================================
+FAILED tests/test_configuration_profiles.py::test_default_profile_uses_project_secret_prefix - AssertionError: assert 'secret:avui-' not in 'profile: de...-tenant-id\n'
+================================================ 1 failed, 823 passed, 1 skipped, 2184 warnings in 4.92s ================================================
+task: Failed to run task "test": exit status 1
+</pasted_content id="6d75">
