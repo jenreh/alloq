@@ -1,0 +1,1 @@
+the start field should be initialized with today, the end date should be initialized with start + 5 days
