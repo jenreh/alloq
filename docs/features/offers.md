@@ -249,7 +249,7 @@ Administrator · Give access to offers / Assign the role · priority 1 · core �
 4. **Given** a user with only the role `offer_editor`, **when** the sidebar renders, **then** the section "Planung" [planning] shows only "Angebote". (no test)
 5. **Given** a user who may edit offers but not read the planning, **when** they open another page, **then** the no-access message shows the link "Zu den Angeboten" [to the offers]. (no test)
 6. **Given** a user who may not edit offers, **when** they open `/offers`, **then** they see the no-access message instead of the list.
-7. **Given** a new handler in `alloq_offer`, **when** the guard test runs, **then** it fails unless the handler has `requires_offer_editor` or is listed as UI only. Offer handlers must not use `requires_admin` or `requires_editor`.
+7. **Given** a new handler in `alloq_offer`, **when** the guard test runs, **then** it fails unless the handler has `requires_offer_editor` or is listed as UI only. Offer handlers must not use `requires_admin` or `requires_editor`. The admin states in `alloq_offer/admin/` (page `/admin/offers`) are the exception: they are listed in `ADMIN_STATES` and use `requires_admin`.
 
 ### Evidence
 
@@ -286,6 +286,7 @@ Administrator · Maintain the industries / Edit the list · priority 2 · core �
 - [industry_state.py](../../components/alloq-offer/src/alloq_offer/states/industry_state.py): `IndustryState`, `in_use_message`, `load_industries`
 - [industry.py](../../components/alloq-offer/src/alloq_offer/components/industry.py): `industries_table`, `industries_toolbar`, `industry_form_fields`
 - [industries.py](../../app/pages/industries.py): `create_industries_page`
+- [admin/pages.py](../../components/alloq-offer/src/alloq_offer/admin/pages.py): `create_offer_admin_page` (`/admin/offers`); states in [admin/states/](../../components/alloq-offer/src/alloq_offer/admin/states/)
 - [sidebar.py](../../app/components/sidebar.py): `ADMIN_ITEMS`
 - [2026_10_21_industries.py](../../alembic/versions/2026_10_21_industries.py): table `industries`, column `offers.industry_id`
 - Tests: [test_industry_state.py](../../components/alloq-offer/tests/test_industry_state.py); [test_offer_repository.py](../../components/alloq-offer/tests/test_offer_repository.py) `test_industries_are_ordered_by_name`, `test_count_offers_includes_archived`; [test_migrations.py](../../tests/test_migrations.py) `test_industries_migration_links_offers_and_restores_codes`; [test_handler_authorization.py](../../tests/test_handler_authorization.py) `ADMIN_STATES`

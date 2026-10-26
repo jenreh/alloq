@@ -160,6 +160,13 @@ Erst auf Basis einer versionierten Map werden die Kapitel der Vorlage entworfen.
 
 Neue Vorschläge erscheinen als Vergleich zum aktuellen Stand. Erst die Übernahme ändert den verbindlichen Inhalt. Ein leeres Unternehmenswissensarchiv verhindert weder Map noch Stories oder Kapitelentwurf.
 
+Der Reiter „Kapitel“ zeigt das Angebot als ein Dokument. Links steht die Gliederung, rechts ein Bereich mit den Einstellungen des gewählten Kapitels. Jedes Angebot hat eine eigene Gliederung, die beim Anlegen aus der gebundenen Vorlagenversion kopiert wird. Für die Gliederung gelten diese Regeln:
+
+- Über „+ Kapitel“ kommt ein Baustein aus der Bibliothek mit Startinhalt und Einstellungen hinzu, oder ein leeres Kapitel vom Typ Text, Tabelle, Stories oder Kalkulation. Jeder Baustein steht höchstens einmal in der Gliederung. Ein Angebot hat höchstens 100 Kapitel.
+- Pflichtkapitel lassen sich verschieben, aber nicht entfernen. Ein entferntes Kapitel behält Revisionen, Prüfhinweise und Vorschläge und lässt sich wiederherstellen. Nach dem Wiederherstellen steht es am Ende der Gliederung und ist zur Prüfung markiert.
+- Kapitel werden in der Gliederung mit Maus oder Tastatur verschoben. Der feste Rahmen des Word-Layouts gehört nicht zur Gliederung und bleibt an seinem Platz.
+- Jedes Kapitel hat einen eigenen Titel und die Ebene Kapitel oder Unterkapitel. Das erste Kapitel hat immer die Ebene Kapitel. Die Nummern (1, 2, 2.1, 3) ergeben sich aus Reihenfolge und Ebene, in der Werkstatt und im Word-Dokument.
+
 ### 5.6 Word erzeugen
 
 Vor dem Export werden alle Änderungen gespeichert und ein fester Dokumentstand gebildet. Der Nutzer sieht die Ausgabeart und vorhandene Blocker. Der Export verwendet diesen Stand sowie die zugeordnete Version der Word-Vorlage. Spätere Bearbeitungen verändern eine bereits erzeugte Datei nicht.
@@ -177,6 +184,16 @@ Ein Vorlagenpaket besteht aus drei zusammengehörigen Teilen:
 | Generierungs- und Prüfregeln | Leitfragen, Stil, verbindliche Textbausteine, benötigte Informationen und kapitelbezogene Prüfungen |
 
 Alle Teile werden gemeinsam versioniert und auf Kompatibilität geprüft. Ein Angebot bindet eine konkrete Paketversion. Ein Vorlagenwechsel ist eine ausdrückliche Migration mit Vorschau; er verändert vorhandene Angebote nicht automatisch.
+
+Vorlagen, Kapitelbausteine und KI-Prompts liegen in der Datenbank. Administratoren pflegen sie im Menü „Angebote“ der Administration (`/admin/offers`) mit drei Reitern:
+
+| Reiter | Inhalt |
+|---|---|
+| Vorlagen | Entwurf der Gliederung aus Bausteinen mit Titel, Ebene und Pflichtstatus je Eintrag; Hochladen des Word-Layouts; Veröffentlichen als nächste Version; Liste der Versionen |
+| Kapitelbausteine | Bibliothek der Kapitel mit Schlüssel, Titel, Typ, Ebene, Leitfrage, Inhaltsregeln, Prompt-Ergänzung, Pflichtangaben, Prüfungen und Startinhalt; ein Baustein in einer Vorlage wird deaktiviert statt gelöscht |
+| Prompts | Neue Version eines Prompts speichern oder eine ältere aktivieren; jede Version zeigt Autor, Zeitpunkt und die geänderten Zeilen |
+
+Das Veröffentlichen kopiert Gliederung, Baustein-Einstellungen und Layout in eine unveränderliche Version. Eine Version ohne Änderung zur letzten wird nicht angelegt. Neue Angebote nutzen die neueste Version, bestehende Angebote behalten ihre. Das hochgeladene Layout braucht genau einen Anker `[[KAPITEL]]` und wird vor dem Speichern von Kommentaren, Personen, Autoren, Änderungsverfolgung und externen Verknüpfungen bereinigt. Eine feste Regel zu den Daten-Tags steht vor jedem Prompt und lässt sich im Menü nicht entfernen. Jeder KI-Lauf speichert die Prompt-Version, die er genutzt hat.
 
 ### 6.2 Übernahme der bestehenden Word-Vorlage
 

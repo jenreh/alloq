@@ -193,8 +193,9 @@ two lists:
 
 - `PLANNING_ITEMS`: "Übersicht" [overview] `/dashboard`, "Ressourcenplanung"
   [resource planning] `/plan`, "Projekte" [projects] `/projects`, "Team" `/team`.
-- `ADMIN_ITEMS`: "Benutzer" [users], "Rollen" [roles], "Tagessätze" [daily rates],
-  "Abteilungen" [departments], "Feiertage" [public holidays], all below `/admin/`.
+- `ADMIN_ITEMS`: "Benutzer" [users], "Rollen" [roles], "Abteilungen" [departments],
+  "Branchen" [industries], "Angebote" [offers: templates, chapter blocks and AI
+  prompts], "Feiertage" [public holidays], all below `/admin/`.
 
 `VIEWER_ROUTES` holds `/plan` and `/projects`, the two pages the employee role may
 read. The route `/` shows the same planning page as `/plan`.

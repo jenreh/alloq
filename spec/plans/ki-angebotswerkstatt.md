@@ -1,5 +1,7 @@
 # Refined prompt: KI-Angebotswerkstatt in `alloq-offer` — multiphase plan (Etappe 0 + 1)
 
+> Status: templates, chapter settings and prompts no longer live in files (`chapters.yaml`, `rules.yaml`, prompt files in `ai/`). They are in the database, see [angebot-kapitel-und-vorlagen.md](./angebot-kapitel-und-vorlagen.md).
+
 > Load `alloq-implementation` first in **every** phase, then `appkit-mantine-reference` before any `mn.*` component you have not used in this task, `reflex-state-and-architecture` / `reflex-testing-state` for states, `ai:building-pydantic-ai-agents` for the AI layer. Follow the test-first workflow and the definition of done of `alloq-implementation`. One phase = one reviewable PR. Do not start a phase before the previous one is green.
 
 ## Task
