@@ -1,0 +1,6 @@
+* the story map should have a list view with an excel like editing, first col should be the Aktivität, next col the story name, third col the user story, and an additional description field (also needed in the inspector)
+* the title of the story should also be editable when hoverd in the inspector
+* the inspector should have a close btn (x) in the top right instead of the button in the bottom
+* the archive btn should be an icon left to the close button
+* the save butn should be an icon left to the achive button
+* the title of the story in the inspector should be fixed
