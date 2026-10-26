@@ -1,0 +1,1 @@
+add also an edge, so that the add button looks like in the first col
