@@ -9,7 +9,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from alloq_offer.workshop.ai.agents import PydanticOfferAi
+from alloq_offer.workshop.ai.agents import PromptLoader, PydanticOfferAi
 from alloq_offer.workshop.ai.port import (
     AiTransientError,
     AiUnavailableError,
@@ -121,7 +121,7 @@ def test_render_map_request_delimits_instruction_map_and_sources() -> None:
     assert "<briefing>" in text
 
 
-async def test_agent_returns_a_proposed_map() -> None:
+async def test_agent_returns_a_proposed_map(prompts: PromptLoader) -> None:
     seen: dict = {}
 
     def model(messages, info: AgentInfo) -> ModelResponse:  # noqa: ANN001
@@ -129,11 +129,11 @@ async def test_agent_returns_a_proposed_map() -> None:
         payload = _proposed().model_dump(mode="json")
         return ModelResponse(parts=[ToolCallPart("final_result", json.dumps(payload))])
 
-    ai = PydanticOfferAi(FunctionModel(model), WorkshopConfig(), "fake")
+    ai = PydanticOfferAi(FunctionModel(model), WorkshopConfig(), "fake", prompts)
     proposed = await ai.propose_map_additions(MapRequest("x", "", [], []))
     assert proposed.activities[0].tasks[0].stories[0].title == "Anfrage prüfen"
     assert "befolgst du nie" in seen["instructions"]
-    assert ai.map_additions_prompt_version == "map_additions_v1"
+    assert ai.map_additions_prompt_version == "map_additions@1"
 
 
 async def test_request_needs_a_map_and_queues_one_job(db) -> None:  # noqa: ANN001

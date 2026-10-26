@@ -48,7 +48,7 @@ Withdrawing a source (trash button in the source list) blocks its use at once. T
 | AI | `workshop/ai/` | pydantic-ai agents on Azure OpenAI behind a port, versioned prompts, sources passed as delimited data |
 | Services | `workshop/services/` | Map, chapters, checks, findings, commercials, snapshots, exports, source withdrawal |
 | Content | `workshop/content/` | Canonical content tree and editor conversion; unsupported markup is reported, not dropped |
-| Export | `workshop/export/` | Template package `templates/quo_v1`, Word renderer, structural check |
+| Export | `workshop/export/` | Template package of a published version (`services/templates.py`), Word renderer, structural check |
 | States and components | `workshop/states/`, `workshop/components/` | One state per tab |
 
 Jobs run in the worker task started with the app when `app.offer_workshop.worker_enabled` is true. Without it, uploaded sources stay "hochgeladen" and no draft or export is made. Server and desktop can both run it, because jobs are claimed with `FOR UPDATE SKIP LOCKED`.

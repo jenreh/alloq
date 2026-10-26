@@ -23,7 +23,7 @@ from alloq_offer.workshop.entities import (
     FindingSource,
     GenerationRunEntity,
 )
-from alloq_offer.workshop.jobs.ai_access import job_ai
+from alloq_offer.workshop.jobs.ai_access import failure_message, job_ai
 from alloq_offer.workshop.jobs.registry import (
     JobContext,
     PermanentJobError,
@@ -106,7 +106,7 @@ class ReviewOffer:
         except AiTransientError as exc:
             raise TransientJobError(AI_BUSY) from exc
         except AiUnavailableError as exc:
-            raise PermanentJobError(AI_FAILED) from exc
+            raise PermanentJobError(failure_message(exc, AI_FAILED)) from exc
         issues = to_issues(review, known_targets(data))
         async with self._session_factory() as session:
             await sync(

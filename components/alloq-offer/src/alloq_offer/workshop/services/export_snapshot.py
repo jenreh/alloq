@@ -8,29 +8,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from alloq_offer.entities import OfferEntity
 from alloq_offer.workshop.entities import (
-    ChapterEntity,
     FindingDecision,
     FindingEntity,
     SnapshotEntity,
     WorkspaceEntity,
 )
 from alloq_offer.workshop.export.models import ResolvedStory
-from alloq_offer.workshop.export.template_package import load_template
-from alloq_offer.workshop.services.chapters import current_revisions
+from alloq_offer.workshop.services.chapters import current_revisions, live_chapters
 from alloq_offer.workshop.services.checks import live_stories
 from alloq_offer.workshop.services.commercials import resolve_values
 from alloq_offer.workshop.services.map_apply import snapshot_map
 
-TEMPLATE_CHANGED = (
-    "Die Vorlage dieses Angebots ist nicht mehr verfügbar. "
-    "Bitte migrieren Sie das Angebot auf die aktuelle Vorlage."
-)
 DATE_FORMAT = "%d.%m.%Y"
 QUOTE_PREFIX = "ALLOQ-"
-
-
-class SnapshotError(ValueError):
-    """No snapshot can be built; the message is German."""
 
 
 def _cover(
@@ -94,29 +84,18 @@ async def build_snapshot(
     now: datetime,
 ) -> SnapshotEntity:
     """Store the current chapters, stories and values as an immutable snapshot."""
-    template = load_template(workspace.template_key)
-    if template.version != workspace.template_version:
-        raise SnapshotError(TEMPLATE_CHANGED)
     offer_id = workspace.offer_id
-    rows = {
-        c.chapter_key: c
-        for c in (
-            await session.scalars(
-                select(ChapterEntity).where(ChapterEntity.offer_id == offer_id)
-            )
-        ).all()
-    }
-    stored = await current_revisions(session, list(rows.values()))
+    rows = await live_chapters(session, offer_id)
+    stored = await current_revisions(session, rows)
     chapters = [
         {
-            "key": definition.key,
-            "title": definition.title,
-            "level": definition.level,
-            "revision": rows[definition.key].revision,
-            "content": stored[rows[definition.key].id].content,
+            "key": row.chapter_key,
+            "title": row.title,
+            "level": row.level,
+            "revision": row.revision,
+            "content": stored[row.id].content,
         }
-        for definition in template.chapters
-        if definition.key in rows
+        for row in rows
     ]
     number = (
         await session.scalar(

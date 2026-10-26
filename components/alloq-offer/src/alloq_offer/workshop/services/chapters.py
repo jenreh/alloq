@@ -26,10 +26,11 @@ from alloq_offer.workshop.entities import (
 )
 from alloq_offer.workshop.export.template_package import (
     ChapterDef,
+    ChapterSettings,
     TemplatePackage,
-    load_template,
 )
 from alloq_offer.workshop.repositories import workspace_repo
+from alloq_offer.workshop.services.templates import load_template
 
 logger = logging.getLogger(__name__)
 
@@ -56,15 +57,67 @@ class ChapterError(ValueError):
     """The change is not allowed; the message is German and shown to users."""
 
 
-def default_content(definition: ChapterDef) -> Content:
-    """The empty content a chapter starts with, from the template defaults."""
-    return parse_content(
-        {"chapter_type": definition.chapter_type, **definition.defaults}
+def settings_of(chapter: ChapterEntity) -> ChapterSettings:
+    return ChapterSettings.model_validate(chapter.settings)
+
+
+async def live_chapters(session: AsyncSession, offer_id: int) -> list[ChapterEntity]:
+    """The chapters of the offer's outline in order; removed ones are left out."""
+    rows = await session.scalars(
+        select(ChapterEntity)
+        .where(ChapterEntity.offer_id == offer_id, ChapterEntity.removed_at.is_(None))
+        .order_by(ChapterEntity.position, ChapterEntity.id)
+    )
+    return list(rows.all())
+
+
+async def create_chapters(
+    session: AsyncSession, offer_id: int, template: TemplatePackage, map_revision: int
+) -> None:
+    """Copy the template outline into the offer, each with its start content."""
+    await add_chapters(
+        session,
+        offer_id,
+        [(definition, definition.key) for definition in template.chapters],
+        map_revision,
     )
 
 
-def _template(workspace: WorkspaceEntity) -> TemplatePackage:
-    return load_template(workspace.template_key)
+async def add_chapters(
+    session: AsyncSession,
+    offer_id: int,
+    entries: list[tuple[ChapterDef, str | None]],
+    map_revision: int,
+    first_position: int = 0,
+) -> list[ChapterEntity]:
+    """New chapters from definitions and their origin block, starting at revision 1."""
+    chapters = [
+        ChapterEntity(
+            offer_id=offer_id,
+            chapter_key=definition.key,
+            revision=0,
+            position=first_position + index,
+            title=definition.title,
+            chapter_type=definition.chapter_type,
+            level=definition.level,
+            required=definition.required,
+            block_key=block_key,
+            settings=definition.settings().model_dump(),
+        )
+        for index, (definition, block_key) in enumerate(entries)
+    ]
+    session.add_all(chapters)
+    await session.flush()
+    for chapter, (definition, _) in zip(chapters, entries, strict=True):
+        _add_revision(
+            session,
+            chapter,
+            definition.content(),
+            origin=ChapterOrigin.TEMPLATE,
+            author="",
+            map_revision=map_revision,
+        )
+    return chapters
 
 
 async def mark_chapters_review(
@@ -78,6 +131,7 @@ async def mark_chapters_review(
         .where(
             ChapterEntity.offer_id == offer_id,
             ChapterEntity.chapter_key.in_(keys),
+            ChapterEntity.removed_at.is_(None),
         )
         .values(needs_review=True, review_reason=reason)
     )
@@ -91,13 +145,13 @@ async def mark_dependent_review(
     Chapters that still hold the template text have nothing to review, and
     projections (stories, calc) follow the map by themselves.
     """
-    prose = [c.key for c in _template(workspace).chapters if c.chapter_type == "prose"]
     await session.execute(
         update(ChapterEntity)
         .where(
             ChapterEntity.offer_id == workspace.offer_id,
-            ChapterEntity.chapter_key.in_(prose),
+            ChapterEntity.chapter_type == "prose",
             ChapterEntity.revision > 1,
+            ChapterEntity.removed_at.is_(None),
         )
         .values(needs_review=True, review_reason=reason)
     )
@@ -107,7 +161,9 @@ async def find_chapter(
     session: AsyncSession, offer_id: int, key: str, *, lock: bool = False
 ) -> ChapterEntity:
     query = select(ChapterEntity).where(
-        ChapterEntity.offer_id == offer_id, ChapterEntity.chapter_key == key
+        ChapterEntity.offer_id == offer_id,
+        ChapterEntity.chapter_key == key,
+        ChapterEntity.removed_at.is_(None),
     )
     chapter = await session.scalar(query.with_for_update() if lock else query)
     if chapter is None:
@@ -220,70 +276,33 @@ class ChapterService:
         return chapter, workspace
 
     async def open(self) -> list[dict[str, Any]]:
-        """Create missing chapters from the template and list them in order."""
+        """The outline in order; an offer without chapters gets them first."""
         async with self._sessions() as session:
             workspace = await workspace_repo.find_by_offer(session, self._offer_id)
             if workspace is None:
                 return []
-            template = _template(workspace)
-            existing = await self._chapters(session)
-            if len(existing) < len(template.chapters):
+            chapters = await live_chapters(session, self._offer_id)
+            if not chapters and not await self._has_chapters(session):
                 # Only creating chapters needs the lock that serialises with map edits.
                 await session.refresh(workspace, with_for_update=True)
-                existing = await self._chapters(session)
-                await self._create_missing(session, workspace, template, existing)
+                if not await self._has_chapters(session):
+                    template = await load_template(
+                        session, workspace.template_key, workspace.template_version
+                    )
+                    await create_chapters(
+                        session, self._offer_id, template, workspace.map_revision
+                    )
+                chapters = await live_chapters(session, self._offer_id)
             pending = {p.chapter_key for p in await self._open_proposals(session)}
-            return [
-                _view(definition, existing[definition.key], definition.key in pending)
-                for definition in template.chapters
-            ]
+            return [_view(c, c.chapter_key in pending) for c in chapters]
 
-    async def _chapters(self, session: AsyncSession) -> dict[str, ChapterEntity]:
-        rows = await session.scalars(
-            select(ChapterEntity).where(ChapterEntity.offer_id == self._offer_id)
+    async def _has_chapters(self, session: AsyncSession) -> bool:
+        found = await session.scalar(
+            select(ChapterEntity.id)
+            .where(ChapterEntity.offer_id == self._offer_id)
+            .limit(1)
         )
-        return {c.chapter_key: c for c in rows.all()}
-
-    async def _create_missing(
-        self,
-        session: AsyncSession,
-        workspace: WorkspaceEntity,
-        template: TemplatePackage,
-        existing: dict[str, ChapterEntity],
-    ) -> None:
-        for position, definition in enumerate(template.chapters):
-            if definition.key in existing:
-                continue
-            rules = template.rules.get(definition.key, {})
-            chapter = ChapterEntity(
-                offer_id=self._offer_id,
-                chapter_key=definition.key,
-                revision=0,
-                position=position,
-                title=definition.title,
-                chapter_type=definition.chapter_type,
-                level=definition.level,
-                required=definition.required,
-                block_key=definition.key,
-                settings={
-                    "guiding_question": definition.guiding_question,
-                    "content_rules": definition.content_rules,
-                    "prompt_text": "",
-                    "required_info": rules.get("required_info", []),
-                    "checks": rules.get("checks", []),
-                },
-            )
-            session.add(chapter)
-            await session.flush()
-            _add_revision(
-                session,
-                chapter,
-                default_content(definition),
-                origin=ChapterOrigin.TEMPLATE,
-                author="",
-                map_revision=workspace.map_revision,
-            )
-            existing[definition.key] = chapter
+        return found is not None
 
     async def _open_proposals(self, session: AsyncSession) -> list[ProposalEntity]:
         return list(
@@ -325,7 +344,7 @@ class ChapterService:
         """Store a person's text as a new revision; ``expected`` must be current."""
         async with self._sessions() as session:
             chapter, workspace = await self._locked(session, key, expected)
-            self._check(chapter, workspace, content)
+            self._check(chapter, content)
             if _unchanged((await revision_of(session, chapter)).content, content):
                 return chapter.revision
             number = _add_revision(
@@ -340,15 +359,10 @@ class ChapterService:
             await self._stale_proposals(session, key, number)
             return number
 
-    def _check(
-        self, chapter: ChapterEntity, workspace: WorkspaceEntity, content: Content
-    ) -> None:
+    def _check(self, chapter: ChapterEntity, content: Content) -> None:
         if chapter.protected:
             raise ChapterError(PROTECTED)
-        if (
-            _template(workspace).chapter(chapter.chapter_key).chapter_type
-            != content.chapter_type
-        ):
+        if chapter.chapter_type != content.chapter_type:
             raise ChapterError(WRONG_TYPE)
 
     async def _stale_proposals(
@@ -401,7 +415,7 @@ class ChapterService:
             chapter, workspace = await self._locked(session, key, expected)
             old = await revision_of(session, chapter, number)
             content = parse_content(old.content)
-            self._check(chapter, workspace, content)
+            self._check(chapter, content)
             await reopen_accepted(session, self._offer_id, key)
             return _add_revision(
                 session,
@@ -423,14 +437,12 @@ class ChapterService:
             proposal = await session.get(ProposalEntity, proposal_id)
             if proposal is None or proposal.offer_id != self._offer_id:
                 raise ChapterError(NO_PROPOSAL)
-            chapter, workspace = await self._locked(
-                session, proposal.chapter_key, expected
-            )
+            chapter, _ = await self._locked(session, proposal.chapter_key, expected)
             if proposal.status != ProposalStatus.OPEN:
                 raise ChapterError(NO_PROPOSAL)
             if proposal.base_revision == chapter.revision:
                 content = parse_content(proposal.content)
-                self._check(chapter, workspace, content)
+                self._check(chapter, content)
                 proposal.status = ProposalStatus.ACCEPTED
                 await reopen_accepted(session, self._offer_id, proposal.chapter_key)
                 return _add_revision(
@@ -454,20 +466,21 @@ class ChapterService:
                 proposal.status = ProposalStatus.REJECTED
 
 
-def _view(definition: ChapterDef, chapter: ChapterEntity, proposal: bool) -> dict:
+def _view(chapter: ChapterEntity, proposal: bool) -> dict:
+    settings = settings_of(chapter)
     return {
-        "key": definition.key,
-        "title": definition.title,
-        "level": definition.level,
-        "type": definition.chapter_type,
-        "required": definition.required,
+        "key": chapter.chapter_key,
+        "title": chapter.title,
+        "level": chapter.level,
+        "type": chapter.chapter_type,
+        "required": chapter.required,
         "revision": chapter.revision,
         "protected": chapter.protected,
         "needs_review": chapter.needs_review,
         "review_reason": chapter.review_reason,
         "proposal": proposal,
-        "guiding_question": definition.guiding_question,
-        "rules": definition.content_rules,
+        "guiding_question": settings.guiding_question,
+        "rules": settings.content_rules,
     }
 
 

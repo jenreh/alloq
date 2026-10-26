@@ -28,9 +28,14 @@ from alloq_offer.workshop.entities import (
     StatementStatus,
     StatementType,
 )
+from alloq_offer.workshop.export.template_package import TemplatePackage
 from alloq_offer.workshop.services import checks, commercials, findings
 from alloq_offer.workshop.services.chapters import ChapterService
 from alloq_offer.workshop.services.checks import (
+    CHAPTER_CHECKS,
+    COMMERCIALS_CONFIRMED,
+    CONTAINS_ALL_STORIES,
+    NO_ACCEPTANCE_CRITERIA,
     ChapterFacts,
     CheckInput,
     RuleFinding,
@@ -126,12 +131,55 @@ def test_empty_required_chapters_block() -> None:
 
 
 def test_stories_chapter_needs_stories_on_the_map() -> None:
-    chapter = _chapter("user_stories", StoriesContent(), chapter_type="stories")
+    chapter = _chapter(
+        "user_stories",
+        StoriesContent(),
+        chapter_type="stories",
+        checks=[CONTAINS_ALL_STORIES],
+    )
     assert _rules(chapters=[chapter]) == set()
     assert _rules(chapters=[chapter], snapshot=_snapshot()) == {"no_stories"}
     archived = _snapshot(_story(archived=True))
     assert _rules(chapters=[chapter], snapshot=archived) == {"no_stories"}
-    assert _rules(chapters=[_chapter()], snapshot=_snapshot()) == set()
+    unchecked = _chapter("extra", StoriesContent(), chapter_type="stories")
+    assert _rules(chapters=[unchecked], snapshot=_snapshot()) == set()
+
+
+def test_seeded_stories_chapter_flags_criteria_in_story_descriptions(
+    quo_v1: TemplatePackage,
+) -> None:
+    seeded = quo_v1.chapters[[c.key for c in quo_v1.chapters].index("user_stories")]
+    chapter = _chapter(
+        seeded.key,
+        StoriesContent(),
+        chapter_type="stories",
+        checks=seeded.checks,
+    )
+    story = _story(description="Akzeptanzkriterien: Given eine Anfrage")
+    found = run_rules(_input(chapters=[chapter], snapshot=_snapshot(story)))
+    assert [f.rule for f in found] == ["acceptance_criteria"]
+    plain = _snapshot(_story(description="Ablauf wie heute."))
+    assert not run_rules(_input(chapters=[chapter], snapshot=plain))
+
+
+def test_chapter_text_must_not_hold_acceptance_criteria() -> None:
+    checked = _chapter(
+        "loesung",
+        _prose("Akzeptanzkriterien: Given a user"),
+        checks=[NO_ACCEPTANCE_CRITERIA],
+    )
+    plain = _chapter("laufzeit", _prose("Wenn der Kunde zusagt, dann starten wir."))
+    found = run_rules(_input(chapters=[checked, plain]))
+    assert [(f.rule, f.target) for f in found] == [
+        ("acceptance_criteria", "chapter:loesung")
+    ]
+    fine = _chapter("x", _prose("Wenn A, dann B."), checks=[NO_ACCEPTANCE_CRITERIA])
+    assert not run_rules(_input(chapters=[fine]))
+    assert set(CHAPTER_CHECKS) == {
+        CONTAINS_ALL_STORIES,
+        NO_ACCEPTANCE_CRITERIA,
+        COMMERCIALS_CONFIRMED,
+    }
 
 
 def test_story_format_and_placement() -> None:
@@ -176,7 +224,12 @@ def test_statements_conflicts_block_and_requirements_note() -> None:
 
 
 def test_commercials_rules() -> None:
-    calc = _chapter("verguetung", CalcContent(), chapter_type="calc")
+    calc = _chapter(
+        "verguetung",
+        CalcContent(),
+        chapter_type="calc",
+        checks=[COMMERCIALS_CONFIRMED],
+    )
     found = run_rules(_input(chapters=[calc], commercials_confirmed=False))
     assert [(f.rule, f.target) for f in found] == [
         ("commercials_unconfirmed", "chapter:verguetung")
@@ -401,6 +454,26 @@ async def test_run_checks_stores_findings_and_keeps_decisions(db) -> None:
     )
     assert (kept["decision"], kept["reason"]) == ("akzeptiert", "Bewusst so")
     assert len(await _all(db)) == len(rows)
+
+
+async def test_checks_follow_the_settings_of_the_offer_chapters(db) -> None:
+    await _workspace(db)
+    async with db.session() as session:
+        rows = {
+            c.chapter_key: c
+            for c in (await session.scalars(select(ChapterEntity))).all()
+        }
+        rows["verguetung"].settings = {**rows["verguetung"].settings, "checks": []}
+        rows["laufzeit"].settings = {
+            **rows["laufzeit"].settings,
+            "checks": [COMMERCIALS_CONFIRMED],
+        }
+        rows["loesung"].title = "Unsere Lösung"
+    await findings.run_checks(db.session, 1)
+    found = await findings.list_findings(db.session, 1)
+    unconfirmed = next(r for r in found if r["rule"] == "commercials_unconfirmed")
+    assert unconfirmed["target"] == "chapter:laufzeit"
+    assert any("Unsere Lösung" in r["message"] for r in found)
 
 
 async def test_blocker_cannot_be_accepted_and_reason_is_needed(db) -> None:

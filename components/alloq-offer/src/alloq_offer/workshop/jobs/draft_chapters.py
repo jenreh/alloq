@@ -23,15 +23,14 @@ from alloq_offer.workshop.content.schema import ProseContent
 from alloq_offer.workshop.content.text import stored_lines
 from alloq_offer.workshop.db import SessionFactory
 from alloq_offer.workshop.entities import (
-    ChapterEntity,
     GenerationRunEntity,
     ProposalEntity,
     ProposalStatus,
     StatementEntity,
     StatementStatus,
 )
-from alloq_offer.workshop.export.template_package import ChapterDef, load_template
-from alloq_offer.workshop.jobs.ai_access import job_ai
+from alloq_offer.workshop.export.template_package import ChapterSettings
+from alloq_offer.workshop.jobs.ai_access import failure_message, job_ai
 from alloq_offer.workshop.jobs.registry import (
     JobContext,
     PermanentJobError,
@@ -45,7 +44,9 @@ from alloq_offer.workshop.services.chapters import (
     ChapterService,
     add_proposal,
     find_chapter,
+    live_chapters,
     revision_of,
+    settings_of,
 )
 from alloq_offer.workshop.services.draft_pipeline import (
     finish_initial_draft,
@@ -64,7 +65,9 @@ NO_BASIS = {"status": "skipped", "reason": "no map and no briefing"}
 
 @dataclass(frozen=True)
 class _Target:
-    definition: ChapterDef
+    key: str
+    title: str
+    settings: ChapterSettings
     base_revision: int
     current_lines: list[str]
 
@@ -96,20 +99,22 @@ class DraftChapters:
         instruction = str(ctx.payload.get("instruction") or "")
         for target in basis.targets:
             request = ChapterRequest(
-                title=target.definition.title,
-                guiding_question=target.definition.guiding_question,
-                rules=target.definition.content_rules,
+                title=target.title,
+                guiding_question=target.settings.guiding_question,
+                rules=target.settings.content_rules,
                 current_lines=target.current_lines,
                 instruction=instruction,
                 map_outline=basis.outline,
                 statements=basis.statements,
+                required_info=target.settings.required_info,
+                prompt_text=target.settings.prompt_text,
             )
             try:
                 proposed = await self._ai.propose_chapter(request)
             except AiTransientError as exc:
                 raise TransientJobError(AI_BUSY) from exc
             except AiUnavailableError as exc:
-                raise PermanentJobError(AI_FAILED) from exc
+                raise PermanentJobError(failure_message(exc, AI_FAILED)) from exc
             proposal_id = await self._store(ctx, basis, target, proposed.to_content())
             if proposal_id is None:
                 skipped += 1
@@ -159,7 +164,7 @@ class DraftChapters:
         self, ctx: JobContext, basis: _Basis, target: _Target, content: ProseContent
     ) -> int | None:
         """Keep the proposal unless the chapter changed while the model worked."""
-        key = target.definition.key
+        key = target.key
         async with self._session_factory() as session:
             try:
                 chapter = await find_chapter(session, ctx.offer_id, key)
@@ -198,7 +203,6 @@ class DraftChapters:
             if workspace.map_revision == 0 and not statements:
                 return None
             snapshot = await snapshot_map(session, workspace)
-            template = load_template(workspace.template_key)
             done = set(
                 (
                     await session.scalars(
@@ -209,24 +213,12 @@ class DraftChapters:
                     )
                 ).all()
             )
-            chapters = {
-                c.chapter_key: c
-                for c in (
-                    await session.scalars(
-                        select(ChapterEntity).where(
-                            ChapterEntity.offer_id == ctx.offer_id
-                        )
-                    )
-                ).all()
-            }
             targets: list[_Target] = []
-            for definition in template.chapters:
-                if definition.chapter_type != "prose" or definition.key in done:
+            for chapter in await live_chapters(session, ctx.offer_id):
+                key = chapter.chapter_key
+                if chapter.chapter_type != "prose" or key in done:
                     continue
-                if wanted is not None and definition.key not in wanted:
-                    continue
-                chapter = chapters.get(definition.key)
-                if chapter is None or chapter.protected:
+                if chapter.protected or (wanted is not None and key not in wanted):
                     continue
                 # Without explicit keys only chapters nobody wrote are drafted.
                 if wanted is None and chapter.revision > 1:
@@ -234,7 +226,9 @@ class DraftChapters:
                 current = await revision_of(session, chapter)
                 targets.append(
                     _Target(
-                        definition,
+                        key,
+                        chapter.title,
+                        settings_of(chapter),
                         chapter.revision,
                         stored_lines(current.content),
                     )

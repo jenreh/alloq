@@ -18,9 +18,9 @@ from alloq_offer.workshop.jobs import queue
 from alloq_offer.workshop.repositories import workspace_repo
 from alloq_offer.workshop.services import findings
 from alloq_offer.workshop.services.export_snapshot import (
-    SnapshotError,
     build_snapshot,
 )
+from alloq_offer.workshop.services.templates import template_exists
 from alloq_offer.workshop.services.workspace import NO_WORKSPACE
 from alloq_offer.workshop.storage import BlobStore, sha256_hex
 
@@ -37,6 +37,7 @@ UNREVIEWED_PREFIX = "Pflichtkapitel noch zu prüfen: "
 BLOCKER_PREFIX = "Offener Blocker: "
 NOT_READY = "Dieser Export ist nicht verfügbar."
 CHECKSUM_MISMATCH = "Die gespeicherte Datei stimmt nicht mit ihrer Prüfsumme überein."
+TEMPLATE_MISSING = "Die Vorlage dieses Angebots ist nicht mehr verfügbar."
 
 
 class ExportBlockedError(ValueError):
@@ -79,6 +80,10 @@ async def request_export(
             raise ExportBlockedError([NO_WORKSPACE])
         workspace = await workspace_repo.find_by_offer(session, offer_id)
         assert workspace is not None  # noqa: S101  # load_check_input found it
+        if not await template_exists(
+            session, workspace.template_key, workspace.template_version
+        ):
+            raise ExportBlockedError([TEMPLATE_MISSING])
         if kind == ExportKind.FINAL:
             reasons = [
                 BLOCKER_PREFIX + row.message
@@ -93,12 +98,7 @@ async def request_export(
                 reasons.append(NOT_CONFIRMED)
             if reasons:
                 raise ExportBlockedError(reasons)
-        try:
-            snapshot = await build_snapshot(
-                session, workspace, offer, user=user, now=now
-            )
-        except SnapshotError as exc:
-            raise ExportBlockedError([str(exc)]) from exc
+        snapshot = await build_snapshot(session, workspace, offer, user=user, now=now)
         export = ExportEntity(
             offer_id=offer_id,
             snapshot_id=snapshot.id,

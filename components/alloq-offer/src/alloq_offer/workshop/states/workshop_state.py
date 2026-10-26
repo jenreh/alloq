@@ -9,7 +9,7 @@ from alloq_commons.access import requires_offer_editor
 
 from alloq_offer.repository import offer_repo
 from alloq_offer.workshop.routes import WORKSHOP_ROUTE_SUFFIX
-from alloq_offer.workshop.services.workspace import open_workspace
+from alloq_offer.workshop.services.workspace import open_workspace, template_label
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_user.authentication.states import LoginState
 
@@ -88,7 +88,7 @@ class WorkshopState(rx.State):
                 self.offer_id = offer.id
                 self.offer_title = offer.title
                 self.offer_customer = offer.customer
-                self.template_label = workspace.template_key.replace("_", " ").upper()
+                self.template_label = template_label(workspace)
                 self.doc_state = workspace.doc_state
                 self.auto_draft = workspace.auto_draft
                 self.loaded = True

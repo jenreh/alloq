@@ -19,7 +19,6 @@ from alloq_offer.entities import OfferEntity
 from alloq_offer.workshop.content.schema import parse_content
 from alloq_offer.workshop.db import SessionFactory
 from alloq_offer.workshop.entities import (
-    ChapterEntity,
     FindingDecision,
     FindingEntity,
     FindingSeverity,
@@ -30,9 +29,12 @@ from alloq_offer.workshop.entities import (
     StatementStatus,
     WorkspaceEntity,
 )
-from alloq_offer.workshop.export.template_package import load_template
 from alloq_offer.workshop.repositories import workspace_repo
-from alloq_offer.workshop.services.chapters import current_revisions
+from alloq_offer.workshop.services.chapters import (
+    current_revisions,
+    live_chapters,
+    settings_of,
+)
 from alloq_offer.workshop.services.checks import (
     ChapterFacts,
     CheckInput,
@@ -101,33 +103,21 @@ async def load_check_input(session: AsyncSession, offer_id: int) -> CheckInput |
     if workspace is None or offer is None:
         return None
     await void_if_changed(session, workspace, offer)
-    template = load_template(workspace.template_key)
-    chapters = {
-        c.chapter_key: c
-        for c in (
-            await session.scalars(
-                select(ChapterEntity).where(ChapterEntity.offer_id == offer_id)
-            )
-        ).all()
-    }
-    stored_by_chapter = await current_revisions(session, list(chapters.values()))
-    facts: list[ChapterFacts] = []
-    for definition in template.chapters:
-        chapter = chapters.get(definition.key)
-        if chapter is None:
-            continue
-        stored = stored_by_chapter[chapter.id]
-        facts.append(
-            ChapterFacts(
-                key=definition.key,
-                title=definition.title,
-                chapter_type=definition.chapter_type,
-                required=definition.required,
-                content=parse_content(stored.content),
-                needs_review=chapter.needs_review,
-                review_reason=chapter.review_reason,
-            )
+    chapters = await live_chapters(session, offer_id)
+    stored = await current_revisions(session, chapters)
+    facts = [
+        ChapterFacts(
+            key=chapter.chapter_key,
+            title=chapter.title,
+            chapter_type=chapter.chapter_type,
+            required=chapter.required,
+            content=parse_content(stored[chapter.id].content),
+            needs_review=chapter.needs_review,
+            review_reason=chapter.review_reason,
+            checks=settings_of(chapter).checks,
         )
+        for chapter in chapters
+    ]
     statements = (
         await session.scalars(
             select(StatementEntity).where(StatementEntity.offer_id == offer_id)

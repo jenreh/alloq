@@ -3,11 +3,15 @@
 import re
 
 STORY_FIELDS = ("title", "role", "goal", "benefit")
-FORBIDDEN_PATTERNS = (
+# Wording of acceptance criteria; also wrong in any chapter text.
+CRITERIA_PATTERNS = (
     re.compile(r"\b(given|when|then)\b", re.IGNORECASE),
-    re.compile(r"\b(gegeben sei|wenn|dann)\b.*\b(dann|wenn)\b", re.IGNORECASE),
     re.compile(r"akzeptanzkriteri", re.IGNORECASE),
     re.compile(r"abnahmekriteri", re.IGNORECASE),
+)
+FORBIDDEN_PATTERNS = (
+    *CRITERIA_PATTERNS,
+    re.compile(r"\b(gegeben sei|wenn|dann)\b.*\b(dann|wenn)\b", re.IGNORECASE),
     re.compile(r"^\s*([-*•]|\d+[.)])\s", re.MULTILINE),
 )
 MAX_FIELD_LENGTH = 300

@@ -34,13 +34,16 @@ from alloq_offer.workshop.storage import BlobNotFoundError, DbBlobStore
 from sqlalchemy import select
 
 NOW = datetime(2026, 10, 29, 9, 0, tzinfo=UTC)
+SOURCE_SHA = "b" * 64
+# The seeded template layout is a blob too; the tests mean the source's blob.
+SOURCE_BLOB = select(BlobEntity).where(BlobEntity.sha256 == SOURCE_SHA)
 
 
 async def _source(db, *, blob: bool = True, replaces: int | None = None) -> int:  # noqa: ANN001
     async with db.session() as session:
         blob_id = None
         if blob:
-            row = BlobEntity(sha256="b" * 64, size=3, mime="text/plain", data=b"abc")
+            row = BlobEntity(sha256=SOURCE_SHA, size=3, mime="text/plain", data=b"abc")
             session.add(row)
             await session.flush()
             blob_id = row.id
@@ -105,7 +108,7 @@ async def test_revoke_deletes_content_and_flags_dependents(db) -> None:  # noqa:
         assert source.blob_id is None
         assert not source.included
         assert await session.scalar(select(SourceBlockEntity)) is None
-        assert await session.scalar(select(BlobEntity)) is None
+        assert await session.scalar(SOURCE_BLOB) is None
         statement = await session.scalar(select(StatementEntity))
         assert statement is not None
         assert statement.needs_recheck
@@ -149,7 +152,7 @@ async def test_all_versions_of_a_file_are_revoked(db) -> None:  # noqa: ANN001
 async def test_shared_blob_stays_while_another_source_uses_it(db) -> None:  # noqa: ANN001
     first = await _source(db)
     async with db.session() as session:
-        blob = await session.scalar(select(BlobEntity))
+        blob = await session.scalar(SOURCE_BLOB)
         assert blob is not None
         session.add(
             SourceEntity(
@@ -164,7 +167,7 @@ async def test_shared_blob_stays_while_another_source_uses_it(db) -> None:  # no
         )
     assert await revoke_source(db.session, 1, first, now=NOW)
     async with db.session() as session:
-        assert await session.scalar(select(BlobEntity)) is not None
+        assert await session.scalar(SOURCE_BLOB) is not None
 
 
 async def test_viewer_lists_blocks_with_place_and_hides_revoked_sources(db) -> None:  # noqa: ANN001

@@ -3,9 +3,10 @@ title: Offer workshop template (QUO)
 description: How the QUO price indication template is split into a fixed layout and typed, generated chapters for the KI-Angebotswerkstatt, and which styles the Word export uses.
 story_ids: []
 source_paths:
-  - components/alloq-offer/src/alloq_offer/workshop/templates/quo_v1/chapters.yaml
-  - components/alloq-offer/src/alloq_offer/workshop/templates/quo_v1/rules.yaml
-  - components/alloq-offer/src/alloq_offer/workshop/templates/quo_v1/layout.docx
+  - alembic/versions/2026_10_31_offer_templates.py
+  - alembic/seed/quo_v1_layout.docx
+  - components/alloq-offer/src/alloq_offer/workshop/template_entities.py
+  - components/alloq-offer/src/alloq_offer/workshop/services/templates.py
   - components/alloq-offer/src/alloq_offer/workshop/export/template_package.py
   - components/alloq-offer/src/alloq_offer/workshop/export/docx_renderer.py
   - components/alloq-offer/src/alloq_offer/workshop/content/schema.py
@@ -16,21 +17,22 @@ source_paths:
 # Offer workshop template (QUO)
 
 The workshop fills the customer template `Templates/QUO-33441-N7R0Z4_Preisindikation MVP Referenzdatenbank Treystar .docx`.
-`scripts/inventory_docx.py` prints its structure; `scripts/build_quo_layout.py` turns it into the package layout.
+`scripts/inventory_docx.py` prints its structure; `scripts/build_quo_layout.py` turns it into the layout.
+The template lives in the database: the migration `2026_10_31_offer_templates.py` seeds template `quo_v1` as published version 1, with its chapter blocks and the layout from `alembic/seed/quo_v1_layout.docx` as a blob.
 
 ## What is fixed and what is generated
 
 | Part | Source in the QUO file | In the package |
 | --- | --- | --- |
-| Cover (title, customer, date, quote id) | paragraphs 0 to 25 | `layout.docx` with `{{ project_title }}`, `{{ customer_name }}`, `{{ customer_street }}`, `{{ customer_city }}`, `{{ customer_short }}`, `{{ offer_date }}`, `{{ quote_id }}` |
+| Cover (title, customer, date, quote id) | paragraphs 0 to 25 | the layout with `{{ project_title }}`, `{{ customer_name }}`, `{{ customer_street }}`, `{{ customer_city }}`, `{{ customer_short }}`, `{{ offer_date }}`, `{{ quote_id }}` |
 | Legal notice, supplier address | cover | fixed text |
 | Table of contents | missing in the QUO file | TOC field `1-3`, updated when Word opens the file |
 | Chapters Management Summary to Consumption | Heading 1 to 3 | removed from the layout, rendered from typed chapters at the anchor `[[KAPITEL]]` |
 | Rechtliche Bestimmungen, Bindefrist (`{{ validity_date }}`), Sonstiges, Anlagen, Unterschriften | tail | fixed text; signature placeholders (`$$_PRT_..._$$`) stay untouched |
 
-Customer data is removed from the layout. There is no story map chapter: the document shows written stories only.
+Customer data, reviewer comments, people, labels and author names are removed from the layout. There is no story map chapter: the document shows written stories only.
 
-## Chapters (`chapters.yaml`)
+## Chapters of version 1
 
 | Key | Level | Type | Required |
 | --- | --- | --- | --- |

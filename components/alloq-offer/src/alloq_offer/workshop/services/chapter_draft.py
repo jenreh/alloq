@@ -4,8 +4,8 @@ from datetime import datetime
 
 from alloq_offer.workshop.db import SessionFactory
 from alloq_offer.workshop.entities import JobEntity
-from alloq_offer.workshop.export.template_package import load_template
 from alloq_offer.workshop.repositories import workspace_repo
+from alloq_offer.workshop.services.chapters import ChapterError, find_chapter
 from alloq_offer.workshop.services.job_requests import enqueue_exclusive
 from alloq_offer.workshop.services.workspace import NO_WORKSPACE
 
@@ -36,9 +36,12 @@ async def request_chapter_draft(
         workspace = await workspace_repo.find_by_offer(session, offer_id)
         if workspace is None:
             raise ChapterDraftError(NO_WORKSPACE)
-        template = load_template(workspace.template_key)
         for key in keys or []:
-            if template.chapter(key).chapter_type != "prose":
+            try:
+                chapter = await find_chapter(session, offer_id, key)
+            except ChapterError as exc:
+                raise ChapterDraftError(NOT_DRAFTABLE) from exc
+            if chapter.chapter_type != "prose":
                 raise ChapterDraftError(NOT_DRAFTABLE)
         return await enqueue_exclusive(
             session,

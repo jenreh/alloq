@@ -41,6 +41,8 @@ class ChapterRequest:
     instruction: str
     map_outline: str
     statements: list[str]
+    required_info: list[str] = field(default_factory=list)
+    prompt_text: str = ""
 
 
 @dataclass(frozen=True)
@@ -71,6 +73,10 @@ class MapRequest:
 
 class AiUnavailableError(RuntimeError):
     """No model is configured or it cannot be reached for good."""
+
+
+class AiSetupError(AiUnavailableError):
+    """The setup is incomplete; the message is German and shown to users."""
 
 
 class AiTransientError(RuntimeError):

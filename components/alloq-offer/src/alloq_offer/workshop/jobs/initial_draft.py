@@ -18,7 +18,7 @@ from alloq_offer.workshop.ai.port import (
 from alloq_offer.workshop.configuration import WorkshopConfig
 from alloq_offer.workshop.db import SessionFactory
 from alloq_offer.workshop.entities import GenerationRunEntity
-from alloq_offer.workshop.jobs.ai_access import job_ai
+from alloq_offer.workshop.jobs.ai_access import failure_message, job_ai
 from alloq_offer.workshop.jobs.registry import (
     JobContext,
     PermanentJobError,
@@ -61,7 +61,7 @@ class InitialDraft:
             raise TransientJobError(AI_BUSY) from exc
         except AiUnavailableError as exc:
             await self._record_run(ctx, sources, "fehlgeschlagen")
-            raise PermanentJobError(AI_FAILED) from exc
+            raise PermanentJobError(failure_message(exc, AI_FAILED)) from exc
         async with self._session_factory() as session:
             workspace = await open_workspace(session, ctx.offer_id, "")
             # Lock the row: a second run must wait and then see the new map.

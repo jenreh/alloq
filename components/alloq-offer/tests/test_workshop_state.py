@@ -44,7 +44,10 @@ def _offer() -> OfferEntity:
 
 def _workspace(auto_draft: bool = False) -> SimpleNamespace:
     return SimpleNamespace(
-        template_key="quo_v1", doc_state="Entwurf", auto_draft=auto_draft
+        template_key="quo_v1",
+        template_version="quo_v1.0",
+        doc_state="Entwurf",
+        auto_draft=auto_draft,
     )
 
 
@@ -110,7 +113,7 @@ async def test_load_workshop_fills_header_and_workspace() -> None:
     assert state.loaded
     assert (state.offer_id, state.offer_title) == (5, "Plattform")
     assert state.auto_draft
-    assert state.subtitle == "Muster AG · Vorlage QUO V1 · Entwurf"
+    assert state.subtitle == "Muster AG · Vorlage QUO V1 · Version 1 · Entwurf"
 
 
 async def test_load_workshop_unknown_offer(repo: AsyncMock) -> None:

@@ -10,17 +10,16 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from alloq_offer.entities import OfferEntity
 from alloq_offer.workshop.db import SessionFactory
-from alloq_offer.workshop.entities import ChapterEntity, WorkspaceEntity
+from alloq_offer.workshop.entities import WorkspaceEntity
 from alloq_offer.workshop.export.models import ResolvedValue
-from alloq_offer.workshop.export.template_package import load_template
 from alloq_offer.workshop.repositories import workspace_repo
 from alloq_offer.workshop.services.chapters import (
     current_revisions,
+    live_chapters,
     mark_chapters_review,
 )
 from alloq_offer.workshop.services.workspace import NO_WORKSPACE
@@ -117,22 +116,15 @@ async def _keys_showing_values(
     session: AsyncSession, workspace: WorkspaceEntity
 ) -> list[str]:
     """Calc chapters and prose chapters that hold a bound value block."""
-    template = load_template(workspace.template_key)
-    keys = [c.key for c in template.chapters if c.chapter_type == "calc"]
-    prose = {c.key for c in template.chapters if c.chapter_type == "prose"}
-    rows = (
-        await session.scalars(
-            select(ChapterEntity).where(
-                ChapterEntity.offer_id == workspace.offer_id,
-                ChapterEntity.chapter_key.in_(prose),
-            )
-        )
-    ).all()
-    stored = await current_revisions(session, list(rows))
-    keys.extend(
-        c.chapter_key for c in rows if "bound_value" in str(stored[c.id].content)
-    )
-    return keys
+    chapters = await live_chapters(session, workspace.offer_id)
+    prose = [c for c in chapters if c.chapter_type == "prose"]
+    stored = await current_revisions(session, prose)
+    return [
+        c.chapter_key
+        for c in chapters
+        if c.chapter_type == "calc"
+        or (c.chapter_type == "prose" and "bound_value" in str(stored[c.id].content))
+    ]
 
 
 async def void_if_changed(

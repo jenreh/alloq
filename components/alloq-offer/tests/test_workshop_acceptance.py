@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 from alloq_offer.workshop.components import export_tab
-from alloq_offer.workshop.export.template_package import load_template
+from alloq_offer.workshop.export.template_package import TemplatePackage
 
 TESTS = Path(__file__).parent
 
@@ -246,7 +246,9 @@ def test_the_export_tab_does_not_promise_word_sync() -> None:
     assert "synchron" not in export_tab.NO_SYNC.lower()
 
 
-def test_the_story_chapter_comes_before_the_written_chapters() -> None:
+def test_the_story_chapter_comes_before_the_written_chapters(
+    quo_v1: TemplatePackage,
+) -> None:
     """A24: the template lists the story chapter ahead of the solution text."""
-    keys = [c.key for c in load_template().chapters]
+    keys = [c.key for c in quo_v1.chapters]
     assert keys.index("user_stories") < keys.index("loesung")

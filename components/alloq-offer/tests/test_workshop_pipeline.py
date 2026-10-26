@@ -7,7 +7,13 @@ from email.message import EmailMessage
 import pytest
 from alloq_offer.workshop.ai.agents import NOT_CONFIGURED
 from alloq_offer.workshop.ai.demo import DemoOfferAi
-from alloq_offer.workshop.ai.port import BlockText, MapRequest, SourceText
+from alloq_offer.workshop.ai.port import (
+    AiSetupError,
+    AiUnavailableError,
+    BlockText,
+    MapRequest,
+    SourceText,
+)
 from alloq_offer.workshop.configuration import WorkshopConfig
 from alloq_offer.workshop.content.text import stored_lines
 from alloq_offer.workshop.entities import (
@@ -22,7 +28,7 @@ from alloq_offer.workshop.entities import (
     StoryEntity,
 )
 from alloq_offer.workshop.jobs import queue
-from alloq_offer.workshop.jobs.ai_access import job_ai
+from alloq_offer.workshop.jobs.ai_access import failure_message, job_ai
 from alloq_offer.workshop.jobs.draft_chapters import DraftChapters
 from alloq_offer.workshop.jobs.export_docx import ExportDocx
 from alloq_offer.workshop.jobs.extract_source import SourceExtractor
@@ -35,6 +41,7 @@ from alloq_offer.workshop.services import draft_overview, exports
 from alloq_offer.workshop.services.chapter_draft import DRAFT_CHAPTERS_JOB
 from alloq_offer.workshop.services.chapters import ChapterService, revision_of
 from alloq_offer.workshop.services.exports import EXPORT_JOB
+from alloq_offer.workshop.services.prompts import NO_PROMPT
 from alloq_offer.workshop.services.review_request import REVIEW_JOB
 from alloq_offer.workshop.services.source_revocation import revoke_source
 from alloq_offer.workshop.services.sources import (
@@ -324,6 +331,11 @@ def test_missing_ai_setup_fails_the_job_with_a_readable_message() -> None:
         job_ai(WorkshopConfig())
     assert "Azure" in NOT_CONFIGURED
     assert isinstance(job_ai(WorkshopConfig(ai_provider="demo")), DemoOfferAi)
+    setup = AiSetupError(NO_PROMPT)
+    assert failure_message(setup, "Allgemein") == NO_PROMPT
+    assert failure_message(AiUnavailableError("propose_map"), "Allgemein") == (
+        "Allgemein"
+    )
 
 
 def _source(*texts: str, gaps: list[str] | None = None) -> SourceText:

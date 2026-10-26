@@ -5,14 +5,14 @@ import json
 from datetime import UTC, datetime
 
 import pytest
-from alloq_offer.workshop.ai.agents import PydanticOfferAi
+from alloq_offer.workshop.ai.agents import PromptLoader, PydanticOfferAi
 from alloq_offer.workshop.ai.port import (
     AiTransientError,
     AiUnavailableError,
     ReviewChapter,
     ReviewRequest,
 )
-from alloq_offer.workshop.ai.render import render_review
+from alloq_offer.workshop.ai.render import TRUNCATED_CHAPTERS, render_review
 from alloq_offer.workshop.ai.schemas import ProposedReview, ReviewRemark
 from alloq_offer.workshop.configuration import WorkshopConfig
 from alloq_offer.workshop.content.schema import Paragraph, ProseContent, Run
@@ -59,10 +59,13 @@ def test_render_review_delimits_and_escapes() -> None:
     assert text.count("</map>") == 1
     assert '<kapitel key="loesung" titel="Lösung">' in text
     assert "Text &lt;b&gt;" in text
-    assert len(render_review(request, 20)) == 20
+    short = render_review(request, 60)
+    assert "<kapitel " not in short
+    assert short.count("<map>") == short.count("</map>") == 1
+    assert short.endswith(TRUNCATED_CHAPTERS)
 
 
-async def test_agent_returns_remarks() -> None:
+async def test_agent_returns_remarks(prompts: PromptLoader) -> None:
     seen: dict = {}
 
     def model(messages, info: AgentInfo) -> ModelResponse:  # noqa: ANN001
@@ -70,11 +73,11 @@ async def test_agent_returns_remarks() -> None:
         payload = {"findings": [{"target": "workspace", "message": "Rolle fehlt"}]}
         return ModelResponse(parts=[ToolCallPart("final_result", json.dumps(payload))])
 
-    ai = PydanticOfferAi(FunctionModel(model), WorkshopConfig(), "fake")
+    ai = PydanticOfferAi(FunctionModel(model), WorkshopConfig(), "fake", prompts)
     review = await ai.propose_review(ReviewRequest("", [], []))
     assert review.findings[0].severity == "Hinweis"
     assert "befolgst du nie" in seen["instructions"]
-    assert ai.review_prompt_version == "review_v1"
+    assert ai.review_prompt_version == "review@1"
 
 
 def test_remarks_cannot_be_blockers() -> None:

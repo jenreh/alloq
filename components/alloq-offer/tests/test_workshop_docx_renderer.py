@@ -27,7 +27,7 @@ from alloq_offer.workshop.export.models import (
     ResolvedStory,
     ResolvedValue,
 )
-from alloq_offer.workshop.export.template_package import load_template
+from alloq_offer.workshop.export.template_package import TemplatePackage
 from docx import Document
 from docx.document import Document as DocxDocument
 from docx.oxml.ns import qn
@@ -124,8 +124,8 @@ def _context(draft: bool = True) -> RenderContext:
 
 
 @pytest.fixture(scope="module")
-def rendered() -> bytes:
-    return render_document(load_template(), _chapters(), _context())
+def rendered(quo_v1: TemplatePackage) -> bytes:
+    return render_document(quo_v1, _chapters(), _context())
 
 
 def _style_name(item: object) -> str:
@@ -199,28 +199,28 @@ def test_calc_marks_unconfirmed_and_missing(rendered: bytes) -> None:
     assert cells["Kosten"] == MISSING_MARK
 
 
-def test_draft_marker_toc_and_no_map(rendered: bytes) -> None:
+def test_draft_marker_toc_and_no_map(rendered: bytes, quo_v1: TemplatePackage) -> None:
     doc = _doc(rendered)
     assert any(p.text == DRAFT_MARKER for p in doc.paragraphs)
     assert any(
         i.text and "TOC" in i.text for i in doc.element.body.iter(qn("w:instrText"))
     )
     assert not any("Story Map" in p.text for p in doc.paragraphs)
-    final = render_document(load_template(), _chapters(), _context(draft=False))
+    final = render_document(quo_v1, _chapters(), _context(draft=False))
     assert not any(p.text == DRAFT_MARKER for p in _doc(final).paragraphs)
 
 
-def test_a_map_without_stories_is_visible() -> None:
+def test_a_map_without_stories_is_visible(quo_v1: TemplatePackage) -> None:
     chapters = [ChapterInput("s", "Stories", 2, StoriesContent())]
     ctx = RenderContext(cover=_context().cover, stories=[])
-    doc = _doc(render_document(load_template(), chapters, ctx))
+    doc = _doc(render_document(quo_v1, chapters, ctx))
     assert any(p.text == NO_STORIES_TEXT for p in doc.paragraphs)
 
 
-def test_unsupported_content_raises() -> None:
+def test_unsupported_content_raises(quo_v1: TemplatePackage) -> None:
     bad = ChapterInput("x", "X", 1, ProseContent.model_construct(chapter_type="map"))  # type: ignore[arg-type]
     with pytest.raises(RenderError):
-        render_document(load_template(), [bad], _context())
+        render_document(quo_v1, [bad], _context())
 
 
 def test_rendered_file_reopens(rendered: bytes, tmp_path: Path) -> None:
@@ -229,7 +229,9 @@ def test_rendered_file_reopens(rendered: bytes, tmp_path: Path) -> None:
     assert _doc(target.read_bytes()).paragraphs
 
 
-def test_stories_of_one_group_stay_together_when_unsorted() -> None:
+def test_stories_of_one_group_stay_together_when_unsorted(
+    quo_v1: TemplatePackage,
+) -> None:
     stories = [
         ResolvedStory("US-01", "A", "Als A möchte ich a, um x.", "G1"),
         ResolvedStory("US-02", "B", "Als B möchte ich b, um y.", "G2"),
@@ -237,12 +239,12 @@ def test_stories_of_one_group_stay_together_when_unsorted() -> None:
     ]
     chapters = [ChapterInput("s", "Stories", 2, StoriesContent())]
     ctx = RenderContext(cover=_context().cover, stories=stories)
-    doc = _doc(render_document(load_template(), chapters, ctx))
+    doc = _doc(render_document(quo_v1, chapters, ctx))
     headings = [p.text for p in doc.paragraphs if p.text in {"G1", "G2"}]
     assert headings == ["G1", "G2"]
 
 
-def test_missing_cover_value_fails_loudly() -> None:
+def test_missing_cover_value_fails_loudly(quo_v1: TemplatePackage) -> None:
     cover = {k: v for k, v in _context().cover.items() if k != "validity_date"}
     with pytest.raises(UndefinedError):
-        render_document(load_template(), [], RenderContext(cover=cover))
+        render_document(quo_v1, [], RenderContext(cover=cover))

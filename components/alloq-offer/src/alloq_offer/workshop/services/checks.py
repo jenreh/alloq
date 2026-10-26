@@ -16,7 +16,10 @@ from alloq_offer.workshop.content.schema import (
 )
 from alloq_offer.workshop.content.text import Content, content_lines
 from alloq_offer.workshop.entities import FindingSeverity, StatementType
-from alloq_offer.workshop.services.story_rules import story_problems
+from alloq_offer.workshop.services.story_rules import (
+    CRITERIA_PATTERNS,
+    story_problems,
+)
 
 BLOCKER = FindingSeverity.BLOCKER
 WARNING = FindingSeverity.WARNING
@@ -45,6 +48,15 @@ WORD_AMOUNT = re.compile(
 )
 SCALES = {"mio": Decimal(1_000_000), "mio.": Decimal(1_000_000), "k": Decimal(1000)}
 DAY_UNITS = ("pt", "personentag", "manntag")
+CONTAINS_ALL_STORIES = "contains_all_stories"
+NO_ACCEPTANCE_CRITERIA = "no_acceptance_criteria"
+COMMERCIALS_CONFIRMED = "commercials_confirmed"
+# Checks a chapter can bring along; the findings are reported on that chapter.
+CHAPTER_CHECKS: dict[str, str] = {
+    CONTAINS_ALL_STORIES: "Enthält alle Stories der Map",
+    NO_ACCEPTANCE_CRITERIA: "Keine Akzeptanzkriterien",
+    COMMERCIALS_CONFIRMED: "Kalkulation bestätigt",
+}
 
 
 @dataclass(frozen=True)
@@ -65,6 +77,7 @@ class ChapterFacts:
     content: Content
     needs_review: bool = False
     review_reason: str = ""
+    checks: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -131,8 +144,12 @@ def required_chapters(inp: CheckInput) -> list[RuleFinding]:
     ]
 
 
+def _checked(inp: CheckInput, check: str) -> list[ChapterFacts]:
+    return [chapter for chapter in inp.chapters if check in chapter.checks]
+
+
 def stories_present(inp: CheckInput) -> list[RuleFinding]:
-    """A stories chapter needs at least one live story on the map."""
+    """A chapter that must hold all stories needs at least one on the map."""
     if live_stories(inp.snapshot):
         return []
     return [
@@ -142,8 +159,33 @@ def stories_present(inp: CheckInput) -> list[RuleFinding]:
             chapter_target(chapter.key),
             "Die Story Map enthält noch keine Stories.",
         )
-        for chapter in inp.chapters
-        if isinstance(chapter.content, StoriesContent)
+        for chapter in _checked(inp, CONTAINS_ALL_STORIES)
+    ]
+
+
+def _texts(inp: CheckInput, chapter: ChapterFacts) -> list[str]:
+    """What a chapter shows; a stories chapter shows the story descriptions."""
+    if isinstance(chapter.content, StoriesContent):
+        return [s.get("description", "") for s in live_stories(inp.snapshot)]
+    return content_lines(chapter.content)
+
+
+def acceptance_criteria(inp: CheckInput) -> list[RuleFinding]:
+    """Chapter text that reads like acceptance criteria (spec 8.4)."""
+    return [
+        RuleFinding(
+            "acceptance_criteria",
+            WARNING,
+            chapter_target(chapter.key),
+            f"„{chapter.title}“ enthält Akzeptanzkriterien. Das Angebot nennt "
+            "keine Akzeptanzkriterien.",
+        )
+        for chapter in _checked(inp, NO_ACCEPTANCE_CRITERIA)
+        if any(
+            pattern.search(text)
+            for text in _texts(inp, chapter)
+            for pattern in CRITERIA_PATTERNS
+        )
     ]
 
 
@@ -230,8 +272,8 @@ def statements(inp: CheckInput) -> list[RuleFinding]:
 
 
 def commercials(inp: CheckInput) -> list[RuleFinding]:
-    calc = next((c.key for c in inp.chapters if c.chapter_type == "calc"), "")
-    target = chapter_target(calc) if calc else "workspace"
+    checked = _checked(inp, COMMERCIALS_CONFIRMED)
+    target = chapter_target(checked[0].key) if checked else "workspace"
     findings: list[RuleFinding] = []
     if inp.price_required and not inp.commercials_confirmed:
         findings.append(
@@ -347,6 +389,7 @@ def revoked_sources(inp: CheckInput) -> list[RuleFinding]:
 RULES: tuple[Rule, ...] = (
     required_chapters,
     stories_present,
+    acceptance_criteria,
     story_format,
     unplaced_stories,
     review_marks,

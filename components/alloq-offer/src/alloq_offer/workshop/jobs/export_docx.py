@@ -29,7 +29,7 @@ from alloq_offer.workshop.export.models import (
     ResolvedStory,
     ResolvedValue,
 )
-from alloq_offer.workshop.export.template_package import TemplateError, load_template
+from alloq_offer.workshop.export.template_package import TemplateError
 from alloq_offer.workshop.export.verify import verify_document
 from alloq_offer.workshop.jobs.registry import (
     JobContext,
@@ -38,6 +38,7 @@ from alloq_offer.workshop.jobs.registry import (
 )
 from alloq_offer.workshop.repositories import workspace_repo
 from alloq_offer.workshop.services.exports import DOCX_MIME, EXPORT_JOB
+from alloq_offer.workshop.services.templates import load_template
 from alloq_offer.workshop.storage import BlobStore, DbBlobStore, sha256_hex
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
@@ -114,12 +115,18 @@ class ExportDocx:
             )
             if export is None or snapshot is None:
                 raise PermanentJobError(MISSING)
+            try:
+                package = await load_template(
+                    session, snapshot.template_key, snapshot.template_version
+                )
+            except TemplateError:
+                package = None
             session.expunge_all()
+        if package is None:
+            await _fail(self._session_factory, export_id, FAILED)
+            raise PermanentJobError(FAILED)
         try:
             chapters = chapter_inputs(snapshot)
-            package = load_template(snapshot.template_key)
-            if package.version != snapshot.template_version:
-                raise TemplateError(snapshot.template_version)
             draft = export.kind == ExportKind.DRAFT
             data = await asyncio.to_thread(
                 render_document, package, chapters, render_inputs(snapshot, export.kind)
