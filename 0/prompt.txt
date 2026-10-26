@@ -1,0 +1,1 @@
+the mac about menu should show the app icon, the current version and a linkt to the github repository and a hint to the MIT license
