@@ -1,0 +1,1 @@
+hide the sum in an empty state and give the user a more friendly empty state UI
