@@ -1,0 +1,1 @@
+the hover on the cards should be more sublte, especially the shadow
