@@ -1,0 +1,1 @@
+the end should be initialized with the current value or if start is after end with the start date
