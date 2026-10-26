@@ -1,0 +1,7 @@
+<task-notification>
+<task-id>bc8tmcc4b</task-id>
+<tool-use-id>toolu_01Wcrmj93CuwHvsJcTVoKwYo</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jens-Workspace-work-alloq/2042b879-ca0d-4aab-993c-f54ef5af0901/tasks/bc8tmcc4b.output</output-file>
+<status>completed</status>
+<summary>Background command "Build and launch the desktop app window" completed (exit code 0)</summary>
+</task-notification>
