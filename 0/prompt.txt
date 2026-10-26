@@ -1,0 +1,1 @@
+the plan page should have collabse / open all buttons for the team and project tabs
