@@ -1,0 +1,1 @@
+adding new stories or moving cols or adding slices feels laggy, there is a wait from 1-2 secs. look if you can optimize this. also loading the map feels slow, optimize the database performance. improve loading indicators
