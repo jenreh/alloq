@@ -1,0 +1,3 @@
+* the plus should be left to the chevron
+* in the header it should show up on the top left of a col header so that the resizer is not overlapping
+* the cols should have a darker border color so that they are better visible in the board
