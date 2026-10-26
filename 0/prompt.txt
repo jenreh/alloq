@@ -1,0 +1,1 @@
+make suggestions for the offer inspector for more common names that are not "company speak" (they should work outside of arvato)
