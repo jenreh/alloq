@@ -1,0 +1,1 @@
+the state of this buttons in the planning grid should be stored in the browser so that they be persistent even when the user starts a new session
