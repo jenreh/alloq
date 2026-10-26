@@ -1,0 +1,1 @@
+Die Abteilung soll aus einem select ausgewählt werden können, wenn nur eine Abteilung existiert wird diese als default gewählt. Abteilungen können im Admin bereich analog der Rollen definiert werden: Name, Kürzel
