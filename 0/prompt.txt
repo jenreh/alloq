@@ -1,0 +1,1 @@
+how does the azure infrastructure need to be configure to support the saml login for the database? look into the knowledgeai-container project for the required changes
