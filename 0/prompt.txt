@@ -1,0 +1,1 @@
+can the toast close button be inside the toast?
