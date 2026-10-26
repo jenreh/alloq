@@ -1,0 +1,1 @@
+Drop the date cut in ProjectEntity._staffed_employee_capacity too, so team badges and planned PT count all allocations of the project.
