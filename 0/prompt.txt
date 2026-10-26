@@ -1,0 +1,1 @@
+adding a new col should be possible by clicking a plus at the edge between cols in the header row, it should open a small popup with the name and a ok / cancel button. Same for the phases but on the row edge in the first col
