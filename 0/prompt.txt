@@ -1,0 +1,1 @@
+write the plan in th spec directory
