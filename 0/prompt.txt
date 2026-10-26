@@ -1,0 +1,1 @@
+can you ensure that dev is always in sync with prod so that local testing is showing what will be on prod. if possible do not duplicate code
