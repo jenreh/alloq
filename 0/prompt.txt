@@ -1,0 +1,3 @@
+Ändere das aktuelle Design, sodass es mehr wie eine native MacOS desktop app aussieht. Der Anwendungsrahmen sollte sich an dem vermoegen Projekt orientieren. Die Anwendung soll sowohl im Web als auch als Tauri-Desktop app funktionieren. Überarbeite die Navigation, sodass sie den MacOS vorgaben entspricht. Die Farben sollen hell und zurückhaltend sein, sodass man täglich gerne damit arbeitet. Das design soll hochwertig und clean sein. es soll bei der tagläichen arbeit unterstützen und eine gute usability sicherstellen.
+
+Die aktuelle Anwendung läuft in deinem Browser, ich habe dich angemeldet. Ersteller erst Mal nur einen HTML Prototyp
