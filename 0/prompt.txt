@@ -1,0 +1,1 @@
+the role badges should have a unique color per role (everywhere)
