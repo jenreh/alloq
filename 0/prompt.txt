@@ -1,0 +1,1 @@
+Update spec/plans/ki-angebotswerkstatt.md: one-click full draft, story map as its own A-style screen (not in the document), typed chapters (stories, prose, table, calc) in content model, editor and Word export.
