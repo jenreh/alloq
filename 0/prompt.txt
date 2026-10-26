@@ -1,0 +1,1 @@
+disable the dashboard in the menu (hide it)
