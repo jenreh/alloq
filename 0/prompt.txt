@@ -1,0 +1,1 @@
+on the daily rates page the up/down/delete should be fixed at the right window edge if the table is wider than the window
