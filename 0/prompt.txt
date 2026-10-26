@@ -1,0 +1,5 @@
+* all the "plus" buttons should be visible when hovering in the "Aktivität Aufgabe" col
+* the plus buttons are moving when clicked (they seem not to have a fixed position)
+* the layers seem not correct (see screenshot)
+* the header row should drop the "anforderungen", the titel should be editable when hovering over it with the mouse
+* the first col with the "stufen" should be smaler, only as wide that the "Ausbaustufe" (longer texts should be trimmed with a hover text)
