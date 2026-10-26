@@ -1,0 +1,1 @@
+Der Prototyp passt. Plane die Umsetzung des neuen App-Rahmens in Reflex nach dem Vorbild von vermoegen (Tauri-Overlay, Seitenleiste, Toolbar).
