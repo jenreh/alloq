@@ -1,0 +1,3 @@
+start a workflow to implement @angebote.md — alloq — Python do a final /code-review and /security-review
+
+<cu_window_hints>The user is pointing at: window "angebote.md — alloq — Python" (already open — pass "com.microsoft.VSCode" to request_access; if app_screenshot is available, call it with app: "com.microsoft.VSCode" and window_id: 19953 to see just this window in the background; otherwise take a display screenshot). Do not open_application for it.</cu_window_hints>
