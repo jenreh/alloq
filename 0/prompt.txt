@@ -1,0 +1,1 @@
+the column "Frei 8W" should be bold in the team table
