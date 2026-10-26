@@ -1,0 +1,1 @@
+add an employee role that has read-only rights for the projects and planning page. other pages are not shown to the user
