@@ -1,0 +1,1 @@
+Ich habe archify wieder installiert. Rendere schema.html neu, nimm die Datei von den Whitespace-Hooks aus und pushe.
