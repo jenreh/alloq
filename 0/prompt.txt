@@ -1,0 +1,1 @@
+add a filter switch to hide internal projects and absence to the planning grid
