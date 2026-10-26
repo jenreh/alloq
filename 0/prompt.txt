@@ -1,0 +1,1 @@
+the archive button should only show an icon instead of the text
