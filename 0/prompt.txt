@@ -1,0 +1,1 @@
+the "ansehen" btn should be an icon button
