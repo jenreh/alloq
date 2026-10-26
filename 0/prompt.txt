@@ -1,0 +1,1 @@
+the project choose should group the projects, there should be a group for "geplant" and "abgeschlossen" (abgeschlossen last)
