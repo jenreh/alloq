@@ -1,0 +1,1 @@
+Ja: lösche tests/test_schema_doc.py, entferne die Verweise in AGENTS.md, im alloq-implementation-Skill und in .pre-commit-config.yaml, und committe nur das zusammen mit dem Löschen von doc/database. Dann pushen.
