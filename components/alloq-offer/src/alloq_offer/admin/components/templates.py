@@ -138,7 +138,7 @@ def _outline() -> rx.Component:
         gap=10,
         p=16,
         style=theme.CARD,
-        class_name="aq-doc-grow",
+        class_name="aq-doc-grow aq-admin-outline",
     )
 
 

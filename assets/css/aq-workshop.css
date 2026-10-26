@@ -910,6 +910,11 @@
   background: var(--aq-hover);
 }
 
+/* The draft outline keeps room for its title fields; the side panel wraps below. */
+.aq-admin-outline {
+  min-width: min(100%, 600px);
+}
+
 .aq-doc-library-item[aria-current="true"] {
   background: var(--aq-accent-soft);
 }
