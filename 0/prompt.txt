@@ -1,0 +1,5 @@
+mache einen /code-review und /security-review des aktuellen branches. prüfe ob alle funktionen umgesetzt sind.
+
+* Splitte die User Story Map und den Entwurf/Dokument upload in 2 tabs
+* prüfe ob wirklich dokumente generiert werden und herunterladbar sind
+* prüfe ob aus hoch geladenen dokumenten wirklich inhalte generiert werden können
