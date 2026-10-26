@@ -1,0 +1,1 @@
+wie müsste der prompt umgebaut werden damit er auch mit z.B. codex oder Github Copilot funktioniert?
