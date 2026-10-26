@@ -1,0 +1,1 @@
+hide "geplante" and "abgeschlossene" projekte in the planning grid if there is no effort planned in the choosen time range
