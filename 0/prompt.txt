@@ -1,0 +1,1 @@
+click auf das kalender icon soll in das planungsgrid, mitarbeiter view springen, gefiltert auf den mitarbeiter (existierende filter löschen)
