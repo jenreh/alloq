@@ -1,0 +1,1 @@
+I think this is to complicated: a can_read_offers is not needed. Just guard the buttons on the page for the available editor role, this should work with appkit-commons tooling
