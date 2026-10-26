@@ -846,3 +846,36 @@ def test_templates_migration_reuses_and_keeps_shared_layout_blob(
         left = conn.scalar(sa.text("SELECT count(*) FROM offer_blobs"))
     assert used == 5
     assert left == 1
+
+
+# ---------------------------------------------------------------------------
+# e2f3a4b5c6d7 — the seeded layout is replaced by the cleaned file
+# ---------------------------------------------------------------------------
+
+
+def test_layout_clean_replaces_an_old_seed_blob(templates: ModuleType) -> None:
+    clean = _load("2026_11_01_offer_template_layout_clean.py")
+    assert clean.down_revision == "d1e2f3a4b5c6"
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        _workshop_with_chapters(conn)
+        _run(templates, "upgrade", conn)
+        conn.execute(
+            sa.text("UPDATE offer_blobs SET sha256 = :old"),
+            {"old": clean.OLD_LAYOUTS[0]},
+        )
+        _run(clean, "upgrade", conn)
+        blobs = conn.execute(sa.text("SELECT id, sha256 FROM offer_blobs")).all()
+        used = conn.scalar(
+            sa.text("SELECT layout_blob_id FROM offer_template_versions")
+        )
+        draft = conn.scalar(sa.text("SELECT draft_layout_blob_id FROM offer_templates"))
+        again = clean.replace_layouts(conn, clean.LAYOUT_PATH.read_bytes())
+        _run(clean, "downgrade", conn)
+    digest = hashlib.sha256(clean.LAYOUT_PATH.read_bytes()).hexdigest()
+    assert [sha for _, sha in blobs] == [digest]
+    assert used == draft == blobs[0][0]
+    assert again == 0

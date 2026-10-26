@@ -4,6 +4,7 @@ import io
 import zipfile
 
 import pytest
+from alloq_offer.workshop.entities import BlobEntity
 from alloq_offer.workshop.export.template_package import (
     CHAPTER_ANCHOR,
     NO_ANCHOR,
@@ -154,6 +155,20 @@ def test_version_number_maps_legacy_texts() -> None:
     assert templates.version_number("3") == 3
     with pytest.raises(TemplateError, match=templates.UNKNOWN_VERSION):
         templates.version_number("quo_v9")
+
+
+async def test_loaded_layout_is_cleaned(db) -> None:
+    document = Document(io.BytesIO(_docx(CHAPTER_ANCHOR)))
+    document.core_properties.author = "Erika Muster"
+    out = io.BytesIO()
+    document.save(out)
+    async with db.session() as session:
+        blob = await session.get(BlobEntity, 1)
+        assert blob is not None
+        blob.data = out.getvalue()
+    async with db.session() as session:
+        package = await templates.load_template(session, "quo_v1", 1)
+    assert Document(io.BytesIO(package.layout_bytes)).core_properties.author == ""
 
 
 async def test_export_check_needs_a_published_version(db) -> None:

@@ -14,6 +14,7 @@ from alloq_offer.workshop.entities import BlobEntity
 from alloq_offer.workshop.export.template_package import (
     TemplateError,
     TemplatePackage,
+    clean_layout,
 )
 from alloq_offer.workshop.template_entities import (
     OfferTemplateEntity,
@@ -59,10 +60,10 @@ async def _package(
                 **row.payload,
                 "key": key,
                 "version": str(row.number),
-                "layout_bytes": layout,
+                # Cleaned on load as well, so no export carries internal data.
+                "layout_bytes": clean_layout(layout),
             }
         )
-        package.check_layout()
     except (ValidationError, TemplateError) as exc:
         logger.warning("Template %s version %s is broken", key, row.number)
         raise TemplateError(BROKEN_VERSION) from exc
