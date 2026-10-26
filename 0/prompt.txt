@@ -1,0 +1,1 @@
+Phase 5 with database login per user via Entra-ID token and OAuth with PKCE, without secrets in the app.
