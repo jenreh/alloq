@@ -1,0 +1,1 @@
+in compact view the projects should have the same fonz size as the grid
