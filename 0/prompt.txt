@@ -1,0 +1,1 @@
+Committe die Änderungen im Working Tree mit einer sinnvollen Nachricht.
