@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
-from typing import Final
+from typing import Any, Final
 
 from alloq_commons.entities import ProjectEntity
 from alloq_commons.entities.project import ProjectStateEnum
@@ -142,7 +142,7 @@ def filter_offers(offers: list[Offer], list_filter: str) -> list[Offer]:
     return active
 
 
-_SORT_KEYS: Final[dict[str, Callable[[Offer], object]]] = {
+_SORT_KEYS: Final[dict[str, Callable[[Offer], Any]]] = {
     "title": lambda o: o.title.casefold(),
     "key_accounter": lambda o: o.key_accounter.casefold(),
     "industry": lambda o: o.industry.casefold(),

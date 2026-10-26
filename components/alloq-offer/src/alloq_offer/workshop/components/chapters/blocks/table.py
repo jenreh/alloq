@@ -71,7 +71,7 @@ def _grid(chapter: Row) -> rx.Component:
                     lambda column, index: rx.el.th(
                         _input(
                             column,
-                            lambda text: ChapterState.rename_column(index, text),  # ty: ignore[invalid-argument-type]
+                            lambda text: ChapterState.rename_column(index, text),
                             ChapterState.input_reset.to(str)
                             + "-h-"
                             + index.to(str)
@@ -94,7 +94,7 @@ def _grid(chapter: Row) -> rx.Component:
                         lambda cell, c: rx.el.td(
                             _input(
                                 cell,
-                                lambda text: ChapterState.set_cell(r, c, text),  # ty: ignore[invalid-argument-type]
+                                lambda text: ChapterState.set_cell(r, c, text),
                                 ChapterState.input_reset.to(str)
                                 + "-"
                                 + r.to(str)

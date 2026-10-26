@@ -83,7 +83,7 @@ class ChapterPanelMixin(rx.State, mixin=True):
             option["value"] for option in GROUP_OPTIONS
         }:
             return
-        yield await self._save_content(StoriesContent(group_by=value))  # ty: ignore[invalid-argument-type]
+        yield await self._save_content(StoriesContent(group_by=value))
 
     @rx.event
     @requires_offer_editor

@@ -260,7 +260,7 @@ async def test_azure_transcriber_posts_audio_and_parses_segments(
     )
     config = AzureOpenAiConfig(
         endpoint="https://x.openai.azure.com/",
-        api_key="secret",  # ty: ignore[invalid-argument-type]
+        api_key="secret",
         transcription_deployment="gpt-4o-transcribe-diarize",
     )
 

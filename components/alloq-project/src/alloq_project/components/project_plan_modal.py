@@ -73,7 +73,7 @@ def _project_card(project: ObjectVar[Project]) -> rx.Component:
             wrap="nowrap",
             w="100%",
         ),
-        on_click=ProjectPlanState.select_project(project.id),  # ty: ignore[invalid-argument-type]
+        on_click=ProjectPlanState.select_project(project.id),
         style={
             "padding": "12px 16px",
             "cursor": "pointer",

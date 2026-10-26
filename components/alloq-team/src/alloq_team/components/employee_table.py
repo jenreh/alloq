@@ -68,10 +68,10 @@ def _row(row: ObjectVar[TeamDetail]) -> rx.Component:
         number(row.project_count),
         template=TEMPLATE,
         selected=TeamState.inspected.to(TeamDetail).id == row.id,
-        on_click=TeamState.inspect(row.id),  # ty: ignore[invalid-argument-type]
+        on_click=TeamState.inspect(row.id),
         on_double_click=[
             LoadingState.set_is_loading(True),
-            TeamState.select_employee(row.id),  # ty: ignore[invalid-argument-type]
+            TeamState.select_employee(row.id),
         ],
     )
 

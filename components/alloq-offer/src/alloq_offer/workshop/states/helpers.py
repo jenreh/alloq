@@ -9,7 +9,7 @@ from appkit_user.authentication.states import LoginState
 def browser_int(value: object) -> int | None:
     """A number sent by the browser; anything else is ``None``."""
     try:
-        return int(value)  # ty: ignore[invalid-argument-type]
+        return int(value)
     except TypeError, ValueError:
         return None
 

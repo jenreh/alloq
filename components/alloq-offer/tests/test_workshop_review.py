@@ -82,7 +82,7 @@ async def test_agent_returns_remarks(prompts: PromptLoader) -> None:
 
 def test_remarks_cannot_be_blockers() -> None:
     with pytest.raises(ValueError, match="severity"):
-        ReviewRemark(target="workspace", message="x", severity="Blocker")  # ty: ignore[invalid-argument-type]
+        ReviewRemark(target="workspace", message="x", severity="Blocker")
 
 
 class FakeReviewAi:

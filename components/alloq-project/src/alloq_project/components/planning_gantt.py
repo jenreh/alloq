@@ -279,7 +279,7 @@ def _bar_details(
                 delete_dialog(
                     "Abwesenheit löschen",
                     f"die Abwesenheit von {row.name} ({bar.period})",
-                    PlanningAbsenceState.delete_absence(bar.absence_id),  # ty: ignore[invalid-argument-type]
+                    PlanningAbsenceState.delete_absence(bar.absence_id),
                     icon_button=True,
                     variant="subtle",
                     color="red",
@@ -485,7 +485,7 @@ def _empty() -> rx.Component:
             "Ganzes Team zeigen",
             variant="light",
             size="xs",
-            on_click=PlanningStore.set_absence_show_all(True),  # ty: ignore[invalid-argument-type]
+            on_click=PlanningStore.set_absence_show_all(True),
         ),
         align="center",
         gap=10,
@@ -546,7 +546,7 @@ def _employee_field() -> rx.Component:
         data=PlanningStore.employee_select_options,
         value=rx.cond(
             TeamState.selected_employee,
-            TeamState.selected_employee.id.to_string(),  # ty: ignore[unresolved-attribute]
+            TeamState.selected_employee.id.to_string(),
             "",
         ),
         on_change=PlanningAbsenceState.pick_employee,

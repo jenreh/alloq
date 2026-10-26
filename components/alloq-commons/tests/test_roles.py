@@ -89,7 +89,7 @@ class TestRoleCreateModel:
 
     def test_name_required(self) -> None:
         with pytest.raises(ValidationError):
-            RoleCreate(description="No name")  # ty: ignore[missing-argument]
+            RoleCreate(description="No name")
 
     def test_max_length_name(self) -> None:
         long_name = "x" * 256

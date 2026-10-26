@@ -216,7 +216,7 @@ async def snapshot_map(session: AsyncSession, workspace: WorkspaceEntity) -> dic
         statement = select(entity).where(
             getattr(entity, "offer_id") == offer_id  # noqa: B009
         )
-        ordered = statement.order_by(position, getattr(entity, "id"))  # noqa: B009  # ty: ignore[invalid-argument-type]
+        ordered = statement.order_by(position, getattr(entity, "id"))  # noqa: B009
         return list((await session.scalars(ordered)).all())
 
     activities = await _rows(ActivityEntity, ActivityEntity.position)

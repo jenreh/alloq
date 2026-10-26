@@ -16,9 +16,9 @@ tasks:
     desc: Run pytest with coverage
     cmd: "{{.RUNNER}} pytest --cov"
 
-  lint:
-    desc: Run linting with ruff
-    cmd: "{{.RUNNER}} ruff check ."
+  typecheck:
+    desc: Run ty type checking
+    cmd: "{{.RUNNER}} ty check"
 
   format:
     desc: Format code with ruff
@@ -26,6 +26,8 @@ tasks:
       - "{{.RUNNER}} ruff check --fix ."
       - "{{.RUNNER}} ruff format ."
 
-  typecheck:
-    desc: Run ty type checking
-    cmd: "{{.RUNNER}} ty check {{.PROJECT}}"
+  lint:
+    desc: Run linting with ruff
+    cmds:
+      - task: format
+      - task: typecheck

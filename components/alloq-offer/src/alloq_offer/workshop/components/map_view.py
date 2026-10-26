@@ -136,7 +136,7 @@ def _band(row: Row, collapsed: rx.Var[bool]) -> rx.Component:
                 mn.text_input(
                     default_value=row["title"],
                     key=row["title"].to(str),
-                    on_blur=lambda value: MapState.rename_slice(row["slice_id"], value),  # ty: ignore[invalid-argument-type]
+                    on_blur=lambda value: MapState.rename_slice(row["slice_id"], value),
                     size="xs",
                     variant="unstyled",
                     custom_attrs={
@@ -205,7 +205,7 @@ def _column_title(column: Row) -> rx.Component:
         mn.textarea(
             default_value=column["title"],
             key=column["title"].to(str),
-            on_blur=lambda value: MapState.rename_activity(column["id"], value),  # ty: ignore[invalid-argument-type]
+            on_blur=lambda value: MapState.rename_activity(column["id"], value),
             variant="unstyled",
             custom_attrs={
                 "maxLength": 255,
@@ -399,7 +399,7 @@ def _search() -> rx.Component:
         left_section_pointer_events="none",
         default_value=MapState.map_search,
         key=MapState.search_epoch.to_string(),
-        on_change=lambda value: MapState.set_map_search(value).debounce(  # ty: ignore[invalid-argument-type]
+        on_change=lambda value: MapState.set_map_search(value).debounce(
             SEARCH_DEBOUNCE_MS
         ),
         size="xs",

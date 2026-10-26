@@ -67,12 +67,10 @@ def editing(chapter: Row, header: rx.Component) -> rx.Component:
             *_ai_tools(),
             content=ChapterState.editor_html,
             editable=~ChapterState.chapter_locked,
-            on_update=lambda html: ChapterState.autosave(  # ty: ignore[invalid-argument-type]
+            on_update=lambda html: ChapterState.autosave(
                 ChapterState.active_key, html
             ).debounce(EDIT_DEBOUNCE_MS),
-            on_blur=lambda html: ChapterState.autosave(  # ty: ignore[invalid-argument-type]
-                ChapterState.active_key, html
-            ),
+            on_blur=lambda html: ChapterState.autosave(ChapterState.active_key, html),
             key=ChapterState.editor_key,
             header=header,
         ),

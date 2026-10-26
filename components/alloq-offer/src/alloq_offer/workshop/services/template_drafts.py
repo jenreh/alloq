@@ -159,6 +159,7 @@ class TemplateDraft:
                     required=False,
                 )
             )
+        logger.info("Block %s added to template %s", block_key, self._template_id)
 
     async def remove(self, entry_id: int) -> None:
         async with self._sessions() as session:
@@ -166,6 +167,7 @@ class TemplateDraft:
             await session.delete(entry)
             await session.flush()
             _renumber([e for e, _ in await _entries(session, self._template_id)])
+        logger.info("Entry %s of template %s removed", entry_id, self._template_id)
 
     async def move(self, entry_id: int, index: int) -> None:
         async with self._sessions() as session:
@@ -177,6 +179,7 @@ class TemplateDraft:
             ]
             entries.insert(max(0, min(index, len(entries))), entry)
             _renumber(entries)
+        logger.info("Entry %s of template %s moved", entry_id, self._template_id)
 
     async def update(
         self,
@@ -200,6 +203,7 @@ class TemplateDraft:
                 entry.title = name or None
             if level is not None:
                 entry.level = level or None
+        logger.info("Entry %s of template %s changed", entry_id, self._template_id)
 
     async def upload_layout(self, store: BlobStore, filename: str, data: bytes) -> None:
         """Check, clean and keep a Word layout; its frame headings are read off it."""

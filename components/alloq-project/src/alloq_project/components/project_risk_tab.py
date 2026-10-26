@@ -323,7 +323,7 @@ def _risk_row(risk: ObjectVar[Risk]) -> rx.Component:
                     ),
                     variant="subtle",
                     size="sm",
-                    on_click=ProjectState.expand_risk(risk.id),  # ty: ignore[invalid-argument-type]
+                    on_click=ProjectState.expand_risk(risk.id),
                 ),
                 on_click=rx.stop_propagation,
             ),
@@ -332,7 +332,7 @@ def _risk_row(risk: ObjectVar[Risk]) -> rx.Component:
                     delete_dialog(
                         title="Risiko löschen",
                         content=risk.name,
-                        on_click=ProjectState.delete_project_risk(risk.id),  # ty: ignore[invalid-argument-type]
+                        on_click=ProjectState.delete_project_risk(risk.id),
                         icon_button=True,
                         variant="subtle",
                         color="red",
@@ -356,7 +356,7 @@ def _risk_row(risk: ObjectVar[Risk]) -> rx.Component:
             "padding": "10px 12px",
             "cursor": "pointer",
         },
-        on_click=ProjectState.expand_risk(risk.id),  # ty: ignore[invalid-argument-type]
+        on_click=ProjectState.expand_risk(risk.id),
     )
 
 

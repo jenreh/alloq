@@ -162,7 +162,7 @@ class TestRequiresViewer:
         self,
     ) -> None:
         reader = _Reader(None)
-        reader.login.redir = AsyncMock(return_value=None)  # ty: ignore[invalid-assignment]
+        reader.login.redir = AsyncMock(return_value=None)
         assert await reader.read(3) is None
         assert reader.calls == 0
 

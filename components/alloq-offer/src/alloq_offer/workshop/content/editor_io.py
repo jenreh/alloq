@@ -118,7 +118,7 @@ class _Reader(HTMLParser):
         elif tag in {"th", "td"} and self._row is not None:
             self._row.append(runs)
         elif tag in HEADING_LEVELS:
-            self.blocks.append(Heading(level=HEADING_LEVELS[tag], runs=runs))  # ty: ignore[invalid-argument-type]
+            self.blocks.append(Heading(level=HEADING_LEVELS[tag], runs=runs))
         elif tag == "p":
             if self._bound:
                 self._add_bound()

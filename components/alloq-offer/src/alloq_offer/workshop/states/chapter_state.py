@@ -211,7 +211,7 @@ class ChapterState(OutlineMixin, ChapterPanelMixin, rx.State):
         self.origin = loaded["origin"]
         self.proposal = loaded["proposal"] or {}
         self.editable = editor_compatible(content)
-        self.editor_html = content_to_html(content) if self.editable else ""  # ty: ignore[invalid-argument-type]
+        self.editor_html = content_to_html(content) if self.editable else ""
         prose = self.active.get("type", "prose") == "prose"
         self.note = UNSUPPORTED_NOTE if prose and not self.editable else ""
         # Only another chapter or revision remounts the editor; a reload while

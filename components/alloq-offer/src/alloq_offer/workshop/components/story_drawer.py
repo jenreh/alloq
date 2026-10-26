@@ -126,7 +126,7 @@ def _place(label: str, options: Any, value: Any, name: str) -> rx.Component:
         value=value,
         allow_deselect=False,
         size="sm",
-        on_change=lambda picked: (  # ty: ignore[invalid-argument-type]
+        on_change=lambda picked: (
             MapState.place_story(picked, MapState.selected["slice_id"].to(str))
             if name == "task"
             else MapState.place_story(MapState.selected["task_id"].to(str), picked)

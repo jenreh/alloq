@@ -118,7 +118,7 @@ async def _run_sign_in(
     *, user: Any, problem: str | None = None, account: Any = ACCOUNT
 ) -> _Proxy:
     proxy = _Proxy()
-    handler = DesktopLoginState.sign_in_with_microsoft.fn  # ty: ignore[unresolved-attribute]
+    handler = DesktopLoginState.sign_in_with_microsoft.fn
     finder = AsyncMock(return_value=user)
     with (
         patch.object(login_state, "get_sign_in", return_value=MagicMock()),
@@ -188,7 +188,7 @@ class TestSignOut:
         state.logout = AsyncMock(return_value=["redirect"])
         sign_in = MagicMock()
         reset = AsyncMock()
-        handler = DesktopLoginState.sign_out.fn  # ty: ignore[unresolved-attribute]
+        handler = DesktopLoginState.sign_out.fn
         with (
             patch.object(login_state, "get_sign_in", return_value=sign_in),
             patch.object(login_state, "reset_connections", reset),

@@ -31,7 +31,7 @@ def _card_header(
                         delete_dialog(
                             title="Mitarbeiter löschen",
                             content=f"{employee.first_name} {employee.last_name}",
-                            on_click=TeamState.delete_employee(employee.id),  # ty: ignore[invalid-argument-type]
+                            on_click=TeamState.delete_employee(employee.id),
                             icon_button=True,
                             color="red",
                             variant="subtle",
@@ -125,7 +125,7 @@ def _absence_list(employee: ObjectVar[Employee]) -> rx.Component:
                 color="gray",
                 on_click=[
                     rx.stop_propagation,
-                    TeamState.select_employee_and_add_absence(employee.id),  # ty: ignore[invalid-argument-type]
+                    TeamState.select_employee_and_add_absence(employee.id),
                 ],
             ),
             align="center",
@@ -238,7 +238,7 @@ def employee_card(employee: ObjectVar[Employee], section_key: str) -> rx.Compone
         },
         on_click=[
             LoadingState.set_is_loading(True),
-            TeamState.select_employee(employee.id),  # ty: ignore[invalid-argument-type]
+            TeamState.select_employee(employee.id),
         ],
     )
 

@@ -151,7 +151,7 @@ def daily_rates_table_row(rate: ObjectVar[DailyRate]) -> rx.Component:
         _price_cell(
             _price_input(
                 rate.production_cost,
-                lambda value: DailyRateState.save_production_cost(role_id, value),  # ty: ignore[invalid-argument-type]
+                lambda value: DailyRateState.save_production_cost(role_id, value),
                 key + "-cost",
             )
         ),
@@ -168,7 +168,7 @@ def daily_rates_table_row(rate: ObjectVar[DailyRate]) -> rx.Component:
         _price_cell(
             _price_input(
                 rate.effective_list_price,
-                lambda value: DailyRateState.save_list_price(role_id, value),  # ty: ignore[invalid-argument-type]
+                lambda value: DailyRateState.save_list_price(role_id, value),
                 key
                 + "-list-"
                 + rate.list_price.to_string()

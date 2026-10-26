@@ -101,11 +101,11 @@ class TestPublicHolidayCreateModel:
 
     def test_name_required(self) -> None:
         with pytest.raises(ValidationError):
-            PublicHolidayCreate(date=date(2026, 1, 1))  # ty: ignore[missing-argument]
+            PublicHolidayCreate(date=date(2026, 1, 1))
 
     def test_date_required(self) -> None:
         with pytest.raises(ValidationError):
-            PublicHolidayCreate(name="Neujahr")  # ty: ignore[missing-argument]
+            PublicHolidayCreate(name="Neujahr")
 
     def test_max_length_name(self) -> None:
         with pytest.raises(ValidationError):

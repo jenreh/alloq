@@ -48,7 +48,7 @@ def _export_row(row: Row) -> rx.Component:
                     row["status"].to(str),
                     color=rx.match(
                         row["status"].to(str), *STATUS_COLORS.items(), "gray"
-                    ),  # ty: ignore[invalid-argument-type]
+                    ),
                     variant="light",
                     size="xs",
                 ),

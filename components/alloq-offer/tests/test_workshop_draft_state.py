@@ -2,6 +2,7 @@
 """Draft overview state, the "Entwurf" tab and the "Story Map" tab."""
 
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -18,17 +19,23 @@ from alloq_offer.workshop.components import (
     sources_panel,
     workshop_view,
 )
+from alloq_offer.workshop.entities import JobEntity, JobStatus
+from alloq_offer.workshop.pages import create_offer_workshop_page
 from alloq_offer.workshop.services import draft_overview
+from alloq_offer.workshop.services.exports import EXPORT_JOB
 from alloq_offer.workshop.services.map_apply import apply_proposed_map
 from alloq_offer.workshop.services.workspace import open_workspace
 from alloq_offer.workshop.states import draft_state
 from alloq_offer.workshop.states.draft_state import DraftState
 from alloq_offer.workshop.states.sources_state import SourcesState
 from alloq_offer.workshop.states.workshop_state import TAB_MAP, TABS
+from sqlalchemy import event
 
 from appkit_user.authentication.states import LoginState
 
 MODULE = "alloq_offer.workshop.states.draft_state"
+# Was 16; every statement is a round trip to the database.
+OVERVIEW_STATEMENTS = 8
 
 
 @contextmanager
@@ -106,6 +113,61 @@ async def test_overview_counts_and_lists_open_decisions(db) -> None:  # noqa: AN
     assert state.counts[1] == {"label": "Stories", "value": "2"}
     assert [d["title"] for d in state.decisions] == ["Kalkulation bestätigen"]
     assert "Angeboten" not in {c["label"] for c in state.counts}
+
+
+async def test_overview_loads_with_few_statements(db) -> None:  # noqa: ANN001
+    await _with_map(db)
+    statements: list[str] = []
+
+    def _count(*args: Any) -> None:
+        statements.append(args[2])
+
+    event.listen(db.engine.sync_engine, "before_cursor_execute", _count)
+    try:
+        async with db.session() as session:
+            overview = await draft_overview.load_overview(session, 1)
+    finally:
+        event.remove(db.engine.sync_engine, "before_cursor_execute", _count)
+    assert (overview.activities, overview.stories) == (1, 2)
+    assert len(statements) <= OVERVIEW_STATEMENTS
+
+
+async def test_overview_shows_the_latest_job_of_each_stage(db) -> None:  # noqa: ANN001
+    await _with_map(db)
+    async with db.session() as session:
+        for status in (JobStatus.FAILED, JobStatus.RUNNING):
+            session.add(
+                JobEntity(
+                    offer_id=1,
+                    kind=EXPORT_JOB,
+                    status=status,
+                    idempotency_key=f"export-{status}",
+                    run_after=datetime.now(UTC),
+                )
+            )
+    async with db.session() as session:
+        overview = await draft_overview.load_overview(session, 1)
+    statuses = {stage["label"]: stage["status"] for stage in overview.stages}
+    assert statuses["Word-Entwurf"] == draft_overview.RUNNING
+    assert statuses["Kapitel schreiben"] == draft_overview.OPEN
+    assert overview.working
+
+
+def test_draft_tab_does_not_wait_for_the_map() -> None:
+    state = DraftState(_reflex_internal_init=True)  # ty: ignore[unknown-argument]
+    assert not state.has_map
+    state.map_revision = 2
+    assert state.has_map
+    assert "MapState" not in draft_tab.draft_tab.__code__.co_names
+
+
+def test_page_loads_the_draft_tab_first_and_slow_tabs_last() -> None:
+    with patch("alloq_offer.workshop.pages.app_page") as app_page:
+        create_offer_workshop_page(MagicMock())
+    names = [h.fn.__name__ for h in app_page.call_args.kwargs["on_load"]]
+    assert names[:3] == ["load_workshop", "load_overview", "load_sources"]
+    # The checks change the blockers the draft tab lists; it refreshes after them.
+    assert names[-3:] == ["load_chapters", "run_checks", "load_overview"]
 
 
 async def test_a_changed_stage_refreshes_the_other_tabs(db) -> None:  # noqa: ANN001

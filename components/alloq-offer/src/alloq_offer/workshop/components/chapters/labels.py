@@ -31,7 +31,11 @@ TYPE_HINTS = {
         "der Kalkulation."
     ),
 }
-TYPE_OPTIONS = [{"value": kind, "label": name} for kind, name in TYPE_SHORT.items()]
+# Names in "+ Kapitel" and the block editor; stories are spelled out there.
+TYPE_OPTIONS = [
+    {"value": kind, "label": "User Stories" if kind == "stories" else name}
+    for kind, name in TYPE_SHORT.items()
+]
 FRAME_NOTE = "Aus der Word-Vorlage"
 
 

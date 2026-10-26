@@ -116,7 +116,7 @@ def _finding(finding: Row) -> rx.Component:
                     finding["severity"].to(str),
                     *SEVERITY_COLORS.items(),
                     "gray",
-                ),  # ty: ignore[invalid-argument-type]
+                ),
                 variant="light",
                 size="xs",
             ),

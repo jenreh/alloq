@@ -137,6 +137,26 @@ async def test_outline_entries_are_added_moved_changed_and_removed(db) -> None: 
         await TemplateDraft(db.session, 999).add_block("laufzeit")
 
 
+async def test_outline_changes_are_logged_without_titles(
+    db,  # noqa: ANN001
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    template_id = await _template_id(db)
+    draft = TemplateDraft(db.session, template_id)
+    await chapter_blocks.save_block(db.session, parse_block(BLOCK), create=True)
+    with caplog.at_level("INFO", logger=template_drafts.__name__):
+        await draft.add_block("datenschutz")
+        entry = (await template_drafts.load_outline(db.session, template_id))[-1]
+        await draft.move(entry["id"], 0)
+        await draft.update(entry["id"], title="Geheimer Titel")
+        await draft.remove(entry["id"])
+    messages = [
+        r.getMessage() for r in caplog.records if r.name == template_drafts.__name__
+    ]
+    assert len(messages) == 4
+    assert not [m for m in messages if "Geheimer" in m]
+
+
 async def test_layout_upload_is_checked_cleaned_and_reads_the_frame(
     db,  # noqa: ANN001
     monkeypatch: pytest.MonkeyPatch,

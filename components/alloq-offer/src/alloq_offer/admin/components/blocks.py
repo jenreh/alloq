@@ -55,7 +55,7 @@ VALUE_OPTIONS = [{"value": k, "label": v} for k, v in BOUND_FIELDS.items()]
 
 
 def _set(name: str) -> Any:
-    return lambda value: BlockAdminState.set_field(name, value)  # ty: ignore[invalid-argument-type]
+    return lambda value: BlockAdminState.set_field(name, value)
 
 
 def _row(block: Row) -> rx.Component:

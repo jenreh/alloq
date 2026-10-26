@@ -30,7 +30,7 @@ def _line(line: Row) -> rx.Component:
     return mn.group(
         mn.badge(
             line["kind"].to(str),
-            color=rx.match(line["kind"].to(str), *KIND_COLORS.items(), "gray"),  # ty: ignore[invalid-argument-type]
+            color=rx.match(line["kind"].to(str), *KIND_COLORS.items(), "gray"),
             variant="light",
             size="xs",
         ),

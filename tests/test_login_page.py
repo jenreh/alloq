@@ -40,7 +40,7 @@ def test_registers_route_and_clears_token_on_load() -> None:
     for _, kwargs in RegistrationContext.ensure_context().decorated_pages:
         if kwargs.get("route") == "/test/login":
             handlers = [getattr(h, "handler", h).fn for h in kwargs["on_load"]]
-            assert LoginState.clear_session_storage_token.fn in handlers  # ty: ignore[unresolved-attribute]
+            assert LoginState.clear_session_storage_token.fn in handlers
             return
     raise AssertionError("login page not registered")
 

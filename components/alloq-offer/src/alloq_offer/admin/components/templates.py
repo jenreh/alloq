@@ -58,9 +58,7 @@ def _entry(entry: Row) -> rx.Component:
         mn.text_input(
             default_value=entry["title_override"].to(str),
             placeholder=entry["block_title"].to(str),
-            on_blur=lambda title: TemplateAdminState.set_entry_title(  # ty: ignore[invalid-argument-type]
-                entry_id, title
-            ),
+            on_blur=lambda title: TemplateAdminState.set_entry_title(entry_id, title),
             custom_attrs={"maxLength": 255},
             key=entry["id"].to(str) + "-" + entry["title_override"].to(str),
             size="xs",
@@ -78,18 +76,14 @@ def _entry(entry: Row) -> rx.Component:
                 entry["level_override"].to(str),
                 "",
             ),
-            on_change=lambda level: TemplateAdminState.set_entry_level(  # ty: ignore[invalid-argument-type]
-                entry_id, level
-            ),
+            on_change=lambda level: TemplateAdminState.set_entry_level(entry_id, level),
             size="xs",
             w=130,
         ),
         mn.switch(
             label=REQUIRED,
             checked=entry["required"].to(bool),
-            on_change=lambda value: TemplateAdminState.set_required(  # ty: ignore[invalid-argument-type]
-                entry_id, value
-            ),
+            on_change=lambda value: TemplateAdminState.set_required(entry_id, value),
             size="xs",
         ),
         mn.action_icon(

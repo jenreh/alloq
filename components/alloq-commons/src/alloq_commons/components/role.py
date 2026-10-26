@@ -159,7 +159,7 @@ def update_role_button(
     """Icon button to open the edit modal for a role."""
     return rx.icon_button(
         rx.icon(icon, size=icon_size),
-        on_click=RoleState.select_role_and_open_edit(role.id),  # ty: ignore[invalid-argument-type]
+        on_click=RoleState.select_role_and_open_edit(role.id),
         **kwargs,
     )
 
@@ -169,7 +169,7 @@ def delete_role_button(role: ObjectVar[Role], **kwargs: Any) -> rx.Component:
     return delete_dialog(
         title="Löschen bestätigen",
         content=rx.cond(role.name, role.name, "Unbekannte Rolle"),
-        on_click=RoleState.delete_role(role.id),  # ty: ignore[invalid-argument-type]
+        on_click=RoleState.delete_role(role.id),
         icon_button=True,
         color="red",
         **kwargs,

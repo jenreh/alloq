@@ -50,9 +50,7 @@ def _entry(story: Story) -> rx.Component:
             data=MapState.task_groups,
             value=story["task"].to(str),
             placeholder=TASK_PLACEHOLDER,
-            on_change=lambda picked: MapState.set_restore_task(  # ty: ignore[invalid-argument-type]
-                story["id"], picked
-            ),
+            on_change=lambda picked: MapState.set_restore_task(story["id"], picked),
             allow_deselect=False,
             searchable=True,
             size="xs",

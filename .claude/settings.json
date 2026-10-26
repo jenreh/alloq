@@ -22,176 +22,214 @@
         "matcher": "Agent"
       },
       {
-        "hooks": [
-          {
-            "command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code post-task'",
-            "timeout": 120,
-            "type": "command"
-          }
-        ],
-        "matcher": "Skill"
+        "command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code post-task'",
+        "timeout": 120,
+        "type": "command"
       }
     ],
-    "PreToolUse": [
-      {
-        "hooks": [
-          {
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-bash.sh",
-            "timeout": 10,
-            "type": "command"
-          }
-        ],
-        "matcher": "Bash"
-      },
-      {
-        "hooks": [
-          {
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-files.sh",
-            "timeout": 10,
-            "type": "command"
-          }
-        ],
-        "matcher": "Edit|Write|NotebookEdit"
-      },
-      {
-        "hooks": [
-          {
-            "command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code pre-task'",
-            "timeout": 30,
-            "type": "command"
-          }
-        ],
-        "matcher": "Agent"
-      },
-      {
-        "hooks": [
-          {
-            "command": "sh -c 'if command -v entire-brain \u003e/dev/null 2\u003e\u00261; then exec entire-brain hook pre-edit --claude-hook; fi; if command -v entire \u003e/dev/null 2\u003e\u00261; then exec entire brain hook pre-edit --claude-hook; fi; exit 0'",
-            "type": "command"
-          }
-        ],
-        "matcher": "Edit|Write|MultiEdit|NotebookEdit"
-      }
-    ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code session-end'",
-            "type": "command"
-          }
-        ],
-        "matcher": ""
-      }
-    ],
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh",
-            "timeout": 10,
-            "type": "command"
-          },
-          {
-            "command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then printf \"%s\\n\" \"{\\\"systemMessage\\\":\\\"\\\\n\\\\nEntire CLI is enabled but not installed or not on PATH.\\\\nInstallation guide: https://docs.entire.io/cli/installation#installation-methods\\\"}\"; exit 0; fi; exec entire hooks claude-code session-start'",
-            "timeout": 30,
-            "type": "command"
-          }
-        ],
-        "matcher": ""
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/stop-tests.sh",
-            "timeout": 300,
-            "type": "command"
-          },
-          {
-            "command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code stop'",
-            "timeout": 120,
-            "type": "command"
-          }
-        ],
-        "matcher": ""
-      }
-    ],
-    "StopFailure": [
-      {
-        "hooks": [
-          {
-            "command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code stop-failure'",
-            "timeout": 120,
-            "type": "command"
-          }
-        ],
-        "matcher": ""
-      }
-    ],
-    "SubagentStart": [
-      {
-        "hooks": [
-          {
-            "command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code subagent-start'",
-            "timeout": 30,
-            "type": "command"
-          }
-        ],
-        "matcher": "workflow-subagent"
-      }
-    ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code subagent-stop'",
-            "timeout": 120,
-            "type": "command"
-          }
-        ],
-        "matcher": ""
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code user-prompt-submit'",
-            "timeout": 30,
-            "type": "command"
-          }
-        ],
-        "matcher": ""
-      }
-    ]
+    "matcher": "Agent"
   },
-  "permissions": {
-    "allow": [
-      "Bash(python)",
-      "Bash(python *)",
-      "Bash(python3)",
-      "Bash(python3 *)",
-      "Bash(pytest)",
-      "Bash(pytest *)",
-      "Bash(pip)",
-      "Bash(pip *)",
-      "Bash(pip3)",
-      "Bash(pip3 *)",
-      "Bash(uv)",
-      "Bash(uv *)",
-      "Bash(poetry)",
-      "Bash(poetry *)",
-      "Bash(git stash *)",
-      "Bash(task *)",
-      "Bash(grep *)",
-      "Bash(find *)",
-      "Bash(ls *)",
-      "Skill(create-readme:*)",
-      "Skill(writing-python-code:*)",
-      "Skill(frontend-design:*)"
+  {
+    "hooks": [
+      {
+        "command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code post-task'",
+        "timeout": 120,
+        "type": "command""command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code post-task'",
+        "timeout": 120,
+        "type": "command"
+      }
     ],
-    "defaultMode": "acceptEdits"
+    "matcher": "Skill"
+  ],
+  "matcher": "Skill"
+}
+],
+"PreToolUse": [
+{
+  "hooks": [
+    {
+      "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-bash.sh",
+      "timeout": 10,
+      "type": "command"
+    }
+  ],
+  "matcher": "Bash"
+},
+{
+  "hooks": [
+    {
+      "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-files.sh",
+      "timeout": 10,
+      "type": "command"
+    }
+  ],
+  "matcher": "Edit|Write|NotebookEdit"
+},
+{
+  "hooks": [
+    {
+      "command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code pre-task'",
+      "timeout": 30,
+      "type": "command"
+    }
+  ],
+  "matcher": "Agent"
+},
+{
+  "hooks": [
+    {
+      "command": "sh -c 'if command -v entire-brain \u003e/dev/null 2\u003e\u00261; then exec entire-brain hook pre-edit --claude-hook; fi; if command -v entire \u003e/dev/null 2\u003e\u00261; then exec entire brain hook pre-edit --claude-hook; fi; exit 0'",
+      "type": "command""command": "sh -c 'if command -v entire-brain \u003e/dev/null 2\u003e\u00261; then exec entire-brain hook pre-edit --claude-hook; fi; if command -v entire \u003e/dev/null 2\u003e\u00261; then exec entire brain hook pre-edit --claude-hook; fi; exit 0'",
+      "type": "command"
+    }
+  ],
+  "matcher": "Edit|Write|MultiEdit|NotebookEdit"
+],
+"matcher": "Edit|Write|MultiEdit|NotebookEdit"
+}
+],
+"SessionEnd": [
+{
+"hooks": [
+  {
+    "command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code session-end'",
+    "type": "command""command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code session-end'",
+    "type": "command"
   }
+],
+"matcher": ""
+],
+"matcher": ""
+}
+],
+"SessionStart": [
+{
+"hooks": [
+{
+  "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh",
+  "timeout": 10,
+  "type": "command"
+},
+{
+  "command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then printf \"%s\\n\" \"{\\\"systemMessage\\\":\\\"\\\\n\\\\nEntire CLI is enabled but not installed or not on PATH.\\\\nInstallation guide: https://docs.entire.io/cli/installation#installation-methods\\\"}\"; exit 0; fi; exec entire hooks claude-code session-start'",
+  "timeout": 30,
+  "type": "command"
+}
+],
+"matcher": ""
+],
+"matcher": ""
+}
+],
+"Stop": [
+{
+"hooks": [
+{
+"command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/stop-tests.sh",
+"timeout": 300,
+"type": "command"
+},
+{
+"command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code stop'",
+"timeout": 120,
+"type": "command"
+}
+],
+"matcher": ""
+],
+"matcher": ""
+}
+],
+"StopFailure": [
+{
+"hooks": [
+{
+"command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code stop-failure'",
+"timeout": 120,
+"type": "command""command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code stop-failure'",
+"timeout": 120,
+"type": "command"
+}
+],
+"matcher": ""
+],
+"matcher": ""
+}
+],
+"SubagentStart": [
+{
+"hooks": [
+{
+"command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code subagent-start'",
+"timeout": 30,
+"type": "command""command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code subagent-start'",
+"timeout": 30,
+"type": "command"
+}
+],
+"matcher": "workflow-subagent"
+],
+"matcher": "workflow-subagent"
+}
+],
+"SubagentStop": [
+{
+"hooks": [
+{
+"command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code subagent-stop'",
+"timeout": 120,
+"type": "command""command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code subagent-stop'",
+"timeout": 120,
+"type": "command"
+}
+],
+"matcher": ""
+],
+"matcher": ""
+}
+],
+"UserPromptSubmit": [
+{
+"hooks": [
+{
+"command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code user-prompt-submit'",
+"timeout": 30,
+"type": "command""command": "sh -c 'if ! command -v entire \u003e/dev/null 2\u003e\u00261; then exit 0; fi; exec entire hooks claude-code user-prompt-submit'",
+"timeout": 30,
+"type": "command"
+}
+],
+"matcher": ""
+],
+"matcher": ""
+}
+]
+},
+"permissions": {
+"allow": [
+"Bash(python)",
+"Bash(python *)",
+"Bash(python3)",
+"Bash(python3 *)",
+"Bash(pytest)",
+"Bash(pytest *)",
+"Bash(pip)",
+"Bash(pip *)",
+"Bash(pip3)",
+"Bash(pip3 *)",
+"Bash(uv)",
+"Bash(uv *)",
+"Bash(poetry)",
+"Bash(poetry *)",
+"Bash(git stash *)",
+"Bash(task *)",
+"Bash(grep *)",
+"Bash(find *)",
+"Bash(ls *)",
+"Skill(create-readme:*)",
+"Skill(writing-python-code:*)",
+"Skill(frontend-design:*)"
+],
+"defaultMode": "acceptEdits"
+}
 }

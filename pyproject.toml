@@ -36,6 +36,7 @@ dev = [
     "pytest-cov==7.1.0",
     "pytest==9.1.1",
     "ruff==0.17.2",
+    "ty==0.0.92",
     "virtualenv==21.14.13",
 ]
 
@@ -246,6 +247,45 @@ exclude = [
 # ignore_missing_imports; ty resolves imports from the project venv instead.
 [tool.ty.rules]
 unresolved-import = "warn"
+
+# Reflex Vars are typed as their Python value but behave as Var objects
+# (~, .contains, comparisons), so ty reports false positives in UI and state code.
+[[tool.ty.overrides]]
+include = [
+    "**/components/**",
+    "**/states/**",
+    "**/state/**",
+    "**/pages.py",
+    "**/pages/**",
+    "rxconfig.py",
+]
+
+[tool.ty.overrides.rules]
+invalid-argument-type = "ignore"
+invalid-assignment = "ignore"
+invalid-method-override = "ignore"
+invalid-mutable-override = "ignore"
+invalid-return-type = "ignore"
+invalid-type-form = "ignore"
+unresolved-attribute = "ignore"
+unsupported-operator = "ignore"
+deprecated = "ignore"
+
+# Tests use fakes, partial entity construction and monkeypatching.
+[[tool.ty.overrides]]
+include = ["**/tests/**", "scripts/**"]
+
+[tool.ty.overrides.rules]
+call-non-callable = "ignore"
+deprecated = "ignore"
+invalid-argument-type = "ignore"
+invalid-assignment = "ignore"
+missing-argument = "ignore"
+no-matching-overload = "ignore"
+redundant-condition = "ignore"
+unresolved-attribute = "ignore"
+invalid-type-form = "ignore"
+unsupported-operator = "ignore"
 
 [tool.coverage.run]
 branch = true

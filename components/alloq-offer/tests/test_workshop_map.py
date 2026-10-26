@@ -85,7 +85,7 @@ def _story(**over: object) -> ProposedStory:
         "origin": "Kunde",
         "source_refs": [1],
     }
-    return ProposedStory(**{**values, **over})  # ty: ignore[invalid-argument-type]
+    return ProposedStory(**{**values, **over})
 
 
 def _map(*stories: ProposedStory, **over: object) -> ProposedMap:
@@ -98,7 +98,7 @@ def _map(*stories: ProposedStory, **over: object) -> ProposedMap:
                 tasks=[ProposedTask(title="Anfrage prüfen", stories=list(stories))],
             )
         ],
-        **over,  # ty: ignore[invalid-argument-type]
+        **over,
     )
 
 
@@ -301,7 +301,7 @@ def test_azure_model_needs_endpoint_and_deployment() -> None:
     config = WorkshopConfig(
         azure_openai=AzureOpenAiConfig(
             endpoint="https://x.openai.azure.com",
-            api_key="k",  # ty: ignore[invalid-argument-type]
+            api_key="k",
             chat_deployment="gpt",
         )
     )

@@ -143,9 +143,7 @@ def _source_head(source: ObjectVar[dict[str, Any]]) -> rx.Component:
             checked=source["included"],
             disabled=~source["usable"],
             size=CHECKBOX_SIZE,
-            on_change=lambda checked: SourcesState.toggle_source(  # ty: ignore[invalid-argument-type]
-                source["id"], checked
-            ),
+            on_change=lambda checked: SourcesState.toggle_source(source["id"], checked),
         ),
         mn.text(
             source["name"],

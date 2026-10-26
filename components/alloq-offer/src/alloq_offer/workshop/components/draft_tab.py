@@ -98,7 +98,7 @@ def _stage(stage: Row) -> rx.Component:
         mn.text(stage["label"].to(str), fz="13px"),
         mn.badge(
             status,
-            color=rx.match(status, *STAGE_COLORS.items(), "gray"),  # ty: ignore[invalid-argument-type]
+            color=rx.match(status, *STAGE_COLORS.items(), "gray"),
             variant="light",
             size="sm",
         ),

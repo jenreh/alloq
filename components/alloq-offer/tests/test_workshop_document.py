@@ -512,3 +512,8 @@ async def test_failed_edits_refresh_the_inputs(db) -> None:  # noqa: ANN001
         for _ in range(5):
             await _run(state.add_column)
         assert not state.can_add_column
+
+
+def test_blank_chapter_types_carry_the_plan_names() -> None:
+    names = [option["label"] for option in labels.TYPE_OPTIONS]
+    assert names == ["Text", "Tabelle", "User Stories", "Werte"]

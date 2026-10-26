@@ -174,8 +174,8 @@ class OutlineService:
         return ChapterDef(
             key=key,
             title=_title(title),
-            level=level,  # ty: ignore[invalid-argument-type]
-            chapter_type=chapter_type,  # ty: ignore[invalid-argument-type]
+            level=level,
+            chapter_type=chapter_type,
             default_content=BLANK_CONTENT[chapter_type],
         )
 

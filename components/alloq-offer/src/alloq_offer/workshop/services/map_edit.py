@@ -113,7 +113,7 @@ async def _next_position(
     entity: type[ActivityEntity | TaskEntity | SliceEntity | StoryEntity],
     *where: object,
 ) -> int:
-    highest = await session.scalar(select(func.max(entity.position)).where(*where))  # ty: ignore[invalid-argument-type]
+    highest = await session.scalar(select(func.max(entity.position)).where(*where))
     return (highest or 0) + 1
 
 
@@ -125,7 +125,7 @@ async def _insert[T: ActivityEntity | SliceEntity](
     rows = list(
         (
             await session.scalars(
-                select(entity).where(*where).order_by(entity.position, entity.id)  # ty: ignore[invalid-argument-type]
+                select(entity).where(*where).order_by(entity.position, entity.id)
             )
         ).all()
     )
