@@ -1,0 +1,1 @@
+Continue with the verification steps in docs/.work/PROGRESS.md: grounding one page group per agent, then the site and map link check, one after the other.
