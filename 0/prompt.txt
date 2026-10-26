@@ -1,0 +1,1 @@
+the story cards should only show the title, number and top right badge
