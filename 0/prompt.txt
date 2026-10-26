@@ -1,0 +1,1 @@
+the tabs should have more left and right padding
