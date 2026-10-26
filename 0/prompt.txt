@@ -1,0 +1,1 @@
+remove this completely (incl. all related code) from the abscence view
