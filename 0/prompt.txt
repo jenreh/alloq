@@ -1,0 +1,1 @@
+the window backgroud is way to transparent, use the same settings as in the vermoegen project
