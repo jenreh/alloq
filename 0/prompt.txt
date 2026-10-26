@@ -1,0 +1,1 @@
+add a "legende" bottom row like in the abscence view (plan page) for team and project view
