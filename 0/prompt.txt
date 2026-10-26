@@ -1,0 +1,3 @@
+in dark mode the background of the document preview needs to adapt
+
+the viewer should also be a slide in window from the right
