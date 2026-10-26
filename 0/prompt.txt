@@ -1,0 +1,1 @@
+setze das design um, ändere aber nicht den page header und die filter. when opening the details panel the table should shrink, so that the panel is always at the bottom of the window. the panel should be more compact
