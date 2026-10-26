@@ -1,0 +1,1 @@
+the doc view is in the wrong package, it is also a component
