@@ -1,0 +1,1 @@
+update the screenshots in the docs/images directory (update the links in the @README.md) with the current app in light mode. size should be 1440px by 960px
