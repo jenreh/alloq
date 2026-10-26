@@ -1,0 +1,1 @@
+the story inspector should have an "expand" button that doubles the width next to the save button
