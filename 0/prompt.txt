@@ -1,0 +1,1 @@
+with collabsed side bar the header is under the window buttons
