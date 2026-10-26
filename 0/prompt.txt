@@ -1,0 +1,1 @@
+aus einem angebot soll nach annahme ein Projekt im status geplant werden
