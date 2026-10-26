@@ -8,7 +8,7 @@ from typing import Any, Final, cast
 
 import reflex as rx
 from alloq_commons import theme
-from alloq_commons.access import editor_only, viewer_only
+from alloq_commons.access import editor_only, offer_admin_only, viewer_only
 from alloq_commons.components.formatters import de_number
 from alloq_commons.components.toolbar import DRAG, SIDEBAR_TOGGLE_SCRIPT, icon_button
 from alloq_commons.desktop import is_desktop
@@ -42,12 +42,13 @@ PLANNING_ITEMS: Final[list[tuple[str, str, str]]] = [
     (PRICES_ROUTE, "Tagessätze", "euro"),
     (TEAM_ROUTE, "Team", "users"),
 ]
+OFFER_ADMIN_ROUTE: Final = "/admin/offers"
 ADMIN_ITEMS: Final[list[tuple[str, str, str]]] = [
     ("/admin/users", "Benutzer", "user-cog"),
     ("/admin/roles", "Rollen", "shield"),
     ("/admin/departments", "Abteilungen", "building-2"),
     ("/admin/industries", "Branchen", "factory"),
-    ("/admin/offers", "Angebote", "file-text"),
+    (OFFER_ADMIN_ROUTE, "Angebote", "file-text"),
     ("/admin/holidays", "Feiertage", "calendar-days"),
 ]
 VIEWER_ROUTES: Final = frozenset({PLAN_ROUTE, PROJECTS_ROUTE})
@@ -249,10 +250,17 @@ def _capacity_section() -> rx.Component:
     )
 
 
+def _admin_item(item: tuple[str, str, str]) -> rx.Component:
+    """Admin pages need the admin switch; the offer configuration also opens to
+    the offer admin role."""
+    guard = offer_admin_only if item[0] == OFFER_ADMIN_ROUTE else requires_admin
+    return guard(_nav_item(*item))
+
+
 def _admin_section() -> rx.Component:
-    """Administration needs the admin switch; project managers do not see it."""
-    return requires_admin(
-        _section("Administration", *(_nav_item(*item) for item in ADMIN_ITEMS))
+    """Administration for admins; offer admins see only the offer configuration."""
+    return offer_admin_only(
+        _section("Administration", *(_admin_item(item) for item in ADMIN_ITEMS))
     )
 
 

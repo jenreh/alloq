@@ -7,17 +7,19 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from alloq_commons.roles import EMPLOYEE_ROLE, PROJECT_MANAGER_ROLE
+from alloq_commons.roles import EMPLOYEE_ROLE, OFFER_ADMIN_ROLE, PROJECT_MANAGER_ROLE
 from alloq_dashboard.states import RoleCapacityState
 
 from app.components import sidebar_state
 from app.components.sidebar import (
     ADMIN_ITEMS,
+    OFFER_ADMIN_ROUTE,
     OFFERS_ROUTE,
     PLANNING_ITEMS,
     PRICES_ROUTE,
     PUBLIC_ROUTES,
     VIEWER_ROUTES,
+    _admin_item,
     _admin_section,
     _brand,
     _guarded_nav_item,
@@ -197,6 +199,14 @@ class TestSidebarComponent:
         rendered = str(_admin_section())
         assert "is_admin" in rendered
         assert PROJECT_MANAGER_ROLE.name not in rendered
+
+    def test_offer_admins_see_only_the_offer_configuration(self) -> None:
+        role = f'"{OFFER_ADMIN_ROLE.name}"'
+        assert role in str(_admin_section())
+        for item in ADMIN_ITEMS:
+            rendered = str(_admin_item(item))
+            assert (role in rendered) is (item[0] == OFFER_ADMIN_ROUTE)
+            assert "is_admin" in rendered
 
     def test_index_route_matches_both_paths(self) -> None:
         rendered = str(is_route_active("/"))

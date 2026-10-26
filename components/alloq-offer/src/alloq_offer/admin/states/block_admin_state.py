@@ -5,6 +5,7 @@ from collections.abc import AsyncGenerator
 from typing import Any
 
 import reflex as rx
+from alloq_commons.access import requires_offer_admin
 
 from alloq_offer.workshop.content.editor_io import content_to_html, html_to_content
 from alloq_offer.workshop.content.schema import (
@@ -22,7 +23,6 @@ from alloq_offer.workshop.services.chapter_blocks import (
     parse_block,
 )
 from appkit_commons.database.session import get_asyncdb_session
-from appkit_user.authentication.decorators import requires_admin
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +112,7 @@ class BlockAdminState(rx.State):
         return block.get("used_in", [])
 
     @rx.event
-    @requires_admin
+    @requires_offer_admin
     async def load_blocks(self) -> AsyncGenerator[Any]:
         try:
             self.blocks = await chapter_blocks.list_blocks(get_asyncdb_session)
@@ -195,7 +195,7 @@ class BlockAdminState(rx.State):
         return form
 
     @rx.event
-    @requires_admin
+    @requires_offer_admin
     async def save(self) -> AsyncGenerator[Any]:
         form = self._form()
         try:
@@ -223,7 +223,7 @@ class BlockAdminState(rx.State):
         yield rx.toast.success(SAVED, position="top-right")
 
     @rx.event
-    @requires_admin
+    @requires_offer_admin
     async def delete(self, key: str) -> AsyncGenerator[Any]:
         try:
             await chapter_blocks.delete_block(get_asyncdb_session, key)

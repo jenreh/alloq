@@ -168,6 +168,7 @@ Alloq has three access levels. They are defined in
 | Admin | Users with the appkit admin switch (`user.is_admin`) | `IS_ADMIN`, `requires_admin` | Everything, including the administration pages |
 | Editor | Admins and users with the role `project_manager` | `can_edit`, `CAN_EDIT`, `requires_editor` | Read and edit dashboard, planning, projects and team |
 | Viewer | Editors and users with the role `employee` | `can_view`, `CAN_VIEW`, `requires_viewer` | Read the projects page and the resource planning |
+| Offer admin | Admins and users with the role `offer_admin` ("Angebotsverwaltung") | `can_manage_offers`, `CAN_MANAGE_OFFERS`, `offer_admin_only`, `requires_offer_admin` | Manage offer templates, chapter blocks and AI prompts on `/admin/offers` |
 
 A signed-in user with none of these rights sees the text in `NO_ACCESS_MSG`:
 "Sie haben nicht die notwendigen Berechtigungen, um auf diese Seite zuzugreifen."
@@ -198,7 +199,7 @@ The roles are `Role` objects from appkit-commons:
 | `/dashboard` | `editor_only` | `editor_only` |
 | `/daily-rates` | signed in; edits behind `requires_admin` and `@requires_admin` | none (in `PUBLIC_ROUTES`) |
 | `/admin/users`, `/admin/roles`, `/admin/departments`, `/admin/holidays` | `admin_only=True` and `requires_admin` | `requires_admin` |
-| `/admin/offers` (offer templates, chapter blocks, prompts) | `admin_only=True` and `requires_admin`; every handler `@requires_admin` | `requires_admin` |
+| `/admin/offers` (offer templates, chapter blocks, prompts) | `offer_admin_only` (admins and `offer_admin`); every handler `@requires_offer_admin` | `offer_admin_only`; offer admins see only this entry of "Administration" |
 | `/profile` | signed in | user menu |
 
 The sidebar in [`app/components/sidebar.py`](../../app/components/sidebar.py)
@@ -223,6 +224,10 @@ Handlers that read or write business data must carry a guard. There are three:
   handler in `alloq_dashboard`, `alloq_project` and `alloq_team` that touches data
   uses it, and so does `SidebarState.load`. The exceptions are the read-only loads
   in `VIEWER_HANDLERS` and the background card loads (see below).
+- `requires_offer_admin` from `access.py`. Admins and users with the role
+  `offer_admin` pass. The offer configuration states use it: `BlockAdminState`,
+  `TemplateAdminState`, `PromptAdminState` and `OfferAdminState` (listed in
+  `OFFER_ADMIN_STATES` of the guard test).
 - `requires_viewer` from `access.py`. Admins, project managers and employees pass.
   Only the read-only loads in `VIEWER_HANDLERS` may use it.
 

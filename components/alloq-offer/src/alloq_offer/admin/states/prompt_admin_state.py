@@ -5,12 +5,12 @@ from collections.abc import AsyncGenerator, Awaitable, Callable
 from typing import Any
 
 import reflex as rx
+from alloq_commons.access import requires_offer_admin
 
 from alloq_offer.workshop.services import prompts as prompt_store
 from alloq_offer.workshop.services.prompts import PromptError
 from alloq_offer.workshop.states.helpers import browser_int, current_user_name
 from appkit_commons.database.session import get_asyncdb_session
-from appkit_user.authentication.decorators import requires_admin
 
 logger = logging.getLogger(__name__)
 
@@ -64,12 +64,12 @@ class PromptAdminState(rx.State):
         return await self._load() or rx.toast.success(done, position="top-right")
 
     @rx.event
-    @requires_admin
+    @requires_offer_admin
     async def load_prompts(self) -> AsyncGenerator[Any]:
         yield await self._load()
 
     @rx.event
-    @requires_admin
+    @requires_offer_admin
     async def select_prompt(self, name: str) -> AsyncGenerator[Any]:
         if name not in prompt_store.PROMPT_NAMES:
             return
@@ -84,7 +84,7 @@ class PromptAdminState(rx.State):
         self.text = value
 
     @rx.event
-    @requires_admin
+    @requires_offer_admin
     async def save(self) -> AsyncGenerator[Any]:
         user, name, text = await current_user_name(self), self.name, self.text
         yield await self._change(
@@ -93,7 +93,7 @@ class PromptAdminState(rx.State):
         )
 
     @rx.event
-    @requires_admin
+    @requires_offer_admin
     async def activate(self, version: int) -> AsyncGenerator[Any]:
         name, number = self.name, browser_int(version)
         if number is None:

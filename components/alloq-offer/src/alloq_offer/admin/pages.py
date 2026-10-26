@@ -2,6 +2,7 @@
 
 import reflex as rx
 from alloq_commons import theme
+from alloq_commons.access import no_access, offer_admin_only
 from alloq_commons.components.shell import app_page
 from alloq_commons.components.toolbar import segmented, window_toolbar
 
@@ -18,11 +19,12 @@ from alloq_offer.admin.states.offer_admin_state import (
 )
 from alloq_offer.admin.states.prompt_admin_state import PromptAdminState
 from alloq_offer.admin.states.template_admin_state import TemplateAdminState
-from appkit_user.authentication.components.components import requires_admin
 
 OFFER_ADMIN_ROUTE = "/admin/offers"
 TITLE = "Angebote"
 SUBTITLE = "Administration · Vorlagen, Kapitelbausteine und KI-Prompts"
+# Open to admins and the offer admin role, so the page gate is the body below
+# (``admin_only`` would shut out offer admins).
 
 
 def create_offer_admin_page(
@@ -41,7 +43,6 @@ def create_offer_admin_page(
             SUBTITLE,
             center=segmented(OfferAdminState.tab, OfferAdminState.set_tab, TABS),
         ),
-        admin_only=True,
         on_load=[
             TemplateAdminState.load_templates,
             BlockAdminState.load_blocks,
@@ -49,7 +50,7 @@ def create_offer_admin_page(
         ],
     )
     def _offer_admin_page() -> rx.Component:
-        return requires_admin(
+        return offer_admin_only(
             mn.box(
                 rx.match(
                     OfferAdminState.tab,
@@ -62,6 +63,7 @@ def create_offer_admin_page(
                 max_width="1400px",
                 style={"overflow": "auto", "background": theme.BACKGROUND},
             ),
+            fallback=no_access(),
         )
 
     return _offer_admin_page

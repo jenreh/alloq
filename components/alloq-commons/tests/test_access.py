@@ -9,10 +9,13 @@ import reflex as rx
 from alloq_commons.access import (
     CAN_EDIT,
     NO_ACCESS_MSG,
+    can_manage_offers,
     editor_only,
     has_role,
     no_access,
+    offer_admin_only,
     requires_editor,
+    requires_offer_admin,
     requires_offer_editor,
     requires_viewer,
     viewer_only,
@@ -20,6 +23,7 @@ from alloq_commons.access import (
 from alloq_commons.roles import (
     ALL_ROLES,
     EMPLOYEE_ROLE,
+    OFFER_ADMIN_ROLE,
     OFFER_EDITOR_ROLE,
     PROJECT_MANAGER_ROLE,
 )
@@ -33,6 +37,7 @@ MANAGER = User(user_id=3, roles=[PROJECT_MANAGER_ROLE.name])
 OTHER = User(user_id=4, roles=["department_1"])
 OFFER_EDITOR = User(user_id=5, roles=[OFFER_EDITOR_ROLE.name])
 NO_ROLES = User(user_id=6)
+OFFER_ADMIN = User(user_id=7, roles=[OFFER_ADMIN_ROLE.name])
 
 
 class _FakeLogin:
@@ -237,6 +242,58 @@ class TestOfferEditor:
         editor = _OfferEditor(None)
         assert await editor.save(1) == "redirect"
         assert editor.calls == 0
+
+
+class _OfferAdmin(_Reader):
+    @requires_offer_admin
+    async def save(self, value: int) -> int:
+        self.calls += 1
+        return value + 1
+
+
+class TestOfferAdmin:
+    def test_role_is_offered_in_user_management(self) -> None:
+        assert OFFER_ADMIN_ROLE in ALL_ROLES
+        assert OFFER_ADMIN_ROLE.name == "offer_admin"
+        assert OFFER_ADMIN_ROLE.label == "Angebotsverwaltung"
+
+    @pytest.mark.parametrize(
+        ("user", "expected"),
+        [
+            (ADMIN, True),
+            (OFFER_ADMIN, True),
+            (OFFER_EDITOR, False),
+            (MANAGER, False),
+            (EMPLOYEE, False),
+            (NO_ROLES, False),
+        ],
+    )
+    def test_admins_and_offer_admins_manage_offers(
+        self, user: User, expected: bool
+    ) -> None:
+        assert can_manage_offers(user) is expected
+
+    @pytest.mark.parametrize("user", [ADMIN, OFFER_ADMIN])
+    async def test_they_run_the_handler(self, user: User) -> None:
+        handler = _OfferAdmin(user)
+        assert await handler.save(1) == 2
+
+    @pytest.mark.parametrize("user", [OFFER_EDITOR, MANAGER, EMPLOYEE, OTHER, NO_ROLES])
+    async def test_others_are_denied(self, user: User) -> None:
+        handler = _OfferAdmin(user)
+        assert await handler.save(1) is not None
+        assert handler.calls == 0
+
+    async def test_anonymous_users_are_redirected(self) -> None:
+        handler = _OfferAdmin(None)
+        assert await handler.save(1) == "redirect"
+        assert handler.calls == 0
+
+    def test_ui_gate_checks_admin_switch_and_role(self) -> None:
+        rendered = str(offer_admin_only(rx.text("inside"), fallback=rx.text("out")))
+        assert "is_admin" in rendered
+        assert f'"{OFFER_ADMIN_ROLE.name}"' in rendered
+        assert "outside" not in rendered
 
 
 def test_no_access_links_to_the_offers_for_everyone() -> None:

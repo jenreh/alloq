@@ -249,7 +249,7 @@ Administrator · Give access to offers / Assign the role · priority 1 · core �
 4. **Given** a user with only the role `offer_editor`, **when** the sidebar renders, **then** the section "Planung" [planning] shows only "Angebote". (no test)
 5. **Given** a user who may edit offers but not read the planning, **when** they open another page, **then** the no-access message shows the link "Zu den Angeboten" [to the offers]. (no test)
 6. **Given** a user who may not edit offers, **when** they open `/offers`, **then** they see the no-access message instead of the list.
-7. **Given** a new handler in `alloq_offer`, **when** the guard test runs, **then** it fails unless the handler has `requires_offer_editor` or is listed as UI only. Offer handlers must not use `requires_admin` or `requires_editor`. The admin states in `alloq_offer/admin/` (page `/admin/offers`) are the exception: they are listed in `ADMIN_STATES` and use `requires_admin`.
+7. **Given** a new handler in `alloq_offer`, **when** the guard test runs, **then** it fails unless the handler has `requires_offer_editor` or is listed as UI only. Offer handlers must not use `requires_admin` or `requires_editor`. The offer configuration states in `alloq_offer/admin/` (page `/admin/offers`) are the exception: they are listed in `OFFER_ADMIN_STATES` and use `requires_offer_admin`, which admins and the role `offer_admin` ("Angebotsverwaltung", id 4) pass.
 
 ### Evidence
 

@@ -57,7 +57,7 @@ The consumption chapter of the QUO file is not part of Etappe 1.
 
 ## Versions and the admin menu "Angebote"
 
-Admins manage templates, chapter blocks and AI prompts on the page `/admin/offers` ("Angebote" in the administration). The page and every handler on it are admin only. The workshop itself stays closed to admins without the role `offer_editor`.
+Admins and users with the role `offer_admin` ("Angebotsverwaltung") manage templates, chapter blocks and AI prompts on the page `/admin/offers` ("Angebote" in the administration). The page and every handler on it check this with `offer_admin_only` and `@requires_offer_admin`. A user with only the role `offer_admin` sees the section "Administration" with this one entry. The workshop itself stays closed to anyone without the role `offer_editor`.
 
 | Tab | What admins do |
 | --- | --- |

@@ -5,6 +5,7 @@ from collections.abc import AsyncGenerator, Awaitable, Callable
 from typing import Any
 
 import reflex as rx
+from alloq_commons.access import requires_offer_admin
 
 from alloq_offer.workshop.configuration import WorkshopConfig
 from alloq_offer.workshop.services import chapter_blocks, template_drafts
@@ -13,7 +14,6 @@ from alloq_offer.workshop.states.helpers import browser_int, current_user_name
 from alloq_offer.workshop.storage import DbBlobStore
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
-from appkit_user.authentication.decorators import requires_admin
 
 logger = logging.getLogger(__name__)
 
@@ -95,12 +95,12 @@ class TemplateAdminState(rx.State):
         return rx.toast.success(done.format(result), position="top-right")
 
     @rx.event
-    @requires_admin
+    @requires_offer_admin
     async def load_templates(self) -> AsyncGenerator[Any]:
         yield await self._load()
 
     @rx.event
-    @requires_admin
+    @requires_offer_admin
     async def select_template(self, template_id: str) -> AsyncGenerator[Any]:
         number = browser_int(template_id)
         if number is not None:
@@ -108,20 +108,20 @@ class TemplateAdminState(rx.State):
             yield await self._load()
 
     @rx.event
-    @requires_admin
+    @requires_offer_admin
     async def add_block(self, block_key: str) -> AsyncGenerator[Any]:
         if block_key:
             yield await self._change(lambda d: d.add_block(block_key))
 
     @rx.event
-    @requires_admin
+    @requires_offer_admin
     async def remove_entry(self, entry_id: int) -> AsyncGenerator[Any]:
         number = browser_int(entry_id)
         if number is not None:
             yield await self._change(lambda d: d.remove(number))
 
     @rx.event
-    @requires_admin
+    @requires_offer_admin
     async def reorder(self, entry_id: str, index: int) -> AsyncGenerator[Any]:
         entry, position = browser_int(entry_id), browser_int(index)
         if entry is None or position is None:
@@ -139,20 +139,20 @@ class TemplateAdminState(rx.State):
         return await self._change(lambda d: d.update(entry["id"], **change))
 
     @rx.event
-    @requires_admin
+    @requires_offer_admin
     async def set_required(self, entry_id: int, value: bool) -> AsyncGenerator[Any]:
         if entry := self._entry(entry_id):
             yield await self._update(entry, required=bool(value))
 
     @rx.event
-    @requires_admin
+    @requires_offer_admin
     async def set_entry_title(self, entry_id: int, title: str) -> AsyncGenerator[Any]:
         entry = self._entry(entry_id)
         if entry and str(title).strip() != entry["title_override"]:
             yield await self._update(entry, title=str(title))
 
     @rx.event
-    @requires_admin
+    @requires_offer_admin
     async def set_entry_level(self, entry_id: int, level: str) -> AsyncGenerator[Any]:
         """``""`` keeps the block's level; ``1`` or ``2`` overrides it."""
         number = browser_int(level) if level else 0
@@ -160,7 +160,7 @@ class TemplateAdminState(rx.State):
             yield await self._update(entry, level=number)
 
     @rx.event
-    @requires_admin
+    @requires_offer_admin
     async def handle_upload(self, files: list[rx.UploadFile]) -> AsyncGenerator[Any]:
         if not files:
             yield rx.toast.error(NO_FILE, position="top-right")
@@ -180,7 +180,7 @@ class TemplateAdminState(rx.State):
         yield rx.clear_selected_files(UPLOAD_ID)
 
     @rx.event
-    @requires_admin
+    @requires_offer_admin
     async def publish(self) -> AsyncGenerator[Any]:
         user = await current_user_name(self)
         yield await self._change(lambda d: d.publish(user), PUBLISHED)

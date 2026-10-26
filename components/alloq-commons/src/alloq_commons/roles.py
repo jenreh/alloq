@@ -24,10 +24,18 @@ OFFER_EDITOR_ROLE = Role(
     description="Lesen und Bearbeiten der Angebote",
 )
 
+OFFER_ADMIN_ROLE = Role(
+    id=4,
+    name="offer_admin",
+    label="Angebotsverwaltung",
+    description="Vorlagen, Kapitelbausteine und KI-Prompts der Angebote verwalten",
+)
+
 ALL_ROLES: list[Role] = [
     PROJECT_MANAGER_ROLE,
     EMPLOYEE_ROLE,
     OFFER_EDITOR_ROLE,
+    OFFER_ADMIN_ROLE,
 ]
 
 DEPARTMENT_ROLE_GROUP = "Abteilungen"

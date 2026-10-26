@@ -8,6 +8,8 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import reflex as rx
+from alloq_commons.access import _NOT_AUTHORIZED_MSG
+from alloq_commons.roles import OFFER_ADMIN_ROLE, OFFER_EDITOR_ROLE
 from alloq_offer.admin import pages
 from alloq_offer.admin.components import blocks, prompts, templates
 from alloq_offer.admin.states import (
@@ -24,7 +26,6 @@ from alloq_offer.workshop.export.template_package import CHAPTER_ANCHOR
 from alloq_offer.workshop.services.template_drafts import NOT_DOCX
 from docx import Document
 
-from appkit_user.authentication.decorators import _NOT_AUTHORIZED_MSG
 from appkit_user.authentication.states import LoginState
 
 MODULES = (block_admin_state, template_admin_state, prompt_admin_state)
@@ -39,8 +40,14 @@ def _shows(text: str, event: str) -> bool:
 
 
 @contextmanager
-def _as_admin(state: rx.State, db, *, is_admin: bool = True) -> Iterator[None]:  # noqa: ANN001
-    user = MagicMock(is_admin=is_admin, user_id=1, roles=[])
+def _as_admin(
+    state: rx.State,
+    db,  # noqa: ANN001
+    *,
+    is_admin: bool = True,
+    roles: tuple[str, ...] = (),
+) -> Iterator[None]:
+    user = MagicMock(is_admin=is_admin, user_id=1, roles=list(roles))
     user.name = "Admin"
 
     async def _user() -> MagicMock:
@@ -112,9 +119,17 @@ async def test_non_admins_are_refused(db) -> None:  # noqa: ANN001
         (PromptAdminState, "activate", (1,)),
     ):
         state = _new(cls)
-        with _as_admin(state, db, is_admin=False):
+        with _as_admin(state, db, is_admin=False, roles=(OFFER_EDITOR_ROLE.name,)):
             event = await _run(getattr(state, handler), *args)
         assert _shows(_NOT_AUTHORIZED_MSG, event), handler
+
+
+async def test_offer_admins_manage_the_configuration(db) -> None:  # noqa: ANN001
+    state = _new(PromptAdminState)
+    with _as_admin(state, db, is_admin=False, roles=(OFFER_ADMIN_ROLE.name,)):
+        event = await _run(state.load_prompts)
+    assert not _shows(_NOT_AUTHORIZED_MSG, event)
+    assert state.selected["name"] == "chapter"
 
 
 async def test_block_is_created_from_the_editor(db) -> None:  # noqa: ANN001
@@ -256,6 +271,7 @@ def test_tab_state_and_page_render() -> None:
     assert state.tab == TAB_BLOCKS
     page = str(pages.create_offer_admin_page(rx.box())())
     assert _shows(templates.PUBLISH, page)
+    assert f'"{OFFER_ADMIN_ROLE.name}"' in page
     for component, texts in (
         (templates.templates_tab(), (templates.PUBLISH, templates.LAYOUT_TITLE)),
         (blocks.blocks_table(), (blocks.NEW_BLOCK, blocks.PROMPT_LABEL)),

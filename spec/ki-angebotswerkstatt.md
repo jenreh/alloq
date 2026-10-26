@@ -185,7 +185,7 @@ Ein Vorlagenpaket besteht aus drei zusammengehörigen Teilen:
 
 Alle Teile werden gemeinsam versioniert und auf Kompatibilität geprüft. Ein Angebot bindet eine konkrete Paketversion. Ein Vorlagenwechsel ist eine ausdrückliche Migration mit Vorschau; er verändert vorhandene Angebote nicht automatisch.
 
-Vorlagen, Kapitelbausteine und KI-Prompts liegen in der Datenbank. Administratoren pflegen sie im Menü „Angebote“ der Administration (`/admin/offers`) mit drei Reitern:
+Vorlagen, Kapitelbausteine und KI-Prompts liegen in der Datenbank. Administratoren und Nutzer mit der Rolle „Angebotsverwaltung“ (`offer_admin`) pflegen sie im Menü „Angebote“ der Administration (`/admin/offers`) mit drei Reitern:
 
 | Reiter | Inhalt |
 |---|---|

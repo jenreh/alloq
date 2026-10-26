@@ -46,14 +46,15 @@ ADMIN_STATES = frozenset(
         "PriceListState",
         "DepartmentState",
         "IndustryState",
-        "BlockAdminState",
-        "TemplateAdminState",
-        "PromptAdminState",
-        "OfferAdminState",
         "RoleState",
         "HolidayState",
         "DatabaseAccessState",
     }
+)
+# The offer configuration (templates, chapter blocks, prompts) is open to admins
+# and to the offer admin role, so it uses @requires_offer_admin.
+OFFER_ADMIN_STATES = frozenset(
+    {"BlockAdminState", "TemplateAdminState", "PromptAdminState", "OfferAdminState"}
 )
 # Planning states are open to project managers, so they use @requires_editor.
 EDITOR_PACKAGES = frozenset({"alloq_dashboard", "alloq_project", "alloq_team"})
@@ -456,6 +457,10 @@ def _is_requires_offer_editor(fn: Callable[..., Any]) -> bool:
     return _access_level(fn, "offer_editor")
 
 
+def _is_requires_offer_admin(fn: Callable[..., Any]) -> bool:
+    return _access_level(fn, "offer_admin")
+
+
 def _is_requires_login(fn: Callable[..., Any]) -> bool:
     return _is_decorated_by(fn, "is_authenticated")
 
@@ -475,6 +480,7 @@ def _is_guarded(fn: Callable[..., Any]) -> bool:
         _is_requires_admin(fn)
         or _is_requires_editor(fn)
         or _is_requires_offer_editor(fn)
+        or _is_requires_offer_admin(fn)
     )
 
 
@@ -540,10 +546,10 @@ def test_planning_handlers_are_open_to_project_managers() -> None:
 
 
 def _is_offer_state(state: type[rx.State]) -> bool:
-    """Offer states, without the industries administration (admin level)."""
+    """Offer states, without the industries and the offer configuration."""
     return (
         state.__module__.split(".")[0] in OFFER_PACKAGES
-        and state.__name__ not in ADMIN_STATES
+        and state.__name__ not in ADMIN_STATES | OFFER_ADMIN_STATES
     )
 
 
@@ -591,6 +597,18 @@ def test_offer_handlers_are_not_admin_or_editor_guarded() -> None:
         or _is_requires_viewer(handler.fn)
     )
     assert wrong == []
+
+
+def test_offer_configuration_uses_the_offer_admin_level() -> None:
+    assert OFFER_ADMIN_STATES <= set(STATES)
+    wrong = sorted(
+        f"{state_name}.{name}"
+        for state_name in OFFER_ADMIN_STATES
+        for name, handler in _handlers(STATES[state_name]).items()
+        if not _is_requires_offer_admin(handler.fn)
+        and name not in UI_ONLY_HANDLERS.get(state_name, frozenset())
+    )
+    assert wrong == [], "Guard offer configuration handlers with @requires_offer_admin"
 
 
 def test_administration_handlers_stay_admin_only() -> None:
