@@ -1,0 +1,1 @@
+Yes, delete docs/images/alloq-system.svg, it is no longer used.
