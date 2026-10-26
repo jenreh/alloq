@@ -1,0 +1,1 @@
+the table should fit into the window and only scroll horizontally if its larger than the avaible space
