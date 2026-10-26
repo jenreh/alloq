@@ -1,0 +1,1 @@
+the geplant and verfügbar should be right aligned to the end of the row. if the row is wider than the window the should be right aligned to the window
