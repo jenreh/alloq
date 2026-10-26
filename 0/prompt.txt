@@ -1,0 +1,3 @@
+continue with phase 7 and 8. When done to a cross check if everything from the plan was build as described in the spec. 
+
+/goal finish the implementation without asking, migrate the db if needed, ensure that the plan is implemented as written in the plan document
