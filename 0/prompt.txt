@@ -1,0 +1,1 @@
+hide archived offers from the "Alle" list, they should only be shown in the "Archiviert" tab
