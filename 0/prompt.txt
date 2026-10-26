@@ -1,0 +1,1 @@
+save the file in the agent-skill project as new skill in the jenreh-python plugin
