@@ -40,8 +40,9 @@ def _cover(
     }
 
 
-def _stories(snapshot: dict) -> list[dict[str, str]]:
-    groups = {
+def resolve_stories(snapshot: dict) -> list[ResolvedStory]:
+    """The live stories of a map snapshot with their activity and slice."""
+    activities = {
         story["key"]: activity["title"]
         for activity in snapshot["activities"]
         if not activity["archived"]
@@ -49,14 +50,16 @@ def _stories(snapshot: dict) -> list[dict[str, str]]:
         if not task["archived"]
         for story in task["stories"]
     }
+    slices = {s["id"]: s["title"] for s in snapshot.get("slices", [])}
+    positions = {s["id"]: index for index, s in enumerate(snapshot.get("slices", []))}
     return [
-        dataclasses.asdict(
-            ResolvedStory(
-                key=s["key"],
-                title=s["title"],
-                sentence=s["sentence"],
-                group=groups.get(s["key"], ""),
-            )
+        ResolvedStory(
+            key=s["key"],
+            title=s["title"],
+            sentence=s["sentence"],
+            group=activities.get(s["key"], ""),
+            slice=slices.get(s.get("slice_id"), ""),
+            slice_order=positions.get(s.get("slice_id"), 0),
         )
         for s in live_stories(snapshot)
     ]
@@ -122,7 +125,10 @@ async def build_snapshot(
         content={
             "cover": _cover(offer, workspace, now),
             "chapters": chapters,
-            "stories": _stories(await snapshot_map(session, workspace)),
+            "stories": [
+                dataclasses.asdict(story)
+                for story in resolve_stories(await snapshot_map(session, workspace))
+            ],
             "values": values,
             "open_points": await _open_points(session, offer_id),
         },

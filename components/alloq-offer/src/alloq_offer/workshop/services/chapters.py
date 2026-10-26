@@ -12,7 +12,7 @@ from sqlalchemy import select, tuple_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from alloq_offer.entities import OfferEntity
-from alloq_offer.workshop.content.schema import ProseContent, parse_content
+from alloq_offer.workshop.content.schema import parse_content
 from alloq_offer.workshop.content.text import Content, diff_lines, stored_lines
 from alloq_offer.workshop.db import SessionFactory
 from alloq_offer.workshop.entities import (
@@ -290,6 +290,14 @@ class ChapterService:
         self._offer_id = offer_id
         self._user = user
 
+    @property
+    def offer_id(self) -> int:
+        return self._offer_id
+
+    @property
+    def user(self) -> str:
+        return self._user
+
     async def _locked(
         self, session: AsyncSession, key: str, expected: int | None
     ) -> tuple[ChapterEntity, WorkspaceEntity]:
@@ -531,7 +539,7 @@ async def add_proposal(
     *,
     offer_id: int,
     chapter_key: str,
-    content: ProseContent,
+    content: Content,
     base_revision: int,
     map_revision: int,
     instruction: str,

@@ -95,8 +95,7 @@ async def test_select_projection_chapter_is_read_only(db) -> None:
     with _as_editor(state, db):
         await _run(state.select_chapter, "user_stories")
         assert not state.editable
-        assert state.note == chapter_state.READ_ONLY_NOTE
-        assert state.preview_lines
+        assert state.note == ""
         await _run(state.select_chapter, "user_stories")  # no-op
         assert await _run(state.autosave, "user_stories", _html("x")) == ""
     assert state.revision == 1
@@ -135,8 +134,10 @@ async def test_autosave_conflict_reloads_without_overwriting(db) -> None:
 async def test_protected_chapter_refuses_saves_and_locks_the_editor(db) -> None:
     state = await _loaded(db)
     with _as_editor(state, db):
+        await _run(state.autosave, KEY, _html("Text"))
         await _run(state.set_protected, True)
         assert state.chapter_locked
+        assert state.active["html"] == _html("Text")
         toast = await _run(state.autosave, KEY, _html("x"))
         assert "geschützt" in toast
         await _run(state.set_protected, False)
@@ -223,11 +224,20 @@ async def test_draft_all_and_free_instruction(db) -> None:
     state = await _loaded(db)
     with _as_editor(state, db):
         state.set_instruction("Nenne Annahmen zuerst")
-        await _run(state.draft_all)
+        state.open_instruction()
+        await _run(state.draft_active, state.instruction)
+    assert (state.instruction, state.instruction_open) == ("", False)
     async with db.session() as session:
         job = (await session.scalars(select(JobEntity))).one()
-        assert job.payload["keys"] is None
+        assert job.payload["keys"] == [KEY]
         assert job.payload["instruction"] == "Nenne Annahmen zuerst"
+        job.status = JobStatus.SUCCEEDED
+    with _as_editor(state, db):
+        state.draft_job = ""
+        await _run(state.draft_all)
+    async with db.session() as session:
+        jobs = (await session.scalars(select(JobEntity).order_by(JobEntity.id))).all()
+    assert (jobs[-1].payload["keys"], jobs[-1].payload["instruction"]) == (None, "")
 
 
 async def test_draft_for_a_projection_chapter_is_refused(db) -> None:

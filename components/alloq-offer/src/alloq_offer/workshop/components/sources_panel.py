@@ -11,6 +11,7 @@ from alloq_commons.components.list_view import inspector, inspector_section
 from alloq_commons.components.modal_layout import (
     DRAWER_CLASS,
     MODAL_CLASS,
+    MODAL_OVERLAY,
     modal_footer,
     modal_form_layout,
 )
@@ -298,7 +299,7 @@ def _paste_modal() -> rx.Component:
         size="lg",
         centered=True,
         class_name=MODAL_CLASS,
-        overlay_props={"backgroundOpacity": 0.5, "blur": 4},
+        overlay_props=MODAL_OVERLAY,
     )
 
 

@@ -5,11 +5,15 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field
 
 from alloq_offer.workshop.content.schema import (
+    MAX_CELL,
+    MAX_TABLE_ROWS,
     BulletList,
     Heading,
     OrderedList,
     Paragraph,
     ProseContent,
+    Run,
+    TableContent,
 )
 from alloq_offer.workshop.entities import StatementType
 
@@ -75,6 +79,25 @@ class ProposedChapter(BaseModel):
 
     def to_content(self) -> ProseContent:
         return ProseContent(blocks=list(self.blocks))
+
+
+class ProposedTable(BaseModel):
+    """Rows for a table chapter; each row is one cell text per column."""
+
+    rows: list[list[str]] = Field(default_factory=list)
+
+    def to_content(self, columns: list[str]) -> TableContent:
+        """The rows fitted to ``columns``: missing cells empty, extra cells dropped."""
+        width = len(columns)
+        rows = [
+            [
+                [Run(text=cell.strip()[:MAX_CELL])]
+                for cell in (row + [""] * width)[:width]
+            ]
+            for row in self.rows
+            if any(cell.strip() for cell in row)
+        ]
+        return TableContent(columns=columns, rows=rows[:MAX_TABLE_ROWS])
 
 
 class ReviewRemark(BaseModel):

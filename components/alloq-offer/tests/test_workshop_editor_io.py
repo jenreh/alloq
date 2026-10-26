@@ -108,3 +108,10 @@ def test_every_problem_is_listed_once() -> None:
 def test_empty_html_is_an_empty_document() -> None:
     assert html_to_content("").blocks == []
     assert content_to_html(ProseContent()) == ""
+
+
+def test_empty_paragraphs_are_dropped() -> None:
+    content = html_to_content(
+        "<p>Text</p><ul><li><p>Punkt</p></li></ul><p></p><p> </p>"
+    )
+    assert [block.type for block in content.blocks] == ["paragraph", "bullet_list"]

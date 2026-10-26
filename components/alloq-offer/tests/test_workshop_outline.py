@@ -293,3 +293,16 @@ async def test_overview_counts_only_the_outline(db) -> None:  # noqa: ANN001
     await service.remove_chapter("leistungen")
     async with db.session() as session:
         assert (await load_overview(session, 1)).chapters_total == before - 1
+
+
+async def test_a_blank_chapter_takes_the_level_it_follows(db) -> None:  # noqa: ANN001
+    service = await _outline(db)
+    sub = await service.add_chapter("loesung", chapter_type="prose", title="Detail")
+    main = await service.add_chapter("laufzeit", chapter_type="prose", title="Neu")
+    last = await service.add_chapter(None, chapter_type="prose", title="Ende")
+    views = {v["key"]: v for v in await ChapterService(db.session, 1, "Anna").open()}
+    assert (views[sub]["level"], views[main]["level"], views[last]["level"]) == (
+        2,
+        1,
+        1,
+    )

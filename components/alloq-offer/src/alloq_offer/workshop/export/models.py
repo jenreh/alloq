@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from alloq_offer.workshop.content.schema import (
@@ -30,6 +31,28 @@ class ResolvedStory:
     title: str
     sentence: str
     group: str = ""
+    slice: str = ""
+    slice_order: int = 0
+
+
+def group_stories(
+    stories: Sequence[ResolvedStory], by: str
+) -> dict[str, list[ResolvedStory]]:
+    """Stories by activity (map order) or by slice (slice order); stories
+    without one come last."""
+    groups: dict[str, list[ResolvedStory]] = {}
+    for story in stories:
+        title = story.slice if by == "slice" else story.group
+        groups.setdefault(title or NO_GROUP_LABEL, []).append(story)
+    if by != "slice":
+        return groups
+    order = {story.slice: story.slice_order for story in stories}
+    return dict(
+        sorted(
+            groups.items(),
+            key=lambda item: (item[0] == NO_GROUP_LABEL, order.get(item[0], 0)),
+        )
+    )
 
 
 @dataclass(frozen=True)

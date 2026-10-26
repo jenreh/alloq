@@ -7,6 +7,7 @@ from alloq_offer.workshop.ai.port import (
     SourceText,
 )
 
+TABLE_TASK = "Liefere Tabellenzeilen mit genau diesen Spalten:"
 TRUNCATED = "[Weitere Quellen wurden wegen der Länge ausgelassen.]"
 TRUNCATED_CHAPTERS = "[Weitere Kapitel wurden wegen der Länge ausgelassen.]"
 
@@ -79,6 +80,11 @@ def render_chapter(request: ChapterRequest, max_chars: int) -> str:
         f"Leitfrage: {_tags(request.guiding_question)}",
         *(f"Regel: {_tags(rule)}" for rule in request.rules),
         *(f"Pflichtangabe: {_tags(info)}" for info in request.required_info),
+        *(
+            [f"{TABLE_TASK} {' | '.join(map(_tags, request.columns))}"]
+            if request.columns
+            else []
+        ),
         "</kapitel>",
     ]
     if request.prompt_text.strip():

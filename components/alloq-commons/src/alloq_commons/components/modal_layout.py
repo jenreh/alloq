@@ -13,6 +13,7 @@ import appkit_mantine as mn
 
 # CSS class applied to mn.modal / mn.drawer for unified styling.
 MODAL_CLASS = "alloq-modal"
+MODAL_OVERLAY = {"backgroundOpacity": 0.5, "blur": 4}
 DRAWER_CLASS = "alloq-drawer"
 
 

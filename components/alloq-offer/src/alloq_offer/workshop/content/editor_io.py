@@ -19,6 +19,7 @@ from alloq_offer.workshop.content.schema import (
     ProseContent,
     Run,
     TableBlock,
+    plain_text,
 )
 
 BOUND_ATTR = "data-bound"
@@ -180,7 +181,14 @@ def html_to_content(html: str) -> ProseContent:
     reader.close()
     if reader.errors:
         raise ContentValidationError(reader.errors)
-    return ProseContent(blocks=reader.blocks)
+    # The editor adds empty paragraphs (e.g. after a list); they hold nothing,
+    # and keeping them would make a click into the text a new revision.
+    blocks = [
+        block
+        for block in reader.blocks
+        if not isinstance(block, Paragraph) or plain_text(block.runs).strip()
+    ]
+    return ProseContent(blocks=blocks)
 
 
 def editor_compatible(content: object) -> bool:

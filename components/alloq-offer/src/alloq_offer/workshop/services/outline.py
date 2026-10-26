@@ -166,12 +166,15 @@ class OutlineService:
             raise ChapterError(NO_BLOCK) from exc
 
     @staticmethod
-    def _blank_definition(key: str, chapter_type: str, title: str) -> ChapterDef:
+    def _blank_definition(
+        key: str, chapter_type: str, title: str, level: int
+    ) -> ChapterDef:
         if chapter_type not in BLANK_CONTENT:
             raise ChapterError(UNKNOWN_TYPE)
         return ChapterDef(
             key=key,
             title=_title(title),
+            level=level,  # ty: ignore[invalid-argument-type]
             chapter_type=chapter_type,  # ty: ignore[invalid-argument-type]
             default_content=BLANK_CONTENT[chapter_type],
         )
@@ -200,10 +203,12 @@ class OutlineService:
                 raise ChapterError(NOT_FOUND)
             index = len(chapters) if after_key is None else keys.index(after_key) + 1
             key = f"{NEW_KEY_PREFIX}{uuid.uuid4().hex[:8]}"
+            # A blank chapter joins the level of the chapter it follows.
+            level = chapters[index - 1].level if index else 1
             definition = (
                 await self._block_definition(session, key, block_key, title)
                 if block_key is not None
-                else self._blank_definition(key, chapter_type, title)
+                else self._blank_definition(key, chapter_type, title, level)
             )
             [chapter] = await add_chapters(
                 session,

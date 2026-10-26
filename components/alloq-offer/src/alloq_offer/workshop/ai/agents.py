@@ -33,6 +33,7 @@ from alloq_offer.workshop.ai.schemas import (
     ProposedChapter,
     ProposedMap,
     ProposedReview,
+    ProposedTable,
 )
 from alloq_offer.workshop.configuration import WorkshopConfig
 from alloq_offer.workshop.services.prompts import (
@@ -171,6 +172,10 @@ class PydanticOfferAi:
     async def propose_chapter(self, request: ChapterRequest) -> ProposedChapter:
         data = render_chapter(request, self._config.ai_max_input_chars)
         return await self._run(ProposedChapter, CHAPTER_PROMPT, data, "propose_chapter")
+
+    async def propose_table(self, request: ChapterRequest) -> ProposedTable:
+        data = render_chapter(request, self._config.ai_max_input_chars)
+        return await self._run(ProposedTable, CHAPTER_PROMPT, data, "propose_table")
 
     async def propose_map_additions(self, request: MapRequest) -> ProposedMap:
         data = render_map_request(request, self._config.ai_max_input_chars)

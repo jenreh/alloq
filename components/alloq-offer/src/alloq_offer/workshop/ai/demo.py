@@ -24,6 +24,7 @@ from alloq_offer.workshop.ai.schemas import (
     ProposedReview,
     ProposedStatement,
     ProposedStory,
+    ProposedTable,
     ProposedTask,
     ReviewRemark,
 )
@@ -215,6 +216,18 @@ class DemoOfferAi:
                 Paragraph(runs=_runs(intro)),
                 BulletList(items=[_runs(item) for item in items]),
             ]
+        )
+
+    async def propose_table(self, request: ChapterRequest) -> ProposedTable:
+        """One row per fitting statement, its text in the first column."""
+        wanted = _wanted_types(request.title)
+        return ProposedTable(
+            rows=[
+                [text]
+                for line in request.statements
+                for kind, _, text in [line.partition(": ")]
+                if kind in wanted
+            ][:MAX_CHAPTER_ITEMS]
         )
 
     async def propose_review(self, request: ReviewRequest) -> ProposedReview:

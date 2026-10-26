@@ -6,13 +6,14 @@ from datetime import UTC, datetime
 
 import pytest
 from alloq_offer.workshop.ai.agents import PromptLoader, PydanticOfferAi
+from alloq_offer.workshop.ai.demo import DemoOfferAi
 from alloq_offer.workshop.ai.port import (
     AiTransientError,
     AiUnavailableError,
     ChapterRequest,
 )
-from alloq_offer.workshop.ai.render import map_outline, render_chapter
-from alloq_offer.workshop.ai.schemas import ProposedChapter
+from alloq_offer.workshop.ai.render import TABLE_TASK, map_outline, render_chapter
+from alloq_offer.workshop.ai.schemas import ProposedChapter, ProposedTable
 from alloq_offer.workshop.configuration import WorkshopConfig
 from alloq_offer.workshop.content.schema import Paragraph, ProseContent, Run
 from alloq_offer.workshop.entities import (
@@ -160,6 +161,10 @@ class FakeChapterAi:
         if self.error:
             raise self.error
         return ProposedChapter.model_validate(PROSE)
+
+    async def propose_table(self, request: ChapterRequest) -> ProposedTable:
+        self.requests.append(request)
+        return ProposedTable(rows=[["Zugang", "Kunde", "Woche 1", "zu viel"], ["", ""]])
 
 
 def _ctx(payload: dict | None = None, job_id: int = 7) -> JobContext:
@@ -329,3 +334,60 @@ async def test_request_rejects_unknown_workspace_and_projections(db) -> None:
 
 def test_proposal_status_values() -> None:
     assert ProposalStatus.OPEN == "offen"
+
+
+def test_table_rows_fit_the_columns_and_render_the_task() -> None:
+    content = ProposedTable(rows=[["a"], ["b", "c", "d"], ["  ", ""]]).to_content(
+        ["X", "Y"]
+    )
+    assert [[cell[0].text for cell in row] for row in content.rows] == [
+        ["a", ""],
+        ["b", "c"],
+    ]
+    text = render_chapter(_request(columns=["Wer", "Was"]), 1000)
+    assert f"{TABLE_TASK} Wer | Was" in text
+
+
+async def test_demo_fills_the_first_column() -> None:
+    table = await DemoOfferAi().propose_table(
+        _request(title="Annahmen", statements=["Annahme: Zugang", "Anforderung: X"])
+    )
+    assert table.rows == [["Zugang"]]
+
+
+async def test_job_proposes_rows_for_a_table_chapter(db) -> None:
+    service = await _prepare(db)
+    await MapEditor(db.session, 1, "Anna").add_activity(0, "Bestellen")
+    ai = FakeChapterAi()
+    result = await DraftChapters(ai, db.session).run(_ctx({"keys": ["mitwirkung"]}))
+    assert result["proposals"] == 1
+    assert ai.requests[0].columns == ["Mitwirkung", "Verantwortlich", "Zeitpunkt"]
+    loaded = await service.load("mitwirkung")
+    assert loaded["proposal"] is not None
+    proposal = (await _proposals(db))[0]
+    assert proposal.content["rows"][0][2][0]["text"] == "Woche 1"
+    assert len(proposal.content["rows"]) == 1
+
+
+async def test_a_table_chapter_may_be_drafted_on_request(db) -> None:
+    await _prepare(db)
+    await MapEditor(db.session, 1, "Anna").add_activity(0, "Bestellen")
+    job = await chapter_draft.request_chapter_draft(
+        db.session,
+        1,
+        keys=["mitwirkung"],
+        instruction="",
+        now=NOW,
+        max_attempts=3,
+    )
+    assert job.payload["keys"] == ["mitwirkung"]
+
+
+async def test_agent_returns_table_rows(prompts: PromptLoader) -> None:
+    def model(messages, info: AgentInfo) -> ModelResponse:  # noqa: ANN001
+        return _final({"rows": [["Zugang", "Kunde"]]})
+
+    ai = PydanticOfferAi(FunctionModel(model), WorkshopConfig(), "fake", prompts)
+    table = await ai.propose_table(_request(columns=["Was", "Wer"]))
+    assert table.rows == [["Zugang", "Kunde"]]
+    assert ai.chapter_prompt_version == "chapter@1"

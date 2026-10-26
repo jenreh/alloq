@@ -101,7 +101,21 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
     "SplashState": frozenset({"finish"}),
     "SidebarState": frozenset({"invalidate"}),
     "DashboardState": frozenset({"close_drill_down", "open_drill_down"}),
-    "ChapterState": frozenset({"close_history", "set_instruction"}),
+    "ChapterState": frozenset(
+        {
+            "ask_remove",
+            "cancel_remove",
+            "clear_selection",
+            "close_add",
+            "close_history",
+            "close_instruction",
+            "open_instruction",
+            "set_add_tab",
+            "set_blank_title",
+            "set_blank_type",
+            "set_instruction",
+        }
+    ),
     "MapState": frozenset(
         {
             "close_archive",

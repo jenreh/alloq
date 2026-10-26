@@ -8,6 +8,7 @@ from alloq_offer.workshop.ai.schemas import (
     ProposedChapter,
     ProposedMap,
     ProposedReview,
+    ProposedTable,
 )
 
 
@@ -43,6 +44,8 @@ class ChapterRequest:
     statements: list[str]
     required_info: list[str] = field(default_factory=list)
     prompt_text: str = ""
+    # Set for a table chapter: the model fills rows for exactly these columns.
+    columns: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -98,6 +101,8 @@ class ChapterAi(Protocol):
     chapter_prompt_version: str
 
     async def propose_chapter(self, request: ChapterRequest) -> ProposedChapter: ...
+
+    async def propose_table(self, request: ChapterRequest) -> ProposedTable: ...
 
 
 class ReviewAi(Protocol):

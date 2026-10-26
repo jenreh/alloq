@@ -20,6 +20,7 @@ from alloq_offer.workshop.export.chapter_renderers import NO_STORIES_TEXT
 from alloq_offer.workshop.export.docx_renderer import DRAFT_MARKER, render_document
 from alloq_offer.workshop.export.models import (
     MISSING_MARK,
+    NO_GROUP_LABEL,
     UNCONFIRMED_MARK,
     ChapterInput,
     RenderContext,
@@ -242,6 +243,19 @@ def test_stories_of_one_group_stay_together_when_unsorted(
     doc = _doc(render_document(quo_v1, chapters, ctx))
     headings = [p.text for p in doc.paragraphs if p.text in {"G1", "G2"}]
     assert headings == ["G1", "G2"]
+
+
+def test_stories_can_be_grouped_by_slice(quo_v1: TemplatePackage) -> None:
+    stories = [
+        ResolvedStory("US-01", "A", "Als A möchte ich a, um x.", "G1", "Schnitt 1"),
+        ResolvedStory("US-02", "B", "Als B möchte ich b, um y.", "G2", ""),
+    ]
+    chapters = [ChapterInput("s", "Stories", 2, StoriesContent(group_by="slice"))]
+    ctx = RenderContext(cover=_context().cover, stories=stories)
+    texts = [p.text for p in _doc(render_document(quo_v1, chapters, ctx)).paragraphs]
+    assert "Schnitt 1" in texts
+    assert NO_GROUP_LABEL in texts
+    assert "G1" not in texts
 
 
 def test_missing_cover_value_fails_loudly(quo_v1: TemplatePackage) -> None:

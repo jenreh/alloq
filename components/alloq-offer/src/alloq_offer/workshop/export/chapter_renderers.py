@@ -26,13 +26,12 @@ from alloq_offer.workshop.content.schema import (
     plain_text,
 )
 from alloq_offer.workshop.export.models import (
-    NO_GROUP_LABEL,
     ChapterInput,
     RenderContext,
     RenderError,
-    ResolvedStory,
     ResolvedValue,
     UnsupportedContentError,
+    group_stories,
 )
 
 TABLE_STYLE = "arvato-Tabelle blau"
@@ -148,10 +147,7 @@ def _render_stories(writer: Writer, chapter: ChapterInput, ctx: RenderContext) -
         writer.paragraph(_text(NO_STORIES_TEXT))
         return
     heading_level = min(chapter.level + 1, 4)
-    groups: dict[str, list[ResolvedStory]] = {}
-    for story in stories:
-        groups.setdefault(story.group or NO_GROUP_LABEL, []).append(story)
-    for group, items in groups.items():
+    for group, items in group_stories(stories, content.group_by).items():
         writer.heading(group, heading_level)
         for story in items:
             writer.paragraph(_bold(f"{story.key} – {story.title}"))

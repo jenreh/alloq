@@ -19,8 +19,8 @@ from alloq_offer.workshop.ai.port import (
 )
 from alloq_offer.workshop.ai.render import map_outline, statement_line
 from alloq_offer.workshop.configuration import WorkshopConfig
-from alloq_offer.workshop.content.schema import ProseContent
-from alloq_offer.workshop.content.text import stored_lines
+from alloq_offer.workshop.content.schema import TableContent, parse_content
+from alloq_offer.workshop.content.text import Content, content_lines
 from alloq_offer.workshop.db import SessionFactory
 from alloq_offer.workshop.entities import (
     GenerationRunEntity,
@@ -38,7 +38,7 @@ from alloq_offer.workshop.jobs.registry import (
     register_handler,
 )
 from alloq_offer.workshop.repositories import workspace_repo
-from alloq_offer.workshop.services.chapter_draft import DRAFT_CHAPTERS_JOB
+from alloq_offer.workshop.services.chapter_draft import DRAFT_CHAPTERS_JOB, DRAFTABLE
 from alloq_offer.workshop.services.chapters import (
     ChapterError,
     ChapterService,
@@ -70,6 +70,8 @@ class _Target:
     settings: ChapterSettings
     base_revision: int
     current_lines: list[str]
+    # The columns of a table chapter; empty for text.
+    columns: list[str]
 
 
 @dataclass(frozen=True)
@@ -108,14 +110,15 @@ class DraftChapters:
                 statements=basis.statements,
                 required_info=target.settings.required_info,
                 prompt_text=target.settings.prompt_text,
+                columns=target.columns,
             )
             try:
-                proposed = await self._ai.propose_chapter(request)
+                content = await self._propose(request)
             except AiTransientError as exc:
                 raise TransientJobError(AI_BUSY) from exc
             except AiUnavailableError as exc:
                 raise PermanentJobError(failure_message(exc, AI_FAILED)) from exc
-            proposal_id = await self._store(ctx, basis, target, proposed.to_content())
+            proposal_id = await self._store(ctx, basis, target, content)
             if proposal_id is None:
                 skipped += 1
                 continue
@@ -149,6 +152,12 @@ class DraftChapters:
             )
         return {"status": "ok", "proposals": stored, "skipped": skipped}
 
+    async def _propose(self, request: ChapterRequest) -> Content:
+        if request.columns:
+            table = await self._ai.propose_table(request)
+            return table.to_content(request.columns)
+        return (await self._ai.propose_chapter(request)).to_content()
+
     async def _keep(self, ctx: JobContext, proposal_id: int, base: int) -> None:
         """Take the first draft over as revision; on a conflict it stays a proposal."""
         try:
@@ -161,7 +170,7 @@ class DraftChapters:
             )
 
     async def _store(
-        self, ctx: JobContext, basis: _Basis, target: _Target, content: ProseContent
+        self, ctx: JobContext, basis: _Basis, target: _Target, content: Content
     ) -> int | None:
         """Keep the proposal unless the chapter changed while the model worked."""
         key = target.key
@@ -216,21 +225,23 @@ class DraftChapters:
             targets: list[_Target] = []
             for chapter in await live_chapters(session, ctx.offer_id):
                 key = chapter.chapter_key
-                if chapter.chapter_type != "prose" or key in done:
+                if key in done or chapter.protected:
                     continue
-                if chapter.protected or (wanted is not None and key not in wanted):
+                if wanted is None:
+                    # Without explicit keys only text nobody wrote is drafted.
+                    if chapter.chapter_type != "prose" or chapter.revision > 1:
+                        continue
+                elif key not in wanted or chapter.chapter_type not in DRAFTABLE:
                     continue
-                # Without explicit keys only chapters nobody wrote are drafted.
-                if wanted is None and chapter.revision > 1:
-                    continue
-                current = await revision_of(session, chapter)
+                current = parse_content((await revision_of(session, chapter)).content)
                 targets.append(
                     _Target(
                         key,
                         chapter.title,
                         settings_of(chapter),
                         chapter.revision,
-                        stored_lines(current.content),
+                        content_lines(current),
+                        current.columns if isinstance(current, TableContent) else [],
                     )
                 )
         return _Basis(

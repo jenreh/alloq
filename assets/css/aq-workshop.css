@@ -365,3 +365,513 @@
 .aq-clamp-edit:focus-within .aq-clamp-view {
   visibility: hidden;
 }
+
+
+/* Kapitel tab: the offer as one document. Outline left, the page in the
+   middle (it scrolls), the chapter panel right. */
+.aq-doc-outline {
+  width: 280px;
+  flex-shrink: 0;
+  overflow: auto;
+  border-right: 1px solid var(--aq-border);
+  background: var(--aq-background);
+  padding: 16px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.aq-doc-outline-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4px 8px 10px;
+}
+
+.aq-doc-frame-entry {
+  padding: 6px 10px;
+  color: var(--aq-text-muted);
+  font-size: 12.5px;
+}
+
+.aq-doc-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 8px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  outline: none;
+}
+
+.aq-doc-row:hover {
+  background: var(--aq-hover);
+}
+
+.aq-doc-row[data-active="true"] {
+  background: var(--aq-accent-soft);
+}
+
+.aq-doc-row[data-level="2"] {
+  padding-left: 22px;
+}
+
+.aq-doc-row-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aq-doc-grip {
+  display: inline-flex;
+  color: var(--aq-text-tertiary);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.aq-doc-row:hover .aq-doc-grip,
+.aq-doc-sortable-item:focus-visible .aq-doc-grip {
+  opacity: 1;
+}
+
+.aq-doc-sortable-item:focus-visible {
+  outline: 2px solid var(--aq-accent);
+  outline-offset: -2px;
+  border-radius: 7px;
+}
+
+.aq-doc-sortable-item[data-dragging="true"] .aq-doc-row {
+  background: var(--aq-surface);
+  box-shadow: var(--aq-pane-shadow);
+}
+
+.aq-doc-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.aq-doc-type {
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--aq-surface);
+  box-shadow: 0 0 0 1px var(--aq-border);
+  color: var(--aq-tag-text);
+  font-size: 10.5px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.aq-doc-main {
+  background: var(--aq-background);
+  padding: 24px 16px 48px;
+}
+
+.aq-doc-page {
+  max-width: 900px;
+  margin: 0 auto;
+  background: var(--aq-surface);
+  border-radius: 6px;
+  box-shadow: var(--aq-pane-shadow);
+  padding: 48px 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--aq-text);
+}
+
+.aq-doc-block {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 -18px;
+  padding: 28px 16px 12px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 120ms ease;
+  /* A jump from the outline leaves room for the toolbar above the title. */
+  scroll-margin-top: 40px;
+}
+
+.aq-doc-block:hover {
+  border-color: var(--aq-border);
+}
+
+.aq-doc-block[data-selected="true"] {
+  border-color: var(--aq-accent);
+  cursor: default;
+}
+
+.aq-doc-block-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.aq-doc-block-title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.aq-doc-block[data-level="2"] .aq-doc-block-title {
+  font-size: 16px;
+}
+
+.aq-doc-badge {
+  padding: 1px 10px;
+  border-radius: 999px;
+  background: var(--aq-tag);
+  color: var(--aq-tag-text);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.aq-doc-frame {
+  margin: 0 -18px;
+  padding: 12px 16px;
+  border: 1px dashed var(--aq-border-strong);
+  border-radius: 10px;
+  color: var(--aq-text-muted);
+}
+
+.aq-doc-frame-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.aq-doc-add {
+  min-height: 40px;
+  border-radius: 8px;
+  border: 1px dashed var(--aq-border-strong);
+  background: transparent;
+  color: var(--aq-tag-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.aq-doc-add:hover,
+.aq-doc-add:focus-visible {
+  border-color: var(--aq-accent);
+  color: var(--aq-accent);
+  outline: none;
+}
+
+.aq-doc-title-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.aq-doc-title-button:focus-visible {
+  outline: 2px solid var(--aq-accent);
+  outline-offset: 2px;
+}
+
+.aq-doc-story-head {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.aq-doc-intro {
+  margin: 0;
+}
+
+.aq-doc-grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.aq-doc-panel-sep {
+  border-top: 1px solid var(--aq-separator);
+}
+
+/* One typography for the read-only text and the editor, so editing feels like
+   typing in the document. */
+.aq-doc-prose > :first-child,
+.aq-doc-prose .ProseMirror > :first-child {
+  margin-top: 0;
+}
+
+.aq-doc-prose p {
+  margin: 0 0 10px;
+}
+
+.aq-doc-prose h3 {
+  margin: 16px 0 6px;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.aq-doc-prose h4 {
+  margin: 12px 0 4px;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.aq-doc-prose ul,
+.aq-doc-prose ol {
+  margin: 0 0 10px;
+  padding-left: 22px;
+}
+
+.aq-doc-prose ul {
+  list-style: disc;
+}
+
+.aq-doc-prose ol {
+  list-style: decimal;
+}
+
+.aq-doc-prose li p {
+  margin: 0 0 4px;
+}
+
+.aq-doc-prose table,
+.aq-doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.aq-doc-prose th,
+.aq-doc-prose td,
+.aq-doc-table th,
+.aq-doc-table td {
+  padding: 8px;
+  border: 1px solid var(--aq-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.aq-doc-prose th,
+.aq-doc-table th {
+  background: var(--aq-surface-muted);
+  font-weight: 600;
+}
+
+.aq-doc-table td.aq-doc-cell-edit,
+.aq-doc-table th.aq-doc-cell-edit {
+  padding: 0;
+}
+
+.aq-doc-cell-input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 36px;
+  padding: 8px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  resize: none;
+  field-sizing: content;
+}
+
+.aq-doc-cell-input:focus {
+  outline: 2px solid var(--aq-accent);
+  outline-offset: -2px;
+}
+
+.aq-doc-bound {
+  padding: 1px 8px;
+  border-radius: 6px;
+  background: var(--aq-warning-soft);
+  color: var(--aq-warning);
+  font-weight: 600;
+}
+
+.aq-doc-bound[data-confirmed="true"] {
+  background: var(--aq-positive-soft);
+  color: var(--aq-positive);
+}
+
+.aq-doc-story {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 12px;
+  box-shadow: inset 2px 0 0 var(--aq-border);
+}
+
+.aq-doc-story-key {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+  color: var(--aq-tag-text);
+}
+
+.aq-doc-editor.mantine-RichTextEditor-root {
+  border: 0;
+  background: transparent;
+}
+
+.aq-doc-editor .mantine-RichTextEditor-content,
+.aq-doc-editor .ProseMirror {
+  padding: 0;
+  background: transparent;
+  outline: none;
+}
+
+/* The floating module toolbar: a zero-height sticky row at the top of the
+   selected block. The card overlaps the border by half its height and stays
+   visible while a long chapter scrolls. It stays below page popovers (150). */
+.aq-doc-float {
+  position: sticky;
+  top: 22px;
+  height: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  margin-top: -28px;
+  margin-bottom: 28px;
+  pointer-events: none;
+}
+
+/* In a block section the flex gap already adds space below the row. */
+.aq-doc-block > .aq-doc-float {
+  margin-bottom: 16px;
+}
+
+.aq-doc-toolbar {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  gap: 4px;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
+  padding: 4px 6px;
+  background: var(--aq-surface);
+  border: 1px solid var(--aq-border);
+  border-radius: 10px;
+  box-shadow: var(--aq-pane-shadow);
+  transform: translateY(-50%);
+  animation: aq-doc-fade 140ms ease-out;
+}
+
+.aq-doc-toolbar .aq-doc-controls.mantine-RichTextEditor-toolbar {
+  position: static;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  gap: 4px;
+}
+
+.aq-doc-toolbar-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 4px;
+  background: var(--aq-border);
+}
+
+@keyframes aq-doc-fade {
+  from {
+    opacity: 0;
+    transform: translateY(-40%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aq-doc-toolbar {
+    animation: none;
+  }
+}
+
+.aq-doc-panel.aq-inspector {
+  width: 360px;
+}
+
+@media (max-width: 1100px) {
+  .aq-doc-outline {
+    width: 220px;
+  }
+  .aq-doc-panel.aq-inspector {
+    width: 300px;
+  }
+  .aq-doc-page {
+    padding: 32px 28px;
+  }
+}
+
+@media (max-width: 820px) {
+  .aq-doc-outline {
+    width: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--aq-border);
+  }
+  .aq-doc-panel.aq-inspector {
+    width: auto;
+  }
+  .aq-doc-page {
+    padding: 24px 20px;
+  }
+  .aq-doc-outline {
+    max-height: 40vh;
+  }
+}
+
+.aq-doc-group-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.aq-doc-library {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.aq-doc-library-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--aq-surface-muted);
+  font: inherit;
+  color: var(--aq-text);
+  cursor: pointer;
+}
+
+.aq-doc-library-item:hover {
+  background: var(--aq-accent-soft);
+}
+
+.aq-doc-library-item:focus-visible {
+  background: var(--aq-accent-soft);
+  outline: 2px solid var(--aq-accent);
+  outline-offset: -2px;
+}

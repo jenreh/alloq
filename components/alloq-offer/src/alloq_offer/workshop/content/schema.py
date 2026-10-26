@@ -32,6 +32,11 @@ BOUND_FIELDS: dict[str, str] = {
 }
 
 
+# Limits of a table chapter, for people and the AI alike.
+MAX_TABLE_ROWS = 200
+MAX_CELL = 2000
+
+
 class ContentValidationError(ValueError):
     """Chapter content violates the content model; messages are German."""
 
@@ -127,7 +132,7 @@ class ProseContent(BaseModel):
 class TableContent(BaseModel):
     chapter_type: Literal["table"] = "table"
     columns: list[str] = Field(min_length=1)
-    rows: list[list[Inline]] = Field(default_factory=list)
+    rows: list[list[Inline]] = Field(default_factory=list, max_length=MAX_TABLE_ROWS)
 
     @field_validator("rows")
     @classmethod

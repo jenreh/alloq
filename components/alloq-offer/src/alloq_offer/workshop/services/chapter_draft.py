@@ -10,6 +10,8 @@ from alloq_offer.workshop.services.job_requests import enqueue_exclusive
 from alloq_offer.workshop.services.workspace import NO_WORKSPACE
 
 DRAFT_CHAPTERS_JOB = "draft_chapters"
+# Chapter types the AI can propose content for; stories and values are bound.
+DRAFTABLE = ("prose", "table")
 NOT_DRAFTABLE = "Für dieses Kapitel gibt es keinen KI-Vorschlag."
 NOTHING_TO_DRAFT_FROM = "Es gibt noch keine Story Map und kein Briefing als Grundlage."
 
@@ -27,7 +29,7 @@ async def request_chapter_draft(
     now: datetime,
     max_attempts: int,
 ) -> JobEntity:
-    """Queue a draft. ``keys`` None means every prose chapter nobody has written yet.
+    """Queue a draft. ``keys`` None means every text chapter nobody has written yet.
 
     Waiting or running drafts of the offer are not doubled: the key counts the
     drafts, so two clicks at once meet in the same queue entry.
@@ -41,7 +43,7 @@ async def request_chapter_draft(
                 chapter = await find_chapter(session, offer_id, key)
             except ChapterError as exc:
                 raise ChapterDraftError(NOT_DRAFTABLE) from exc
-            if chapter.chapter_type != "prose":
+            if chapter.chapter_type not in DRAFTABLE:
                 raise ChapterDraftError(NOT_DRAFTABLE)
         return await enqueue_exclusive(
             session,

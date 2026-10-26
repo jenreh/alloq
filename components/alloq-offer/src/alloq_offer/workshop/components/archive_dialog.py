@@ -4,7 +4,7 @@ from typing import Any
 
 import reflex as rx
 from alloq_commons import theme
-from alloq_commons.components.modal_layout import MODAL_CLASS
+from alloq_commons.components.modal_layout import MODAL_CLASS, MODAL_OVERLAY
 from alloq_commons.components.toolbar import toolbar_search
 from reflex.vars import ObjectVar
 
@@ -143,5 +143,5 @@ def archive_dialog() -> rx.Component:
         size="xl",
         centered=True,
         class_name=MODAL_CLASS,
-        overlay_props={"backgroundOpacity": 0.5, "blur": 4},
+        overlay_props=MODAL_OVERLAY,
     )
