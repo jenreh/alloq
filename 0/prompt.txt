@@ -1,0 +1,1 @@
+there should be a "verwerfen" icon button left to the save button that forgets all unsafed changes
