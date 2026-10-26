@@ -1,0 +1,1 @@
+remove the heatmap view and all related code completly
