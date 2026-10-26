@@ -1,0 +1,2 @@
+DeprecationWarning: RouterData.page has been deprecated in version 0.8.1. Use RouterData.url instead. It will be completely removed in 1.0. 
+(components/alloq-offer/src/alloq_offer/workshop/states/workshop_state.py:55)
