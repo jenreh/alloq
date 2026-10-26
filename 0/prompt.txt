@@ -1,0 +1,1 @@
+Project editor: the text inputs should not react to on_change, instead the should be bound to on leave, also not the company should not be required
