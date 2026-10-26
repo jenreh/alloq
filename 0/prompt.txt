@@ -1,0 +1,2 @@
+* add story should be aligned at the bottom
+* it should also be input with a plus button inside for fast adding of new stories
