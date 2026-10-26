@@ -1,0 +1,1 @@
+this is an anti-pattern. large blocks of CSS should be in the css file or a css module in the assets directory not hidden in a python file. refactor this, and search for more anti patterns that need refactoring
