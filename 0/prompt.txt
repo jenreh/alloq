@@ -1,0 +1,1 @@
+the status col needs to wider to show the clased badgage, shrink the project column
