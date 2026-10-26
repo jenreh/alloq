@@ -1,0 +1,18 @@
+optimize the performance of the entwurf page of the offer workshop. it takes very long until something is shown. Analyse where the performance is lost and then optimize
+
+---
+
+Versuch es noch einmal
+
+---
+
+* can the chapter state loads be optimized and reduces? 
+* also the ReviewState.run_checks?
+* DraftState.load_verview should also be optimized
+
+
+check batch loading
+
+---
+
+also check for missing indexes
