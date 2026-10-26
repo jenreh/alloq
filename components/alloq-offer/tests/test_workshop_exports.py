@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from alloq_offer.workshop.content.schema import Paragraph, ProseContent, Run
 from alloq_offer.workshop.entities import (
+    BlobEntity,
     ChapterEntity,
     DocState,
     ExportEntity,
@@ -30,6 +31,7 @@ from alloq_offer.workshop.services.exports import (
     ExportBlockedError,
     request_export,
 )
+from alloq_offer.workshop.services.outline import OutlineService
 from alloq_offer.workshop.services.workspace import open_workspace
 from alloq_offer.workshop.storage import DbBlobStore
 from docx import Document
@@ -86,6 +88,45 @@ async def test_draft_snapshot_is_fixed_and_job_queued(db) -> None:  # noqa: ANN0
         again = await session.scalar(select(SnapshotEntity))
     assert again is not None
     assert "Fertiger Text" in str(again.content)
+
+
+async def test_export_follows_the_offer_outline(db) -> None:  # noqa: ANN001
+    await _prepared(db)
+    outline = OutlineService(db.session, 1, "Anna")
+    await outline.move_chapter("verguetung", 0)
+    await outline.remove_chapter("annahmen_risiken")
+    added = await outline.add_chapter(
+        "verguetung", chapter_type="prose", title="Datenschutz"
+    )
+    await outline.set_level(added, 2)
+    export = await _request(db)
+    async with db.session() as session:
+        snapshot = await session.scalar(select(SnapshotEntity))
+    assert snapshot is not None
+    rows = [(c["key"], c["number"], c["title"]) for c in snapshot.content["chapters"]]
+    assert rows[:3] == [
+        ("verguetung", "1", "Vergütung"),
+        (added, "1.1", "Datenschutz"),
+        (KEY, "2", "Management Summary"),
+    ]
+    assert "annahmen_risiken" not in {row[0] for row in rows}
+    await _run_job(db, export.id)
+    async with db.session() as session:
+        row = await session.get(ExportEntity, export.id)
+        assert row is not None
+        blob = await session.get(BlobEntity, row.blob_id)
+    assert blob is not None
+    headings = [
+        (p.style.name, p.text)
+        for p in Document(io.BytesIO(blob.data)).paragraphs
+        if p.style is not None and p.style.name in {"Heading 1", "Heading 2"}
+    ]
+    titles = [text for _, text in headings]
+    assert titles.index("Vergütung") < titles.index("Datenschutz")
+    assert ("Heading 2", "Datenschutz") in headings
+    assert "Annahmen und Risiken" not in titles
+    # The frame of the layout stays after the chapters.
+    assert titles.index("Rechtliche Bestimmungen") > titles.index("Laufzeit")
 
 
 async def test_unsaved_changes_block_the_export(db) -> None:  # noqa: ANN001

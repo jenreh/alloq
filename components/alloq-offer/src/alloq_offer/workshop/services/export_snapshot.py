@@ -18,6 +18,7 @@ from alloq_offer.workshop.services.chapters import current_revisions, live_chapt
 from alloq_offer.workshop.services.checks import live_stories
 from alloq_offer.workshop.services.commercials import resolve_values
 from alloq_offer.workshop.services.map_apply import snapshot_map
+from alloq_offer.workshop.services.numbering import outline_numbers
 
 DATE_FORMAT = "%d.%m.%Y"
 QUOTE_PREFIX = "ALLOQ-"
@@ -87,15 +88,17 @@ async def build_snapshot(
     offer_id = workspace.offer_id
     rows = await live_chapters(session, offer_id)
     stored = await current_revisions(session, rows)
+    numbers = outline_numbers([row.level for row in rows])
     chapters = [
         {
             "key": row.chapter_key,
+            "number": number,
             "title": row.title,
             "level": row.level,
             "revision": row.revision,
             "content": stored[row.id].content,
         }
-        for row in rows
+        for row, number in zip(rows, numbers, strict=True)
     ]
     number = (
         await session.scalar(

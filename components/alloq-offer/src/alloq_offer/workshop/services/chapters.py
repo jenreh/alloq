@@ -11,6 +11,7 @@ from typing import Any
 from sqlalchemy import select, tuple_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from alloq_offer.entities import OfferEntity
 from alloq_offer.workshop.content.schema import ProseContent, parse_content
 from alloq_offer.workshop.content.text import Content, diff_lines, stored_lines
 from alloq_offer.workshop.db import SessionFactory
@@ -30,6 +31,7 @@ from alloq_offer.workshop.export.template_package import (
     TemplatePackage,
 )
 from alloq_offer.workshop.repositories import workspace_repo
+from alloq_offer.workshop.services.numbering import outline_numbers
 from alloq_offer.workshop.services.templates import load_template
 
 logger = logging.getLogger(__name__)
@@ -47,6 +49,7 @@ STALE_PROPOSAL = (
 )
 REVIEW_AFTER_MAP = "Die Story Map hat sich seit dem Verfassen geändert."
 NO_REVISION = "Diese Fassung gibt es nicht."
+ARCHIVED = "Das Angebot ist archiviert und kann nicht mehr geändert werden."
 
 
 class ChapterConflictError(RuntimeError):
@@ -157,13 +160,36 @@ async def mark_dependent_review(
     )
 
 
+async def ensure_open(session: AsyncSession, offer_id: int) -> None:
+    """An archived offer is read-only."""
+    archived = await session.scalar(
+        select(OfferEntity.archived).where(OfferEntity.id == offer_id)
+    )
+    if archived:
+        raise ChapterError(ARCHIVED)
+
+
+def ensure_editable(chapter: ChapterEntity) -> ChapterEntity:
+    if chapter.protected:
+        raise ChapterError(PROTECTED)
+    return chapter
+
+
 async def find_chapter(
-    session: AsyncSession, offer_id: int, key: str, *, lock: bool = False
+    session: AsyncSession,
+    offer_id: int,
+    key: str,
+    *,
+    lock: bool = False,
+    removed: bool = False,
 ) -> ChapterEntity:
+    """A chapter of the outline, or with ``removed`` one that was taken out."""
     query = select(ChapterEntity).where(
         ChapterEntity.offer_id == offer_id,
         ChapterEntity.chapter_key == key,
-        ChapterEntity.removed_at.is_(None),
+        ChapterEntity.removed_at.is_not(None)
+        if removed
+        else ChapterEntity.removed_at.is_(None),
     )
     chapter = await session.scalar(query.with_for_update() if lock else query)
     if chapter is None:
@@ -270,6 +296,7 @@ class ChapterService:
         workspace = await workspace_repo.find_by_offer(session, self._offer_id)
         if workspace is None:
             raise ChapterError(NOT_FOUND)
+        await ensure_open(session, self._offer_id)
         chapter = await find_chapter(session, self._offer_id, key, lock=True)
         if expected is not None and chapter.revision != expected:
             raise ChapterConflictError(CONFLICT)
@@ -294,7 +321,11 @@ class ChapterService:
                     )
                 chapters = await live_chapters(session, self._offer_id)
             pending = {p.chapter_key for p in await self._open_proposals(session)}
-            return [_view(c, c.chapter_key in pending) for c in chapters]
+            numbers = outline_numbers([c.level for c in chapters])
+            return [
+                _view(c, number, c.chapter_key in pending)
+                for c, number in zip(chapters, numbers, strict=True)
+            ]
 
     async def _has_chapters(self, session: AsyncSession) -> bool:
         found = await session.scalar(
@@ -360,8 +391,7 @@ class ChapterService:
             return number
 
     def _check(self, chapter: ChapterEntity, content: Content) -> None:
-        if chapter.protected:
-            raise ChapterError(PROTECTED)
+        ensure_editable(chapter)
         if chapter.chapter_type != content.chapter_type:
             raise ChapterError(WRONG_TYPE)
 
@@ -466,10 +496,13 @@ class ChapterService:
                 proposal.status = ProposalStatus.REJECTED
 
 
-def _view(chapter: ChapterEntity, proposal: bool) -> dict:
+def _view(chapter: ChapterEntity, number: str, proposal: bool) -> dict:
     settings = settings_of(chapter)
     return {
         "key": chapter.chapter_key,
+        "number": number,
+        "position": chapter.position,
+        "block_key": chapter.block_key or "",
         "title": chapter.title,
         "level": chapter.level,
         "type": chapter.chapter_type,

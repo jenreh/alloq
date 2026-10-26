@@ -159,14 +159,13 @@ async def load_overview(session: AsyncSession, offer_id: int) -> Overview:
         ActivityEntity.archived_at.is_(None),
     )
     overview.stories = await _count(session, StoryEntity, *live)
-    overview.chapters_total = await _count(
-        session, ChapterEntity, ChapterEntity.offer_id == offer_id
-    )
-    overview.chapters_written = await _count(
-        session,
-        ChapterEntity,
+    in_outline = (
         ChapterEntity.offer_id == offer_id,
-        ChapterEntity.revision > 1,
+        ChapterEntity.removed_at.is_(None),
+    )
+    overview.chapters_total = await _count(session, ChapterEntity, *in_outline)
+    overview.chapters_written = await _count(
+        session, ChapterEntity, *in_outline, ChapterEntity.revision > 1
     )
     overview.draft_export_id = (
         await session.scalar(

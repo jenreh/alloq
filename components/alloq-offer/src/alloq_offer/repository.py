@@ -44,7 +44,7 @@ class OfferRepository(BaseRepository[OfferEntity, AsyncSession]):
 offer_repo = OfferRepository()
 
 
-def _sort_key(name: str) -> str:
+def german_sort_key(name: str) -> str:
     """'Öffentlich' sorts next to 'Offen', not after 'Z' as in the C collation."""
     return unicodedata.normalize("NFKD", name).casefold()
 
@@ -59,7 +59,7 @@ class IndustryRepository(BaseRepository[IndustryEntity, AsyncSession]):
     async def find_all_ordered(self, session: AsyncSession) -> list[IndustryEntity]:
         """All industries ordered by name; umlauts sort like their base letter."""
         result = await session.execute(select(IndustryEntity))
-        return sorted(result.scalars().all(), key=lambda i: _sort_key(i.name))
+        return sorted(result.scalars().all(), key=lambda i: german_sort_key(i.name))
 
     async def count_offers(self, session: AsyncSession, industry_id: int) -> int:
         """Number of offers, archived ones included, that use the industry."""

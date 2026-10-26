@@ -44,6 +44,7 @@ from alloq_offer.workshop.services.checks import (
 )
 from alloq_offer.workshop.services.findings import FindingError
 from alloq_offer.workshop.services.map_edit import MapEditor
+from alloq_offer.workshop.services.outline import OutlineService
 from alloq_offer.workshop.services.workspace import open_workspace
 from sqlalchemy import select
 
@@ -474,6 +475,32 @@ async def test_checks_follow_the_settings_of_the_offer_chapters(db) -> None:
     unconfirmed = next(r for r in found if r["rule"] == "commercials_unconfirmed")
     assert unconfirmed["target"] == "chapter:laufzeit"
     assert any("Unsere Lösung" in r["message"] for r in found)
+
+
+async def test_findings_of_a_removed_chapter_wait_for_its_restore(db) -> None:
+    service = await _workspace(db)
+    await service.save("leistungen", 1, _prose("Das ist TODO"))
+    await findings.run_checks(db.session, 1)
+    target = "chapter:leistungen"
+
+    async def _targets() -> set[str]:
+        return {r["target"] for r in await findings.list_findings(db.session, 1)}
+
+    assert target in await _targets()
+    outline = OutlineService(db.session, 1, "Anna")
+    await outline.remove_chapter("leistungen")
+    await findings.run_checks(db.session, 1)
+    assert target not in await _targets()
+    async with db.session() as session:
+        blockers = await findings.open_blockers(session, 1)
+        row = await session.scalar(
+            select(FindingEntity).where(FindingEntity.target == target)
+        )
+    assert target not in {b.target for b in blockers}
+    assert row is not None
+    assert row.decision == FindingDecision.OPEN
+    await outline.restore_chapter("leistungen")
+    assert target in await _targets()
 
 
 async def test_blocker_cannot_be_accepted_and_reason_is_needed(db) -> None:

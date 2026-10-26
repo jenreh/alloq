@@ -19,6 +19,7 @@ from alloq_offer.entities import OfferEntity
 from alloq_offer.workshop.content.schema import parse_content
 from alloq_offer.workshop.db import SessionFactory
 from alloq_offer.workshop.entities import (
+    ChapterEntity,
     FindingDecision,
     FindingEntity,
     FindingSeverity,
@@ -40,6 +41,7 @@ from alloq_offer.workshop.services.checks import (
     CheckInput,
     RuleFinding,
     StatementFacts,
+    chapter_target,
     live_stories,
     run_rules,
 )
@@ -149,6 +151,16 @@ async def load_check_input(session: AsyncSession, offer_id: int) -> CheckInput |
     )
 
 
+async def removed_targets(session: AsyncSession, offer_id: int) -> set[str]:
+    """Targets of removed chapters: their findings wait until a restore."""
+    keys = await session.scalars(
+        select(ChapterEntity.chapter_key).where(
+            ChapterEntity.offer_id == offer_id, ChapterEntity.removed_at.is_not(None)
+        )
+    )
+    return {chapter_target(key) for key in keys.all()}
+
+
 async def _insert(session: AsyncSession, row: FindingEntity) -> None:
     """Add a finding; a concurrent run that stored the same one first wins."""
     try:
@@ -202,8 +214,11 @@ async def sync(
         if row.decision == FindingDecision.FIXED:
             row.decision = FindingDecision.OPEN
             row.reason = ""
+    waiting = await removed_targets(session, offer_id)
     for key, row in stored.items():
-        if key not in seen and row.decision != FindingDecision.FIXED:
+        if key in seen or row.target in waiting:
+            continue
+        if row.decision != FindingDecision.FIXED:
             row.decision = FindingDecision.FIXED
 
 
@@ -260,24 +275,25 @@ async def list_findings(
                 )
             )
         ).all()
+        waiting = await removed_targets(session, offer_id)
     return [
-        finding_row(r) for r in sorted(rows, key=lambda r: (order[r.severity], r.id))
+        finding_row(r)
+        for r in sorted(rows, key=lambda r: (order[r.severity], r.id))
+        if r.target not in waiting
     ]
 
 
 async def open_blockers(session: AsyncSession, offer_id: int) -> list[FindingEntity]:
-    """Findings that keep the final output closed."""
-    return list(
-        (
-            await session.scalars(
-                select(FindingEntity).where(
-                    FindingEntity.offer_id == offer_id,
-                    FindingEntity.severity == FindingSeverity.BLOCKER,
-                    FindingEntity.decision == FindingDecision.OPEN,
-                )
-            )
-        ).all()
+    """Findings that keep the final output closed; removed chapters do not."""
+    rows = await session.scalars(
+        select(FindingEntity).where(
+            FindingEntity.offer_id == offer_id,
+            FindingEntity.severity == FindingSeverity.BLOCKER,
+            FindingEntity.decision == FindingDecision.OPEN,
+        )
     )
+    waiting = await removed_targets(session, offer_id)
+    return [row for row in rows.all() if row.target not in waiting]
 
 
 async def decide(
