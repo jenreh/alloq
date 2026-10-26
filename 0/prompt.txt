@@ -1,0 +1,1 @@
+ok, than adjust the buttons in the inspector, new offers should also not require PTs in the new offer dialog because they will be only available when the werkstatt was finished. Also check the german text for gramatic
