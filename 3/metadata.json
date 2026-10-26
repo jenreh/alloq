@@ -1,0 +1,87 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M5WQYA87TH9GQBG8QCM1ZTYS",
+  "session_id": "fa811259-3ab5-4916-92b8-25cafaca3072",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-26T18:35:40.430838Z",
+  "branch": "feature/offer-doc",
+  "checkpoints_count": 1,
+  "save_step_count": 1,
+  "files_touched": [
+    "components/alloq-offer/src/alloq_offer/workshop/components/draft_tab.py",
+    "components/alloq-offer/src/alloq_offer/workshop/pages.py",
+    "components/alloq-offer/src/alloq_offer/workshop/repositories.py",
+    "components/alloq-offer/src/alloq_offer/workshop/services/chapter_document.py",
+    "components/alloq-offer/src/alloq_offer/workshop/services/chapters.py",
+    "components/alloq-offer/src/alloq_offer/workshop/services/commercials.py",
+    "components/alloq-offer/src/alloq_offer/workshop/services/draft_overview.py",
+    "components/alloq-offer/src/alloq_offer/workshop/services/findings.py",
+    "components/alloq-offer/src/alloq_offer/workshop/services/map_apply.py",
+    "components/alloq-offer/src/alloq_offer/workshop/services/outline.py",
+    "components/alloq-offer/src/alloq_offer/workshop/services/templates.py",
+    "components/alloq-offer/src/alloq_offer/workshop/states/chapter_state.py",
+    "components/alloq-offer/src/alloq_offer/workshop/states/draft_state.py",
+    "components/alloq-offer/src/alloq_offer/workshop/states/map_state.py",
+    "components/alloq-offer/src/alloq_offer/workshop/states/review_state.py",
+    "components/alloq-offer/tests/conftest.py",
+    "components/alloq-offer/tests/test_workshop_chapter_state.py",
+    "components/alloq-offer/tests/test_workshop_document.py",
+    "components/alloq-offer/tests/test_workshop_draft_state.py",
+    "components/alloq-offer/tests/test_workshop_map.py",
+    "components/alloq-offer/tests/test_workshop_review_state.py",
+    "pyproject.toml"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-sonnet-5-5",
+  "turn_id": "5ffadae6d9ad",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 6,
+    "cache_creation_tokens": 44892,
+    "cache_read_tokens": 153265,
+    "output_tokens": 656,
+    "api_call_count": 3
+  },
+  "redaction": {
+    "replacements": 0,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 0,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "skill_events_version": 1,
+  "skill_events": [
+    {
+      "id": "prompt-skill-claude-code-jenreh-core:commit-msg-2026-10-26T18:34:57.267342Z",
+      "event_type": "prompt_invocation",
+      "skill": {
+        "name": "jenreh-core:commit-msg"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "prompt_slash_command",
+        "confidence": "explicit"
+      },
+      "turn_id": "5ffadae6d9ad",
+      "timestamp": "2026-10-26T18:34:57.267342Z",
+      "native": {
+        "command": "/jenreh-core:commit-msg"
+      },
+      "collapse": {
+        "target": "user_message",
+        "label": "/jenreh-core:commit-msg",
+        "default_collapsed": true
+      }
+    }
+  ],
+  "session_metrics": {
+    "turn_count": 1
+  }
+}
