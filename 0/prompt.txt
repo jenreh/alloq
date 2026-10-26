@@ -1,0 +1,3 @@
+* the cols should be resizable
+* instead of an "abschnitte" col, they should be a collapsible row like in the planning grid (saves valuable space)
+* the cards should have a very light blue as background, selected cards should have a blue border
