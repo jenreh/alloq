@@ -1,0 +1,1 @@
+Analyse the database queries in the planning page and make suggestions for missing indexes to improve performance
