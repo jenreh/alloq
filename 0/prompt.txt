@@ -1,0 +1,3 @@
+incorporate the @alloq-system.svg — alloq — Python into the doc
+
+<cu_window_hints>The user is pointing at: window "alloq-system.svg — alloq — Python" (already open — pass "com.microsoft.VSCode" to request_access; if app_screenshot is available, call it with app: "com.microsoft.VSCode" and window_id: 18531 to see just this window in the background; otherwise take a display screenshot). Do not open_application for it.</cu_window_hints>
