@@ -1,0 +1,3 @@
+All roles are "additional" -> to edit in the planning grid you need the project manager role (no admin required). An admin always needs the required roles to access functionality too. the admin switch only ensures access to the admin menu.
+
+Based on this implementation and the above rules: can the role handling for the projects and planning grid be simplified
