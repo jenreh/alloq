@@ -1,3 +1,4 @@
+import base64
 import io
 from pathlib import Path
 
@@ -7,14 +8,20 @@ from alloq_offer.workshop.content.schema import (
     BulletList,
     CalcContent,
     CalcRow,
+    CodeBlock,
     Heading,
+    ImageContent,
+    ListItem,
     OrderedList,
     Paragraph,
     ProseContent,
+    Quote,
+    Rule,
     Run,
     StoriesContent,
     TableBlock,
     TableContent,
+    TaskList,
 )
 from alloq_offer.workshop.export.chapter_renderers import NO_STORIES_TEXT
 from alloq_offer.workshop.export.docx_renderer import DRAFT_MARKER, render_document
@@ -159,7 +166,6 @@ def test_chapter_order_and_headings(rendered: bytes) -> None:
     order = [
         "Management Summary",
         "Angebotene User Stories",
-        "Mitwirkungspflichten",
         "Vergütung",
         "Rechtliche Bestimmungen",
     ]
@@ -167,6 +173,13 @@ def test_chapter_order_and_headings(rendered: bytes) -> None:
     assert positions == sorted(positions)
     assert ("Heading 2", "Angebotene User Stories") in headings
     assert ("Heading 3", "Unterpunkt") in headings
+    # A table chapter has no heading; its old title becomes the caption.
+    assert "Mitwirkungspflichten" not in titles
+    captions = [p for p in doc.paragraphs if p.text == "Mitwirkungspflichten"]
+    assert captions
+    assert all(run.italic for run in captions[0].runs) or (
+        _style_name(captions[0]) == "Caption"
+    )
 
 
 def test_prose_blocks_and_special_characters(rendered: bytes) -> None:
@@ -262,3 +275,95 @@ def test_missing_cover_value_fails_loudly(quo_v1: TemplatePackage) -> None:
     cover = {k: v for k, v in _context().cover.items() if k != "validity_date"}
     with pytest.raises(UndefinedError):
         render_document(quo_v1, [], RenderContext(cover=cover))
+
+
+# A 1x1 transparent PNG.
+PIXEL = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA"
+    "60e6kgAAAABJRU5ErkJggg=="
+)
+
+
+def _rich_chapters() -> list[ChapterInput]:
+    prose = ProseContent(
+        blocks=[
+            Paragraph(
+                align="center",
+                runs=[
+                    Run(text="unter", underline=True),
+                    Run(text="durch", strike=True),
+                    Run(text="code", code=True),
+                    Run(text="hoch", sup=True),
+                    Run(text="gelb", highlight=True),
+                    Run(text="rot", color="red"),
+                    Run(text="Link", link="https://example.com"),
+                ],
+            ),
+            BulletList(
+                items=[
+                    ListItem(
+                        runs=_runs("oben"),
+                        children=[BulletList(items=[ListItem(runs=_runs("innen"))])],
+                    )
+                ]
+            ),
+            TaskList(items=[ListItem(runs=_runs("fertig"), checked=True)]),
+            Quote(paragraphs=[_runs("Zitat")]),
+            CodeBlock(text="a = 1\nb = 2"),
+            Rule(),
+        ]
+    )
+    image = ImageContent(blob_id=7, alt="Logo", description=_runs("Unser Logo"))
+    return [
+        ChapterInput("text", "Formate", 1, prose),
+        ChapterInput("bild", "", 2, image),
+        ChapterInput("leer", "", 2, ImageContent()),
+    ]
+
+
+def test_rich_text_and_images_reach_word(quo_v1: TemplatePackage) -> None:
+    ctx = _context(draft=False)
+    ctx.images[7] = PIXEL
+    doc = _doc(render_document(quo_v1, _rich_chapters(), ctx))
+    paragraphs = {p.text: p for p in doc.paragraphs}
+    styles = {p.text: _style_name(p) for p in doc.paragraphs}
+    assert styles["innen"] == "Aufzählung 2"
+    assert styles["☑ fertig"] == "Aufzählung 1"
+    assert styles["Zitat"] == "Quote"
+    assert styles["Unser Logo"] == "Caption"
+    assert "a = 1" in "".join(p.text for p in doc.paragraphs)
+    formatted = next(p for t, p in paragraphs.items() if t.startswith("unterdurch"))
+    assert formatted.alignment == 1  # center
+    runs = formatted.runs
+    assert runs[0].underline
+    assert runs[1].font.strike
+    assert runs[3].font.superscript
+    assert runs[2].font.name == "Consolas"
+    assert str(runs[5].font.color.rgb) == "D70015"
+    links = doc.element.body.findall(f".//{qn('w:hyperlink')}")
+    assert len(links) == 1
+    assert len(doc.inline_shapes) == 1
+    assert "Formate" in [p.text for p in doc.paragraphs if p.style.name == "Heading 1"]
+
+
+def test_a_missing_image_fails_the_export(quo_v1: TemplatePackage) -> None:
+    with pytest.raises(RenderError, match="Bild"):
+        render_document(quo_v1, _rich_chapters(), _context(draft=False))
+
+
+def test_a_filtered_stories_chapter_shows_only_its_stories(
+    quo_v1: TemplatePackage,
+) -> None:
+    ctx = _context(draft=False)
+    ctx.stories = [
+        ResolvedStory("US-01", "Eins", "Satz eins.", "Erfassen", activity_id=1),
+        ResolvedStory("US-02", "Zwei", "Satz zwei.", "Abrechnen", activity_id=2),
+    ]
+    chapter = ChapterInput(
+        "user_stories", "Stories", 1, StoriesContent(activity_ids=[2])
+    )
+    text = "\n".join(
+        p.text for p in _doc(render_document(quo_v1, [chapter], ctx)).paragraphs
+    )
+    assert "US-02 – Zwei" in text
+    assert "US-01" not in text

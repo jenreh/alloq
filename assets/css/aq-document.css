@@ -1,0 +1,795 @@
+/* Kapitel tab, part 2: text typography, the editors, the block gutter, the
+   toolbars and the admin editor. Loaded after aq-workshop.css. */
+
+/* One typography for the read-only text and the editor, so editing feels like
+   typing in the document. */
+.aq-doc-prose > :first-child,
+.aq-doc-prose .ProseMirror > :first-child {
+  margin-top: 0;
+}
+
+.aq-doc-prose p {
+  margin: 0 0 10px;
+}
+
+.aq-doc-prose h3 {
+  margin: 16px 0 6px;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.aq-doc-prose h4 {
+  margin: 12px 0 4px;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.aq-doc-prose ul,
+.aq-doc-prose ol {
+  margin: 0 0 10px;
+  padding-left: 22px;
+}
+
+.aq-doc-prose ul {
+  list-style: disc;
+}
+
+/* Nested bullets alternate disc, circle and square, as in Notion. */
+.aq-doc-prose ul ul {
+  list-style: circle;
+}
+
+.aq-doc-prose ul ul ul {
+  list-style: square;
+}
+
+.aq-doc-prose ul ul ul ul {
+  list-style: disc;
+}
+
+.aq-doc-prose ol ol {
+  list-style: lower-alpha;
+}
+
+.aq-doc-prose ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 2px;
+}
+
+.aq-doc-prose ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.aq-doc-prose ul[data-type="taskList"] li > label {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.aq-doc-prose ul[data-type="taskList"] li > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.aq-doc-prose ul[data-type="taskList"] li[data-checked="true"] > div {
+  color: var(--aq-text-muted);
+  text-decoration: line-through;
+}
+
+.aq-doc-prose code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--aq-negative-soft);
+  color: var(--aq-negative);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.88em;
+}
+
+.aq-doc-prose pre {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--aq-surface-muted);
+  overflow-x: auto;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.aq-doc-prose pre code {
+  padding: 0;
+  background: none;
+  color: var(--aq-text);
+}
+
+.aq-doc-prose blockquote {
+  margin: 0 0 10px;
+  padding: 2px 0 2px 14px;
+  border-left: 3px solid var(--aq-border-strong);
+  color: var(--aq-text-muted);
+}
+
+.aq-doc-prose hr {
+  margin: 16px 0;
+  border: 0;
+  border-top: 1px solid var(--aq-border);
+}
+
+.aq-doc-prose mark {
+  padding: 0 2px;
+  border-radius: 3px;
+  background: var(--aq-warning-soft);
+  color: inherit;
+}
+
+.aq-doc-prose a {
+  color: var(--aq-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.aq-doc-prose .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--aq-text-tertiary);
+  pointer-events: none;
+}
+
+.aq-doc-prose ol {
+  list-style: decimal;
+}
+
+.aq-doc-prose li p {
+  margin: 0 0 4px;
+}
+
+.aq-doc-prose table,
+.aq-doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.aq-doc-prose th,
+.aq-doc-prose td,
+.aq-doc-table th,
+.aq-doc-table td {
+  padding: 8px;
+  border: 1px solid var(--aq-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.aq-doc-prose th,
+.aq-doc-table th {
+  background: var(--aq-surface-muted);
+  font-weight: 600;
+}
+
+.aq-doc-table td.aq-doc-cell-edit,
+.aq-doc-table th.aq-doc-cell-edit {
+  padding: 0;
+}
+
+.aq-doc-cell-input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 36px;
+  padding: 8px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  resize: none;
+  field-sizing: content;
+}
+
+.aq-doc-cell-input:focus {
+  outline: 2px solid var(--aq-accent);
+  outline-offset: -2px;
+}
+
+.aq-doc-bound {
+  padding: 1px 8px;
+  border-radius: 6px;
+  background: var(--aq-warning-soft);
+  color: var(--aq-warning);
+  font-weight: 600;
+}
+
+.aq-doc-bound[data-confirmed="true"] {
+  background: var(--aq-positive-soft);
+  color: var(--aq-positive);
+}
+
+.aq-doc-story {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 12px;
+  box-shadow: inset 2px 0 0 var(--aq-border);
+}
+
+.aq-doc-story-key {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+  color: var(--aq-tag-text);
+}
+
+.aq-doc-editor.mantine-RichTextEditor-root {
+  border: 0;
+  background: transparent;
+}
+
+.aq-doc-editor .mantine-RichTextEditor-content,
+.aq-doc-editor .ProseMirror {
+  padding: 0;
+  background: transparent;
+  outline: none;
+}
+
+/* Text chapters are part of the page: no box, a thin marker on the left while
+   the pointer or the cursor is in the chapter. The host reaches into the left
+   margin so the block gutter belongs to it. */
+.aq-doc-text-block {
+  cursor: text;
+  padding-top: 12px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: inset 2px 0 0 transparent;
+  transition: box-shadow 120ms ease;
+}
+
+.aq-doc-text-block:hover {
+  box-shadow: inset 2px 0 0 var(--aq-border);
+}
+
+.aq-doc-text-block[data-selected="true"],
+.aq-doc-text-block:focus-within {
+  box-shadow: inset 2px 0 0 var(--aq-accent);
+}
+
+.aq-doc-text-block .aq-doc-badge {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.aq-doc-text-block:hover .aq-doc-badge,
+.aq-doc-text-block:focus-within .aq-doc-badge {
+  opacity: 1;
+}
+
+.aq-doc-editor-host {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-left: -52px;
+  padding-left: 52px;
+}
+
+.aq-doc-number {
+  margin-right: 8px;
+  color: var(--aq-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.aq-doc-block-title:has(.aq-doc-title-input) {
+  display: flex;
+  align-items: baseline;
+  flex: 1;
+  min-width: 0;
+}
+
+.aq-doc-title-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+}
+
+.aq-doc-title-input:focus {
+  outline: none;
+  box-shadow: 0 2px 0 var(--aq-accent);
+}
+
+/* The block gutter (Notion): "+" and grip left of the block under the pointer. */
+.aq-doc-gutter {
+  position: absolute;
+  left: 4px;
+  z-index: 3;
+  display: flex;
+  gap: 0;
+}
+
+.aq-doc-gutter-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--aq-text-tertiary);
+  cursor: pointer;
+}
+
+.aq-doc-gutter-button:hover,
+.aq-doc-gutter-button:focus-visible {
+  background: var(--aq-hover);
+  color: var(--aq-text-muted);
+  outline: none;
+}
+
+.aq-doc-gutter-grip {
+  cursor: grab;
+}
+
+.aq-doc-gutter-menu {
+  position: absolute;
+  left: 4px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  padding: 4px;
+  border: 1px solid var(--aq-border);
+  border-radius: 10px;
+  background: var(--aq-surface);
+  box-shadow: var(--aq-pane-shadow);
+}
+
+.aq-doc-gutter-menu button {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--aq-text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.aq-doc-gutter-menu button:hover,
+.aq-doc-gutter-menu button:focus-visible {
+  background: var(--aq-accent-soft);
+  outline: none;
+}
+
+.aq-doc-gutter-menu-title {
+  padding: 6px 10px 2px;
+  border-top: 1px solid var(--aq-separator);
+  margin-top: 4px;
+  color: var(--aq-text-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+/* The one formatting toolbar (Confluence): a square bar over the whole
+   document column, fixed at its top edge; the negative margins cancel the
+   column padding so no gap shows. Icons that do not fit move into "…".
+   It stays below page popovers (150). */
+.aq-doc-format-bar {
+  position: sticky;
+  top: -24px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: -24px -16px 20px;
+  padding: 4px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--aq-border);
+  border-radius: 0;
+  background: var(--aq-surface);
+  overflow: hidden;
+}
+
+.aq-doc-format-row {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: 6px;
+}
+
+.aq-doc-toolbar-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--aq-text-muted);
+  cursor: pointer;
+}
+
+.aq-doc-toolbar-more:hover,
+.aq-doc-toolbar-more:focus-visible {
+  background: var(--aq-hover);
+  outline: none;
+}
+
+.aq-doc-toolbar-overflow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 320px;
+  padding: 4px;
+}
+
+.aq-doc-format-bar .aq-doc-toolbar-editor.mantine-RichTextEditor-root {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+}
+
+.aq-doc-toolbar-fields {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.aq-doc-toolbar-fields:disabled {
+  opacity: 0.5;
+}
+
+.aq-doc-format-row > .aq-doc-toolbar-fields {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.aq-doc-format-bar .aq-doc-controls.mantine-RichTextEditor-toolbar {
+  position: static;
+  flex-wrap: nowrap;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  gap: 6px;
+}
+
+.aq-doc-ai-tools {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* The floating module toolbar: a zero-height sticky row at the top of the
+   selected block. The card overlaps the border by half its height and stays
+   visible while a long chapter scrolls. It stays below page popovers (150). */
+.aq-doc-float {
+  position: sticky;
+  top: 22px;
+  height: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  margin-top: -28px;
+  margin-bottom: 28px;
+  pointer-events: none;
+}
+
+/* In a block section the flex gap already adds space below the row. */
+.aq-doc-block > .aq-doc-float {
+  margin-bottom: 16px;
+}
+
+.aq-doc-toolbar {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  gap: 4px;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
+  padding: 4px 6px;
+  background: var(--aq-surface);
+  border: 1px solid var(--aq-border);
+  border-radius: 10px;
+  box-shadow: var(--aq-pane-shadow);
+  transform: translateY(-50%);
+  animation: aq-doc-fade 140ms ease-out;
+}
+
+.aq-doc-toolbar .aq-doc-controls.mantine-RichTextEditor-toolbar {
+  position: static;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  gap: 4px;
+}
+
+.aq-doc-toolbar-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 4px;
+  background: var(--aq-border);
+}
+
+@keyframes aq-doc-fade {
+  from {
+    opacity: 0;
+    transform: translateY(-40%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aq-doc-toolbar {
+    animation: none;
+  }
+}
+
+.aq-doc-panel.aq-inspector {
+  width: 360px;
+}
+
+@media (max-width: 1100px) {
+  .aq-doc-outline {
+    width: 220px;
+  }
+  .aq-doc-panel.aq-inspector {
+    width: 300px;
+  }
+  .aq-doc-page {
+    padding: 32px 28px;
+  }
+}
+
+@media (max-width: 820px) {
+  .aq-doc-outline {
+    width: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--aq-border);
+  }
+  .aq-doc-panel.aq-inspector {
+    width: auto;
+  }
+  .aq-doc-page {
+    padding: 24px 20px;
+  }
+  .aq-doc-outline {
+    max-height: 40vh;
+  }
+}
+
+.aq-doc-group-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.aq-doc-library {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.aq-doc-library-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--aq-surface-muted);
+  font: inherit;
+  color: var(--aq-text);
+  cursor: pointer;
+}
+
+.aq-doc-library-item:hover {
+  background: var(--aq-accent-soft);
+}
+
+.aq-doc-library-item:focus-visible {
+  background: var(--aq-accent-soft);
+  outline: 2px solid var(--aq-accent);
+  outline-offset: -2px;
+}
+
+/* Admin: the chapter editor with its toolbar above the text. */
+.aq-admin-editor .aq-doc-format-bar {
+  position: static;
+  margin: 0 0 8px;
+  box-shadow: none;
+}
+
+.aq-admin-editor {
+  min-height: 160px;
+  padding: 10px 12px;
+  border: 1px solid var(--aq-border);
+  border-radius: 8px;
+  background: var(--aq-surface);
+}
+
+.aq-admin-row {
+  cursor: pointer;
+}
+
+.aq-admin-entry {
+  padding: 4px 6px;
+  border-radius: 7px;
+}
+
+.aq-admin-entry:hover {
+  background: var(--aq-hover);
+}
+
+/* The draft outline keeps room for its title fields; the side panel wraps below. */
+.aq-admin-outline {
+  min-width: min(100%, 600px);
+}
+
+.aq-doc-library-item[aria-current="true"] {
+  background: var(--aq-accent-soft);
+}
+
+/* Image and table chapters: no heading, a caption below. */
+.aq-doc-attached {
+  justify-content: flex-end;
+}
+
+.aq-doc-figure {
+  display: flex;
+  justify-content: center;
+  margin: 0;
+}
+
+.aq-doc-figure[data-align="left"] {
+  justify-content: flex-start;
+}
+
+.aq-doc-figure[data-align="right"] {
+  justify-content: flex-end;
+}
+
+.aq-doc-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+.aq-doc-caption {
+  margin: 0;
+  color: var(--aq-text-muted);
+  font-size: 12.5px;
+  font-style: italic;
+  text-align: center;
+}
+
+.aq-doc-caption-input,
+.aq-doc-alt-input {
+  width: 100%;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+}
+
+.aq-doc-caption-input {
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--aq-text-muted);
+}
+
+.aq-doc-alt-input {
+  font-size: 12px;
+  color: var(--aq-text-muted);
+}
+
+.aq-doc-caption-input:focus,
+.aq-doc-alt-input:focus {
+  outline: none;
+  background: var(--aq-surface-muted);
+}
+
+.aq-doc-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 28px 16px;
+  border: 1px dashed var(--aq-border-strong);
+  border-radius: 10px;
+  background: var(--aq-surface-muted);
+  text-align: center;
+  cursor: pointer;
+}
+
+.aq-doc-dropzone:hover,
+.aq-doc-dropzone:focus-visible {
+  border-color: var(--aq-accent);
+  outline: none;
+}
+
+.aq-doc-replace {
+  display: inline-flex;
+}
+
+.aq-doc-table-editor .ProseMirror table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.aq-doc-table-editor .ProseMirror .selectedCell {
+  background: var(--aq-accent-soft);
+}
+
+.aq-doc-table-editor .ProseMirror td p,
+.aq-doc-table-editor .ProseMirror th p {
+  margin: 0;
+}
+
+/* The "+" between two chapters: a line with a button in the left margin, shown
+   on hover or keyboard focus. */
+.aq-doc-gap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 14px;
+  margin: -6px -18px -6px -48px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.aq-doc-gap:hover,
+.aq-doc-gap:focus-within {
+  opacity: 1;
+}
+
+.aq-doc-gap-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-right: 8px;
+  padding: 0;
+  border: 1px solid var(--aq-border);
+  border-radius: 50%;
+  background: var(--aq-surface);
+  color: var(--aq-text-muted);
+  cursor: pointer;
+}
+
+.aq-doc-gap-button:hover,
+.aq-doc-gap-button:focus-visible {
+  border-color: var(--aq-accent);
+  color: var(--aq-accent);
+  outline: none;
+}
+
+.aq-doc-gap-line {
+  flex: 1;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--aq-accent-soft);
+}

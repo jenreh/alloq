@@ -37,10 +37,20 @@ from alloq_offer.workshop.services.chapters import (
     ChapterError,
     ChapterService,
 )
+from alloq_offer.workshop.services.images import MAX_IMAGE_BYTES
 from alloq_offer.workshop.services.outline import OutlineService
-from alloq_offer.workshop.states.chapter_panel_mixin import ChapterPanelMixin
+from alloq_offer.workshop.states.chapter_panel_mixin import (
+    STALE_EDITOR,
+    ChapterPanelMixin,
+)
 from alloq_offer.workshop.states.helpers import current_user_name, open_offer_id
-from alloq_offer.workshop.states.outline_mixin import OutlineAction, OutlineMixin
+from alloq_offer.workshop.states.image_mixin import ImageMixin
+from alloq_offer.workshop.states.outline_mixin import (
+    BLOCK_ID_PREFIX,
+    OutlineAction,
+    OutlineMixin,
+)
+from alloq_offer.workshop.storage import DbBlobStore
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
 
@@ -59,10 +69,9 @@ UNSUPPORTED_NOTE = (
 SHORTEN = "Kürze den Text, ohne Aussagen zu streichen."
 TECHNICAL = "Formuliere den Text technischer und genauer."
 WORKING = (JobStatus.QUEUED, JobStatus.RUNNING)
-BLOCK_ID_PREFIX = "aq-chapter-"
 
 
-class ChapterState(OutlineMixin, ChapterPanelMixin, rx.State):
+class ChapterState(OutlineMixin, ChapterPanelMixin, ImageMixin, rx.State):
     """The chapters of the open offer and the one being edited."""
 
     chapters: rx.Field[list[dict[str, Any]]] = rx.field(default_factory=list)
@@ -72,8 +81,6 @@ class ChapterState(OutlineMixin, ChapterPanelMixin, rx.State):
     _content: dict[str, Any] = {}  # noqa: RUF012
     active_key: rx.Field[str] = rx.field("")
     revision: rx.Field[int] = rx.field(0)
-    editor_html: rx.Field[str] = rx.field("")
-    editor_nonce: rx.Field[int] = rx.field(0)
     editable: rx.Field[bool] = rx.field(False)
     note: rx.Field[str] = rx.field("")
     origin: rx.Field[str] = rx.field("")
@@ -87,8 +94,10 @@ class ChapterState(OutlineMixin, ChapterPanelMixin, rx.State):
     # Bumped when a save or change failed, so uncontrolled inputs show the
     # stored text again.
     input_reset: rx.Field[int] = rx.field(0)
-    # Chapter and revision the mounted editor shows.
-    _editor_for: str = ""
+    # Per chapter: the revision its editor shows and how often it was mounted.
+    # A revision saved elsewhere remounts the editor with the new text.
+    _bases: dict[str, int] = {}  # noqa: RUF012
+    _mounts: dict[str, int] = {}  # noqa: RUF012
 
     @rx.var
     def active(self) -> dict[str, Any]:
@@ -101,10 +110,6 @@ class ChapterState(OutlineMixin, ChapterPanelMixin, rx.State):
     @rx.var
     def has_proposal(self) -> bool:
         return bool(self.proposal)
-
-    @rx.var
-    def editor_key(self) -> str:
-        return f"{self.active_key}:{self.editor_nonce}"
 
     @rx.var
     def drafting(self) -> bool:
@@ -126,6 +131,11 @@ class ChapterState(OutlineMixin, ChapterPanelMixin, rx.State):
         return ChapterService(
             get_asyncdb_session, offer_id, await current_user_name(self)
         )
+
+    @staticmethod
+    def _blob_store() -> DbBlobStore:
+        # The session factory of this module, so the tests' patch applies.
+        return DbBlobStore(MAX_IMAGE_BYTES, get_asyncdb_session)
 
     @staticmethod
     def _outline_for(service: ChapterService) -> OutlineService:
@@ -193,6 +203,7 @@ class ChapterState(OutlineMixin, ChapterPanelMixin, rx.State):
         revision, failed = await self._save(service, key, self.revision, content)
         if revision is None:
             return failed
+        self._bases[key] = revision
         self.save_label = SAVED
         if isinstance(content, TableContent):
             # A table needs neither the map nor the values to show itself.
@@ -213,16 +224,25 @@ class ChapterState(OutlineMixin, ChapterPanelMixin, rx.State):
         self.origin = loaded["origin"]
         self.proposal = loaded["proposal"] or {}
         self.editable = editor_compatible(content)
-        self.editor_html = content_to_html(content) if self.editable else ""
         prose = self.active.get("type", "prose") == "prose"
         self.note = UNSUPPORTED_NOTE if prose and not self.editable else ""
-        # Only another chapter or revision remounts the editor; a reload while
-        # somebody types keeps the cursor.
-        shown = f"{self.active_key}:{self.revision}"
-        if shown != self._editor_for:
-            self._editor_for = shown
-            self.editor_nonce += 1
         self.save_label = ""
+
+    def _mount(self, key: str) -> str:
+        return f"{key}:{self._mounts.get(key, 0)}"
+
+    def _with_mounts(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Rows with their editor mount; a revision from elsewhere bumps it."""
+        for row in rows:
+            key, revision = row["key"], row["revision"]
+            if self._bases.setdefault(key, revision) != revision:
+                self._bases[key] = revision
+                self._mounts[key] = self._mounts.get(key, 0) + 1
+        return [{**row, "mount": self._mount(row["key"])} for row in rows]
+
+    def _stale(self, key: str, mount: str) -> bool:
+        """A save from an editor that still shows an older revision."""
+        return bool(mount) and mount != self._mount(key)
 
     async def _reload(
         self, service: ChapterService, *, select_first: bool = False
@@ -233,7 +253,7 @@ class ChapterState(OutlineMixin, ChapterPanelMixin, rx.State):
         )
         if document is None:
             return
-        self.chapters = document.chapters
+        self.chapters = self._with_mounts(document.chapters)
         self.frame_before = document.frame_before
         self.frame_after = document.frame_after
         self.removed_chapters = document.removed
@@ -244,6 +264,7 @@ class ChapterState(OutlineMixin, ChapterPanelMixin, rx.State):
         if self.active_key:
             self._show_active(document.details[self.active_key])
         self.draft_job = document.draft_job
+        self.story_options = document.story_options
 
     @rx.event
     @requires_offer_editor
@@ -319,15 +340,22 @@ class ChapterState(OutlineMixin, ChapterPanelMixin, rx.State):
 
     @rx.event
     @requires_offer_editor
-    async def autosave(self, key: str, html: str) -> AsyncGenerator[Any]:
+    async def autosave(
+        self, key: str, html: str, mount: str = ""
+    ) -> AsyncGenerator[Any]:
         """Save a text chapter's editor content; stale editors never overwrite.
 
         The text belongs to ``key`` even when another chapter was selected in
-        the meantime, so the last words typed are never lost.
+        the meantime, so the last words typed are never lost. ``mount`` names
+        the editor that sent it; one that still shows an older revision is
+        refused, since its text would replace the newer one.
         """
         service = await self._service()
         chapter = next((c for c in self.chapters if c["key"] == key), None)
         if service is None or chapter is None or chapter["type"] != "prose":
+            return
+        if self._stale(key, mount):
+            yield rx.toast.warning(STALE_EDITOR, position="top-right")
             return
         if key == self.active_key and not self.editable:
             return
@@ -345,11 +373,12 @@ class ChapterState(OutlineMixin, ChapterPanelMixin, rx.State):
         if key == self.active_key:
             self.revision = revision
             self._content = content.model_dump(mode="json")
-            self._editor_for = f"{key}:{revision}"
-        self._touch(key, revision, {"html": content_to_html(content)})
+        self._touch(key, revision, {"html": content_to_html(content), "can_edit": True})
 
     def _touch(self, key: str, revision: int, shown: dict[str, Any]) -> None:
-        """Mirror a saved block in the document without re-reading it."""
+        """Mirror a saved block in the document without re-reading it; the
+        editor that saved it stays mounted."""
+        self._bases[key] = revision
         saved = {"revision": revision, "needs_review": False, "review_reason": ""}
         self.chapters = [
             {**c, **saved, **shown} if c["key"] == key else c for c in self.chapters

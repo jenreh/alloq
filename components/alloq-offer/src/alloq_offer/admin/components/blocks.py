@@ -10,7 +10,10 @@ from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
 from alloq_offer.admin.states.block_admin_state import BlockAdminState
-from alloq_offer.workshop.components.chapters.editor import chapter_editor
+from alloq_offer.workshop.components.chapters.editor import (
+    chapter_editor,
+    chapter_toolbar,
+)
 from alloq_offer.workshop.components.chapters.labels import (
     TYPE_LABELS,
     TYPE_OPTIONS,
@@ -134,11 +137,11 @@ def _start_content() -> rx.Component:
                 ),
             ),
             rx.box(
+                chapter_toolbar(),
                 chapter_editor(
                     content=BlockAdminState.content_html,
                     editable=True,
                     on_update=_set("content_html"),
-                    float_class_name="aq-admin-editor-row",
                     key=BlockAdminState.editor_nonce.to(str),
                 ),
                 class_name="aq-admin-editor",

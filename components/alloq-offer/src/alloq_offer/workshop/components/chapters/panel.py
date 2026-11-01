@@ -8,7 +8,7 @@ from alloq_commons.components.list_view import inspector_section
 from alloq_commons.components.toolbar import segmented
 
 import appkit_mantine as mn
-from alloq_offer.workshop.components.chapters.blocks import Row
+from alloq_offer.workshop.components.chapters.blocks import Row, stories
 from alloq_offer.workshop.components.chapters.blocks.calc import CALC_SECTION_ID
 from alloq_offer.workshop.components.chapters.labels import (
     TYPE_HINTS,
@@ -163,6 +163,16 @@ def _head(active: Row) -> rx.Component:
 
 
 def _settings(active: Row) -> rx.Component:
+    """Heading and level; table and image chapters have neither."""
+    attached = rx.Var.create(["table", "image"]).contains(active["type"].to(str))
+    return mn.stack(
+        rx.cond(attached, rx.fragment(), _heading_and_level(active)),
+        mn.text(by_type(active["type"], TYPE_HINTS), fz="12px", c=theme.TEXT_MUTED),
+        gap=10,
+    )
+
+
+def _heading_and_level(active: Row) -> rx.Component:
     return mn.stack(
         mn.text_input(
             label=HEADING,
@@ -187,7 +197,6 @@ def _settings(active: Row) -> rx.Component:
             ),
             gap=4,
         ),
-        mn.text(by_type(active["type"], TYPE_HINTS), fz="12px", c=theme.TEXT_MUTED),
         gap=10,
     )
 
@@ -204,6 +213,11 @@ def _type_settings(active: Row) -> rx.Component:
                     ChapterState.set_group_by,
                     GROUP_OPTIONS,
                     disabled=ChapterState.chapter_locked,
+                ),
+                *stories.filters(
+                    active,
+                    size="xs",
+                    combobox_props={"zIndex": theme.PAGE_POPOVER_Z_INDEX},
                 ),
                 mn.text(STORIES_NOTE, fz="12px", c=theme.TEXT_MUTED),
                 mn.anchor(

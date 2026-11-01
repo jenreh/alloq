@@ -344,7 +344,9 @@ class ChapterService:
             chapters = await live_chapters(session, self._offer_id)
         proposals = await self._open_proposals(session)
         pending = {p.chapter_key for p in proposals}
-        numbers = outline_numbers([c.level for c in chapters])
+        numbers = outline_numbers(
+            [c.level for c in chapters], [c.chapter_type for c in chapters]
+        )
         return Outline(
             chapters=chapters,
             proposals=proposals,

@@ -7,7 +7,13 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from alloq_offer.workshop.ai.schemas import ProposedTable
+from alloq_offer.workshop.ai.schemas import (
+    ProposedActivity,
+    ProposedMap,
+    ProposedStory,
+    ProposedTable,
+    ProposedTask,
+)
 from alloq_offer.workshop.components import chapters_tab
 from alloq_offer.workshop.components.chapters import (
     dialogs,
@@ -34,7 +40,14 @@ from alloq_offer.workshop.services.chapter_document import (
     render_block,
 )
 from alloq_offer.workshop.services.chapters import CONFLICT, ChapterService
-from alloq_offer.workshop.services.outline import REQUIRED, TITLE_NEEDED, OutlineService
+from alloq_offer.workshop.services.map_apply import apply_proposed_map
+from alloq_offer.workshop.services.outline import (
+    FIRST_LEVEL,
+    NEEDS_PARENT,
+    REQUIRED,
+    TITLE_NEEDED,
+    OutlineService,
+)
 from alloq_offer.workshop.services.workspace import open_workspace
 from alloq_offer.workshop.states import chapter_state, outline_mixin
 from alloq_offer.workshop.states.chapter_state import ChapterState
@@ -44,6 +57,11 @@ from appkit_user.authentication.states import LoginState
 
 MODULE = "alloq_offer.workshop.states.chapter_state"
 DOCUMENT_STATEMENTS = 6
+GRID = (
+    "<table><tbody><tr><th><p>Was</p></th><th><p>Wer</p></th></tr>"
+    "<tr><td><p><strong>Zugang</strong></p></td><td><p>Kunde</p></td></tr>"
+    "</tbody></table>"
+)
 
 
 def _u(text: str) -> str:
@@ -124,13 +142,14 @@ def test_render_block_per_type() -> None:
         stories,
         values,
     )
-    assert prose == {"html": "<p>A &lt; B</p>"}
+    assert prose == {"html": "<p>A &lt; B</p>", "can_edit": True}
     table = render_block(
         TableContent(columns=["A", "B"], rows=[[[Run(text="1")], [Run(text="2")]]]),
         stories,
         values,
     )
-    assert table == {"columns": ["A", "B"], "rows": [["1", "2"]]}
+    assert table.pop("html").startswith("<table><tbody><tr><th><p>A</p></th>")
+    assert table == {"columns": ["A", "B"], "rows": [["1", "2"]], "description": ""}
     calc = render_block(
         CalcContent(rows=[CalcRow(label="Tage", field="offer.person_days")]),
         stories,
@@ -304,6 +323,74 @@ async def test_rename_and_level(db) -> None:  # noqa: ANN001
         assert state.active["number"] == "3"
 
 
+async def test_insert_between_chapters(db) -> None:  # noqa: ANN001
+    state = await _loaded(db)
+    with _as_editor(state, db):
+        await _run(state.insert_chapter, "laufzeit", "table")
+        keys = _keys(state)
+        assert keys[keys.index("laufzeit") + 1] == state.active_key
+        assert state.active["type"] == "table"
+        await _run(state.insert_chapter, "", "prose")
+        assert _keys(state)[0] == state.active_key
+        assert state.active["title"] == outline_mixin.NEW_TITLES["prose"]
+        await _run(state.insert_chapter, "projektabwicklung", "sub")
+        assert state.active["number"] == "4.1"
+        toast = await _run(state.insert_chapter, "", "image")
+        assert _shows(NEEDS_PARENT, toast)
+        assert await _run(state.insert_chapter, "laufzeit", "unbekannt") == ""
+        await _run(state.insert_chapter, "laufzeit", "library")
+        assert state.add_open
+        state.set_add_tab(outline_mixin.TAB_BLANK)
+        state.set_blank_title("Glossar")
+        await _run(state.add_blank)
+    keys = _keys(state)
+    assert keys[keys.index("laufzeit") + 1] == state.active_key
+    assert state.active["title"] == "Glossar"
+
+
+async def test_titles_are_renamed_in_the_document(db) -> None:  # noqa: ANN001
+    state = await _loaded(db)
+    with _as_editor(state, db):
+        assert await _run(state.rename_chapter, "laufzeit", "Laufzeit ") == ""
+        await _run(state.rename_chapter, "laufzeit", "Dauer")
+        toast = await _run(state.rename_chapter, "laufzeit", "")
+    titles = {c["key"]: c["title"] for c in state.chapters}
+    assert titles["laufzeit"] == "Dauer"
+    assert _shows(TITLE_NEEDED, toast)
+
+
+async def test_sub_chapters_from_the_outline(db) -> None:  # noqa: ANN001
+    state = await _loaded(db)
+    with _as_editor(state, db):
+        await _run(state.add_subchapter, "projektabwicklung")
+        keys = _keys(state)
+        added = keys[keys.index("projektabwicklung") + 1]
+        assert state.active_key == added
+        assert state.active["level"] == 2
+        assert state.active["number"] == "3.1"
+        await _run(state.outdent_chapter, added)
+        assert state.active["number"] == "4"
+        await _run(state.indent_chapter, added)
+        assert state.active["number"] == "3.1"
+        toast = await _run(state.indent_chapter, "management_summary")
+        assert _shows(FIRST_LEVEL, toast)
+        toast = await _run(state.outdent_chapter, "mitwirkung")
+        assert _shows(NEEDS_PARENT, toast)
+    rows = {r["key"]: r for r in state.outline_rows}
+    assert rows["leistungen"]["has_children"]
+    assert rows["leistungen"]["label"] == "2 " + rows["leistungen"]["title"]
+    assert rows["mitwirkung"]["attached"]
+    assert rows["mitwirkung"]["label"] == rows["mitwirkung"]["title"]
+    assert not rows["loesung"]["hidden"]
+    state.toggle_collapse("leistungen")
+    assert {r["key"] for r in state.outline_rows if r["hidden"]} >= {
+        "loesung",
+        "mitwirkung",
+    }
+    state.toggle_collapse("leistungen")
+    assert not any(r["hidden"] for r in state.outline_rows)
+
+
 async def test_outline_errors_show_a_toast(db) -> None:  # noqa: ANN001
     state = await _loaded(db)
     with (
@@ -331,31 +418,68 @@ async def test_story_grouping_is_stored(db) -> None:  # noqa: ANN001
         await _run(state.set_group_by, "slice")
         assert state.active["group_by"] == "slice"
         assert state.revision == 2
-        await _run(state.add_row)  # not a table: nothing happens
+        # Not a table: nothing happens.
+        await _run(state.save_table, "user_stories", GRID)
     assert state.revision == 2
 
 
-async def test_table_edits(db) -> None:  # noqa: ANN001
+async def test_story_filters_are_stored(db) -> None:  # noqa: ANN001
+    story = ProposedStory(
+        title="Erfassen", role="Kunde", goal="Daten senden", benefit="Zeit sparen"
+    )
+    tasks = [ProposedTask(title="T", stories=[story])]
+    proposal = ProposedMap(
+        activities=[
+            ProposedActivity(title="A", tasks=tasks),
+            ProposedActivity(title="B", tasks=tasks),
+        ],
+        slices=["Kern"],
+    )
+    async with db.session() as session:
+        workspace = await open_workspace(session, 1, "Anna")
+        await session.flush()
+        await apply_proposed_map(session, workspace, proposal, set())
     state = await _loaded(db)
+    activities = [o["value"] for o in state.story_options["activities"]]
+    slices = [o["value"] for o in state.story_options["slices"]]
+    assert activities
+    with _as_editor(state, db):
+        await _run(state.select_chapter, "user_stories")
+        await _run(state.set_story_activities, [activities[0], "999", "x"])
+        assert state.active["activity_ids"] == [activities[0]]
+        assert state.active["filter"].startswith("Spalten: ")
+        await _run(state.set_group_by, "slice")
+        assert state.active["activity_ids"] == [activities[0]]
+        revision = state.revision
+        await _run(state.set_story_activities, [activities[0]])
+        assert state.revision == revision
+        await _run(state.set_story_slices, [*slices[:1], "none"])
+        assert "none" in state.active["slice_ids"]
+        await _run(state.set_story_activities, [])
+        await _run(state.set_story_slices, [])
+        assert state.active["filter"] == ""
+        await _run(state.select_chapter, "loesung")
+        assert await _run(state.set_story_slices, ["none"]) == ""
+        assert await _run(state.set_story_activities, ["1"]) == ""
+
+
+async def test_table_editor_saves_the_grid(db) -> None:  # noqa: ANN001
+    state = await _loaded(db)
+    grid = GRID
     with _as_editor(state, db):
         await _run(state.select_chapter, "mitwirkung")
-        await _run(state.add_row)
-        assert state.active["rows"] == [["", "", ""]]
-        await _run(state.set_cell, 0, 1, " Kunde ")
-        assert state.active["rows"][0][1] == "Kunde"
+        await _run(state.save_table, "loesung", grid)
+        assert state.revision == 1
+        await _run(state.save_table, "mitwirkung", grid)
+        assert state.active["columns"] == ["Was", "Wer"]
+        assert state.active["rows"] == [["Zugang", "Kunde"]]
+        assert "<strong>Zugang</strong>" in state.active["html"]
         revision = state.revision
-        await _run(state.set_cell, 0, 1, "Kunde")
-        await _run(state.set_cell, 5, 1, "x")
+        await _run(state.save_table, "mitwirkung", grid)
         assert state.revision == revision
-        await _run(state.add_column)
-        assert state.active["columns"][-1] == "Neue Spalte"
-        await _run(state.rename_column, 3, "Hinweis")
-        await _run(state.rename_column, 3, "  ")
-        assert state.active["columns"][-1] == "Hinweis"
-        await _run(state.remove_row, 0)
-        assert state.active["rows"] == []
-        await _run(state.remove_row, 3)
-        assert state.save_label == chapter_state.SAVED
+        toast = await _run(state.save_table, "mitwirkung", "<p>weg</p>")
+    assert "genau eine Tabelle" in toast
+    assert state.revision == revision
 
 
 async def test_value_edits(db) -> None:  # noqa: ANN001
@@ -385,7 +509,7 @@ async def test_module_edit_conflict_reloads(db) -> None:  # noqa: ANN001
         "mitwirkung", 1, TableContent(columns=["A"])
     )
     with _as_editor(state, db):
-        toast = await _run(state.add_row)
+        toast = await _run(state.save_table, "mitwirkung", GRID)
     assert _shows(CONFLICT, toast)
     assert state.save_label == chapter_state.CONFLICT_LABEL
     assert state.active["columns"] == ["A"]
@@ -407,6 +531,12 @@ def test_tab_renders_outline_document_panel_and_dialogs() -> None:
         "rename_active",
         "set_active_level",
         "move_active",
+        "add_subchapter",
+        "indent_chapter",
+        "outdent_chapter",
+        "rename_chapter",
+        "toggle_collapse",
+        "insert_chapter",
         "autosave",
         "accept_proposal",
         "refresh_drafts",
@@ -415,6 +545,7 @@ def test_tab_renders_outline_document_panel_and_dialogs() -> None:
         assert handler in tab, handler
     assert "SortableList" in tab
     assert "ChapterEditor" in tab
+    assert "ChapterToolbar" in tab
     assert _u(labels.FRAME_NOTE) in tab
     assert _u(outline.TITLE) in tab
     assert _u(document.ADD_CHAPTER) in tab
@@ -427,16 +558,15 @@ def test_each_module_has_its_toolbar() -> None:
     page = str(document.document())
     for handler in (
         "draft_active",
-        "add_row",
-        "add_column",
-        "set_cell",
-        "rename_column",
+        "save_table",
+        "set_caption",
         "set_group_by",
         "add_value",
         "remove_value",
     ):
         assert handler in page, handler
     assert "aq-doc-float" in page
+    assert "TableEditor" in page
 
 
 async def test_browser_values_that_are_no_numbers_change_nothing(db) -> None:  # noqa: ANN001
@@ -446,8 +576,7 @@ async def test_browser_values_that_are_no_numbers_change_nothing(db) -> None:  #
         assert await _run(state.reorder, "laufzeit", "oben") == ""
         assert await _run(state.set_active_level, "x") == ""
         await _run(state.select_chapter, "mitwirkung")
-        await _run(state.remove_row, "eins")
-        await _run(state.set_cell, None, 0, "x")
+        await _run(state.set_image_width, "breit")
     assert _keys(state) == keys
     assert state.revision == 1
 
@@ -461,7 +590,11 @@ async def test_tables_have_a_row_limit(db) -> None:  # noqa: ANN001
     with _as_editor(state, db):
         await _run(state.load_chapters)
         await _run(state.select_chapter, "mitwirkung")
-        await _run(state.add_row)
+        rows = "<tr><td><p>x</p></td></tr>" * (MAX_TABLE_ROWS + 1)
+        toast = await _run(
+            state.save_table, "mitwirkung", f"<table><tr><th>A</th></tr>{rows}</table>"
+        )
+    assert "Zeilen" in toast
     assert state.revision == 2
     assert len(state.active["rows"]) == MAX_TABLE_ROWS
 
@@ -476,7 +609,7 @@ async def test_a_failed_load_leaves_nothing_selected(db) -> None:  # noqa: ANN00
     assert _shows(chapter_state.LOAD_ERROR, toast)
     assert state.active_key == ""
     with _as_editor(state, db):
-        assert await _run(state.add_row) == ""
+        assert await _run(state.save_table, "mitwirkung", GRID) == ""
 
 
 def test_table_proposals_keep_the_cell_and_row_limits() -> None:
@@ -500,43 +633,15 @@ async def test_text_typed_before_the_selection_moved_is_saved(db) -> None:  # no
         assert await _run(state.autosave, "verguetung", "<p>x</p>") == ""
 
 
-async def test_a_reload_keeps_the_editor_mounted(db) -> None:  # noqa: ANN001
-    state = await _loaded(db)
-    nonce = state.editor_nonce
-    with _as_editor(state, db):
-        await _run(state.autosave, "management_summary", "<p>Eins</p>")
-        await _run(state.reorder, "laufzeit", 0)
-    assert state.editor_nonce == nonce
-    await ChapterService(db.session, 1, "Ben").save(
-        "management_summary",
-        2,
-        ProseContent.model_validate(
-            {"blocks": [{"type": "paragraph", "runs": [{"text": "Ben"}]}]}
-        ),
-    )
-    with _as_editor(state, db):
-        await _run(state.load_chapters)
-    assert state.editor_nonce == nonce + 1
-    assert state.order_version == 1
-
-
 async def test_failed_edits_refresh_the_inputs(db) -> None:  # noqa: ANN001
     state = await _loaded(db)
     reset = state.input_reset
     with _as_editor(state, db):
-        await _run(state.select_chapter, "mitwirkung")
-        await _run(state.rename_column, 0, "  ")
-        assert state.input_reset == reset + 1
         await _run(state.select_chapter, "loesung")
         await _run(state.rename_active, "")
-        assert state.input_reset == reset + 2
-        await _run(state.select_chapter, "mitwirkung")
-        assert state.can_add_column
-        for _ in range(5):
-            await _run(state.add_column)
-        assert not state.can_add_column
+    assert state.input_reset == reset + 1
 
 
 def test_blank_chapter_types_carry_the_plan_names() -> None:
     names = [option["label"] for option in labels.TYPE_OPTIONS]
-    assert names == ["Text", "Tabelle", "User Stories", "Werte"]
+    assert names == ["Text", "Tabelle", "User Stories", "Werte", "Bild"]

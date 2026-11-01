@@ -21,7 +21,7 @@ DEFAULT_TEMPLATE_KEY = "quo_v1"
 CHAPTER_ANCHOR = "[[KAPITEL]]"
 NO_ANCHOR = f"Die Vorlage braucht genau einen Anker {CHAPTER_ANCHOR}."
 BROKEN_LAYOUT = "Die Datei ist kein lesbares Word-Dokument."
-ChapterType = Literal["prose", "table", "stories", "calc"]
+ChapterType = Literal["prose", "table", "stories", "calc", "image"]
 # Parts that carry reviewer comments, people, labels, properties or statistics.
 PRIVATE_PARTS = (
     "/comments",
@@ -98,6 +98,9 @@ class ChapterDef(ChapterSettings):
     def _content_matches_type(self) -> ChapterDef:
         if self.content().chapter_type != self.chapter_type:
             raise TemplateError("Der Inhalt passt nicht zum Kapiteltyp.")
+        if getattr(self.content(), "blob_id", None) is not None:
+            # Pictures belong to one offer; a template must not point at one.
+            raise TemplateError("Vorlagen und Bausteine enthalten keine Bilder.")
         return self
 
     def content(self) -> Content:

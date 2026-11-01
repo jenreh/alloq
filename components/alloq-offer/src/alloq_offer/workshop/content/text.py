@@ -5,27 +5,50 @@ from typing import Any
 
 from alloq_offer.workshop.content.schema import (
     BOUND_FIELDS,
+    AnyContent,
     BulletList,
     CalcContent,
+    CodeBlock,
     Heading,
+    ImageContent,
     Inline,
     OrderedList,
     Paragraph,
     ProseContent,
-    StoriesContent,
+    Quote,
+    Rule,
     TableBlock,
     TableContent,
+    TaskList,
     parse_content,
     plain_text,
 )
 
 STORIES_LINE = "Stories der Story Map"
+IMAGE_LINE = "Bild"
 
-Content = ProseContent | TableContent | StoriesContent | CalcContent
+Content = AnyContent
 
 
 def _row(cells: list[Inline]) -> str:
     return " | ".join(plain_text(cell) for cell in cells)
+
+
+def _list_lines(
+    block: BulletList | OrderedList | TaskList, depth: int = 0
+) -> list[str]:
+    lines: list[str] = []
+    for number, item in enumerate(block.items, 1):
+        if isinstance(block, OrderedList):
+            marker = f"{number}."
+        elif isinstance(block, TaskList):
+            marker = "- [x]" if item.checked else "- [ ]"
+        else:
+            marker = "-"
+        lines.append(f"{'  ' * depth}{marker} {plain_text(item.runs)}")
+        for child in item.children:
+            lines.extend(_list_lines(child, depth + 1))
+    return lines
 
 
 def _prose_lines(content: ProseContent) -> list[str]:
@@ -35,13 +58,14 @@ def _prose_lines(content: ProseContent) -> list[str]:
             lines.append(plain_text(block.runs))
         elif isinstance(block, Heading):
             lines.append(f"{'#' * block.level} {plain_text(block.runs)}")
-        elif isinstance(block, BulletList):
-            lines.extend(f"- {plain_text(item)}" for item in block.items)
-        elif isinstance(block, OrderedList):
-            lines.extend(
-                f"{number}. {plain_text(item)}"
-                for number, item in enumerate(block.items, 1)
-            )
+        elif isinstance(block, BulletList | OrderedList | TaskList):
+            lines.extend(_list_lines(block))
+        elif isinstance(block, Quote):
+            lines.extend(f"> {plain_text(p)}" for p in block.paragraphs)
+        elif isinstance(block, CodeBlock):
+            lines.extend(block.text.splitlines())
+        elif isinstance(block, Rule):
+            lines.append("---")
         elif isinstance(block, TableBlock):
             lines.append(_row(block.header))
             lines.extend(_row(row) for row in block.rows)
@@ -55,7 +79,17 @@ def content_lines(content: Content) -> list[str]:
     if isinstance(content, ProseContent):
         return _prose_lines(content)
     if isinstance(content, TableContent):
-        return [" | ".join(content.columns), *(_row(row) for row in content.rows)]
+        caption = [plain_text(content.description)] if content.description else []
+        return [
+            " | ".join(content.columns),
+            *(_row(row) for row in content.rows),
+            *caption,
+        ]
+    if isinstance(content, ImageContent):
+        return [
+            f"{IMAGE_LINE}: {content.alt}" if content.alt else IMAGE_LINE,
+            *([plain_text(content.description)] if content.description else []),
+        ]
     if isinstance(content, CalcContent):
         return [plain_text(content.intro), *(row.label for row in content.rows)]
     return [STORIES_LINE]

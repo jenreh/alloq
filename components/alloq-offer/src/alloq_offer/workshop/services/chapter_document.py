@@ -4,10 +4,15 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from alloq_offer.workshop.content.editor_io import content_to_html
+from alloq_offer.workshop.content.editor_io import (
+    content_to_html,
+    editor_compatible,
+    table_to_html,
+)
 from alloq_offer.workshop.content.schema import (
     BOUND_FIELDS,
     CalcContent,
+    ImageContent,
     ProseContent,
     TableContent,
     parse_content,
@@ -16,9 +21,13 @@ from alloq_offer.workshop.content.schema import (
 from alloq_offer.workshop.content.text import Content
 from alloq_offer.workshop.db import SessionFactory
 from alloq_offer.workshop.export.models import (
+    NO_SLICE_VALUE,
     ResolvedStory,
     ResolvedValue,
+    filter_label,
+    filter_stories,
     group_stories,
+    story_filter_options,
 )
 from alloq_offer.workshop.repositories import job_repo, workspace_repo
 from alloq_offer.workshop.services.chapter_draft import DRAFT_CHAPTERS_JOB
@@ -43,6 +52,8 @@ class OfferDocument:
     details: dict[str, dict[str, Any]] = field(default_factory=dict)
     removed: list[dict[str, str]] = field(default_factory=list)
     draft_job: str = ""
+    # Columns and slices of the map, for the filters of stories chapters.
+    story_options: dict[str, list] = field(default_factory=dict)
 
 
 def render_block(
@@ -52,11 +63,24 @@ def render_block(
 ) -> dict[str, Any]:
     """What a block shows when it is not being edited."""
     if isinstance(content, ProseContent):
-        return {"html": content_to_html(content)}
+        return {
+            "html": content_to_html(content),
+            "can_edit": editor_compatible(content),
+        }
     if isinstance(content, TableContent):
         return {
             "columns": content.columns,
             "rows": [[plain_text(cell) for cell in row] for row in content.rows],
+            "description": plain_text(content.description),
+            "html": table_to_html(content),
+        }
+    if isinstance(content, ImageContent):
+        return {
+            "blob_id": content.blob_id or 0,
+            "alt": content.alt,
+            "description": plain_text(content.description),
+            "width": content.width,
+            "align": content.align,
         }
     if isinstance(content, CalcContent):
         return {
@@ -70,8 +94,15 @@ def render_block(
                 for row in content.rows
             ],
         }
+    shown = filter_stories(stories, content)
     return {
         "group_by": content.group_by,
+        "activity_ids": [str(i) for i in content.activity_ids],
+        "slice_ids": [
+            *(str(i) for i in content.slice_ids),
+            *([NO_SLICE_VALUE] if content.unsliced else []),
+        ],
+        "filter": filter_label(stories, content),
         "groups": [
             {
                 "title": title,
@@ -80,7 +111,7 @@ def render_block(
                     for s in items
                 ],
             }
-            for title, items in group_stories(stories, content.group_by).items()
+            for title, items in group_stories(shown, content.group_by).items()
         ],
     }
 
@@ -131,4 +162,5 @@ async def load_document(
         },
         removed=removed,
         draft_job=job.status if job is not None else "",
+        story_options=story_filter_options(stories),
     )

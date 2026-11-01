@@ -5,10 +5,12 @@ from alloq_commons.desktop import is_desktop
 from alloq_dashboard.pages import create_dashboard_page
 from alloq_offer.admin.pages import create_offer_admin_page
 from alloq_offer.pages import create_offers_page
+from alloq_offer.workshop.image_api import router as offer_image_router
 from alloq_offer.workshop.pages import create_offer_workshop_page
 from alloq_offer.workshop.worker import offer_workshop_worker
 from alloq_project.pages import create_planning_page, create_projects_overview_page
 from alloq_team.pages import create_team_overview_page
+from fastapi import FastAPI
 from starlette.types import ASGIApp
 
 import appkit_mantine as am
@@ -81,6 +83,17 @@ def add_https_middleware(asgi_app: ASGIApp) -> ASGIApp:
     return ForceHTTPSMiddleware(asgi_app, trusted_hosts=configure().app.trusted_proxies)
 
 
+def create_rest_api() -> FastAPI:
+    """REST routes; Reflex mounts its own backend below them.
+
+    Reflex applies the transformers in order, so the session guard and the
+    HTTPS middleware wrap these routes too. No docs: the API is internal.
+    """
+    api = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+    api.include_router(offer_image_router, prefix=rx.config.get_config().backend_path)
+    return api
+
+
 app = rx.App(
     head_components=[
         rx.el.link(rel="icon", href=rx.asset("favicon.ico"), type="image/x-icon"),
@@ -90,7 +103,7 @@ app = rx.App(
     stylesheets=base_stylesheets,
     style=base_style,
     toaster=rx.toast.provider(close_button=True),
-    api_transformer=[add_session_guard, add_https_middleware],
+    api_transformer=[create_rest_api(), add_session_guard, add_https_middleware],
 )
 
 install_session_filter(app)

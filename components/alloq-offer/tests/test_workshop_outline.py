@@ -15,7 +15,7 @@ from alloq_offer.workshop.services.numbering import outline_numbers
 from alloq_offer.workshop.services.outline import OutlineService
 from alloq_offer.workshop.services.workspace import open_workspace
 from alloq_offer.workshop.template_entities import ChapterBlockEntity
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 
 
 async def _outline(db) -> OutlineService:  # noqa: ANN001
@@ -56,6 +56,101 @@ def test_numbers_follow_position_and_level() -> None:
     assert outline_numbers([1, 1, 2, 2, 1]) == ["1", "2", "2.1", "2.2", "3"]
     assert outline_numbers([2, 1, 2]) == ["1.1", "2", "2.1"]
     assert outline_numbers([]) == []
+
+
+def test_attached_chapters_get_no_number() -> None:
+    numbers = outline_numbers(
+        [1, 2, 2, 2, 1], ["prose", "table", "prose", "image", "x"]
+    )
+    assert numbers == ["1", "", "1.1", "", "2"]
+
+
+async def _levels(db) -> list[tuple[str, int]]:  # noqa: ANN001
+    views = await ChapterService(db.session, 1, "Anna").open()
+    return [(v["key"], v["level"]) for v in views]
+
+
+async def test_add_subchapter_goes_after_the_last_child(db) -> None:  # noqa: ANN001
+    service = await _outline(db)
+    first = await service.add_subchapter("leistungen", title="Erstes")
+    second = await service.add_subchapter("leistungen", title="Zweites")
+    keys = [k for k, _ in await _levels(db)]
+    index = keys.index("rahmenbedingungen")
+    assert keys[index + 1 : index + 4] == [first, second, "projektabwicklung"]
+    levels = dict(await _levels(db))
+    assert (levels[first], levels[second]) == (2, 2)
+    with pytest.raises(ChapterError, match="Kapitel gibt es nicht"):
+        await service.add_subchapter("gibt_es_nicht", title="X")
+
+
+async def test_indent_and_outdent(db) -> None:  # noqa: ANN001
+    service = await _outline(db)
+    await service.outdent("loesung")
+    assert dict(await _levels(db))["loesung"] == 1
+    await service.indent("loesung")
+    assert dict(await _levels(db))["loesung"] == 2
+    with pytest.raises(ChapterError, match=outline.FIRST_LEVEL):
+        await service.indent("management_summary")
+
+
+async def test_tables_and_images_are_attached_sub_chapters(db) -> None:  # noqa: ANN001
+    service = await _outline(db)
+    table = await service.add_chapter("projektabwicklung", chapter_type="table")
+    image = await service.add_chapter(table, chapter_type="image", title="  ")
+    views = {v["key"]: v for v in await ChapterService(db.session, 1, "Anna").open()}
+    assert (views[table]["level"], views[table]["number"]) == (2, "")
+    assert (views[image]["level"], views[image]["title"]) == (2, "")
+    assert views["mitwirkung"]["number"] == ""
+    assert views["rahmenbedingungen"]["number"] == "2.4"
+    loaded = await ChapterService(db.session, 1, "Anna").load(image)
+    assert loaded["content"]["chapter_type"] == "image"
+    with pytest.raises(ChapterError, match=outline.NEEDS_PARENT):
+        await service.outdent(table)
+    with pytest.raises(ChapterError, match=outline.NEEDS_PARENT):
+        await service.set_level(table, 1)
+    with pytest.raises(ChapterError, match=outline.NEEDS_PARENT):
+        await service.move_chapter(image, 0)
+    await service.indent(table)
+    assert dict(await _levels(db))[table] == 2
+
+
+async def test_first_chapter_cannot_leave_a_table_on_top(db) -> None:  # noqa: ANN001
+    service = await _outline(db)
+    await service.move_chapter("annahmen_risiken", 0)
+    await service.add_chapter("annahmen_risiken", chapter_type="table")
+    with pytest.raises(ChapterError, match=outline.NEEDS_PARENT):
+        await service.remove_chapter("annahmen_risiken")
+    assert (await _keys(db))[0] == "annahmen_risiken"
+
+
+async def test_a_main_chapter_moves_with_its_sub_chapters(db) -> None:  # noqa: ANN001
+    service = await _outline(db)
+    sub = await service.add_subchapter("projektabwicklung", title="Detail")
+    table = await service.add_chapter(sub, chapter_type="table")
+    await service.move_chapter("projektabwicklung", 0)
+    keys = [k for k, _ in await _levels(db)]
+    assert keys[:4] == ["projektabwicklung", sub, table, "management_summary"]
+    await service.move_chapter("projektabwicklung", 99)
+    keys = [k for k, _ in await _levels(db)]
+    assert keys[-3:] == ["projektabwicklung", sub, table]
+    views = await ChapterService(db.session, 1, "Anna").open()
+    assert [v["position"] for v in views] == list(range(len(views)))
+
+
+async def test_a_group_dropped_inside_another_lands_after_it(db) -> None:  # noqa: ANN001
+    service = await _outline(db)
+    sub = await service.add_subchapter("management_summary", title="Detail")
+    # Index 1 sits between management_summary and its sub chapter.
+    await service.move_chapter("annahmen_risiken", 1)
+    keys = [k for k, _ in await _levels(db)]
+    assert keys[:3] == ["management_summary", sub, "annahmen_risiken"]
+
+
+async def test_a_sub_chapter_moves_alone(db) -> None:  # noqa: ANN001
+    service = await _outline(db)
+    await service.move_chapter("rahmenbedingungen", 1)
+    levels = await _levels(db)
+    assert levels[1] == ("rahmenbedingungen", 2)
 
 
 async def test_add_library_block_after_a_chapter(db) -> None:  # noqa: ANN001
@@ -306,3 +401,39 @@ async def test_a_blank_chapter_takes_the_level_it_follows(db) -> None:  # noqa: 
         1,
         1,
     )
+
+
+async def test_insert_at_the_start(db) -> None:  # noqa: ANN001
+    service = await _outline(db)
+    key = await service.add_chapter("", chapter_type="prose", title="Vorwort")
+    assert (await _levels(db))[0] == (key, 1)
+    with pytest.raises(ChapterError, match=outline.NEEDS_PARENT):
+        await service.add_chapter("", chapter_type="image")
+
+
+async def test_a_gap_before_sub_chapters_adds_a_sub_chapter(db) -> None:  # noqa: ANN001
+    service = await _outline(db)
+    key = await service.add_chapter("leistungen", chapter_type="prose", title="Neu")
+    levels = dict(await _levels(db))
+    assert levels[key] == 2
+    assert levels["user_stories"] == 2
+
+
+async def test_a_table_already_on_top_does_not_block_the_outline(db) -> None:  # noqa: ANN001
+    service = await _outline(db)
+    async with db.session() as session:
+        rows = (
+            await session.scalars(
+                select(ChapterEntity)
+                .where(ChapterEntity.offer_id == 1)
+                .order_by(ChapterEntity.position)
+            )
+        ).all()
+        table = next(r for r in rows if r.chapter_key == "mitwirkung")
+        table.position, rows[0].position = 0, table.position
+    await service.move_chapter("laufzeit", 3)
+    await service.add_chapter("laufzeit", chapter_type="prose", title="Neu")
+    keys = await _keys(db)
+    assert keys[0] == "mitwirkung"
+    with pytest.raises(ChapterError, match=outline.NEEDS_PARENT):
+        await service.add_chapter("", chapter_type="table")

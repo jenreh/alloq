@@ -43,7 +43,7 @@ def _cover(
 def resolve_stories(snapshot: dict) -> list[ResolvedStory]:
     """The live stories of a map snapshot with their activity and slice."""
     activities = {
-        story["key"]: activity["title"]
+        story["key"]: (activity["id"], activity["title"])
         for activity in snapshot["activities"]
         if not activity["archived"]
         for task in activity["tasks"]
@@ -57,9 +57,11 @@ def resolve_stories(snapshot: dict) -> list[ResolvedStory]:
             key=s["key"],
             title=s["title"],
             sentence=s["sentence"],
-            group=activities.get(s["key"], ""),
+            group=activities.get(s["key"], (0, ""))[1],
             slice=slices.get(s.get("slice_id"), ""),
             slice_order=positions.get(s.get("slice_id"), 0),
+            activity_id=activities.get(s["key"], (0, ""))[0],
+            slice_id=s.get("slice_id") or 0,
         )
         for s in live_stories(snapshot)
     ]
@@ -91,7 +93,9 @@ async def build_snapshot(
     offer_id = workspace.offer_id
     rows = await live_chapters(session, offer_id)
     stored = await current_revisions(session, rows)
-    numbers = outline_numbers([row.level for row in rows])
+    numbers = outline_numbers(
+        [row.level for row in rows], [row.chapter_type for row in rows]
+    )
     chapters = [
         {
             "key": row.chapter_key,

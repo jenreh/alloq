@@ -1,0 +1,247 @@
+/* Kapitel tab, part 3: the table and image editors (Confluence). Loaded
+   after aq-document.css. */
+
+/* Table and image chapters sit in the text like in Confluence: no box, the
+   same thin marker as text chapters. */
+.aq-doc-block[data-type="table"],
+.aq-doc-block[data-type="image"] {
+  border: 0;
+  border-radius: 0;
+  padding-top: 12px;
+  box-shadow: inset 2px 0 0 transparent;
+  transition: box-shadow 120ms ease;
+}
+
+.aq-doc-block[data-type="table"]:hover,
+.aq-doc-block[data-type="image"]:hover {
+  box-shadow: inset 2px 0 0 var(--aq-border);
+}
+
+.aq-doc-block[data-type="table"][data-selected="true"],
+.aq-doc-block[data-type="image"][data-selected="true"] {
+  box-shadow: inset 2px 0 0 var(--aq-accent);
+}
+
+.aq-doc-attached .aq-doc-badge {
+  display: none;
+}
+
+/* The table editor: handles above and left of the table, "+" on the lines,
+   the table toolbar floating above. */
+.aq-doc-table-frame {
+  position: relative;
+  padding: 28px 0 0 22px;
+  margin-left: -22px;
+}
+
+.aq-doc-table-toolbar {
+  position: absolute;
+  top: -30px;
+  left: 22px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border: 1px solid var(--aq-border);
+  border-radius: 4px;
+  background: var(--aq-surface);
+  box-shadow: var(--aq-pane-shadow);
+}
+
+.aq-doc-table-handle {
+  position: absolute;
+  z-index: 2;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: var(--aq-surface-muted);
+  box-shadow: inset 0 0 0 1px var(--aq-border);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+
+.aq-doc-table-handle[data-kind="column"] {
+  height: 10px;
+}
+
+.aq-doc-table-handle[data-kind="row"] {
+  width: 10px;
+}
+
+.aq-doc-table-frame:hover .aq-doc-table-handle,
+.aq-doc-table-frame[data-active="true"] .aq-doc-table-handle {
+  opacity: 1;
+}
+
+.aq-doc-table-handle:hover,
+.aq-doc-table-handle:focus-visible {
+  background: var(--aq-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--aq-accent);
+  outline: none;
+}
+
+.aq-doc-table-line {
+  position: absolute;
+  z-index: 3;
+  background: var(--aq-accent);
+  pointer-events: none;
+}
+
+.aq-doc-table-line[data-kind="column"] {
+  width: 2px;
+}
+
+.aq-doc-table-line[data-kind="row"] {
+  height: 2px;
+}
+
+.aq-doc-table-plus {
+  position: absolute;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--aq-accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+.aq-doc-table-editor .ProseMirror th {
+  background: var(--aq-surface-muted);
+  font-weight: 600;
+}
+
+.aq-doc-table-editor .ProseMirror th,
+.aq-doc-table-editor .ProseMirror td {
+  padding: 8px;
+  border: 1px solid var(--aq-border);
+  vertical-align: top;
+}
+
+/* The image editor (Confluence): a click selects the picture; corners resize,
+   the toolbar floats above. */
+.aq-doc-image-frame {
+  padding-top: 36px;
+  margin-top: -24px;
+}
+
+.aq-doc-image-box {
+  position: relative;
+  max-width: 100%;
+}
+
+.aq-doc-image-box .aq-doc-image {
+  display: block;
+  width: 100%;
+}
+
+.aq-doc-image-select {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.aq-doc-image-box[data-selected="true"] .aq-doc-image-select,
+.aq-doc-image-select:focus-visible {
+  outline: 2px solid var(--aq-accent);
+  outline-offset: 2px;
+}
+
+.aq-doc-image-toolbar {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 6px;
+  border: 1px solid var(--aq-border);
+  border-radius: 4px;
+  background: var(--aq-surface);
+  box-shadow: var(--aq-pane-shadow);
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.aq-doc-image-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--aq-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.aq-doc-image-tool:hover,
+.aq-doc-image-tool:focus-visible {
+  background: var(--aq-hover);
+  outline: none;
+}
+
+.aq-doc-image-tool[aria-pressed="true"] {
+  background: var(--aq-accent-soft);
+  color: var(--aq-accent);
+}
+
+.aq-doc-image-corner {
+  position: absolute;
+  z-index: 4;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--aq-accent);
+  border-radius: 2px;
+  background: var(--aq-surface);
+}
+
+.aq-doc-image-corner[data-corner="nw"] {
+  top: -5px;
+  left: -5px;
+  cursor: nwse-resize;
+}
+
+.aq-doc-image-corner[data-corner="ne"] {
+  top: -5px;
+  right: -5px;
+  cursor: nesw-resize;
+}
+
+.aq-doc-image-corner[data-corner="sw"] {
+  bottom: -5px;
+  left: -5px;
+  cursor: nesw-resize;
+}
+
+.aq-doc-image-corner[data-corner="se"] {
+  right: -5px;
+  bottom: -5px;
+  cursor: nwse-resize;
+}
+
+.aq-doc-image-width {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--aq-surface);
+  box-shadow: var(--aq-control-shadow);
+  font-size: 11.5px;
+}

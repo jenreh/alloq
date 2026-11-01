@@ -26,6 +26,8 @@ class BlobStore(Protocol):
 
     async def get(self, blob_id: int) -> bytes: ...
 
+    async def get_many(self, blob_ids: list[int]) -> dict[int, bytes]: ...
+
     async def delete(self, blob_id: int) -> None: ...
 
 
@@ -76,6 +78,18 @@ class DbBlobStore:
         if data is None:
             raise BlobNotFoundError(blob_id)
         return data
+
+    async def get_many(self, blob_ids: list[int]) -> dict[int, bytes]:
+        """Several blobs in one query; missing ids are left out."""
+        if not blob_ids:
+            return {}
+        async with self._session_factory() as session:
+            rows = await session.execute(
+                select(BlobEntity.id, BlobEntity.data).where(
+                    BlobEntity.id.in_(blob_ids)
+                )
+            )
+            return {row.id: row.data for row in rows}
 
     async def delete(self, blob_id: int) -> None:
         async with self._session_factory() as session:

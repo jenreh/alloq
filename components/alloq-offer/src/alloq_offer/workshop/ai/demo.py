@@ -19,6 +19,7 @@ from alloq_offer.workshop.ai.schemas import (
     ProposedActivity,
     ProposedBriefing,
     ProposedChapter,
+    ProposedList,
     ProposedMap,
     ProposedPoint,
     ProposedReview,
@@ -28,7 +29,7 @@ from alloq_offer.workshop.ai.schemas import (
     ProposedTask,
     ReviewRemark,
 )
-from alloq_offer.workshop.content.schema import BulletList, Paragraph, Run
+from alloq_offer.workshop.content.schema import Paragraph, Run
 from alloq_offer.workshop.entities import StatementType
 from alloq_offer.workshop.services.story_rules import story_problems
 
@@ -214,7 +215,7 @@ class DemoOfferAi:
         return ProposedChapter(
             blocks=[
                 Paragraph(runs=_runs(intro)),
-                BulletList(items=[_runs(item) for item in items]),
+                ProposedList(type="bullet_list", items=[_runs(i) for i in items]),
             ]
         )
 

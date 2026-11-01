@@ -1,4 +1,4 @@
-"""Text chapters: the HTML of the stored text, or the editor when selected."""
+"""Text chapters: every one is edited in place; the AI menu joins the toolbar."""
 
 import reflex as rx
 from alloq_commons import theme
@@ -8,13 +8,13 @@ from alloq_offer.workshop.components.chapters.blocks import Row
 from alloq_offer.workshop.components.chapters.editor import (
     PROSE_CLASS,
     chapter_editor,
-    floating_toolbar,
     tool_button,
     toolbar_separator,
 )
 from alloq_offer.workshop.states.chapter_state import (
     SHORTEN,
     TECHNICAL,
+    UNSUPPORTED_NOTE,
     ChapterState,
 )
 
@@ -58,26 +58,33 @@ def _ai_tools() -> list[rx.Component]:
     ]
 
 
-def editing(chapter: Row, header: rx.Component) -> rx.Component:
-    """The editor with the same typography; content the editor cannot hold stays
+def ai_menu() -> rx.Component:
+    """The AI actions for the selected text chapter, at the end of the toolbar."""
+    return rx.el.div(*_ai_tools(), class_name="aq-doc-ai-tools")
+
+
+def block(chapter: Row, header: rx.Component) -> rx.Component:
+    """The chapter text, editable in place; content the editor cannot hold stays
     read-only with a note."""
+    key = chapter["key"].to(str)
+    mount = chapter["mount"].to(str)
     return rx.cond(
-        ChapterState.editable,
+        chapter["can_edit"].to(bool),
         chapter_editor(
-            *_ai_tools(),
-            content=ChapterState.editor_html,
-            editable=~ChapterState.chapter_locked,
-            on_update=lambda html: ChapterState.autosave(
-                ChapterState.active_key, html
-            ).debounce(EDIT_DEBOUNCE_MS),
-            on_blur=lambda html: ChapterState.autosave(ChapterState.active_key, html),
-            key=ChapterState.editor_key,
+            content=chapter["html"].to(str),
+            editable=~chapter["protected"].to(bool),
+            on_update=lambda html: ChapterState.autosave(key, html, mount).debounce(
+                EDIT_DEBOUNCE_MS
+            ),
+            on_blur=lambda html: ChapterState.autosave(key, html, mount),
+            on_focus=ChapterState.select_chapter(key),
             header=header,
+            # A new mount (revision saved elsewhere) starts a fresh editor.
+            key=mount,
         ),
         rx.fragment(
-            floating_toolbar(*_ai_tools()[1:]),
             header,
-            mn.text(ChapterState.note, fz="12px", c=theme.TEXT_MUTED),
+            mn.text(UNSUPPORTED_NOTE, fz="12px", c=theme.TEXT_MUTED),
             view(chapter),
         ),
     )

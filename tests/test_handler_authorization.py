@@ -124,6 +124,7 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
             "set_blank_title",
             "set_blank_type",
             "set_instruction",
+            "toggle_collapse",
         }
     ),
     "MapState": frozenset(

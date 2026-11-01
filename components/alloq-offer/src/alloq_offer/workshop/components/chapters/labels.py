@@ -7,12 +7,14 @@ TYPE_SHORT = {
     "table": "Tabelle",
     "stories": "Stories",
     "calc": "Werte",
+    "image": "Bild",
 }
 TYPE_LABELS = {
     "prose": "Fließtext",
     "table": "Tabelle",
     "stories": "User Stories",
     "calc": "Kalkulation",
+    "image": "Bild",
 }
 TYPE_HINTS = {
     "prose": (
@@ -20,7 +22,12 @@ TYPE_HINTS = {
         "Vorschläge, Sie übernehmen sie."
     ),
     "table": (
-        "Einfache Tabelle mit Kopfzeile. Zellen bearbeiten Sie direkt im Dokument."
+        "Tabelle mit Kopfzeile unter dem Kapitel davor, ohne eigene Überschrift. "
+        "Eine Beschreibung darunter ist freiwillig."
+    ),
+    "image": (
+        "Ein Bild (PNG oder JPEG) unter dem Kapitel davor, ohne eigene Überschrift. "
+        "Alternativtext und Beschreibung helfen beim Lesen."
     ),
     "stories": (
         "Geschriebene Stories aus der Story Map: Schlüssel, Titel und ein Satz je "

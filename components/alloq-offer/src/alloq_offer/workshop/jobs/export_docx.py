@@ -11,7 +11,7 @@ import logging
 from typing import Any
 
 from alloq_offer.workshop.configuration import WorkshopConfig
-from alloq_offer.workshop.content.schema import parse_content
+from alloq_offer.workshop.content.schema import ImageContent, parse_content
 from alloq_offer.workshop.db import SessionFactory
 from alloq_offer.workshop.entities import (
     DocState,
@@ -39,7 +39,11 @@ from alloq_offer.workshop.jobs.registry import (
 from alloq_offer.workshop.repositories import workspace_repo
 from alloq_offer.workshop.services.exports import DOCX_MIME, EXPORT_JOB
 from alloq_offer.workshop.services.templates import load_template
-from alloq_offer.workshop.storage import BlobStore, DbBlobStore, sha256_hex
+from alloq_offer.workshop.storage import (
+    BlobStore,
+    DbBlobStore,
+    sha256_hex,
+)
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
 
@@ -74,6 +78,18 @@ def chapter_inputs(snapshot: SnapshotEntity) -> list[ChapterInput]:
         ChapterInput(c["key"], c["title"], c["level"], parse_content(c["content"]))
         for c in snapshot.content["chapters"]
     ]
+
+
+async def image_bytes(
+    store: BlobStore, chapters: list[ChapterInput]
+) -> dict[int, bytes]:
+    """The pictures of the image chapters; a missing one fails the render."""
+    ids = [
+        c.content.blob_id
+        for c in chapters
+        if isinstance(c.content, ImageContent) and c.content.blob_id is not None
+    ]
+    return await store.get_many(ids)
 
 
 def _manifest(
@@ -128,9 +144,9 @@ class ExportDocx:
         try:
             chapters = chapter_inputs(snapshot)
             draft = export.kind == ExportKind.DRAFT
-            data = await asyncio.to_thread(
-                render_document, package, chapters, render_inputs(snapshot, export.kind)
-            )
+            inputs = render_inputs(snapshot, export.kind)
+            inputs.images = await image_bytes(self._store, chapters)
+            data = await asyncio.to_thread(render_document, package, chapters, inputs)
             verify_document(data, chapters, draft=draft)
         except (RenderError, TemplateError) as exc:
             await _fail(self._session_factory, export_id, FAILED)

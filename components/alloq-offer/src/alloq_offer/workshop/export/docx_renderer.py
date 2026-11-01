@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from docxtpl import DocxTemplate
 from jinja2 import Environment, StrictUndefined
 
-from alloq_offer.workshop.content.schema import Run
+from alloq_offer.workshop.content.schema import ATTACHED_TYPES, Run
 from alloq_offer.workshop.export.chapter_renderers import RENDERERS, Writer
 from alloq_offer.workshop.export.models import (
     ChapterInput,
@@ -48,7 +48,8 @@ def render_document(
         renderer = RENDERERS.get(chapter.content.chapter_type)
         if renderer is None:
             raise UnsupportedContentError(chapter.content.chapter_type)
-        writer.heading(chapter.title, chapter.level)
+        if chapter.content.chapter_type not in ATTACHED_TYPES:
+            writer.heading(chapter.title, chapter.level)
         renderer(writer, chapter, ctx)
     if ctx.draft and ctx.open_points:
         writer.heading(OPEN_POINTS_TITLE, 1)

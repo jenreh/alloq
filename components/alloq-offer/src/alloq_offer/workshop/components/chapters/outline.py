@@ -19,6 +19,10 @@ DRAG_HINT = (
     "Pfeiltasten verschieben und mit der Leertaste ablegen; Escape bricht ab."
 )
 PROTECTED = "Geschützt"
+ADD_SUB = "Unterkapitel einfügen"
+INDENT = "Einrücken (Unterkapitel)"
+OUTDENT = "Ausrücken (Kapitel)"
+COLLAPSE = "Unterkapitel ein- oder ausblenden"
 STATUS = {
     "blocker": ("Blocker", theme.NEGATIVE),
     "findings": ("Befunde", theme.WARNING),
@@ -61,21 +65,79 @@ def _status(chapter: Row) -> rx.Component:
     )
 
 
+def _action(icon: str, label: str, event: rx.EventSpec) -> rx.Component:
+    return mn.tooltip(
+        mn.action_icon(
+            rx.icon(icon, size=13),
+            variant="subtle",
+            color="gray",
+            size="sm",
+            aria_label=label,
+            on_click=event.stop_propagation,
+        ),
+        label=label,
+        z_index=theme.PAGE_POPOVER_Z_INDEX,
+    )
+
+
+def _actions(chapter: Row) -> rx.Component:
+    """Hover actions of a row: sub chapter, indent, outdent."""
+    key = chapter["key"].to(str)
+    main = chapter["main"].to(bool)
+    return rx.el.span(
+        rx.cond(
+            main,
+            _action("plus", ADD_SUB, ChapterState.add_subchapter(key)),
+        ),
+        rx.cond(
+            main & ~chapter["first"].to(bool),
+            _action("indent-increase", INDENT, ChapterState.indent_chapter(key)),
+        ),
+        rx.cond(
+            ~main & ~chapter["attached"].to(bool),
+            _action("indent-decrease", OUTDENT, ChapterState.outdent_chapter(key)),
+        ),
+        class_name="aq-doc-row-actions",
+    )
+
+
+def _chevron(chapter: Row) -> rx.Component:
+    key = chapter["key"].to(str)
+    return rx.cond(
+        chapter["has_children"].to(bool),
+        rx.el.button(
+            rx.icon("chevron-down", size=13),
+            type="button",
+            class_name="aq-doc-chevron",
+            aria_label=COLLAPSE,
+            custom_attrs={
+                "aria-expanded": rx.cond(
+                    ChapterState.collapsed.contains(key), "false", "true"
+                )
+            },
+            on_click=ChapterState.toggle_collapse(key).stop_propagation,
+        ),
+        rx.el.span(class_name="aq-doc-chevron-space"),
+    )
+
+
 def _row(chapter: Row) -> rx.Component:
     key = chapter["key"].to(str)
     return rx.el.div(
         rx.el.span(rx.icon("grip-vertical", size=14), class_name="aq-doc-grip"),
-        rx.el.span(
-            chapter["number"].to(str) + " " + chapter["title"].to(str),
-            class_name="aq-doc-row-title",
-        ),
+        _chevron(chapter),
+        rx.el.span(chapter["label"].to(str), class_name="aq-doc-row-title"),
         _status(chapter),
+        _actions(chapter),
         rx.el.span(by_type(chapter["type"], TYPE_SHORT), class_name="aq-doc-type"),
         class_name="aq-doc-row",
         custom_attrs={
             "data-active": rx.cond(ChapterState.active_key == key, "true", "false"),
             "aria-current": rx.cond(ChapterState.active_key == key, "true", "false"),
             "data-level": chapter["level"].to(str),
+            "data-main": rx.cond(chapter["main"].to(bool), "true", "false"),
+            "data-attached": rx.cond(chapter["attached"].to(bool), "true", "false"),
+            "data-hidden": rx.cond(chapter["hidden"].to(bool), "true", "false"),
         },
         on_click=ChapterState.jump_to(key),
     )
@@ -100,7 +162,7 @@ def outline() -> rx.Component:
         rx.foreach(ChapterState.frame_before, _frame),
         sortable_list(
             rx.foreach(
-                ChapterState.chapters,
+                ChapterState.outline_rows,
                 lambda chapter, index: sortable_item(
                     _row(chapter),
                     item_id=chapter["key"].to(str),

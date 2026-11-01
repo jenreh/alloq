@@ -79,7 +79,6 @@ async def test_load_selects_the_first_chapter_and_shows_the_editor(db) -> None:
     assert state.has_active
     assert state.editable
     assert state.revision == 1
-    assert state.editor_key == f"{KEY}:1"
     assert not state.drafting
 
 
@@ -131,6 +130,26 @@ async def test_autosave_conflict_reloads_without_overwriting(db) -> None:
     assert state.revision == 2
 
 
+async def test_a_reload_never_lets_a_stale_editor_overwrite(db) -> None:
+    state = await _loaded(db)
+    mount = next(c["mount"] for c in state.chapters if c["key"] == KEY)
+    with _as_editor(state, db):
+        await _run(state.autosave, KEY, _html("Eigener Text"), mount)
+    own = next(c for c in state.chapters if c["key"] == KEY)
+    assert own["mount"] == mount  # an own save keeps the editor mounted
+    await ChapterService(db.session, 1, "Ben").save(
+        KEY, own["revision"], html_to_content(_html("Von Ben"))
+    )
+    with _as_editor(state, db):
+        await _run(state.load_chapters)
+        row = next(c for c in state.chapters if c["key"] == KEY)
+        assert row["mount"] != mount  # remount shows Ben's text
+        toast = await _run(state.autosave, KEY, _html("Veraltet"), mount)
+    assert chapter_state.STALE_EDITOR in toast
+    row = next(c for c in state.chapters if c["key"] == KEY)
+    assert "Von Ben" in row["html"]
+
+
 async def test_protected_chapter_refuses_saves_and_locks_the_editor(db) -> None:
     state = await _loaded(db)
     with _as_editor(state, db):
@@ -154,7 +173,7 @@ async def test_history_and_restore(db) -> None:
         assert [h["number"] for h in state.history] == [3, 2, 1]
         await _run(state.restore, 2)
         assert state.revision == 4
-        assert "Eins" in state.editor_html
+        assert "Eins" in state.active["html"]
         stale = await _run(state.restore, 99)
         assert "Fassung" in stale
         state.close_history()

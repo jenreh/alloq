@@ -13,6 +13,8 @@ base_stylesheets = [
     "css/aq-splash.css",
     "css/aq-toast.css",
     "css/aq-workshop.css",
+    "css/aq-document.css",
+    "css/aq-editors.css",
     "css/aq-viewer.css",
 ]
 

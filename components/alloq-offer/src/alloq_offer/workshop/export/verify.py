@@ -5,6 +5,7 @@ from collections.abc import Sequence
 
 from docx import Document
 
+from alloq_offer.workshop.content.schema import ATTACHED_TYPES
 from alloq_offer.workshop.export.docx_renderer import DRAFT_MARKER
 from alloq_offer.workshop.export.models import ChapterInput, RenderError
 
@@ -14,7 +15,10 @@ BROKEN = "Die erzeugte Datei ist nicht vollständig."
 def verify_document(
     data: bytes, chapters: Sequence[ChapterInput], *, draft: bool
 ) -> None:
-    """Fail unless the chapters appear in order and the draft marker fits the kind."""
+    """Fail unless the chapters appear in order and the draft marker fits the kind.
+
+    Table and image chapters have no heading and are not looked for.
+    """
     try:
         document = Document(io.BytesIO(data))
     except Exception as exc:
@@ -26,6 +30,8 @@ def verify_document(
     ]
     position = 0
     for chapter in chapters:
+        if chapter.content.chapter_type in ATTACHED_TYPES:
+            continue
         try:
             position = headings.index(chapter.title, position) + 1
         except ValueError as exc:

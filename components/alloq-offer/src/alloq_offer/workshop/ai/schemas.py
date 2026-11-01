@@ -9,6 +9,8 @@ from alloq_offer.workshop.content.schema import (
     MAX_TABLE_ROWS,
     BulletList,
     Heading,
+    Inline,
+    ListItem,
     OrderedList,
     Paragraph,
     ProseContent,
@@ -67,9 +69,18 @@ class ProposedBriefing(BaseModel):
     statements: list[ProposedStatement] = Field(default_factory=list)
 
 
-EditorBlock = Annotated[
-    Paragraph | Heading | BulletList | OrderedList, Field(discriminator="type")
-]
+class ProposedList(BaseModel):
+    """A flat list; the model does not nest, so its schema stays simple."""
+
+    type: Literal["bullet_list", "ordered_list"]
+    items: list[Inline] = Field(default_factory=list)
+
+    def to_block(self) -> BulletList | OrderedList:
+        kind = BulletList if self.type == "bullet_list" else OrderedList
+        return kind(items=[ListItem(runs=item) for item in self.items])
+
+
+EditorBlock = Annotated[Paragraph | Heading | ProposedList, Field(discriminator="type")]
 
 
 class ProposedChapter(BaseModel):
@@ -78,7 +89,11 @@ class ProposedChapter(BaseModel):
     blocks: list[EditorBlock] = Field(default_factory=list)
 
     def to_content(self) -> ProseContent:
-        return ProseContent(blocks=list(self.blocks))
+        return ProseContent(
+            blocks=[
+                b.to_block() if isinstance(b, ProposedList) else b for b in self.blocks
+            ]
+        )
 
 
 class ProposedTable(BaseModel):

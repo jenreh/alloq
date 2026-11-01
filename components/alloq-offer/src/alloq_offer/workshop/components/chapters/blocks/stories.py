@@ -42,13 +42,20 @@ def _group(group: Any) -> rx.Component:
     )
 
 
+COLUMNS_LABEL = "Spalten"
+SLICES_LABEL = "Umsetzungsschnitte"
+ALL = "Alle"
+
+
 def view(chapter: Row) -> rx.Component:
     groups = chapter["groups"].to(list[dict[str, Any]])
+    source = rx.cond(
+        chapter["group_by"].to(str) == "slice", SOURCE_SLICE, SOURCE_ACTIVITY
+    )
+    shown = chapter["filter"].to(str)
     return mn.stack(
         mn.text(
-            rx.cond(
-                chapter["group_by"].to(str) == "slice", SOURCE_SLICE, SOURCE_ACTIVITY
-            ),
+            rx.cond(shown != "", source + " · " + shown, source),
             fz="12px",
             c=theme.TEXT_MUTED,
         ),
@@ -72,3 +79,30 @@ def editing(chapter: Row, header: rx.Component) -> rx.Component:
         header,
         view(chapter),
     )
+
+
+def filters(chapter: Row, **props: Any) -> list[rx.Component]:
+    """Column and slice filters; nothing chosen means all stories."""
+    options = ChapterState.story_options
+    return [
+        mn.multi_select(
+            label=COLUMNS_LABEL,
+            placeholder=ALL,
+            data=options["activities"].to(list[dict[str, str]]),
+            value=chapter["activity_ids"].to(list[str]),
+            on_change=ChapterState.set_story_activities,
+            disabled=ChapterState.chapter_locked,
+            clearable=True,
+            **props,
+        ),
+        mn.multi_select(
+            label=SLICES_LABEL,
+            placeholder=ALL,
+            data=options["slices"].to(list[dict[str, str]]),
+            value=chapter["slice_ids"].to(list[str]),
+            on_change=ChapterState.set_story_slices,
+            disabled=ChapterState.chapter_locked,
+            clearable=True,
+            **props,
+        ),
+    ]

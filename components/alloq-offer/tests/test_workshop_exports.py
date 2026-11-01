@@ -6,7 +6,12 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from alloq_offer.workshop.content.schema import Paragraph, ProseContent, Run
+from alloq_offer.workshop.content.schema import (
+    ImageContent,
+    Paragraph,
+    ProseContent,
+    Run,
+)
 from alloq_offer.workshop.entities import (
     BlobEntity,
     ChapterEntity,
@@ -22,7 +27,7 @@ from alloq_offer.workshop.export.docx_renderer import DRAFT_MARKER
 from alloq_offer.workshop.export.models import ChapterInput, RenderError
 from alloq_offer.workshop.export.verify import verify_document
 from alloq_offer.workshop.jobs import export_docx
-from alloq_offer.workshop.jobs.export_docx import ExportDocx
+from alloq_offer.workshop.jobs.export_docx import ExportDocx, image_bytes
 from alloq_offer.workshop.jobs.registry import JobContext, PermanentJobError
 from alloq_offer.workshop.services import commercials, exports
 from alloq_offer.workshop.services.chapters import ChapterService
@@ -329,3 +334,15 @@ def test_stories_stored_with_the_old_scope_still_load() -> None:
     }
     story = export_docx._story(stored)  # noqa: SLF001
     assert (story.key, story.group) == ("US-01", "G")
+
+
+async def test_export_job_reads_the_pictures(db) -> None:  # noqa: ANN001
+    store = DbBlobStore(10**6, db.session)
+    blob_id = await store.put(b"\x89PNG\r\n\x1a\nabc", "image/png")
+    chapters = [
+        ChapterInput("a", "A", 1, ProseContent()),
+        ChapterInput("b", "", 2, ImageContent(blob_id=blob_id)),
+        ChapterInput("c", "", 2, ImageContent(blob_id=blob_id + 99)),
+        ChapterInput("d", "", 2, ImageContent()),
+    ]
+    assert await image_bytes(store, chapters) == {blob_id: b"\x89PNG\r\n\x1a\nabc"}

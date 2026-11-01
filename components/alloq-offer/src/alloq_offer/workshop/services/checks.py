@@ -163,11 +163,27 @@ def stories_present(inp: CheckInput) -> list[RuleFinding]:
     ]
 
 
+def _activity_ids(snapshot: dict) -> dict[str, int]:
+    return {
+        story["key"]: activity.get("id", 0)
+        for activity in snapshot.get("activities", [])
+        for task in activity["tasks"]
+        for story in task["stories"]
+    }
+
+
 def _texts(inp: CheckInput, chapter: ChapterFacts) -> list[str]:
-    """What a chapter shows; a stories chapter shows the story descriptions."""
-    if isinstance(chapter.content, StoriesContent):
-        return [s.get("description", "") for s in live_stories(inp.snapshot)]
-    return content_lines(chapter.content)
+    """What a chapter shows; a stories chapter shows the descriptions of the
+    stories its filter lets through."""
+    content = chapter.content
+    if isinstance(content, StoriesContent):
+        activities = _activity_ids(inp.snapshot)
+        return [
+            s.get("description", "")
+            for s in live_stories(inp.snapshot)
+            if content.shows(activities.get(s["key"], 0), s.get("slice_id") or 0)
+        ]
+    return content_lines(content)
 
 
 def acceptance_criteria(inp: CheckInput) -> list[RuleFinding]:

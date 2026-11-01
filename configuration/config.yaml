@@ -46,14 +46,25 @@ app:
       transcription_deployment: ""
 
   authentication:
-    session_timeout: 25 # minutes
-    auth_token_refresh_delta: 10 # minutes
     # Placeholders. Production derives the public address, the OAuth callback
     # URLs and the Reflex URLs from PUBLIC_BASE_URL and PUBLIC_PATH_PREFIX
     # (app/public_url.py) and refuses to start without PUBLIC_BASE_URL.
     # Local profiles set their own address.
     server_url: http://localhost
     server_port: 0
+
+    auth_token_refresh_delta: 10 # minutes
+    session_timeout: 25 # minutes
+    session_monitor_interval_seconds: 60 # seconds
+    session_filter_enabled: true # guard WS events, page loads and REST routes
+    session_cookie_secure: false # dev serves plain http on a non-localhost host
+    # fnmatch glob allowlist of routes reachable without a session.
+    # Everything not listed here is default-deny.
+    public_routes:
+      - /login
+      - /password-reset
+      - /password-reset/confirm
+      - /oauth/*/callback
 
     oauth_providers:
       # - provider: "github"
