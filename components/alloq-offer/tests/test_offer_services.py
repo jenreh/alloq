@@ -166,6 +166,9 @@ class TestAcceptance:
         assert not can_accept(_offer(archived=True))
         assert not can_accept(_offer(project_id=5))
 
+    def test_cannot_accept_before_the_calculation(self) -> None:
+        assert not can_accept(_offer(recommended_price=Decimal(0)))
+
     def test_default_dates_span_the_placeholder_duration(self) -> None:
         start, end = default_project_dates(TODAY)
         assert start == TODAY

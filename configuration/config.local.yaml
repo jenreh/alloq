@@ -14,6 +14,14 @@ app:
   database:
     echo: False
 
+  offer_workshop:
+    worker_enabled: true
+    ai_provider: demo # no Azure OpenAI locally: drafts quote the sources
+
   authentication:
     server_url: http://localhost
     server_port: 8080
+    session_cookie_secure: false # plain http
+    email_provider:
+      provider: mock
+      from_name: Alloq

@@ -12,7 +12,7 @@ from appkit_user.authentication import add_session_guard
 from appkit_user.authentication.session_filter import SessionFilter
 
 from app import app as app_module
-from app.app import add_https_middleware, auth_page_logos
+from app.app import add_https_middleware, add_security_headers, auth_page_logos
 from app.configuration import AppConfig
 from app.styles import base_stylesheets
 
@@ -94,6 +94,13 @@ class TestAppWiring:
         assert isinstance(transformers, Sequence)
         assert add_https_middleware in transformers
 
+    def test_security_headers_inside_https_middleware(self) -> None:
+        transformers = list(app_module.app.api_transformer)  # type: ignore[arg-type]
+
+        assert transformers.index(add_security_headers) < transformers.index(
+            add_https_middleware
+        )
+
     def test_session_filter_installed(self) -> None:
         middlewares = app_module.app._middlewares
 
@@ -112,14 +119,18 @@ class TestAuthPageLogos:
         assert logos["logo_dark"].startswith("/alloq/img/appkit_logo_dark.svg")
 
     def test_logos_at_site_root(self) -> None:
-        logos = auth_page_logos()
+        config = MagicMock()
+        config.prepend_frontend_path.side_effect = lambda path: path
+
+        with patch("reflex.assets.get_config", return_value=config):
+            logos = auth_page_logos()
 
         assert logos["logo"].startswith("/img/appkit_logo.svg")
         assert logos["logo_dark"].startswith("/img/appkit_logo_dark.svg")
 
 
 def test_layout_stylesheets_are_registered_and_exist() -> None:
-    for name in ("aq-shell.css", "aq-list.css", "aq-splash.css"):
+    for name in ("aq-shell.css", "aq-list.css"):
         assert f"css/{name}" in base_stylesheets
     for sheet in base_stylesheets:
         assert (Path("assets") / sheet).is_file()

@@ -202,7 +202,7 @@ class TestEmployeeCreateModel:
 
     def test_first_name_required(self) -> None:
         with pytest.raises(ValidationError):
-            EmployeeCreate(  # ty: ignore[missing-argument]
+            EmployeeCreate(
                 last_name="Mustermann",
                 seniority=SeniorityLevel.SENIOR,
                 role_ids=[1],
@@ -273,7 +273,7 @@ class TestAbsenceModel:
 
     def test_absence_create_requires_dates(self) -> None:
         with pytest.raises(ValidationError):
-            AbsenceCreate(employee_id=1)  # ty: ignore[missing-argument]
+            AbsenceCreate(employee_id=1)
 
 
 # ============================================================================

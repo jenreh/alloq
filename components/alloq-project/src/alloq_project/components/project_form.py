@@ -222,7 +222,7 @@ def _required_capacity_input(role: ObjectVar[Role]) -> rx.Component:
                     role.id.to_string()
                 ].to(float),
                 # ty cannot infer the lambda's parameter from the event spec.
-                on_blur=lambda v: ProjectValidationState.set_role_capacity(  # ty: ignore[invalid-argument-type]
+                on_blur=lambda v: ProjectValidationState.set_role_capacity(
                     role.id.to_string(), v
                 ),
                 min=0,

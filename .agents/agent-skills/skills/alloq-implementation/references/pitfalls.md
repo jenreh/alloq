@@ -48,8 +48,6 @@ sessions; search memory for more detail.
   the module constant, or use `json.dumps(label)[1:-1]` like `tests/test_sidebar.py`.
 - **Stale allowlist entry.** Renaming or guarding a handler without updating
   `UI_ONLY_HANDLERS` fails `test_allowlists_have_no_stale_entries`.
-- **New migration without `KNOWN_REVISIONS`.** `tests/test_desktop_login.py`
-  compares `app/desktop/schema.py` with the Alembic history; prepend the new revision.
 
 ## Migrations
 
@@ -80,6 +78,13 @@ When a task touches one of them:
 
 Run `python .claude/skills/alloq-implementation/scripts/check_file_sizes.py` for the
 current list.
+
+## Shared infrastructure
+
+- **Generic ASGI middleware in `app/`.** Response headers and proxy scheme handling
+  are not Alloq-specific. `ForceHTTPSMiddleware` and `SecurityHeadersMiddleware`
+  come from `appkit_commons.middleware`; fix or extend them in appkit-commons, not
+  with a local copy. `app/app.py` only wires them into `api_transformer`.
 
 ## Folders
 

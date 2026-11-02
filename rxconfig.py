@@ -1,5 +1,5 @@
 import logging
-from typing import Final, TypedDict
+from typing import TypedDict
 
 import reflex as rx
 
@@ -9,10 +9,6 @@ from appkit_commons.database.configuration import DatabaseConfig
 from appkit_commons.registry import service_registry
 
 from app import configuration
-from app.desktop.profile import in_bundle, is_desktop
-
-DESKTOP_PORT: Final = 18442  # = backend_port in config.desktop.yaml and main.rs
-TAURI_ORIGINS: Final = ["tauri://localhost", "http://tauri.localhost"]
 
 init_logging(configuration)
 logger = logging.getLogger(__name__)
@@ -71,42 +67,9 @@ def _port_settings(reflex: ReflexConfig | None) -> _PortSettings:
     return settings
 
 
-def desktop_plugins() -> list[rx.plugins.Plugin]:
-    """Tauri window with the backend embedded, only for desktop builds."""
-    if not is_desktop():
-        return []
-    from reflex_desktop import DesktopPlugin  # noqa: PLC0415  (desktop group)
-
-    return [
-        DesktopPlugin(
-            backend="embedded",
-            port=DESKTOP_PORT,
-            # Also names the Rust binary; the default ("app") collides with
-            # the app/ payload folder Tauri copies next to it.
-            product_name="alloq",
-            identifier="de.aila.alloq",
-            window_width=1440,
-            window_height=900,
-            resizable=True,
-            center=True,
-            min_width=1100,
-            min_height=700,
-            # Native sidebar vibrancy needs a transparent window.
-            transparent=True,
-            icon="assets/img/alloq_icon.png",
-        )
-    ]
-
-
-def cors_origins() -> list[str] | None:
-    """Only the webview may open the event socket of the bundled backend.
-
-    Outside the bundle (desktop dev task, faked sign-in in a browser) Reflex's
-    default applies, as for the web app.
-    """
-    if not in_bundle():
-        return None
-    return [*TAURI_ORIGINS, f"http://127.0.0.1:{DESKTOP_PORT}"]
+def _trusted_proxy_hops(reflex: ReflexConfig | None) -> int:
+    """Proxies in front of the backend; 0 ignores X-Forwarded-For."""
+    return reflex.trusted_proxy_hops if reflex else 0
 
 
 database = _require_database()
@@ -115,6 +78,7 @@ reflex = _lookup(ReflexConfig)
 config = rx.Config(
     app_name="app",
     frontend_path=reflex.frontend_path if reflex else "",
+    trusted_proxy_hops=_trusted_proxy_hops(reflex),
     **_port_settings(reflex),
     db_url=database.url,
     async_db_url=database.url,
@@ -124,8 +88,6 @@ config = rx.Config(
     plugins=[
         rx.plugins.TailwindV4Plugin(),
         rx.plugins.RadixThemesPlugin(),
-        *desktop_plugins(),
     ],
-    **({"cors_allowed_origins": origins} if (origins := cors_origins()) else {}),
     disable_plugins=[rx.plugins.SitemapPlugin],
 )

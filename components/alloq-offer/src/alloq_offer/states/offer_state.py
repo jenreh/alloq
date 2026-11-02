@@ -29,6 +29,7 @@ from alloq_offer.services.offers import (
     totals,
     visible_offers,
 )
+from alloq_offer.workshop.services.commercials import void_after_offer_edit
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_user.authentication.decorators import is_authenticated
 
@@ -53,12 +54,10 @@ REQUIRED_FIELDS: Final = (
     "customer",
     "key_accounter",
     "industry_id",
-    "person_days",
-    "production_cost",
-    "recommended_price",
 )
 HINT_INVALID: Final = (
-    "Bitte alle Pflichtfelder ausfüllen (Zahlen nicht negativ, Link mit https://)."
+    "Bitte alle Pflichtfelder ausfüllen. Zahlen dürfen nicht negativ sein, "
+    "ein Link muss mit https:// beginnen."
 )
 ERROR_SAVE: Final = "Das Angebot konnte nicht gespeichert werden."
 NOT_FOUND: Final = "Angebot nicht gefunden."
@@ -402,6 +401,7 @@ class OfferState(rx.State):
                         return
                     for key, value in data.model_dump().items():
                         setattr(entity, key, value)
+                    await void_after_offer_edit(session, entity)
                     await session.commit()
                     await session.refresh(entity)
                 else:

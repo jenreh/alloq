@@ -78,10 +78,6 @@ html[data-sidebar-collapsed] .aq-sidebar-reveal {
     display: flex;
 }
 
-html[data-native][data-sidebar-collapsed] .aq-toolbar {
-    padding-left: 84px;
-}
-
 .aq-scopebar {
     display: flex;
     align-items: center;

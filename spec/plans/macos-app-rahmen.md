@@ -11,8 +11,7 @@ Stand: 14.10.2026. Vorlage ist der Design-Prototyp
 | 1 Tokens und Theme | umgesetzt: `alloq_commons/theme.py`, alte `--alloq-*` als Aliase |
 | 2 Rahmen, Seitenleiste, Toolbar | umgesetzt: `shell.py` (`app_page`), `toolbar.py`, `app/components/sidebar.py` |
 | 3 Listen mit Inspektor | umgesetzt: `list_view.py`, Projekte und Team als Liste mit Inspektor |
-| 4 Login im Splash-Stil | umgesetzt: `app/pages/login.py`; Splash mit Fortschrittsbalken folgt mit Phase 5 |
-| 5 Desktop-App | offen, wartet auf die Entscheidung zu Risiko 1 |
+| 4 Login im Splash-Stil | umgesetzt: `app/pages/login.py` |
 
 Abweichungen vom Plan: Die Listenlogik steckt in Reflex-Mixins
 (`ProjectListState`, `TeamListState`) statt in Substates, weil deren berechnete
@@ -25,10 +24,8 @@ nicht umgesetzt.
 
 alloq bekommt den Rahmen einer nativen macOS-App: eine durchscheinende
 Seitenleiste links, einen schwebenden weißen Inhaltsbereich rechts und eine
-Toolbar oben in diesem Bereich. Derselbe Code läuft im Browser und als
-Tauri-Desktop-App. Die Desktop-App bettet das Python-Backend ein wie vermoegen,
-nutzt aber keine lokale Datenbank, sondern die zentrale Postgres-Datenbank. Der
-Login sieht aus wie der Splash-Screen von vermoegen.
+Toolbar oben in diesem Bereich. Die App läuft im Browser. Der Login sieht aus
+wie der Splash-Screen von vermoegen.
 
 ## Ausgangslage
 
@@ -83,15 +80,10 @@ Das Zielbild ist der Prototyp:
    `alloq_commons/components/toolbar.py` ersetzt `page_header` und die
    bisherigen Seiten-Toolbars. Die Seitenfabriken übergeben ihre Toolbar an
    `app_page(toolbar=...)`.
-5. **Native Erkennung wie vermoegen.** Ein Head-Script setzt
-   `html[data-native]`, wenn `window.__TAURI__` existiert. Nur dann wird der
-   Fenstergrund transparent und die native Vibrancy sichtbar. Toolbar und
-   Titelzeile tragen `data-tauri-drag-region`.
-
 ## Phasen
 
 Jede Phase endet mit grünen Tests, `task format && task lint && task typecheck`
-und lauffähiger Web-App. Phase 1 bis 4 ändern nichts an Tauri.
+und lauffähiger Web-App.
 
 ### Phase 1: Tokens und Theme
 
@@ -144,56 +136,8 @@ und lauffähiger Web-App. Phase 1 bis 4 ändern nichts an Tauri.
   appkit: Verlaufshintergrund und App-Icon wie der Splash von vermoegen,
   darunter eine Karte mit E-Mail, Passwort, „Mit Microsoft anmelden“ und „Mit
   GitHub anmelden“. Die Anmeldelogik bleibt die von `LoginState`.
-- Ablauf in der Desktop-App: Splash mit Fortschrittsbalken, solange das
-  eingebettete Backend startet. Danach blendet er entweder zur App über (gültige
-  Sitzung) oder das Login-Formular erscheint im selben Bild.
-- Verbindungswarnungen von Reflex werden ausgeblendet, solange der Splash
-  sichtbar ist (wie `splash.py` in vermoegen).
 - Vorher prüfen: ob `LoginState` sich ohne die appkit-Seite ansprechen lässt
   und ob die OAuth-Callbacks mit eigener Login-Route funktionieren.
-
-### Phase 5: Desktop-App mit eingebettetem Backend
-
-- `rxconfig.py`: `DesktopPlugin` aus `reflex-desktop` nur bei
-  `ALLOQ_DESKTOP=1`, Backend `embedded` auf festem Port (z. B. 18442),
-  `transparent=True`, Fenster 1440×900, Mindestgröße 1100×700.
-- Neues Profil `configuration/config.desktop.yaml`: `frontend_path` leer,
-  `deploy_url` und `api_url` auf `127.0.0.1:<Port>`, `workers: 1`, zentrale
-  Datenbank, CORS für `tauri://localhost`. Keine Hintergrundjobs im
-  Desktop-Profil, sonst laufen sie auf jedem Rechner einmal.
-- Aus vermoegen übernehmen: `scripts/desktop.py` (Python 3.14 statt 3.12),
-  Desktop-Tasks im Taskfile, `tauri.conf.json` (`titleBarStyle: Overlay`,
-  `hiddenTitle`, `trafficLightPosition` x 16 y 26, `transparent`,
-  `windowEffects` sidebar), `app_menu.rs` mit deutschem App-Menü.
-- Start der App prüft die Schema-Version der Datenbank gegen die erwartete
-  Alembic-Revision und zeigt im Splash eine klare Meldung, wenn die App zu alt
-  ist. Migrationen laufen nur auf dem Server.
-
-## Risiken und offene Entscheidungen
-
-1. **Zugangsdaten auf den Rechnern der Nutzer (blockiert Phase 5).** Das
-   eingebettete Backend braucht heute Datenbankbenutzer und Passwort, den
-   Verschlüsselungsschlüssel `common-db-encryption-key` und die
-   OAuth-Client-Secrets. In einer verteilten App kann jeder Nutzer diese Werte
-   auslesen und hätte damit vollen Zugriff auf die Datenbank. Möglichkeiten:
-   - Datenbankanmeldung pro Nutzer mit Entra-ID-Token (Azure Database for
-     PostgreSQL unterstützt das), OAuth als öffentlicher Client mit PKCE ohne
-     Secret. Dafür muss appkit_user angepasst werden, und die Rechte in der
-     Datenbank müssen pro Rolle gesetzt sein.
-   - Ein schmaler API-Dienst auf dem Server, mit dem das eingebettete Backend
-     spricht, statt direkt mit der Datenbank. Das ist sicher, aber deutlich
-     mehr Arbeit.
-   - Bewusst in Kauf nehmen, wenn nur ein kleiner, vertrauenswürdiger Kreis die
-     App bekommt. Dann gehören die Werte in den macOS-Schlüsselbund und nicht
-     ins Bundle.
-2. **Netz.** Postgres muss von den Rechnern aus erreichbar sein (VPN oder
-   Firewall-Regel). Jede Reflex-Aktion geht dann über das Netz zur Datenbank.
-   Die Planungsansicht lädt viele Zeilen und sollte vorher gemessen werden.
-3. **OAuth-Callbacks.** Azure und GitHub müssen die lokale Callback-Adresse
-   (`http://127.0.0.1:<Port>/...`) als Redirect-URI kennen.
-4. **Versionen.** reflex-desktop bündelt fest Python 3.12. vermoegen löst das
-   mit `scripts/desktop.py`. Ob reflex-desktop mit Reflex 0.10.0 läuft, muss
-   ein Spike zu Beginn von Phase 5 klären.
 
 ## Reihenfolge und Aufwand
 
@@ -203,8 +147,6 @@ und lauffähiger Web-App. Phase 1 bis 4 ändern nichts an Tauri.
 | 2 | neuer Rahmen auf allen Seiten | groß |
 | 3 | Listen mit Inspektor | mittel |
 | 4 | Login im Splash-Stil | klein bis mittel |
-| 5 | Desktop-App | groß, erst nach Entscheidung zu Risiko 1 |
 
 Phase 1 bis 4 bringen den neuen Rahmen ins Web und lassen sich einzeln
-ausliefern. Phase 5 startet mit einem Spike (reflex-desktop mit Reflex 0.10,
-Verbindung zur zentralen Datenbank, Login über Microsoft).
+ausliefern.

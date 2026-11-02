@@ -79,7 +79,7 @@ def _project_header_row(proj: ObjectVar[ProjectBlock]) -> rx.Component:
                     variant="subtle",
                     color="gray",
                     size="sm",
-                    on_click=PlanningStore.toggle_project(proj.id),  # ty: ignore[invalid-argument-type]
+                    on_click=PlanningStore.toggle_project(proj.id),
                 ),
                 mn.box(
                     style={

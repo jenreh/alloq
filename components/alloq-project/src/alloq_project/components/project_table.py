@@ -58,10 +58,10 @@ def _row(project: ObjectVar[Project]) -> rx.Component:
         ),
         template=TEMPLATE,
         selected=selected,
-        on_click=ProjectState.inspect(project.id),  # ty: ignore[invalid-argument-type]
+        on_click=ProjectState.inspect(project.id),
         on_double_click=[
             LoadingState.set_is_loading(True),
-            ProjectState.select_project(project.id),  # ty: ignore[invalid-argument-type]
+            ProjectState.select_project(project.id),
         ],
     )
 

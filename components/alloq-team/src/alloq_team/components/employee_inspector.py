@@ -156,12 +156,12 @@ def _actions(row: ObjectVar[TeamDetail]) -> rx.Component:
     return mn.group(
         plain_button(
             "Bearbeiten",
-            [LoadingState.set_is_loading(True), TeamState.select_employee(row.id)],  # ty: ignore[invalid-argument-type]
+            [LoadingState.set_is_loading(True), TeamState.select_employee(row.id)],
             flex="1",
         ),
         plain_button(
             "Abwesenheit",
-            TeamState.select_employee_and_add_absence(row.id),  # ty: ignore[invalid-argument-type]
+            TeamState.select_employee_and_add_absence(row.id),
             flex="1",
         ),
         icon_button(

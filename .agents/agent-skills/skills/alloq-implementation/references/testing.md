@@ -206,11 +206,6 @@ def _run(module: ModuleType, step: str, conn: Connection) -> None:
 Build only the tables the migration touches with `sa.Table(...)` in a fixture, run
 `upgrade`, assert rows, run `downgrade`, assert again.
 
-Every migration changes the Alembic history, so also prepend the revision to
-`KNOWN_REVISIONS` in `app/desktop/schema.py`;
-`tests/test_desktop_login.py::TestSchema::test_known_revisions_are_the_alembic_history`
-fails otherwise.
-
 ## 7. The guard tests
 
 - `tests/test_handler_authorization.py`: every handler is guarded or allowlisted (see

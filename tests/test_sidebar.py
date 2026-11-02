@@ -7,17 +7,19 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from alloq_commons.roles import EMPLOYEE_ROLE, PROJECT_MANAGER_ROLE
+from alloq_commons.roles import EMPLOYEE_ROLE, OFFER_ADMIN_ROLE, PROJECT_MANAGER_ROLE
 from alloq_dashboard.states import RoleCapacityState
 
 from app.components import sidebar_state
 from app.components.sidebar import (
     ADMIN_ITEMS,
+    OFFER_ADMIN_ROUTE,
     OFFERS_ROUTE,
     PLANNING_ITEMS,
     PRICES_ROUTE,
     PUBLIC_ROUTES,
     VIEWER_ROUTES,
+    _admin_item,
     _admin_section,
     _brand,
     _guarded_nav_item,
@@ -156,7 +158,6 @@ class TestSidebarComponent:
         assert "fixedDecimalScale:true" in rendered
         assert "aq-sidebar" in rendered
         assert "offer_count" in rendered
-        assert "data-tauri-drag-region" in rendered
         assert "LucidePanelLeftClose" in rendered
 
     def test_every_user_sees_the_offers_and_prices_entries(self) -> None:
@@ -198,6 +199,13 @@ class TestSidebarComponent:
         assert "is_admin" in rendered
         assert PROJECT_MANAGER_ROLE.name not in rendered
 
+    def test_offer_configuration_needs_admin_and_offer_admin_role(self) -> None:
+        role = f'"{OFFER_ADMIN_ROLE.name}"'
+        for item in ADMIN_ITEMS:
+            rendered = str(_admin_item(item))
+            assert (role in rendered) is (item[0] == OFFER_ADMIN_ROUTE)
+            assert "is_admin" in rendered
+
     def test_index_route_matches_both_paths(self) -> None:
         rendered = str(is_route_active("/"))
         assert '"/index"' in rendered
@@ -211,3 +219,8 @@ class TestSidebarComponent:
 
     def test_other_routes_match_exactly(self) -> None:
         assert '"/projects"' in str(is_route_active("/projects"))
+
+    def test_offers_stay_active_on_the_workshop_page(self) -> None:
+        rendered = str(is_route_active("/offers"))
+        assert '"/offers"' in rendered
+        assert '"/offers/"' in rendered

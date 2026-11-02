@@ -1,7 +1,8 @@
 """Render tests of the offer components."""
 
+import reflex as rx
 from alloq_commons.access import NO_ACCESS_MSG
-from alloq_commons.roles import OFFER_EDITOR_ROLE
+from alloq_commons.roles import OFFER_ADMIN_ROLE, OFFER_EDITOR_ROLE
 from alloq_offer.components import offer_inspector as offer_inspector_module
 from alloq_offer.components import offer_modal, offer_parts, offer_table
 from alloq_offer.components.offer_inspector import offer_inspector
@@ -117,7 +118,21 @@ def test_edit_controls_need_the_offer_editor_role() -> None:
         assert f'"{OFFER_EDITOR_ROLE.name}"' in str(part)
 
 
+def test_workshop_link_needs_the_offer_admin_role() -> None:
+    offer = offer_inspector_module._selected()
+    guarded = str(offer_inspector_module._workshop_action(offer))
+    assert f'"{OFFER_ADMIN_ROLE.name}"' in guarded
+
+
 def test_labels_avoid_company_abbreviations() -> None:
     labels = {label for label, _field, _numeric in offer_table.COLUMNS}
     assert {"Account Manager", "Branche", "Kosten", "Preis"} <= labels
     assert not labels & {"CIU", "Key Accounter", "HK", "VK", "PT"}
+
+
+def test_zero_calculation_values_show_a_dash() -> None:
+    for component in (
+        offer_parts.euro(rx.Var.create(0)),
+        offer_parts.days(rx.Var.create(0)),
+    ):
+        assert "\\u2013" in str(component)

@@ -14,7 +14,9 @@ mn.menu(
         mn.menu.item("Edit", left_section=rx.icon("pencil"), on_click=State.edit),
         mn.menu.item("Duplicate", left_section=rx.icon("copy")),
         mn.menu.divider(),
-        mn.menu.item("Delete", left_section=rx.icon("trash"), color="red", on_click=State.delete),
+        mn.menu.item(
+            "Delete", left_section=rx.icon("trash"), color="red", on_click=State.delete
+        ),
     ),
     width=200,
     position="bottom-start",
@@ -82,6 +84,7 @@ class MenuState(rx.State):
     def toggle(self):
         self.opened = not self.opened
 
+
 mn.menu(
     mn.menu.target(mn.button("Menu", on_click=MenuState.toggle)),
     mn.menu.dropdown(mn.menu.item("Item 1"), mn.menu.item("Item 2")),
@@ -101,21 +104,21 @@ mn.menu.item(
 )
 ```
 
-## Search, checkbox & radio items (Mantine 9.3)
+## Search, checkbox & radio items
 
 ```python
 mn.menu(
     mn.menu.target(mn.button("Options")),
     mn.menu.dropdown(
-        mn.menu.search(placeholder="Search…"),          # filters items
+        mn.menu.search(placeholder="Search…"),  # filters items
         mn.menu.checkbox_item(
             "Enable notifications",
             checked=State.notifications,
-            on_change=State.set_notifications,           # receives bool
+            on_change=State.set_notifications,  # receives bool
             close_menu_on_click=False,
         ),
         mn.menu.divider(),
-        mn.menu.radio_group(                             # value + on_change (str)
+        mn.menu.radio_group(  # value + on_change (str)
             mn.menu.radio_item("List", value="list"),
             mn.menu.radio_item("Grid", value="grid"),
             value=State.view,
@@ -129,7 +132,7 @@ mn.menu(
 `mn.menu.context_menu(...)` opens the menu at the cursor on right-click.
 `mn.menu(align_items_labels=True)` aligns item indicator slots.
 
-## Menubar (Mantine 9.4)
+## Menubar
 
 Desktop-application style horizontal menu bar. Each `mn.menubar.menu` holds a
 top-level `target` and a `dropdown` of `mn.menu.item` children.

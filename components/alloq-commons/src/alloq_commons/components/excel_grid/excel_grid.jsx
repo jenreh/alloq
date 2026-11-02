@@ -23,6 +23,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { Button, Group, Modal, Text } from "@mantine/core";
 import { useBlocker } from "react-router";
 import * as G from "./grid_logic.js";
+import { useColumnResize } from "./column_resize.js";
 
 const FOCUS_RING = "inset 0 0 0 2px var(--mantine-color-blue-6)";
 const RANGE_FILL = "inset 0 0 0 999px light-dark(rgba(34, 139, 230, 0.14), rgba(34, 139, 230, 0.24))";
@@ -228,6 +229,7 @@ export function ExcelGrid({
   leaveStayLabel = "Bleiben",
   leaveDiscardLabel = "Verwerfen",
   leaveSaveLabel = "Speichern & verlassen",
+  resizeKey,
 }) {
   const parseOpts = { min: minValue, max: maxValue ?? Infinity, decimals };
   const formatOpts = { decimals, separator: decimalSeparator };
@@ -243,6 +245,7 @@ export function ExcelGrid({
   const [editor, setEditor] = useState(null); // {key, value, mode, invalid, box}
   const [fill, setFill] = useState(null); // fill-handle drag: {src, target}
   const [layoutVersion, setLayoutVersion] = useState(0);
+  useColumnResize(rootRef, resizeKey);
 
   // React 19: `ref` arrives as a prop (Reflex passes one when `id` is set).
   const setRootRef = useCallback(

@@ -30,11 +30,7 @@ PACKAGES = (
     "alloq_project",
     "alloq_team",
 )
-EXTRA_MODULES = (
-    "app.components.sidebar_state",
-    "app.desktop.db_access_state",
-    "app.desktop.login_state",
-)
+EXTRA_MODULES = ("app.components.sidebar_state",)
 OWN_PACKAGES = frozenset({*PACKAGES, "app"})
 
 # Administration needs the admin switch; project managers may not run these.
@@ -48,8 +44,12 @@ ADMIN_STATES = frozenset(
         "IndustryState",
         "RoleState",
         "HolidayState",
-        "DatabaseAccessState",
     }
+)
+# The offer configuration (templates, chapter blocks, prompts) is open to admins
+# and to the offer admin role, so it uses @requires_offer_admin.
+OFFER_ADMIN_STATES = frozenset(
+    {"BlockAdminState", "TemplateAdminState", "PromptAdminState", "OfferAdminState"}
 )
 # Planning states are open to project managers, so they use @requires_editor.
 EDITOR_PACKAGES = frozenset({"alloq_dashboard", "alloq_project", "alloq_team"})
@@ -75,13 +75,6 @@ INLINE_ADMIN_CHECK: dict[str, frozenset[str]] = {
     )
 }
 
-# Sign-in and sign-out run without a session by nature (like appkit's
-# LoginState). The desktop login checks the user itself: Entra ID decides who
-# reaches the database, the alloq account decides who gets a session.
-PRE_AUTH_HANDLERS: dict[str, frozenset[str]] = {
-    "DesktopLoginState": frozenset({"sign_in_with_microsoft", "sign_out"}),
-}
-
 # Loads that only read; the employee role may run them (``@requires_viewer``).
 VIEWER_HANDLERS: dict[str, frozenset[str]] = {
     "ProjectState": frozenset(
@@ -98,9 +91,55 @@ SIGNED_IN_HANDLERS: dict[str, frozenset[str]] = {
 }
 
 UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
-    "SplashState": frozenset({"finish"}),
     "SidebarState": frozenset({"invalidate"}),
     "DashboardState": frozenset({"close_drill_down", "open_drill_down"}),
+    "BlockAdminState": frozenset(
+        {"close_editor", "open_create", "open_edit", "set_field"}
+    ),
+    "OfferAdminState": frozenset({"set_tab"}),
+    "PromptAdminState": frozenset({"set_text"}),
+    "ChapterState": frozenset(
+        {
+            "ask_remove",
+            "cancel_remove",
+            "clear_selection",
+            "close_add",
+            "close_history",
+            "close_instruction",
+            "open_instruction",
+            "set_add_tab",
+            "set_blank_title",
+            "set_blank_type",
+            "set_instruction",
+            "toggle_collapse",
+        }
+    ),
+    "MapState": frozenset(
+        {
+            "close_archive",
+            "close_insert",
+            "close_story",
+            "notify_rejected",
+            "open_archive",
+            "open_insert",
+            "reset_filters",
+            "select_story",
+            "set_archive_search",
+            "set_map_search",
+            "set_restore_task",
+            "set_skeleton_only",
+            "set_slice_filter",
+            "set_view",
+            "toggle_drawer_width",
+            "toggle_slice",
+        }
+    ),
+    "ExportState": frozenset({"set_confirmed"}),
+    "MapProposalState": frozenset({"set_instruction"}),
+    "ReviewState": frozenset({"cancel_decide", "set_reason", "start_decide"}),
+    "SourcesState": frozenset(
+        {"close_paste", "close_viewer", "open_paste", "set_viewer_tab"}
+    ),
     "OfferState": frozenset(
         {
             "close_accept_modal",
@@ -120,6 +159,7 @@ UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
             "toggle_sort",
         }
     ),
+    "WorkshopState": frozenset({"set_tab"}),
     "RoleState": frozenset(
         {
             "close_add_modal",
@@ -405,6 +445,10 @@ def _is_requires_offer_editor(fn: Callable[..., Any]) -> bool:
     return _access_level(fn, "offer_editor")
 
 
+def _is_requires_offer_admin(fn: Callable[..., Any]) -> bool:
+    return _access_level(fn, "offer_admin")
+
+
 def _is_requires_login(fn: Callable[..., Any]) -> bool:
     return _is_decorated_by(fn, "is_authenticated")
 
@@ -424,6 +468,7 @@ def _is_guarded(fn: Callable[..., Any]) -> bool:
         _is_requires_admin(fn)
         or _is_requires_editor(fn)
         or _is_requires_offer_editor(fn)
+        or _is_requires_offer_admin(fn)
     )
 
 
@@ -462,7 +507,6 @@ def test_every_handler_is_admin_guarded_or_ui_only() -> None:
         and not _is_allowed_reader(state_name, name, handler.fn)
         and name not in INLINE_ADMIN_CHECK.get(state_name, frozenset())
         and name not in UI_ONLY_HANDLERS.get(state_name, frozenset())
-        and name not in PRE_AUTH_HANDLERS.get(state_name, frozenset())
     )
     assert unguarded == [], (
         "Guard these handlers with @requires_editor (@requires_admin in the "
@@ -489,10 +533,10 @@ def test_planning_handlers_are_open_to_project_managers() -> None:
 
 
 def _is_offer_state(state: type[rx.State]) -> bool:
-    """Offer states, without the industries administration (admin level)."""
+    """Offer states, without the industries and the offer configuration."""
     return (
         state.__module__.split(".")[0] in OFFER_PACKAGES
-        and state.__name__ not in ADMIN_STATES
+        and state.__name__ not in ADMIN_STATES | OFFER_ADMIN_STATES
     )
 
 
@@ -542,6 +586,18 @@ def test_offer_handlers_are_not_admin_or_editor_guarded() -> None:
     assert wrong == []
 
 
+def test_offer_configuration_uses_the_offer_admin_level() -> None:
+    assert OFFER_ADMIN_STATES <= set(STATES)
+    wrong = sorted(
+        f"{state_name}.{name}"
+        for state_name in OFFER_ADMIN_STATES
+        for name, handler in _handlers(STATES[state_name]).items()
+        if not _is_requires_offer_admin(handler.fn)
+        and name not in UI_ONLY_HANDLERS.get(state_name, frozenset())
+    )
+    assert wrong == [], "Guard offer configuration handlers with @requires_offer_admin"
+
+
 def test_administration_handlers_stay_admin_only() -> None:
     assert ADMIN_STATES <= set(STATES)
     opened = sorted(
@@ -575,7 +631,7 @@ def test_viewer_handler_does_not_write(state_name: str, name: str) -> None:
 
 def test_allowlists_have_no_stale_entries() -> None:
     stale = []
-    for allowlist in (UI_ONLY_HANDLERS, INLINE_ADMIN_CHECK, PRE_AUTH_HANDLERS):
+    for allowlist in (UI_ONLY_HANDLERS, INLINE_ADMIN_CHECK):
         for state_name, names in allowlist.items():
             handlers = _handlers(STATES[state_name]) if state_name in STATES else {}
             stale += [

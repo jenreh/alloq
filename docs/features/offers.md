@@ -30,7 +30,7 @@ last_verified_commit: "63da7bd (unreleased offers package)"
 
 This page covers the page "Angebote" [offers] at `/offers`. It lists the offers that the company calculated for customer projects, with person days, risk buffer, production cost and recommended price. The stories belong to the activity "Prepare offers" on the [story map](./story-map.md).
 
-The page has four user tasks:
+The page has four user tasks (the AI-supported drafting of a full offer is described in [Offer workshop](./offer-workshop.md)):
 
 - **Find an offer.** Read the list grouped by status, search, filter and sort it, and read one offer in the inspector.
 - **Create an offer.** Enter a new offer in the form "Neues Angebot" [new offer].
@@ -133,10 +133,11 @@ Offer editor · Create an offer / Enter the offer · priority 1 · core · unrel
 
 1. **Given** the button "Angebot anlegen" [create offer], **when** the user clicks it, **then** the empty dialog "Neues Angebot" [new offer] opens with "Risikopuffer (Personentage)" set to 0 and "Status" set to "Neu". Reopening the dialog clears the inputs again.
 2. **Given** the dialog, **when** it renders, **then** it has the fields "Angebotstitel" [offer title], "Kunde" [customer], "Account Manager", "Branche" [industry], "Kalkulierte Personentage" [calculated person days], "Risikopuffer (Personentage)", "Kosten" [cost], "Empfohlener Preis" [recommended price], "Status", "Versendet am" and "Link zu den Dokumenten" [link to the documents]. "Branche" lists the industries from [OFF-09](#off-09) by name.
-3. **Given** an empty title, customer, account manager, industry, person days, production cost or recommended price, **when** the dialog renders, **then** the button "Angebot speichern" [save offer] is disabled.
+3. **Given** an empty title, customer, account manager or industry, **when** the dialog renders, **then** the button "Angebot speichern" [save offer] is disabled.
+3a. **Given** empty calculation fields (person days, buffer, cost, price), **when** the user saves, **then** they are stored as 0, because the calculation exists only after the offer workshop. Lists and the inspector show "–" for 0.
 4. **Given** the number fields, **when** the user types, **then** they accept no negative values and at most two decimals, with a German comma. A value such as "1.120 €" is read as 1120.
 5. **Given** the text fields, **when** the user types, **then** the browser stops at 255 characters, and at 2048 for the document link.
-6. **Given** text with only spaces, a negative number, no industry, an unknown status, or a document link that does not start with `http://` or `https://`, **when** the user saves, **then** `OfferCreate` rejects it, the toast "Bitte alle Pflichtfelder ausfüllen (Zahlen nicht negativ, Link mit https://)." [fill in all required fields] appears and nothing is stored. An empty link is stored as no link.
+6. **Given** text with only spaces, a negative number, no industry, an unknown status, or a document link that does not start with `http://` or `https://`, **when** the user saves, **then** `OfferCreate` rejects it, the toast "Bitte alle Pflichtfelder ausfüllen. Zahlen dürfen nicht negativ sein, ein Link muss mit https:// beginnen." [fill in all required fields] appears and nothing is stored. An empty link is stored as no link.
 7. **Given** the status "Versendet" and no sent date, **when** the user saves, **then** the sent date becomes today.
 8. **Given** valid input, **when** the user saves, **then** the offer is stored, appears in the list and is selected in the inspector, the dialog closes and the toast "Angebot '…' angelegt." [offer created] appears, with the title of the offer in place of the dots.
 9. **Given** a database error, **when** the user saves, **then** the toast "Das Angebot konnte nicht gespeichert werden." [offer could not be saved] appears without the error text.
@@ -248,7 +249,7 @@ Administrator · Give access to offers / Assign the role · priority 1 · core �
 4. **Given** a user with only the role `offer_editor`, **when** the sidebar renders, **then** the section "Planung" [planning] shows only "Angebote". (no test)
 5. **Given** a user who may edit offers but not read the planning, **when** they open another page, **then** the no-access message shows the link "Zu den Angeboten" [to the offers]. (no test)
 6. **Given** a user who may not edit offers, **when** they open `/offers`, **then** they see the no-access message instead of the list.
-7. **Given** a new handler in `alloq_offer`, **when** the guard test runs, **then** it fails unless the handler has `requires_offer_editor` or is listed as UI only. Offer handlers must not use `requires_admin` or `requires_editor`.
+7. **Given** a new handler in `alloq_offer`, **when** the guard test runs, **then** it fails unless the handler has `requires_offer_editor` or is listed as UI only. Offer handlers must not use `requires_admin` or `requires_editor`. The offer configuration states in `alloq_offer/admin/` (page `/admin/offers`) are the exception: they are listed in `OFFER_ADMIN_STATES` and use `requires_offer_admin`, which admins and the role `offer_admin` ("Angebotsverwaltung", id 4) pass.
 
 ### Evidence
 
@@ -285,6 +286,7 @@ Administrator · Maintain the industries / Edit the list · priority 2 · core �
 - [industry_state.py](../../components/alloq-offer/src/alloq_offer/states/industry_state.py): `IndustryState`, `in_use_message`, `load_industries`
 - [industry.py](../../components/alloq-offer/src/alloq_offer/components/industry.py): `industries_table`, `industries_toolbar`, `industry_form_fields`
 - [industries.py](../../app/pages/industries.py): `create_industries_page`
+- [admin/pages.py](../../components/alloq-offer/src/alloq_offer/admin/pages.py): `create_offer_admin_page` (`/admin/offers`); states in [admin/states/](../../components/alloq-offer/src/alloq_offer/admin/states/)
 - [sidebar.py](../../app/components/sidebar.py): `ADMIN_ITEMS`
 - [2026_10_21_industries.py](../../alembic/versions/2026_10_21_industries.py): table `industries`, column `offers.industry_id`
 - Tests: [test_industry_state.py](../../components/alloq-offer/tests/test_industry_state.py); [test_offer_repository.py](../../components/alloq-offer/tests/test_offer_repository.py) `test_industries_are_ordered_by_name`, `test_count_offers_includes_archived`; [test_migrations.py](../../tests/test_migrations.py) `test_industries_migration_links_offers_and_restores_codes`; [test_handler_authorization.py](../../tests/test_handler_authorization.py) `ADMIN_STATES`

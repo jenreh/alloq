@@ -11,7 +11,6 @@ source_paths:
   - AGENTS.md
   - tests/test_handler_authorization.py
   - tests/test_component_boundaries.py
-  - app/desktop/schema.py
 last_verified_commit: "cb9d5b0 (v2.0.4)"
 ---
 
@@ -193,11 +192,6 @@ a new file without steps, and you write the steps yourself. The `file_template` 
 - Change columns of existing tables with `op.batch_alter_table`, so the migration
   also runs on SQLite in the tests.
 - Write a `downgrade()` that undoes the upgrade, including any data it moved.
-- Add the new revision at the front of `KNOWN_REVISIONS` in
-  [app/desktop/schema.py](../../app/desktop/schema.py). The desktop app compares
-  the database with this list, and
-  `tests/test_desktop_login.py::TestSchema::test_known_revisions_are_the_alembic_history`
-  fails if you forget it.
 - If the migration changes data, add a test to `tests/test_migrations.py`.
 
 ## Checklists per change type
@@ -225,7 +219,7 @@ umlauts that `str(component)` escapes in render tests.
       pass.
 - [ ] Every new handler has its guard or its list entry.
 - [ ] A new migration is hand-written, uses `op.batch_alter_table` for column
-      changes, has a real `downgrade()`, and its revision is in `KNOWN_REVISIONS`.
+      changes and has a real `downgrade()`.
 - [ ] No touched file grew past 1000 lines.
 - [ ] UI text is German, colors come from the theme, there is no `print`, and log
       calls use no f-strings.
@@ -252,7 +246,7 @@ For every feature change, do these steps:
      renumber an ID, because other pages link to it.
    - Start with one plain sentence that says what the story is about.
    - Then write `As a <persona>, I want <goal>, so that <benefit>`, with one persona:
-     Administrator, Project manager, Employee, Offer editor or Desktop user.
+     Administrator, Project manager, Employee or Offer editor.
    - Write each acceptance criterion as Given, When, Then. Each one must match a
      concrete rule in the code, e.g. a `Field(max_length=...)` limit, a guard, a
      filter, a calculation or an error message.

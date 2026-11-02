@@ -186,8 +186,12 @@ def number(value: Any, *, right: bool = True, **style: Any) -> rx.Component:
     )
 
 
-def inspector(*children: rx.Component, label: str) -> rx.Component:
-    return rx.el.aside(*children, class_name="aq-inspector", aria_label=label)
+def inspector(*children: rx.Component, label: str, wide: Any = False) -> rx.Component:
+    return rx.el.aside(
+        *children,
+        class_name=rx.cond(wide, "aq-inspector aq-inspector-wide", "aq-inspector"),
+        aria_label=label,
+    )
 
 
 def inspector_section(title: Any, *children: rx.Component) -> rx.Component:

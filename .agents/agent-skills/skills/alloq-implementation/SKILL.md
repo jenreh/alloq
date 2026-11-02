@@ -103,7 +103,7 @@ states in the four packages. For each new or changed handler pick exactly one ca
    `@requires_editor` from `alloq_commons.access`. This is the default; the guard
    test rejects `@requires_admin` there.
 1b. **Administration state** (`DepartmentState`, `RoleState`, `HolidayState`,
-   `DatabaseAccessState`, listed in `ADMIN_STATES`) → `@requires_admin` from
+   listed in `ADMIN_STATES`) → `@requires_admin` from
    `appkit_user.authentication.decorators`.
 2. **Read-only load the employee role may also run** → `@requires_viewer` from
    `alloq_commons.access`, and add the name to `VIEWER_HANDLERS`. It must not write.
@@ -172,8 +172,7 @@ Recipes and snippets: `references/testing.md`.
 - [ ] `tests/test_handler_authorization.py` and `tests/test_component_boundaries.py` green
 - [ ] Every new handler has its guard or its allowlist entry
 - [ ] New migration is hand-written, uses `op.batch_alter_table` for column changes,
-      has a real `downgrade()`, and its revision is added to `KNOWN_REVISIONS` in
-      `app/desktop/schema.py`
+      has a real `downgrade()`
 - [ ] No touched file grew past 1000 lines; files already over it did not grow
       without reason (see `references/pitfalls.md`)
 - [ ] German UI text, theme tokens, no `print`, no f-strings in logs

@@ -7,6 +7,9 @@ reflex:
   backend_port: 3030
   workers: 2
   frontend_path: /alloq
+  # Reverse proxies in front of the backend. 0 ignores X-Forwarded-For. Behind a
+  # proxy set the proxy count, or the login throttle sees one shared address.
+  trusted_proxy_hops: 0
 
 app:
   version: 2.1.2
@@ -16,7 +19,8 @@ app:
   backend_timeout: 180 # seconds
   # Reverse-proxy addresses allowed to set X-Forwarded-Proto (unset: trust all).
   # Set it where the backend port is reachable without the proxy; behind the
-  # platform container the backend listens on loopback only.
+  # platform container the backend listens on loopback only. Production reads
+  # the addresses from Key Vault (config.prod.yaml).
   # trusted_proxies: ["10.0.0.4"]
 
   database:
@@ -30,15 +34,63 @@ app:
     max_overflow: 30 # change only when needed
     echo: False # Set to True to enable SQL logging
 
+  offer_workshop:
+    worker_enabled: false # true on the server that runs the background jobs
+    ai_provider: azure # demo: drafts from source sentences, no language model
+    worker_concurrency: 2
+    poll_interval_seconds: 2
+    lease_seconds: 300
+    max_attempts: 3
+    max_blob_bytes: 52428800 # 50 MB
+    azure_openai:
+      endpoint: ""
+      # Never put the key here: set the secret reference (secret:<name>) in the
+      # environment profile, or APP__OFFER_WORKSHOP__AZURE_OPENAI__API_KEY.
+      api_key: ""
+      api_version: 2025-04-01-preview
+      chat_deployment: ""
+      transcription_deployment: ""
+
   authentication:
-    session_timeout: 25 # minutes
-    auth_token_refresh_delta: 10 # minutes
     # Placeholders. Production derives the public address, the OAuth callback
     # URLs and the Reflex URLs from PUBLIC_BASE_URL and PUBLIC_PATH_PREFIX
     # (app/public_url.py) and refuses to start without PUBLIC_BASE_URL.
     # Local profiles set their own address.
     server_url: http://localhost
     server_port: 0
+
+    auth_token_refresh_delta: 10 # minutes
+    session_timeout: 25 # minutes
+    session_monitor_interval_seconds: 60 # seconds
+    session_filter_enabled: true # guard WS events, page loads and REST routes
+    # Fail closed: local profiles that serve plain http on a non-localhost host
+    # set false; production refuses to start with false (app/configuration.py).
+    session_cookie_secure: true
+    # fnmatch glob allowlist of routes reachable without a session.
+    # Everything not listed here is default-deny.
+    public_routes:
+      - /login
+      - /password-reset
+      - /password-reset/confirm
+      - /oauth/*/callback
+
+    # Failed password logins, counted in auth_login_throttle (appkit-user >= 1.18).
+    # The client limit is higher because users of one office share an address.
+    login_rate_limit:
+      enabled: true
+      max_attempts: 5 # per email
+      max_attempts_per_client: 20 # per client address
+      window_minutes: 15
+      lockout_minutes: 15
+
+    password_reset:
+      token_expiry_minutes: 30
+      max_requests_per_hour: 3
+      # The emails state the token lifetime; change it there as well.
+      templates_dir: ./assets/email-templates
+
+    # email_provider is set per profile: azure in prod, mock everywhere else.
+    # Without a provider, password reset emails are not sent.
 
     oauth_providers:
       # - provider: "github"

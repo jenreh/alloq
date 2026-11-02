@@ -118,7 +118,7 @@ def project_card(project: ObjectVar[Project]) -> rx.Component:
                                         delete_dialog(
                                             title="Projekt löschen",
                                             content=project.name_de,
-                                            on_click=ProjectState.delete_project(  # ty: ignore[invalid-argument-type]
+                                            on_click=ProjectState.delete_project(
                                                 project.id
                                             ),
                                             icon_button=True,
@@ -261,6 +261,6 @@ def project_card(project: ObjectVar[Project]) -> rx.Component:
         },
         on_click=[
             LoadingState.set_is_loading(True),
-            ProjectState.select_project(project.id),  # ty: ignore[invalid-argument-type]
+            ProjectState.select_project(project.id),
         ],
     )

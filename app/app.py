@@ -1,15 +1,19 @@
 import reflex as rx
 from alloq_commons import theme
 from alloq_commons.components.shell import SIDEBAR_SCRIPT
-from alloq_commons.desktop import is_desktop
 from alloq_dashboard.pages import create_dashboard_page
+from alloq_offer.admin.pages import create_offer_admin_page
 from alloq_offer.pages import create_offers_page
+from alloq_offer.workshop.image_api import router as offer_image_router
+from alloq_offer.workshop.pages import create_offer_workshop_page
+from alloq_offer.workshop.worker import offer_workshop_worker
 from alloq_project.pages import create_planning_page, create_projects_overview_page
 from alloq_team.pages import create_team_overview_page
+from fastapi import FastAPI
 from starlette.types import ASGIApp
 
 import appkit_mantine as am
-from appkit_commons.middleware import ForceHTTPSMiddleware
+from appkit_commons.middleware import ForceHTTPSMiddleware, SecurityHeadersMiddleware
 from appkit_user.authentication import add_session_guard, install_session_filter
 from appkit_user.authentication.pages import (  # noqa: F401
     azure_oauth_callback_page,
@@ -22,8 +26,6 @@ from appkit_user.user_management.pages import (
 
 from app.components.sidebar import sidebar
 from app.configuration import configure
-from app.desktop.entra import EntraSignIn, install_db_auth
-from app.desktop.login_state import get_sign_in
 from app.pages.daily_rates import create_daily_rates_page
 from app.pages.departments import create_departments_page
 from app.pages.holidays import create_holidays_page
@@ -35,10 +37,6 @@ from app.pages.users import create_users_page
 from app.styles import base_style, base_stylesheets
 
 am.set_app_theme(theme.MANTINE_THEME)
-
-if is_desktop() and isinstance(sign_in := get_sign_in(), EntraSignIn):
-    # Every database connection signs in with the user's Entra token.
-    install_db_auth(sign_in)
 
 
 def auth_page_logos() -> dict[str, str]:
@@ -63,9 +61,11 @@ create_daily_rates_page(sidebar())
 create_departments_page(sidebar())
 create_holidays_page(sidebar())
 create_industries_page(sidebar())
+create_offer_admin_page(sidebar())
 create_team_overview_page(sidebar())
 create_projects_overview_page(sidebar())
 create_offers_page(sidebar())
+create_offer_workshop_page(sidebar())
 create_planning_page(sidebar(), route="/")
 create_planning_page(sidebar())
 create_dashboard_page(sidebar(), route="/dashboard")
@@ -76,16 +76,38 @@ def add_https_middleware(asgi_app: ASGIApp) -> ASGIApp:
     return ForceHTTPSMiddleware(asgi_app, trusted_hosts=configure().app.trusted_proxies)
 
 
+def add_security_headers(asgi_app: ASGIApp) -> ASGIApp:
+    """Add the security response headers (inside the HTTPS scheme fix)."""
+    return SecurityHeadersMiddleware(asgi_app)
+
+
+def create_rest_api() -> FastAPI:
+    """REST routes; Reflex mounts its own backend below them.
+
+    Reflex applies the transformers in order, so the session guard and the
+    HTTPS middleware wrap these routes too. No docs: the API is internal.
+    """
+    api = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+    api.include_router(offer_image_router, prefix=rx.config.get_config().backend_path)
+    return api
+
+
 app = rx.App(
     head_components=[
         rx.el.link(rel="icon", href=rx.asset("favicon.ico"), type="image/x-icon"),
         rx.el.style(theme.GLOBAL_CSS),
-        *(rx.script(script) for script in (*theme.HEAD_SCRIPTS, SIDEBAR_SCRIPT)),
+        rx.script(SIDEBAR_SCRIPT),
     ],
     stylesheets=base_stylesheets,
     style=base_style,
     toaster=rx.toast.provider(close_button=True),
-    api_transformer=[add_session_guard, add_https_middleware],
+    api_transformer=[
+        create_rest_api(),
+        add_session_guard,
+        add_security_headers,
+        add_https_middleware,
+    ],
 )
 
 install_session_filter(app)
+app.register_lifespan_task(offer_workshop_worker)

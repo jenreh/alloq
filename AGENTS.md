@@ -159,3 +159,8 @@ Full rules in **python-coding** skill. Key:
 | `frontend-design` | Create distinctive, production-grade frontend interfaces |
 | `appkit-mantine-reference` | Full API for appkit_mantine components — inputs, layout, overlays, charts, data display, navigation |
 | `appkit-commons` | app configuration, service registry, DB repository pattern, DB entities, DB custom column types, scheduler |
+
+<!-- entire-agent:begin -->
+Read .entire/agent-guide.md for this repository's workflow, source inspection, and verification guidance.
+@.entire/agent-guide.md
+<!-- entire-agent:end -->

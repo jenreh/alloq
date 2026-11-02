@@ -373,7 +373,7 @@ def _status_form() -> rx.Component:
             ),
             mn.button(
                 "Status erfassen",
-                on_click=ProjectState.add_project_status(  # ty: ignore[invalid-argument-type]
+                on_click=ProjectState.add_project_status(
                     ProjectState.status_form_version
                 ),
                 size="sm",

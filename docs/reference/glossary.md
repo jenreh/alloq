@@ -96,7 +96,6 @@ alphabetically.
 | "Anmelden" | Sign in | Login page, [AUTH-01](../features/sign-in.md#auth-01) |
 | "Benutzer" | Users | Sidebar entry and page title, [ADM-01](../features/users-and-access.md#adm-01) |
 | "Darstellung" | Appearance, with "Dunkel" [dark], "Hell" [light] and "System" | User menu, [AUTH-13](../features/sign-in.md#auth-13) |
-| "Datenbankzugriff geben" / "Datenbankzugriff entziehen" | Grant or revoke database access | Users page in the desktop app, [DESK-07](../features/desktop.md#desk-07) |
 | "Feiertage" | Public holidays | Sidebar entry and page title, [ADM-10](../features/master-data.md#adm-10) |
 | "Freie Kapazität" | Free capacity per role | Sidebar section, [DASH-15](../features/portfolio-capacity.md#dash-15) |
 | "Mit Microsoft anmelden" | Sign in with Microsoft | Login page, [AUTH-02](../features/sign-in.md#auth-02) |

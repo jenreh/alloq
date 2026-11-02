@@ -13,7 +13,6 @@ source_paths:
   - components/alloq-project/pyproject.toml
   - components/alloq-dashboard/pyproject.toml
   - configuration/config.yaml
-  - tauri/src-tauri/src/main.rs
 last_verified_commit: "cb9d5b0 (v2.0.4)"
 ---
 
@@ -21,8 +20,8 @@ last_verified_commit: "cb9d5b0 (v2.0.4)"
 
 Alloq is a resource planning app for software teams. It is written in Python with
 [Reflex](https://reflex.dev) 0.10.0, which builds a React frontend from Python code
-and runs the event handlers in a Python backend. The data lives in PostgreSQL. The
-same code runs as a web app and as a macOS desktop app.
+and runs the event handlers in a Python backend. The data lives in PostgreSQL.
+Alloq runs on a server, and people open it in a browser.
 
 This page describes the system from the outside in. It uses the C4 levels:
 
@@ -46,9 +45,6 @@ Four kinds of people use Alloq. The personas come from the roles in
   administration.
 - **Employee.** A user with the role `employee` ("Mitarbeiter" [employee]).
   Employees can only read the projects page and the resource planning.
-- **Desktop user.** Any of the three above who uses the desktop app. The desktop
-  user signs in with Microsoft Entra ID and connects to Postgres with a personal
-  token.
 
 ![System context: users, Alloq, Microsoft Entra ID and PostgreSQL](../diagrams/system-context.drawio.png)
 
@@ -56,33 +52,26 @@ Four kinds of people use Alloq. The personas come from the roles in
 
 The base configuration
 [`configuration/config.yaml`](../../configuration/config.yaml) lists one OAuth
-provider, `azure`. A GitHub provider is in the file but commented out. The desktop
-sign-in is described on the [desktop page](./desktop.md).
+provider, `azure`. A GitHub provider is in the file but commented out.
 
 ## Containers
 
-Alloq has two ways to run the same Python code.
+Alloq is one web app with one database.
 
 - **Web app.** The Reflex backend runs on a server (backend port `3030` in
   `config.yaml`, `workers: 2`). It serves the compiled frontend below the path
   `/alloq` (`frontend_path`). Users open it in a browser. The browser talks to the
   backend over a websocket. Every click that needs data sends an event over this
   websocket to a state class in the backend.
-- **Desktop app.** A Tauri shell in [`tauri/`](../../tauri/src-tauri/src/main.rs)
-  starts the same Python backend inside the app process. `main.rs` runs it on a
-  background thread bound to `127.0.0.1:18442` (`BACKEND_PORT`) and shows the
-  prebuilt frontend in a webview. The app carries no secrets. Each person signs in
-  with Entra ID and connects to Postgres with their own token.
 - **PostgreSQL.** One database holds the Alloq tables and the appkit-user tables.
   The web app connects with the credentials from the `secret:` entries in
-  `config.yaml`. The desktop app connects with the Entra token of the signed-in
-  person.
+  `config.yaml`.
 
-![Deployment: the web app and the desktop app](../diagrams/deployment-modes.drawio.png)
+![Deployment: the web app and its database](../diagrams/deployment.drawio.png)
 
-[Editable source: deployment-modes.drawio](https://github.com/jenreh/alloq/blob/main/docs/diagrams/deployment-modes.drawio)
+[Editable source: deployment.drawio](https://github.com/jenreh/alloq/blob/main/docs/diagrams/deployment.drawio)
 
-The configuration profiles that select these modes are listed in the
+The configuration profiles are listed in the
 [configuration reference](../reference/configuration.md).
 
 ## Components: the package split
@@ -93,7 +82,7 @@ workspace is declared in [`pyproject.toml`](../../pyproject.toml) under
 
 | Package | Path | What it holds |
 | --- | --- | --- |
-| Host app | [`app/`](../../app/app.py) | Entry point `app/app.py`, admin pages in `app/pages/`, the sidebar in `app/components/sidebar.py`, desktop code in `app/desktop/`, configuration in `app/configuration.py` |
+| Host app | [`app/`](../../app/app.py) | Entry point `app/app.py`, admin pages in `app/pages/`, the sidebar in `app/components/sidebar.py`, configuration in `app/configuration.py` |
 | `alloq-commons` | [`components/alloq-commons`](../../components/alloq-commons/src/alloq_commons/__init__.py) | Entities, models, repositories, shared services (`utilization.py`, `quick_project.py`, `daily_rate_pricing.py`), shared UI (`shell.py`, `list_view.py`, `toolbar.py`, `excel_grid/`), `roles.py`, `access.py`, `theme.py`, and the department, role, daily rate and holiday states |
 | `alloq-team` | [`components/alloq-team`](../../components/alloq-team/src/alloq_team/pages.py) | Team page (`/team`), employee table, cards, inspector and form, `TeamState` |
 | `alloq-project` | [`components/alloq-project`](../../components/alloq-project/src/alloq_project/pages.py) | Projects page (`/projects`), planning page (`/` and `/plan`), planning grid, Gantt view, plan modal, forecast and plan distribution services |
@@ -157,8 +146,7 @@ The steps in the code:
    [`shell.py`](../../components/alloq-commons/src/alloq_commons/components/shell.py).
    `app_page` registers the route through appkit's `authenticated_page`. It wraps
    the content in the app window (sidebar, toolbar, pane) and sets the `on_load`
-   handlers. On the desktop, `desktop_handlers` adds `SplashState.finish` to the end
-   of the list.
+   handlers.
 2. **Page load guard.** `app/app.py` passes `add_session_guard` to
    `rx.App(api_transformer=...)`. This appkit middleware redirects a page load
    without a valid session to `/login`. Its own docstring says it only sees page
@@ -193,8 +181,9 @@ two lists:
 
 - `PLANNING_ITEMS`: "Übersicht" [overview] `/dashboard`, "Ressourcenplanung"
   [resource planning] `/plan`, "Projekte" [projects] `/projects`, "Team" `/team`.
-- `ADMIN_ITEMS`: "Benutzer" [users], "Rollen" [roles], "Tagessätze" [daily rates],
-  "Abteilungen" [departments], "Feiertage" [public holidays], all below `/admin/`.
+- `ADMIN_ITEMS`: "Benutzer" [users], "Rollen" [roles], "Abteilungen" [departments],
+  "Branchen" [industries], "Angebote" [offers: templates, chapter blocks and AI
+  prompts], "Feiertage" [public holidays], all below `/admin/`.
 
 `VIEWER_ROUTES` holds `/plan` and `/projects`, the two pages the employee role may
 read. The route `/` shows the same planning page as `/plan`.

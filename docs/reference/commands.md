@@ -71,7 +71,7 @@ namespace.
 | --- | --- | --- |
 | `default` | Runs `task --list`. | Runs when you call `task` with no target. |
 | `init` | Installs and pins the Python version from `requires-python` in `pyproject.toml` with `uv python install` and `uv python pin`. Then it runs `uv sync`, installs the `pre-commit` tool if it is missing, runs `git init -b main` if the folder is not a Git repository, runs `pre-commit install` and runs `alembic upgrade head`. | Touches the database. The database settings must work before you run it, so set up `.env` and the database first. `uv python pin` writes `.python-version`. |
-| `sync` | Runs `uv sync`. | Installs the `dev` and `desktop` dependency groups, because `pyproject.toml` sets them as default groups. |
+| `sync` | Runs `uv sync`. | Installs the `dev` dependency group, because `pyproject.toml` sets it as the default group. |
 | `clean` | Deletes `__pycache__/`, `.cache/`, `.state/`, `.web/`, `dist/`, `build/`, `coverage.xml` and `.coverage`, then all `__pycache__` folders and `.pyc` files below the root. | Errors are ignored. Deleting `.web/` means the next `reflex run` builds the frontend again. |
 
 ## QA tasks (`qa`, flattened)
@@ -87,41 +87,15 @@ see [Testing](./testing.md).
 | `format` | Runs `uv run ruff check --fix .` and then `uv run ruff format .`. | Changes files in place. |
 | `typecheck` | Runs `uv run ty check app`. | ty is not in the `dev` dependency group or in `uv.lock`. `uv run` then falls back to a `ty` on your `PATH`, so you must install ty yourself, e.g., with `uv tool install ty`. |
 
-## Reflex and desktop tasks (`reflex`, flattened)
+## Reflex tasks (`reflex`, flattened)
 
 Source: [`taskfiles/Taskfile.reflex.yml`](../../taskfiles/Taskfile.reflex.yml).
-
-### Web app
 
 | Target | What it does | Notes |
 | --- | --- | --- |
 | `run` | Runs `uv run reflex run`. | Starts the frontend and the backend in development mode with hot reload. |
 | `run:debug` | Runs `uv run reflex run --loglevel=debug`. | Same as `run`, with debug logging from Reflex. |
 | `run:prod` | Runs `uv run reflex run --env prod --single-port`. | Production mode serves the frontend and the backend on one port. It does not run migrations. The container uses `start.sh` instead, which is described below. |
-
-### Desktop app
-
-The desktop tasks run `scripts/desktop.py` with the `desktop` dependency group
-(`reflex-desktop`). They need Rust and the Xcode command line tools. The
-`desktop:build` task also needs `cargo-tauri`, and `desktop:doctor` checks for it. Fill in
-`configuration/config.desktop.yaml` before you start. The architecture page
-[Desktop app](../architecture/desktop.md) explains how the desktop app works.
-
-Most desktop tasks set these environment variables:
-
-- `ALLOQ_DESKTOP=1` turns on the desktop profile and the desktop plugin in
-  `rxconfig.py`.
-- `CARGO_TARGET_DIR` points to `tauri/src-tauri/target`, so all Rust build output
-  goes to one folder.
-
-| Target | What it does | Notes |
-| --- | --- | --- |
-| `desktop:requirements` | Runs `uv export` to write `requirements.txt` from `uv.lock`, without dev packages, hashes or the project itself. | Generates `requirements.txt`. Task skips it when `uv.lock` and `pyproject.toml` have not changed. The embedded Python runtime installs from this file. |
-| `desktop:doctor` | Runs `scripts/desktop.py doctor --bundle`. | Checks the native toolchain, including the tools that the installer build needs. |
-| `desktop:dev` | Runs `scripts/desktop.py dev`. | Starts the desktop app with hot reload against your local database. It uses the fake Microsoft sign-in from `app/desktop/fake.py`. Set `ALLOQ_FAKE_ENTRA_EMAIL` to sign in as a different user. The taskfile has a default address for it. |
-| `desktop:run` | Runs `desktop:requirements` first, then `scripts/desktop.py run --debug`. | Builds a debug app and opens the native window. |
-| `desktop:build` | Runs `desktop:requirements` first, then `scripts/desktop.py build --release --bundle`. | Builds the release app and the macOS installer (`.dmg`). The comment in the taskfile says that the bundle contains Python 3.14 and the YAML profiles, and no secrets. |
-| `desktop:clean` | Runs `rm -rf tauri/src-tauri/target`. | Deletes all Tauri build output. The next desktop build compiles everything again. |
 
 ## Database tasks (`db`, namespace `db:`)
 

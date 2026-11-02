@@ -1,7 +1,9 @@
 """Tests for hand-written Alembic data migrations (run offline on SQLite)."""
 
+import hashlib
 import importlib.util
 import json
+import zipfile
 from collections.abc import Iterator
 from datetime import date, timedelta
 from pathlib import Path
@@ -472,3 +474,466 @@ def test_offer_project_migration_adds_and_drops_the_link() -> None:
         removed = {c["name"] for c in sa.inspect(conn).get_columns("offers")}
     assert "project_id" in added
     assert "project_id" not in removed
+
+
+# b3c4d5e6f7a8 — offer workshop foundation tables
+def test_offer_workshop_base_migration_creates_and_drops_tables() -> None:
+    migration = _load("2026_10_23_offer_workshop_base.py")
+    assert migration.down_revision == "a2b3c4d5e6f7"
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    tables = {"offer_workspaces", "offer_blobs", "offer_jobs"}
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        _run(migration, "upgrade", conn)
+        created = set(sa.inspect(conn).get_table_names())
+        job_indexes = {i["name"] for i in sa.inspect(conn).get_indexes("offer_jobs")}
+        _run(migration, "downgrade", conn)
+        dropped = set(sa.inspect(conn).get_table_names())
+    assert tables <= created
+    assert "ix_offer_jobs_status_run_after" in job_indexes
+    assert not tables & dropped
+
+
+# c4d5e6f7a8b9 — offer workshop sources
+def test_offer_sources_migration_creates_and_drops_tables() -> None:
+    base = _load("2026_10_23_offer_workshop_base.py")
+    migration = _load("2026_10_24_offer_sources.py")
+    assert migration.down_revision == base.revision
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    tables = {"offer_sources", "offer_source_blocks"}
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        _run(base, "upgrade", conn)
+        _run(migration, "upgrade", conn)
+        created = set(sa.inspect(conn).get_table_names())
+        indexes = {i["name"] for i in sa.inspect(conn).get_indexes("offer_sources")}
+        _run(migration, "downgrade", conn)
+        dropped = set(sa.inspect(conn).get_table_names())
+    assert tables <= created
+    assert "ix_offer_sources_offer_sha256" in indexes
+    assert not tables & dropped
+
+
+# d5e6f7a8b9c0 — offer workshop story map
+def test_offer_story_map_migration_creates_and_drops_tables() -> None:
+    base = _load("2026_10_23_offer_workshop_base.py")
+    sources = _load("2026_10_24_offer_sources.py")
+    migration = _load("2026_10_25_offer_story_map.py")
+    assert migration.down_revision == sources.revision
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    tables = set(migration.TABLES)
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        _run(base, "upgrade", conn)
+        _run(sources, "upgrade", conn)
+        _run(migration, "upgrade", conn)
+        created = set(sa.inspect(conn).get_table_names())
+        uniques = {
+            u["name"] for u in sa.inspect(conn).get_unique_constraints("offer_stories")
+        }
+        _run(migration, "downgrade", conn)
+        dropped = set(sa.inspect(conn).get_table_names())
+    assert tables <= created
+    assert "uq_offer_stories_offer_key" in uniques
+    assert not tables & dropped
+
+
+# e6f7a8b9c0d1 — offer workshop chapters
+def test_offer_chapters_migration_creates_and_drops_tables() -> None:
+    base = _load("2026_10_23_offer_workshop_base.py")
+    migration = _load("2026_10_26_offer_chapters.py")
+    assert migration.down_revision == "d5e6f7a8b9c0"
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    tables = set(migration.TABLES)
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        _run(base, "upgrade", conn)
+        _run(migration, "upgrade", conn)
+        created = set(sa.inspect(conn).get_table_names())
+        uniques = {
+            u["name"] for u in sa.inspect(conn).get_unique_constraints("offer_chapters")
+        }
+        _run(migration, "downgrade", conn)
+        dropped = set(sa.inspect(conn).get_table_names())
+    assert tables <= created
+    assert "uq_offer_chapters_key" in uniques
+    assert not tables & dropped
+
+
+# f7a8b9c0d1e2 — offer workshop findings and commercial values
+def test_offer_findings_migration_adds_columns_and_table() -> None:
+    base = _load("2026_10_23_offer_workshop_base.py")
+    migration = _load("2026_10_27_offer_findings.py")
+    assert migration.down_revision == "e6f7a8b9c0d1"
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        _run(base, "upgrade", conn)
+        _run(migration, "upgrade", conn)
+        inspector = sa.inspect(conn)
+        columns = {c["name"] for c in inspector.get_columns("offer_workspaces")}
+        uniques = {
+            u["name"] for u in inspector.get_unique_constraints("offer_findings")
+        }
+        _run(migration, "downgrade", conn)
+        after = sa.inspect(conn)
+        left = {c["name"] for c in after.get_columns("offer_workspaces")}
+        tables = set(after.get_table_names())
+    assert set(migration.WORKSPACE_COLUMNS) <= columns
+    assert "uq_offer_findings_fingerprint" in uniques
+    assert not set(migration.WORKSPACE_COLUMNS) & left
+    assert "offer_findings" not in tables
+
+
+# ---------------------------------------------------------------------------
+# a8b9c0d1e2f3 — offer workshop snapshots and exports
+# ---------------------------------------------------------------------------
+
+
+def test_offer_exports_migration_creates_and_drops_tables() -> None:
+    base = _load("2026_10_23_offer_workshop_base.py")
+    migration = _load("2026_10_28_offer_exports.py")
+    assert migration.down_revision == "f7a8b9c0d1e2"
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        _run(base, "upgrade", conn)
+        _run(migration, "upgrade", conn)
+        inspector = sa.inspect(conn)
+        tables = set(inspector.get_table_names())
+        uniques = {
+            u["name"] for u in inspector.get_unique_constraints("offer_snapshots")
+        }
+        _run(migration, "downgrade", conn)
+        left = set(sa.inspect(conn).get_table_names())
+    assert {"offer_snapshots", "offer_exports"} <= tables
+    assert "uq_offer_snapshots_number" in uniques
+    assert not {"offer_snapshots", "offer_exports"} & left
+
+
+# ---------------------------------------------------------------------------
+# b9c0d1e2f3a4 — offer story description
+# ---------------------------------------------------------------------------
+
+
+def test_offer_story_description_migration_adds_and_drops_the_column() -> None:
+    base = _load("2026_10_23_offer_workshop_base.py")
+    sources = _load("2026_10_24_offer_sources.py")
+    story_map = _load("2026_10_25_offer_story_map.py")
+    migration = _load("2026_10_29_offer_story_description.py")
+    assert migration.down_revision == "a8b9c0d1e2f3"
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        for step in (base, sources, story_map, migration):
+            _run(step, "upgrade", conn)
+        columns = {c["name"] for c in sa.inspect(conn).get_columns("offer_stories")}
+        _run(migration, "downgrade", conn)
+        left = {c["name"] for c in sa.inspect(conn).get_columns("offer_stories")}
+    assert "description" in columns
+    assert "description" not in left
+
+
+# ---------------------------------------------------------------------------
+# c0d1e2f3a4b5 — offer story scope removed
+# ---------------------------------------------------------------------------
+
+
+def test_offer_story_scope_migration_drops_and_restores_the_column() -> None:
+    steps = [
+        _load(name)
+        for name in (
+            "2026_10_23_offer_workshop_base.py",
+            "2026_10_24_offer_sources.py",
+            "2026_10_25_offer_story_map.py",
+            "2026_10_29_offer_story_description.py",
+        )
+    ]
+    migration = _load("2026_10_30_offer_story_scope_removed.py")
+    assert migration.down_revision == "b9c0d1e2f3a4"
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        for step in (*steps, migration):
+            _run(step, "upgrade", conn)
+        columns = {c["name"] for c in sa.inspect(conn).get_columns("offer_stories")}
+        _run(migration, "downgrade", conn)
+        restored = {c["name"]: c for c in sa.inspect(conn).get_columns("offer_stories")}
+    assert "scope" not in columns
+    assert "scope" in restored
+    assert not restored["scope"]["nullable"]
+
+
+# ---------------------------------------------------------------------------
+# d1e2f3a4b5c6 — offer templates, chapter blocks and prompts in the database
+# ---------------------------------------------------------------------------
+
+WORKSHOP_STEPS = (
+    "2026_10_23_offer_workshop_base.py",
+    "2026_10_24_offer_sources.py",
+    "2026_10_25_offer_story_map.py",
+    "2026_10_26_offer_chapters.py",
+    "2026_10_27_offer_findings.py",
+    "2026_10_28_offer_exports.py",
+    "2026_10_29_offer_story_description.py",
+    "2026_10_30_offer_story_scope_removed.py",
+)
+
+
+@pytest.fixture(scope="module")
+def templates() -> ModuleType:
+    return _load("2026_10_31_offer_templates.py")
+
+
+def test_templates_follow_scope_removal(templates: ModuleType) -> None:
+    assert templates.down_revision == "c0d1e2f3a4b5"
+
+
+def test_template_seed_content_is_valid(templates: ModuleType) -> None:
+    from alloq_offer.workshop.content.schema import parse_content  # noqa: PLC0415
+
+    chapters = templates.payload()["chapters"]
+    assert [c["key"] for c in chapters] == [b["key"] for b in templates.BLOCKS]
+    for chapter in chapters:
+        content = parse_content(chapter["default_content"])
+        assert content.chapter_type == chapter["chapter_type"]
+    assert set(templates.PROMPTS) == {
+        "chapter",
+        "map",
+        "map_additions",
+        "briefing",
+        "review",
+    }
+    names = zipfile.ZipFile(templates.LAYOUT_PATH).namelist()
+    assert not [n for n in names if "comments" in n or "people" in n or "custom" in n]
+
+
+def _workshop_with_chapters(conn: Connection) -> None:
+    for name in WORKSHOP_STEPS:
+        _run(_load(name), "upgrade", conn)
+    conn.execute(
+        sa.text(
+            "INSERT INTO offer_chapters (id, offer_id, chapter_key, revision, "
+            "protected, needs_review, review_reason, created, updated) VALUES "
+            "(1, 1, 'verguetung', 1, 0, 0, '', '2026-10-01', '2026-10-01'), "
+            "(2, 1, 'unbekannt', 1, 0, 0, '', '2026-10-01', '2026-10-01')"
+        )
+    )
+
+
+def test_templates_migration_seeds_and_backfills(templates: ModuleType) -> None:
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        conn.execute(sa.text("INSERT INTO offers (id) VALUES (1)"))
+        _workshop_with_chapters(conn)
+        _run(templates, "upgrade", conn)
+        chapters = conn.execute(
+            sa.text(
+                "SELECT chapter_key, position, title, chapter_type, required, "
+                "block_key, settings FROM offer_chapters ORDER BY id"
+            )
+        ).all()
+        prompts = conn.execute(
+            sa.text("SELECT name, version FROM offer_prompts WHERE active")
+        ).all()
+        versions = conn.execute(
+            sa.text("SELECT number, payload FROM offer_template_versions")
+        ).all()
+        outline = conn.scalar(sa.text("SELECT count(*) FROM offer_template_chapters"))
+        nullable = {
+            c["name"]: c["nullable"]
+            for c in sa.inspect(conn).get_columns("offer_chapters")
+        }
+        with pytest.raises(IntegrityError):
+            conn.execute(
+                sa.text(
+                    "INSERT INTO offer_prompts (name, version, text, active, author, "
+                    "created, updated) VALUES ('map', 2, 'x', 1, '', "
+                    "'2026-10-01', '2026-10-01')"
+                )
+            )
+    verguetung, unknown = chapters
+    assert verguetung[:6] == (
+        "verguetung",
+        9,
+        "Vergütung",
+        "calc",
+        1,
+        "verguetung",
+    )
+    assert json.loads(verguetung[6])["checks"] == ["commercials_confirmed"]
+    assert unknown[1:6] == (len(templates.BLOCKS), "unbekannt", "prose", 0, None)
+    assert sorted(prompts) == sorted((name, 1) for name in templates.PROMPTS)
+    assert versions[0][0] == 1
+    assert json.loads(versions[0][1]) == templates.payload()
+    assert outline == len(templates.BLOCKS)
+    assert not any(nullable[name] for name in templates.CHAPTER_COLUMNS)
+
+
+def test_templates_migration_downgrade_drops_tables_and_columns(
+    templates: ModuleType,
+) -> None:
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        _workshop_with_chapters(conn)
+        _run(templates, "upgrade", conn)
+        _run(templates, "downgrade", conn)
+        tables = set(sa.inspect(conn).get_table_names())
+        columns = {c["name"] for c in sa.inspect(conn).get_columns("offer_chapters")}
+        blobs = conn.scalar(sa.text("SELECT count(*) FROM offer_blobs"))
+    assert not set(templates.NEW_TABLES) & tables
+    assert not {"position", "settings", "removed_at", "block_key"} & columns
+    assert blobs == 0
+
+
+def test_templates_migration_reuses_and_keeps_shared_layout_blob(
+    templates: ModuleType,
+) -> None:
+    layout = templates.LAYOUT_PATH.read_bytes()
+    digest = hashlib.sha256(layout).hexdigest()
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        conn.execute(sa.text("INSERT INTO offers (id) VALUES (1)"))
+        _workshop_with_chapters(conn)
+        conn.execute(
+            sa.text(
+                "INSERT INTO offer_blobs (id, sha256, size, mime, data, created, "
+                "updated) VALUES (5, :sha, 1, 'x', :data, '2026-10-01', "
+                "'2026-10-01')"
+            ),
+            {"sha": digest, "data": layout},
+        )
+        conn.execute(
+            sa.text(
+                "INSERT INTO offer_sources (offer_id, kind, title, filename, mime, "
+                "blob_id, sha256, version, status, status_detail, included, "
+                "created_by, created, updated) VALUES (1, 'docx', 'Vorlage', "
+                "'a.docx', 'x', 5, :sha, 1, 'nutzbar', '', 1, '', '2026-10-01', "
+                "'2026-10-01')"
+            ),
+            {"sha": digest},
+        )
+        _run(templates, "upgrade", conn)
+        used = conn.scalar(
+            sa.text("SELECT layout_blob_id FROM offer_template_versions")
+        )
+        _run(templates, "downgrade", conn)
+        left = conn.scalar(sa.text("SELECT count(*) FROM offer_blobs"))
+    assert used == 5
+    assert left == 1
+
+
+# ---------------------------------------------------------------------------
+# e2f3a4b5c6d7 — the seeded layout is replaced by the cleaned file
+# ---------------------------------------------------------------------------
+
+
+def test_layout_clean_replaces_an_old_seed_blob(templates: ModuleType) -> None:
+    clean = _load("2026_11_01_offer_template_layout_clean.py")
+    assert clean.down_revision == "d1e2f3a4b5c6"
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    sa.Table("offers", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        _workshop_with_chapters(conn)
+        _run(templates, "upgrade", conn)
+        conn.execute(
+            sa.text("UPDATE offer_blobs SET sha256 = :old"),
+            {"old": clean.OLD_LAYOUTS[0]},
+        )
+        _run(clean, "upgrade", conn)
+        blobs = conn.execute(sa.text("SELECT id, sha256 FROM offer_blobs")).all()
+        used = conn.scalar(
+            sa.text("SELECT layout_blob_id FROM offer_template_versions")
+        )
+        draft = conn.scalar(sa.text("SELECT draft_layout_blob_id FROM offer_templates"))
+        again = clean.replace_layouts(conn, clean.LAYOUT_PATH.read_bytes())
+        _run(clean, "downgrade", conn)
+    digest = hashlib.sha256(clean.LAYOUT_PATH.read_bytes()).hexdigest()
+    assert [sha for _, sha in blobs] == [digest]
+    assert used == draft == blobs[0][0]
+    assert again == 0
+
+
+@pytest.fixture(scope="module")
+def drop_app_role() -> ModuleType:
+    return _load("2026_11_02_drop_desktop_database_role.py")
+
+
+def _executed_sql(migration: ModuleType, direction: str, dialect: str) -> list[str]:
+    """SQL a role migration sends through a fake bind of the given dialect."""
+    fake_op = MagicMock()
+    bind = fake_op.get_bind.return_value
+    bind.dialect.name = dialect
+    with patch.object(migration, "op", fake_op):
+        getattr(migration, direction)()
+    return [str(call.args[0]) for call in bind.execute.call_args_list]
+
+
+def test_drop_app_role_follows_the_layout_clean(drop_app_role: ModuleType) -> None:
+    assert drop_app_role.down_revision == "e2f3a4b5c6d7"
+
+
+@pytest.mark.parametrize("direction", ["upgrade", "downgrade"])
+def test_drop_app_role_does_nothing_without_postgres(
+    drop_app_role: ModuleType, direction: str
+) -> None:
+    assert _executed_sql(drop_app_role, direction, "sqlite") == []
+
+
+def test_drop_app_role_revokes_before_it_drops(drop_app_role: ModuleType) -> None:
+    [sql] = _executed_sql(drop_app_role, "upgrade", "postgresql")
+
+    assert "IF EXISTS (SELECT 1 FROM pg_roles" in sql
+    assert sql.index("REVOKE ALL ON ALL TABLES") < sql.index("DROP ROLE")
+    assert sql.index("REVOKE ALL ON DATABASE") < sql.index("DROP ROLE")
+
+
+def test_drop_app_role_failure_does_not_block_the_deployment(
+    drop_app_role: ModuleType,
+) -> None:
+    [sql] = _executed_sql(drop_app_role, "upgrade", "postgresql")
+
+    assert sql.index("FOREACH") < sql.index("REVOKE ALL ON ALL TABLES")
+    handler = sql[sql.index("EXCEPTION") :]
+    assert "dependent_objects_still_exist" in handler
+    assert "insufficient_privilege" in handler
+    assert "RAISE WARNING" in handler
+
+
+def test_drop_app_role_downgrade_restores_grants_and_revokes(
+    drop_app_role: ModuleType,
+) -> None:
+    [sql] = _executed_sql(drop_app_role, "downgrade", "postgresql")
+
+    assert "CREATE ROLE %I NOLOGIN" in sql
+    assert sql.index("ALTER DEFAULT PRIVILEGES") < sql.index(
+        "REVOKE UPDATE, DELETE ON offer_template_versions"
+    )
+    assert "REVOKE DELETE ON offer_prompts" in sql

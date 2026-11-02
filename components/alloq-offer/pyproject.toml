@@ -6,6 +6,11 @@ authors = [{ name = "Jens Rehpöhler", email = "jens.rehpoehler@bertelsmann.de" 
 requires-python = ">=3.14"
 dependencies = [
     "alloq-commons",
+    "docxtpl>=0.20.2",
+    "pydantic-ai-slim[openai]>=2.60.0",
+    "pypdf>=6.21.4",
+    "python-docx>=1.2.0",
+    "python-pptx>=1.0.2",
 ]
 
 [tool.setuptools.packages.find]

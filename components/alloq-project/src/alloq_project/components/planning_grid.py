@@ -122,7 +122,7 @@ def _employee_header_row(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
                         variant="subtle",
                         color="gray",
                         size="sm",
-                        on_click=PlanningStore.toggle_employee(emp.id),  # ty: ignore[invalid-argument-type]
+                        on_click=PlanningStore.toggle_employee(emp.id),
                     ),
                     mn.text(
                         emp.last_name + ", " + emp.first_name,
@@ -173,7 +173,7 @@ def _employee_info_cell(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
                         color="gray",
                         size="xs",
                         aria_label="Projekt zuweisen",
-                        on_click=PlanningStore.open_add_project_for_employee(  # ty: ignore[invalid-argument-type]
+                        on_click=PlanningStore.open_add_project_for_employee(
                             emp.id,
                         ),
                     ),
@@ -186,7 +186,7 @@ def _employee_info_cell(emp: ObjectVar[EmployeeBlock]) -> rx.Component:
                         color="gray",
                         size="xs",
                         aria_label="Abwesenheit eintragen",
-                        on_click=TeamState.select_employee_and_add_absence(  # ty: ignore[invalid-argument-type]
+                        on_click=TeamState.select_employee_and_add_absence(
                             emp.real_id,
                         ),
                     ),
@@ -240,7 +240,7 @@ def _project_label_cell(project: ObjectVar[ProjectAllocationRow]) -> rx.Componen
                         delete_dialog(
                             title="Projektzuweisung entfernen",
                             content=f"{project.code} — {project.name}",
-                            on_click=PlanningStore.remove_project_from_employee_grid(  # ty: ignore[invalid-argument-type]
+                            on_click=PlanningStore.remove_project_from_employee_grid(
                                 project.emp_id, project.real_project_id
                             ),
                             icon_button=True,

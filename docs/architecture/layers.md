@@ -12,7 +12,6 @@ source_paths:
   - app/app.py
   - app/components/sidebar.py
   - alembic/versions/2026_10_18_departments.py
-  - app/desktop/schema.py
   - components/alloq-commons/tests/test_departments.py
   - components/alloq-dashboard/src/alloq_dashboard/states/dashboard_states.py
   - components/alloq-team/src/alloq_team/states/team_list_state.py
@@ -246,12 +245,6 @@ Migrations are written by hand in `alembic/versions/`. The project does not use
 4. The old column `department` is dropped.
 5. `downgrade()` undoes all of this and copies the abbreviation back into a
    `department` column.
-
-Each new revision also goes first into `KNOWN_REVISIONS` in
-[`app/desktop/schema.py`](../../app/desktop/schema.py). The test
-`test_known_revisions_are_the_alembic_history` in `tests/test_desktop_login.py`
-compares this tuple with the Alembic history and fails when they differ. The
-desktop app uses the newest entry to check the database schema at sign-in.
 
 ## Tests
 

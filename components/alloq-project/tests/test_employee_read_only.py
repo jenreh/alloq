@@ -17,7 +17,7 @@ MANAGER = '"project_manager"'
 def _editor_guarded(component: rx.Component, marker: str) -> bool:
     """``component`` renders ``marker`` only for the project manager role."""
     # rx.cond wraps its Cond in a Fragment.
-    cond = str(component.children[0].cond)  # ty: ignore[unresolved-attribute]
+    cond = str(component.children[0].cond)
     return (
         marker in str(component)
         and MANAGER in cond

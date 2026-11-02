@@ -15,7 +15,7 @@
 
 ---
 
-Alloq helps software teams plan which people work on which project in each week. It counts the free capacity of each person after absences, public holidays, part time and internal work, and it shows the state of all projects on one page. Alloq runs in the browser, and there is also a macOS desktop app that works on the same central database.
+Alloq helps software teams plan which people work on which project in each week. It counts the free capacity of each person after absences, public holidays, part time and internal work, and it shows the state of all projects on one page. Alloq runs in the browser.
 
 ## Features
 
@@ -26,8 +26,7 @@ Alloq helps software teams plan which people work on which project in each week.
 - **Team** — Employees, roles, seniority levels, departments and absences
 - **Master Data** — Roles, departments, region-aware public holidays and daily rates with margin-based pricing
 - **Authentication** — Email and password sign-in and Microsoft sign-in (Entra ID)
-- **Role-Based Access** — Administrators can do everything, project managers edit planning, employees only read, and the Angebote role (`offer_editor`) edits offers only
-- **Desktop App** — macOS app (Tauri) that signs in with Entra ID and connects to Postgres with a personal token
+- **Role-Based Access** — Administrators can do everything, project managers edit planning, employees only read, the Angebote role (`offer_editor`) edits offers only, and the Angebotsverwaltung role (`offer_admin`) manages offer templates, chapter blocks and AI prompts
 
 ## Documentation
 
@@ -50,7 +49,6 @@ task docs:dev
 | Database | PostgreSQL 15 + SQLModel/SQLAlchemy 2.0 |
 | Migrations | Alembic (manually authored) |
 | Auth | appkit-user (session-based + OAuth) |
-| Desktop | Tauri + reflex-desktop |
 | Docs | VitePress |
 | Task Runner | [Task](https://taskfile.dev) |
 | Package Manager | [uv](https://docs.astral.sh/uv/) |
@@ -115,18 +113,17 @@ With the `local` profile, the app is available at `http://localhost:8080/alloq`.
 ### Project Structure
 
 ```text
-app/                    # Host Reflex app (pages, admin pages, desktop sign-in, styles)
+app/                    # Host Reflex app (pages, admin pages, styles)
 components/
   alloq-commons/       # Shared entities, repositories, models, services, excel_grid
   alloq-dashboard/     # Portfolio overview (aggregation, charts)
   alloq-project/       # Project planning & forecasting
   alloq-team/          # Team management views
-  alloq-offer/         # Offers (Angebote): independent package, own table and offer_editor role
+  alloq-offer/         # Offers (Angebote) and the AI offer workshop: own tables and offer_editor role
 configuration/         # YAML config files (per-environment profiles)
 alembic/               # Database migrations
 docs/                  # Developer documentation (VitePress)
-tauri/                 # macOS desktop app shell
-scripts/               # Desktop build and helper scripts
+scripts/               # Helper scripts
 tests/                 # Integration tests
 ```
 
@@ -142,7 +139,6 @@ task format     # Auto-format with ruff
 task typecheck  # Type check app/ with ty
 task db:upgrade # Apply pending migrations
 task db:revision -- "description"  # Create new migration
-task desktop:dev  # Run the desktop app against the local database
 ```
 
 The JavaScript tests of the planning grid have no task. Run them with Node.js:
@@ -212,11 +208,6 @@ Employee cards with roles, seniority levels, and absence periods.
 ![Team Overview](docs/images/people.png)
 
 ## Deployment
-
-For desktop access with Entra ID, follow the [Azure setup](docs/architecture/desktop.md#setup-in-azure-done-once)
-in the desktop architecture page.
-After migrating, grant `alloq_app` with `ADMIN OPTION` to the actual Entra admin
-principal; Azure's protected `azure_pg_admin` role must remain unchanged.
 
 ### Docker
 

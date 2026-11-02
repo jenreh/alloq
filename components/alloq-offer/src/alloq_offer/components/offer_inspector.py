@@ -9,7 +9,7 @@ from alloq_commons.components.list_view import (
     plain_button,
     tag,
 )
-from alloq_commons.roles import OFFER_EDITOR_ROLE
+from alloq_commons.roles import OFFER_ADMIN_ROLE, OFFER_EDITOR_ROLE
 from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
@@ -23,10 +23,12 @@ from alloq_offer.components.offer_parts import (
 from alloq_offer.entities import OfferStateEnum
 from alloq_offer.models import Offer
 from alloq_offer.states.offer_state import OfferState
+from alloq_offer.workshop.routes import WORKSHOP_ROUTE_PREFIX, WORKSHOP_ROUTE_SUFFIX
 from appkit_user.authentication.components.components import requires_role
 from appkit_user.authentication.states import UserSession
 
 ACCEPT_LABEL = "Annehmen"
+WORKSHOP_LABEL = "Werkstatt öffnen"
 STATE_OPTIONS: list[str] = [s.value for s in OfferStateEnum]
 _CAN_EDIT = UserSession.user.roles.contains(OFFER_EDITOR_ROLE.name)
 
@@ -36,19 +38,26 @@ def _selected() -> ObjectVar[Offer]:
 
 
 def _heading(offer: ObjectVar[Offer]) -> rx.Component:
-    return mn.group(
-        mn.stack(
-            mn.text(offer.title, fz="15px", fw=650, lh="1.25", line_clamp=2),
-            mn.text(offer.customer, fz="11.5px", c=theme.TEXT_MUTED, truncate="end"),
-            gap=2,
-            miw=0,
-            flex="1",
+    return mn.stack(
+        mn.text(offer.title, fz="15px", fw=650, lh="1.25", line_clamp=2),
+        mn.group(
+            mn.text(
+                offer.customer,
+                fz="11.5px",
+                c=theme.TEXT_MUTED,
+                truncate="end",
+                miw=0,
+                flex="1",
+            ),
+            rx.cond(offer.archived, tag("Archiviert"), rx.fragment()),
+            state_badge(offer.state),
+            gap=6,
+            wrap="nowrap",
+            align="center",
         ),
-        rx.cond(offer.archived, tag("Archiviert"), rx.fragment()),
-        state_badge(offer.state),
-        gap=10,
-        wrap="nowrap",
-        align="center",
+        gap=4,
+        miw=0,
+        w="100%",
     )
 
 
@@ -68,7 +77,27 @@ def _icon_button(icon: str, label: str, on_click: rx.EventHandler) -> rx.Compone
     )
 
 
-def _actions(offer: ObjectVar[Offer]) -> rx.Component:
+def _workshop_link(offer: ObjectVar[Offer]) -> rx.Component:
+    """The main action of an offer: the workshop that drafts it."""
+    return rx.link(
+        mn.button(
+            WORKSHOP_LABEL,
+            left_section=rx.icon("wand-sparkles", size=15, stroke_width=2),
+            size="xs",
+            h=30,
+            radius="md",
+            w="100%",
+        ),
+        href=WORKSHOP_ROUTE_PREFIX + offer.id.to(str) + WORKSHOP_ROUTE_SUFFIX,
+        style={"width": "100%"},
+    )
+
+
+def _workshop_action(offer: ObjectVar[Offer]) -> rx.Component:
+    return requires_role(_workshop_link(offer), role=OFFER_ADMIN_ROLE.name)
+
+
+def _edit_actions(offer: ObjectVar[Offer]) -> rx.Component:
     return requires_role(
         mn.group(
             plain_button("Bearbeiten", OfferState.open_edit_modal(offer.id), flex="1"),
@@ -95,6 +124,10 @@ def _actions(offer: ObjectVar[Offer]) -> rx.Component:
         ),
         role=OFFER_EDITOR_ROLE.name,
     )
+
+
+def _actions(offer: ObjectVar[Offer]) -> rx.Component:
+    return mn.stack(_workshop_action(offer), _edit_actions(offer), gap=8)
 
 
 def _copy_icon(value: rx.Var[str], label: str) -> rx.Component:

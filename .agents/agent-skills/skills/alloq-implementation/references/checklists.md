@@ -19,11 +19,8 @@ see quickly what a complete change looks like.
    constant so tests can assert on it.
 7. Migration `alembic/versions/YYYY_MM_DD_<topic>.py`: hand-written,
    `with op.batch_alter_table("<table>") as batch_op: batch_op.add_column(...)`,
-   `downgrade()` drops it. `down_revision` is the current head; prepend the new
-   revision to `KNOWN_REVISIONS` in `app/desktop/schema.py`.
-8. Desktop app reads with the same entities, so no extra desktop code is needed
-   unless `app/desktop/` code lists columns explicitly (grep for the table name).
-9. Tests: `to_dict` key, write model limits, handler stores the value, component
+   `downgrade()` drops it. `down_revision` is the current head.
+8. Tests: `to_dict` key, write model limits, handler stores the value, component
    renders the field.
 
 ## New entity

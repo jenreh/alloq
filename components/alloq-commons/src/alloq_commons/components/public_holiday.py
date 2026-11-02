@@ -164,7 +164,7 @@ def holiday_year_select() -> rx.Component:
 def _update_holiday_button(holiday: ObjectVar[PublicHoliday]) -> rx.Component:
     return rx.icon_button(
         rx.icon("square-pen", size=16),
-        on_click=HolidayState.select_holiday_and_open_edit(holiday.id),  # ty: ignore[invalid-argument-type]
+        on_click=HolidayState.select_holiday_and_open_edit(holiday.id),
         variant="ghost",
     )
 
@@ -173,7 +173,7 @@ def _delete_holiday_button(holiday: ObjectVar[PublicHoliday]) -> rx.Component:
     return delete_dialog(
         title="Löschen bestätigen",
         content=rx.cond(holiday.name, holiday.name, "Unbekannter Feiertag"),
-        on_click=HolidayState.delete_holiday(holiday.id),  # ty: ignore[invalid-argument-type]
+        on_click=HolidayState.delete_holiday(holiday.id),
         icon_button=True,
         color="red",
         variant="subtle",

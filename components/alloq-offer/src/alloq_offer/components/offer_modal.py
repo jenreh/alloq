@@ -17,6 +17,10 @@ from alloq_offer.entities import OfferStateEnum
 from alloq_offer.states.offer_state import OfferState
 
 TITLE_CREATE = "Neues Angebot"
+CALCULATION_HINT = (
+    "Die Kalkulation ist optional. Sie liegt erst nach der Werkstatt vor und "
+    "kann später ergänzt werden."
+)
 TITLE_EDIT = "Angebot bearbeiten"
 TITLE_ACCEPT = "Angebot annehmen"
 ACCEPT_HINT = "Aus dem Angebot wird ein Projekt im Status Geplant angelegt."
@@ -69,10 +73,13 @@ def offer_form_fields() -> rx.Component:
             ),
         ),
         section(
-            _number("person_days", "Kalkulierte Personentage"),
+            mn.text(CALCULATION_HINT, fz="12px", c=theme.TEXT_MUTED, lh="1.4"),
+            _number("person_days", "Kalkulierte Personentage", required=False),
             _number("risk_buffer_days", "Risikopuffer (Personentage)", required=False),
-            _number("production_cost", "Kosten", suffix=" €"),
-            _number("recommended_price", "Empfohlener Preis", suffix=" €"),
+            _number("production_cost", "Kosten", required=False, suffix=" €"),
+            _number(
+                "recommended_price", "Empfohlener Preis", required=False, suffix=" €"
+            ),
         ),
         section(
             mn.select(

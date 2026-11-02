@@ -26,7 +26,7 @@ The activity has these user tasks and sub-tasks:
 - **Find my way in the app.** Navigate by access level, and arrange the window.
 - **Manage my account.** Change profile and password, and use the user menu.
 
-Several rules come from the installed package `appkit_user`, not from the repository. The evidence names the module and the symbol for these rules but does not link them. The desktop app signs in differently. Its stories are on the [desktop page](./desktop.md).
+Several rules come from the installed package `appkit_user`, not from the repository. The evidence names the module and the symbol for these rules but does not link them.
 
 ## AUTH-01 Sign in with email and password {#auth-01}
 
@@ -38,10 +38,10 @@ Employee · Sign in / Sign in with email and password · priority 1 · core · v
 
 ### Acceptance criteria
 
-1. **Given** the web app (not the desktop build) shows the login page at `/login`, **when** the page renders, **then** the card shows the field "E-Mail" with the placeholder "name@firma.de", the field "Passwort" [password], the button "Anmelden" [sign in] and the link "Passwort vergessen?" [forgot password?]. Both fields are required, and the email field has the type email.
+1. **Given** the login page at `/login`, **when** the page renders, **then** the card shows the field "E-Mail" with the placeholder "name@firma.de", the field "Passwort" [password], the button "Anmelden" [sign in] and the link "Passwort vergessen?" [forgot password?]. Both fields are required, and the email field has the type email.
 2. **Given** a person fills in the form, **when** they press "Anmelden", **then** the form calls `LoginState.login_with_password` from `appkit_user`, and the button shows a loading state while `LoginState.is_loading` is true.
 3. **Given** the email address or the password is wrong, **when** the person submits the form, **then** the card shows `LoginState.error_message` in a red alert, and a toast shows the same text. The message is "Ungültiger Benutzername oder Passwort." [invalid user name or password]. A deactivated account gets "Ihr Konto wurde deaktiviert. Bitte wenden Sie sich an einen Administrator." and an account that is not verified gets a similar message. (no test)
-4. **Given** the login page loads, **when** its load handlers run, **then** `LoginState.clear_session_storage_token` runs. The desktop build also adds a handler that hides the splash screen.
+4. **Given** the login page loads, **when** its load handlers run, **then** `LoginState.clear_session_storage_token` runs.
 5. **Given** the sign-in succeeds, **when** `appkit_user` redirects, **then** the person goes to the page they asked for before sign-in. Without such a page, the person goes to the homepage "/", which is the planning page.
 
 ### Evidence
@@ -110,7 +110,6 @@ Employee · Sign in / Reset a forgotten password · priority 1 · core · v0.2.0
 ### Open questions
 
 - The reset rules live in `appkit_user`, and Alloq has no test of its own for them. `configuration/config.yaml` has no mail server settings. Does the reset email work in production?
-- The desktop login has no password form and no reset link. Can a person reach the reset page in the desktop app?
 
 ## AUTH-11 Sidebar shows allowed pages {#auth-11}
 
@@ -231,12 +230,11 @@ Employee · Manage my account / Use the user menu · priority 1 · comfort · v2
 
 1. **Given** a signed-in person, **when** the sidebar renders, **then** the bottom shows "Version &lt;n&gt;" with the version from the app configuration. Below it is a button with the avatar, name and email of the person, with the label "Benutzermenü" [user menu].
 2. **Given** the person opens the menu, **when** it shows, **then** it offers "Profil", the group "Darstellung" [appearance] with "Dunkel" [dark], "Hell" [light] and "System", and "Abmelden" [sign out]. The active appearance has a check mark.
-3. **Given** the web app, **when** the person clicks "Abmelden", **then** `LoginState.logout` ends the session. (no test)
-4. **Given** the desktop app, **when** the person clicks "Abmelden", **then** `DesktopLoginState.sign_out` runs instead. It also forgets the Microsoft account and its database connections, see [DESK-06](./desktop.md#desk-06). (no test)
+3. **Given** the open menu, **when** the person clicks "Abmelden", **then** `LoginState.logout` ends the session. (no test)
 
 ### Evidence
 
-- [app/components/sidebar.py](../../app/components/sidebar.py): `_user_menu`, `_user_button`, `_color_mode_item`, `_version`, `SIGN_OUT`
+- [app/components/sidebar.py](../../app/components/sidebar.py): `_user_menu`, `_user_button`, `_color_mode_item`, `_version`
 - Tests: [tests/test_sidebar.py](../../tests/test_sidebar.py) `TestSidebarComponent.test_sidebar_shows_version_above_user_menu`, `test_user_menu_exposes_color_mode_options`
 
 ### Open questions

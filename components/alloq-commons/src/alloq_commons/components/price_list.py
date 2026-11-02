@@ -186,7 +186,7 @@ def _row(row: ObjectVar[PriceGridRow], comparison: bool = False) -> rx.Component
                             placeholder="Keine Verknüpfung",
                             size="xs",
                             w="100%",
-                            on_change=lambda value: S.set_role(row.key, value),  # ty: ignore[invalid-argument-type]
+                            on_change=lambda value: S.set_role(row.key, value),
                             disabled=S.is_saving | ~CAN_EDIT_PRICES,
                         )
                     ),
@@ -353,7 +353,7 @@ def _setting(field: str, label: str, width: int) -> rx.Component:
         size="xs",
         w=width,
         key=S.settings_revision.to_string() + field,
-        on_blur=lambda value: S.set_setting(field, value),  # ty: ignore[invalid-argument-type]
+        on_blur=lambda value: S.set_setting(field, value),
         disabled=S.is_saving,
     )
 
@@ -375,7 +375,7 @@ def price_list_toolbar() -> list[rx.Component]:
     """List switch for everyone; admins switch with the unsaved-draft check."""
     return [
         requires_admin(
-            _list_select(lambda value: S.request_action("select", value)),  # ty: ignore[invalid-argument-type]
+            _list_select(lambda value: S.request_action("select", value)),
             fallback=_list_select(S.open_list),
         ),
         requires_admin(*edit_actions()),
@@ -421,7 +421,7 @@ def _settings() -> rx.Component:
                 clearable=True,
                 size="xs",
                 w=150,
-                on_change=lambda value: S.set_setting("as_of", value),  # ty: ignore[invalid-argument-type]
+                on_change=lambda value: S.set_setting("as_of", value),
             ),
             mn.select(
                 label="HK-Eingabe",
@@ -430,7 +430,7 @@ def _settings() -> rx.Component:
                     {"value": "hour", "label": "Pro Stunde"},
                 ],
                 value=S.cost_basis,
-                on_change=lambda value: S.set_setting("cost_basis", value),  # ty: ignore[invalid-argument-type]
+                on_change=lambda value: S.set_setting("cost_basis", value),
                 size="xs",
                 w=140,
                 allow_deselect=False,
@@ -458,7 +458,7 @@ def _view_options() -> rx.Component:
                 label=label,
                 checked=getattr(S, field),
                 size="xs",
-                on_change=lambda value, field=field: S.set_view(field, value),  # ty: ignore[invalid-argument-type]
+                on_change=lambda value, field=field: S.set_view(field, value),
             )
             for field, label in [
                 ("show_hourly", "HK pro Stunde"),

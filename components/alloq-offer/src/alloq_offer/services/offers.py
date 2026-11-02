@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
-from typing import Final
+from typing import Any, Final
 
 from alloq_commons.entities import ProjectEntity
 from alloq_commons.entities.project import ProjectStateEnum
@@ -58,8 +58,10 @@ PROJECT_DURATION_DAYS: Final = 90
 
 
 def can_accept(offer: Offer) -> bool:
-    """Only archived-free offers without a project can be accepted."""
-    return not offer.archived and offer.project_id is None
+    """Only calculated, unarchived offers without a project can be accepted."""
+    return (
+        not offer.archived and offer.project_id is None and offer.recommended_price > 0
+    )
 
 
 def default_project_dates(today: date) -> tuple[date, date]:
@@ -140,7 +142,7 @@ def filter_offers(offers: list[Offer], list_filter: str) -> list[Offer]:
     return active
 
 
-_SORT_KEYS: Final[dict[str, Callable[[Offer], object]]] = {
+_SORT_KEYS: Final[dict[str, Callable[[Offer], Any]]] = {
     "title": lambda o: o.title.casefold(),
     "key_accounter": lambda o: o.key_accounter.casefold(),
     "industry": lambda o: o.industry.casefold(),

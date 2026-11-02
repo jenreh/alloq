@@ -159,7 +159,7 @@ def employee_form_fields(is_edit: bool = False) -> rx.Component:
                 label="Arbeitszeit (h/Woche)",
                 default_value=EmployeeValidationState.hours_per_week,
                 # appkit_mantine types these as str events; they emit str | float.
-                on_blur=EmployeeValidationState.set_hours_per_week,  # ty: ignore[invalid-argument-type]
+                on_blur=EmployeeValidationState.set_hours_per_week,
                 on_change=EmployeeValidationState.set_hours_per_week,
                 error=EmployeeValidationState.hours_per_week_error,
                 min=0,
@@ -173,7 +173,7 @@ def employee_form_fields(is_edit: bool = False) -> rx.Component:
                 label="Interne Projekte (h/Woche)",
                 default_value=EmployeeValidationState.internal_hours,
                 # appkit_mantine types these as str events; they emit str | int.
-                on_blur=EmployeeValidationState.set_internal_hours,  # ty: ignore[invalid-argument-type]
+                on_blur=EmployeeValidationState.set_internal_hours,
                 on_change=EmployeeValidationState.set_internal_hours,
                 error=EmployeeValidationState.internal_hours_error,
                 min=0,
@@ -301,7 +301,7 @@ def _absence_row(absence: ObjectVar[Absence]) -> rx.Component:
         delete_dialog(
             title="Abwesenheit löschen",
             content=f"{absence.start_date} bis {absence.end_date}",
-            on_click=TeamState.delete_absence(absence.id),  # ty: ignore[invalid-argument-type]
+            on_click=TeamState.delete_absence(absence.id),
             icon_button=True,
             color="red",
             size="xs",
@@ -342,7 +342,7 @@ def _project_row(capacity: ObjectVar[Capacity]) -> rx.Component:
         delete_dialog(
             title="Projektzuweisung entfernen",
             content=f"{capacity.project_code} - {capacity.project_name}",
-            on_click=TeamState.remove_project_from_employee(capacity.project_id),  # ty: ignore[invalid-argument-type]
+            on_click=TeamState.remove_project_from_employee(capacity.project_id),
             icon_button=True,
             color="red",
             size="xs",

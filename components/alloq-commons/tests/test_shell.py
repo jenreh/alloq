@@ -1,13 +1,9 @@
 """Tests for the app shell and the window toolbar."""
 
-import os
 from pathlib import Path
-from unittest.mock import patch
 
 import reflex as rx
 from alloq_commons.components import shell, toolbar
-from alloq_commons.components.splash import SplashState, splash
-from alloq_commons.desktop import DESKTOP_ENV, is_desktop
 
 ASSETS_CSS = Path(__file__).parents[3] / "assets" / "css"
 
@@ -34,7 +30,6 @@ class TestWindowToolbar:
         )
         for text in ("Projekte", "Alle Projekte", "mitte", "aktion"):
             assert text in rendered
-        assert "data-tauri-drag-region" in rendered
         assert "aq-toolbar" in rendered
 
     def test_subtitle_is_optional(self) -> None:
@@ -93,11 +88,6 @@ class TestSidebarScript:
         assert shell.OPEN_ATTR in _css("aq-shell.css")
         assert f"max-width: {shell.NARROW_PX - 1}px" in _css("aq-shell.css")
 
-    def test_native_window_leaves_room_for_traffic_lights(self) -> None:
-        assert "html[data-native][data-sidebar-collapsed] .aq-toolbar" in _css(
-            "aq-shell.css"
-        )
-
 
 class TestAppPage:
     def test_registers_route_with_template(self) -> None:
@@ -118,36 +108,3 @@ class TestAppPage:
             for _, kwargs in RegistrationContext.ensure_context().decorated_pages
         ]
         assert "/test/shell" in routes
-
-
-class TestDesktop:
-    def test_web_pages_keep_their_handlers(self) -> None:
-        handler = rx.console_log("x")
-        with patch.object(shell, "is_desktop", return_value=False):
-            assert shell.desktop_handlers([handler]) == [handler]
-            assert shell.desktop_handlers(handler) == [handler]
-            assert shell.desktop_handlers(None) is None
-
-    def test_desktop_pages_end_by_hiding_the_splash(self) -> None:
-        handler = rx.console_log("x")
-        with patch.object(shell, "is_desktop", return_value=True):
-            assert shell.desktop_handlers([handler]) == [handler, SplashState.finish]
-            assert shell.desktop_handlers(handler) == [handler, SplashState.finish]
-            assert shell.desktop_handlers(None) == [SplashState.finish]
-
-    def test_splash_hides_connection_warnings(self) -> None:
-        rendered = str(splash())
-        assert "aq-splash" in rendered
-        assert "progressbar" in rendered
-        assert "data-sonner-toaster" in _css("aq-splash.css")
-
-    def test_splash_state(self) -> None:
-        state = SplashState()
-        state.finish()
-        assert state.ready is True
-
-    def test_is_desktop(self) -> None:
-        with patch.dict(os.environ, {DESKTOP_ENV: "1"}):
-            assert is_desktop()
-        with patch.dict(os.environ, {}, clear=True):
-            assert not is_desktop()

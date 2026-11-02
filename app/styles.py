@@ -10,8 +10,11 @@ base_stylesheets = [
     "css/alloq-theme.css",
     "css/aq-shell.css",
     "css/aq-list.css",
-    "css/aq-splash.css",
     "css/aq-toast.css",
+    "css/aq-workshop.css",
+    "css/aq-document.css",
+    "css/aq-editors.css",
+    "css/aq-viewer.css",
 ]
 
 base_style: ComponentStyle = {

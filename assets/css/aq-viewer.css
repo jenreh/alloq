@@ -1,0 +1,335 @@
+/* Document viewers of the offer workshop (alloq_commons/components/document_viewer).
+   `.aq-viewer` is the sized box around each viewer; `.aq-viewer-shell` and
+   below are the header and page rail from viewer_shell.jsx. The rail
+   breakpoint is measured in the JSX and set as `data-rail-mode`. */
+:root {
+  --aq-viewer-rail-width: 188px;
+  --aq-viewer-sheet: #ffffff; /* paper stays white in dark mode */
+}
+
+/* Fills the slide-in panel edge to edge; the renderers measure this box at
+   mount. */
+.aq-viewer {
+  display: flex;
+  flex: 1 1 0%;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--aq-surface);
+}
+
+.aq-viewer-surface {
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
+.aq-viewer-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.aq-viewer-broken {
+  display: flex;
+  flex: 1 1 0%;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 24px;
+  color: var(--aq-text);
+  font-size: 13px;
+  text-align: center;
+}
+
+.aq-viewer-broken p {
+  margin: 0;
+}
+
+.aq-viewer-broken-detail {
+  max-width: 46ch;
+  color: var(--aq-text-muted);
+}
+
+/* Header */
+
+.aq-viewer-header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  height: 48px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--aq-separator);
+  background: var(--aq-surface);
+}
+
+.aq-viewer-spacer {
+  flex: 1 1 auto;
+}
+
+.aq-viewer-count {
+  margin: 0 0 0 6px;
+  color: var(--aq-text-muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.aq-viewer-count b {
+  color: var(--aq-text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.aq-viewer-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: none;
+  color: var(--aq-text-muted);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.aq-viewer-icon:hover {
+  background: var(--aq-hover);
+  color: var(--aq-text);
+}
+
+.aq-viewer-icon[aria-pressed="true"] {
+  border-color: var(--aq-border);
+  background: var(--aq-hover);
+  color: var(--aq-text);
+}
+
+.aq-viewer-divider {
+  flex-shrink: 0;
+  width: 1px;
+  height: 20px;
+  margin: 0 6px;
+  background: var(--aq-separator);
+}
+
+.aq-viewer-zoom {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.aq-viewer-zoom select {
+  height: 30px;
+  padding: 0 26px 0 10px;
+  border: 1px solid var(--aq-border);
+  border-radius: 7px;
+  background: var(--aq-surface);
+  color: var(--aq-text);
+  font: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  appearance: none;
+}
+
+.aq-viewer-zoom svg {
+  position: absolute;
+  right: 8px;
+  color: var(--aq-text-muted);
+  pointer-events: none;
+}
+
+.aq-viewer-find {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 6px 0 10px;
+  border: 1px solid var(--aq-border);
+  border-radius: 7px;
+  color: var(--aq-text-muted);
+}
+
+.aq-viewer-find input {
+  width: 130px;
+  border: none;
+  background: none;
+  color: var(--aq-text);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.aq-viewer-find button {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border: none;
+  border-radius: 5px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.aq-viewer-find button:hover {
+  background: var(--aq-hover);
+}
+
+/* Rail and page */
+
+.aq-viewer-body {
+  position: relative;
+  display: flex;
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
+.aq-viewer-rail {
+  position: relative;
+  flex: 0 0 var(--aq-viewer-rail-width);
+  width: var(--aq-viewer-rail-width);
+  overflow-y: auto;
+  padding: 16px 14px;
+  border-right: 1px solid var(--aq-separator);
+  background: var(--aq-surface);
+}
+
+/* A self-virtualising rail (PDF) owns its scrolling and its vertical padding;
+   extra padding here would be counted twice. */
+.aq-viewer-rail[data-rail-kind="pane"] {
+  overflow: hidden;
+  padding: 0 14px;
+}
+
+.aq-viewer-rail[data-rail-kind="pane"] .aq-viewer-thumb {
+  height: 100%;
+  margin: 0;
+}
+
+.aq-viewer-rail[data-rail-kind="pane"] .aq-viewer-thumb-page {
+  margin: 0 auto;
+}
+
+.aq-viewer-shell[data-rail-mode="overlay"] .aq-viewer-rail {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 2;
+  box-shadow: var(--aq-card-shadow);
+}
+
+.aq-viewer-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: rgb(0 0 0 / 28%);
+}
+
+.aq-viewer-page {
+  flex: 1 1 0%;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  background: var(--aq-hover);
+}
+
+/* The deck library brings a beige palette and a hard-coded stage colour;
+   the ground around the slides follows the theme like PDF and Word. */
+.aq-viewer .rpv-root {
+  --rpv-paper: var(--aq-hover);
+  --rpv-panel: var(--aq-hover);
+  --rpv-rule: var(--aq-border);
+  --rpv-ink: var(--aq-text);
+  --rpv-accent: var(--aq-accent);
+}
+
+.aq-viewer .rpv-stage {
+  background: var(--aq-hover);
+}
+
+/* The deck's "contain" fit measures the viewport's clientWidth, which counts
+   its own padding, so slides come out wider than the space. Spacing as margin
+   keeps the measured width equal to the room a slide has. */
+.aq-viewer .rpv-viewport {
+  width: auto;
+  padding: 24px 0;
+  margin-inline: 24px;
+}
+
+/* Renderers paint page content only; the sheet draws the paper edge. */
+.aq-viewer-sheet {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--aq-border);
+  border-radius: 2px;
+  background: var(--aq-viewer-sheet);
+  box-shadow: var(--aq-card-shadow);
+}
+
+.aq-viewer-thumb {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 14px; /* matches the PDF pane's imagePadding */
+  border: none;
+  border-radius: 10px;
+  background: none;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.aq-viewer-thumb:hover,
+.aq-viewer-thumb[aria-current="true"] {
+  background: var(--aq-hover);
+}
+
+.aq-viewer-thumb[aria-current="true"] {
+  background: var(--aq-accent-soft);
+}
+
+/* A4 is the fallback; viewers that know the page shape set aspect-ratio. */
+.aq-viewer-thumb-page {
+  display: block;
+  overflow: hidden;
+  border: 1px solid var(--aq-border);
+  border-radius: 3px;
+  background: var(--aq-viewer-sheet);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
+  aspect-ratio: 1 / 1.414;
+}
+
+.aq-viewer-thumb-canvas,
+.aq-viewer-thumb-page > * {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.aq-viewer-thumb-number {
+  display: block;
+  padding: 10px 0 0;
+  color: var(--aq-text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.aq-viewer-thumb[aria-current="true"] .aq-viewer-thumb-number {
+  color: var(--aq-text);
+  font-weight: 600;
+}
+
+.aq-viewer-state {
+  margin: 0;
+  padding: 24px;
+  color: var(--aq-text-muted);
+  font-size: 13px;
+  text-align: center;
+}

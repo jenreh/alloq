@@ -25,6 +25,11 @@
     gap: 18px;
 }
 
+.aq-inspector-wide {
+    width: 640px;
+    max-width: 60%;
+}
+
 .aq-thead, .aq-tr {
     display: grid;
     align-items: center;
@@ -309,8 +314,9 @@
         overflow: visible;
         flex: none;
     }
-    .aq-inspector {
+    .aq-inspector, .aq-inspector-wide {
         width: auto;
+        max-width: none;
         border-left: 0;
         border-top: 1px solid var(--aq-border);
         overflow: visible;

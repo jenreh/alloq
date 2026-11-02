@@ -50,6 +50,16 @@ class TestPortSettings:
         assert rxconfig._port_settings(None) == {}
 
 
+class TestTrustedProxyHops:
+    def test_passes_configured_hops(self) -> None:
+        reflex = ReflexConfig(trusted_proxy_hops=2)
+
+        assert rxconfig._trusted_proxy_hops(reflex) == 2
+
+    def test_no_reflex_block_ignores_forwarded_header(self) -> None:
+        assert rxconfig._trusted_proxy_hops(None) == 0
+
+
 class TestRequireDatabase:
     def test_missing_database_fails_with_clear_error(self) -> None:
         registry = MagicMock()

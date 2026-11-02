@@ -28,8 +28,7 @@ last_verified_commit: "cb9d5b0 (v2.0.4)"
 
 Alloq uses the library appkit-user for users, sign-in and sessions. Alloq adds its
 own access levels on top. This page explains both parts and the tests that keep
-them in place. The desktop sign-in with Entra ID is on the
-[desktop page](./desktop.md).
+them in place.
 
 ## Overview
 
@@ -51,10 +50,9 @@ the websocket regardless.
 
 [`create_login_page`](../../app/pages/login.py) registers the route `/login` with
 the title "Anmelden" [sign in]. Its `on_load` runs
-`LoginState.clear_session_storage_token`. On the desktop, `desktop_handlers` adds
-`SplashState.finish`.
+`LoginState.clear_session_storage_token`.
 
-The web variant of `login_view` shows:
+`login_view` shows:
 
 - A form with "E-Mail" and "Passwort" [password]. The button "Anmelden" submits it
   to `LoginState.login_with_password` of appkit-user.
@@ -65,13 +63,9 @@ The web variant of `login_view` shows:
   `LoginState.enable_github_oauth`). The divider "oder" [or] shows when at least
   one is enabled.
 
-The desktop variant (`_desktop_sign_in`) shows only "Mit Microsoft anmelden", which
-calls `DesktopLoginState.sign_in_with_microsoft`.
-
 Tests: [`tests/test_login_page.py`](../../tests/test_login_page.py)
 (`test_password_form_submits_to_login_state`, `test_single_sign_on_buttons`,
-`test_registers_route_and_clears_token_on_load`,
-`test_desktop_variant_signs_in_with_microsoft_only`).
+`test_registers_route_and_clears_token_on_load`).
 
 ### OAuth
 
@@ -107,12 +101,20 @@ The logic is in appkit-user (`PasswordResetRequestState`,
 and does not reveal whether the email address exists. The confirm page reads the
 `token` from the URL and sends the user back to `/password-reset` when it is
 missing or not valid. The appkit-user defaults are a token lifetime of 30 minutes
-and at most 3 requests per hour (`PasswordResetConfig`). Alloq does not change
-them.
+and at most 3 requests per hour (`PasswordResetConfig`). `config.yaml` sets the same
+values.
 
 appkit-user sends the email through `email_provider` in the authentication
-configuration. None of the files in `configuration/` sets `email_provider`. See the
-open questions below.
+configuration. `config.prod.yaml` uses Azure Communication Services, with the
+connection string and the sender address from Key Vault. All other profiles use the
+mock provider, which only logs the email. `config.yaml` sets none, so a mock cannot
+reach production by inheritance.
+
+The emails come from `assets/email-templates` (`password_reset.templates_dir`) and
+follow the login page and the theme. They state the token lifetime as fixed text,
+because appkit-user does not pass it to the template. `tests/test_email_templates.py`
+fails when the text and `config.yaml` differ. The subject line
+"Passwort zurücksetzen | AppKit" is fixed in appkit-user.
 
 ### Default admin
 
@@ -123,6 +125,27 @@ change)". Its password hash is in git. The migration
 [`2026_09_28_fix_holiday_dates_and_default_admin.py`](../../alembic/versions/2026_09_28_fix_holiday_dates_and_default_admin.py)
 sets `needs_password_reset = true` on this account while the hash is still the
 seeded one.
+
+From the appkit-user release that adds the forced password change, a password
+login of an account with `needs_password_reset` does not create a session. The user
+gets a one-time link to the password reset page instead, so the seeded admin must
+get a new password before the first sign-in.
+
+### Login throttle
+
+The same appkit-user release counts failed password logins per email and per client
+address. A key that reaches its limit is locked, and a locked login is refused
+before the password is checked. The limits are set in `authentication.login_rate_limit`
+(`enabled`, `max_attempts`, `max_attempts_per_client`, `window_minutes`,
+`lockout_minutes`). The counters live in the table `auth_login_throttle`, so the
+limit holds across workers and restarts.
+
+Behind a proxy, `reflex.trusted_proxy_hops` must match the number of proxies.
+With `0`, every user has the address of the proxy, so 20 failed logins from anyone
+lock all password logins. A value that is too high lets a client choose its own
+address through `X-Forwarded-For`. `config.yaml` sets `0` and `config.prod.yaml`
+sets `1`, for the Caddy proxy in the production container.
+`REFLEX_TRUSTED_PROXY_HOPS` overrides both.
 
 ## Sessions
 
@@ -168,6 +191,7 @@ Alloq has three access levels. They are defined in
 | Admin | Users with the appkit admin switch (`user.is_admin`) | `IS_ADMIN`, `requires_admin` | Everything, including the administration pages |
 | Editor | Admins and users with the role `project_manager` | `can_edit`, `CAN_EDIT`, `requires_editor` | Read and edit dashboard, planning, projects and team |
 | Viewer | Editors and users with the role `employee` | `can_view`, `CAN_VIEW`, `requires_viewer` | Read the projects page and the resource planning |
+| Offer admin | Admins and users with the role `offer_admin` ("Angebotsverwaltung") | `can_manage_offers`, `CAN_MANAGE_OFFERS`, `offer_admin_only`, `requires_offer_admin` | Manage offer templates, chapter blocks and AI prompts on `/admin/offers` |
 
 A signed-in user with none of these rights sees the text in `NO_ACCESS_MSG`:
 "Sie haben nicht die notwendigen Berechtigungen, um auf diese Seite zuzugreifen."
@@ -198,6 +222,7 @@ The roles are `Role` objects from appkit-commons:
 | `/dashboard` | `editor_only` | `editor_only` |
 | `/daily-rates` | signed in; edits behind `requires_admin` and `@requires_admin` | none (in `PUBLIC_ROUTES`) |
 | `/admin/users`, `/admin/roles`, `/admin/departments`, `/admin/holidays` | `admin_only=True` and `requires_admin` | `requires_admin` |
+| `/admin/offers` (offer templates, chapter blocks, prompts) | `offer_admin_only` (admins and `offer_admin`); every handler `@requires_offer_admin` | `offer_admin_only`; offer admins see only this entry of "Administration" |
 | `/profile` | signed in | user menu |
 
 The sidebar in [`app/components/sidebar.py`](../../app/components/sidebar.py)
@@ -217,11 +242,15 @@ Handlers that read or write business data must carry a guard. There are three:
 
 - `requires_admin` from `appkit_user.authentication.decorators`. Only admins pass.
   The administration states use it: `DailyRateState`, `DepartmentState`,
-  `RoleState`, `HolidayState` and `DatabaseAccessState`.
+  `RoleState` and `HolidayState`.
 - `requires_editor` from `access.py`. Admins and project managers pass. Every
   handler in `alloq_dashboard`, `alloq_project` and `alloq_team` that touches data
   uses it, and so does `SidebarState.load`. The exceptions are the read-only loads
   in `VIEWER_HANDLERS` and the background card loads (see below).
+- `requires_offer_admin` from `access.py`. Admins and users with the role
+  `offer_admin` pass. The offer configuration states use it: `BlockAdminState`,
+  `TemplateAdminState`, `PromptAdminState` and `OfferAdminState` (listed in
+  `OFFER_ADMIN_STATES` of the guard test).
 - `requires_viewer` from `access.py`. Admins, project managers and employees pass.
   Only the read-only loads in `VIEWER_HANDLERS` may use it.
 
@@ -258,8 +287,7 @@ from `access.py` and logs a warning on a denied load.
 
 [`tests/test_handler_authorization.py`](../../tests/test_handler_authorization.py)
 imports every module of `alloq_commons`, `alloq_dashboard`, `alloq_project`,
-`alloq_team` and three host modules (`app.components.sidebar_state`,
-`app.desktop.db_access_state`, `app.desktop.login_state`). It then finds every
+`alloq_team` and the host module `app.components.sidebar_state`. It then finds every
 Reflex state class of these packages. Mixins are skipped, because their handlers
 are checked through the states they are mixed into.
 
@@ -271,7 +299,6 @@ Every handler must fall into one of these groups:
 | `VIEWER_HANDLERS` | `requires_viewer`, and the handler is in the list |
 | `INLINE_ADMIN_CHECK` | Background `load` of the dashboard cards that calls `_run_card_load` |
 | `UI_ONLY_HANDLERS` | Changes UI state only and does not reach the database |
-| `PRE_AUTH_HANDLERS` | `DesktopLoginState.sign_in_with_microsoft` and `sign_out` |
 
 Reflex's own `setvar` is ignored.
 
@@ -305,19 +332,36 @@ When you add a handler, either guard it or add it to the right list. The
 `app.trusted_proxies`. It sets the request scheme from `X-Forwarded-Proto` and does
 not redirect. The comment in `AppConfig` says that `None` trusts every peer, so the
 value should be set wherever the backend port can be reached without the proxy.
+`config.prod.yaml` reads it from the Key Vault secret `common-allowed-proxies`, which
+holds comma-separated addresses.
+
+In production, `configure()` refuses to start when `session_cookie_secure` is
+false, and logs a warning when `trusted_proxies` is not set.
+
+## Response headers
+
+`SecurityHeadersMiddleware` from `appkit_commons.middleware` adds
+`X-Content-Type-Options`, `Referrer-Policy`, a `frame-ancestors 'self'` policy,
+`Permissions-Policy`, `Cross-Origin-Opener-Policy` and, on https requests,
+`Strict-Transport-Security`. `add_security_headers` in
+`app/app.py` registers it in `api_transformer` before `add_https_middleware`, so it
+runs inside `ForceHTTPSMiddleware` and sees the corrected scheme. A header that a
+route already sets is kept, such as the policy of the image route. A full
+Content-Security-Policy is left to the proxy, because Reflex pages need inline
+scripts. The middleware lives in appkit-commons so other projects can use it too.
+
+## Uploads
+
+Uploads are read with a hard limit (`read_limited` in `storage.py`), so a wrong size
+reported by the browser cannot fill the memory. DOCX and PPTX sources pass the same
+zip checks as template layouts (number of parts, size of XML parts, unpacked size)
+before a parser opens them, and PDF sources are limited to 1000 pages.
 
 The stories for sign-in and access are on the
 [story map](../features/story-map.md).
 
 ## Open questions
 
-- No file in `configuration/` sets `email_provider`. The appkit-user email service
-  logs "No email provider configured" and returns no provider in that case. It is
-  not clear how password reset emails are sent in production, e.g. through an
-  environment variable.
-- The appkit-user tables `auth_password_reset_tokens`,
-  `auth_password_history` and `auth_password_reset_requests` have no Alembic
-  migration in this repo (see the [data model](./data-model.md#open-questions)).
 - appkit-user creates a new OAuth user as active and verified with the roles
   `[DefaultUserRoles.USER]` (`get_or_create_oauth_user` in its
   `user_repository.py`). That is not an Alloq role, so the new user sees the no

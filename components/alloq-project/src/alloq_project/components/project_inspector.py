@@ -33,7 +33,7 @@ def _selected() -> ObjectVar[Project]:
 def _open(tab: str) -> list:
     return [
         LoadingState.set_is_loading(True),
-        ProjectState.select_project_with_tab(_selected().id, tab),  # ty: ignore[invalid-argument-type]
+        ProjectState.select_project_with_tab(_selected().id, tab),
     ]
 
 
@@ -64,7 +64,7 @@ def _actions() -> rx.Component:
         icon_button(
             "calendar-range",
             "In der Ressourcenplanung öffnen",
-            PlanningStore.open_project(_selected().id),  # ty: ignore[invalid-argument-type]
+            PlanningStore.open_project(_selected().id),
         ),
         gap=8,
         wrap="nowrap",
