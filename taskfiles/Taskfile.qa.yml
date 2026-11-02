@@ -31,3 +31,7 @@ tasks:
     cmds:
       - task: format
       - task: typecheck
+
+  audit:
+    desc: Check the locked dependencies for known vulnerabilities
+    cmd: uv audit --frozen
