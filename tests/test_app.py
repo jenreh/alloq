@@ -123,7 +123,7 @@ class TestAuthPageLogos:
 
 
 def test_layout_stylesheets_are_registered_and_exist() -> None:
-    for name in ("aq-shell.css", "aq-list.css", "aq-splash.css"):
+    for name in ("aq-shell.css", "aq-list.css"):
         assert f"css/{name}" in base_stylesheets
     for sheet in base_stylesheets:
         assert (Path("assets") / sheet).is_file()

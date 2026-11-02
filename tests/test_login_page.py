@@ -1,7 +1,6 @@
-"""Tests for the splash-style login page."""
+"""Tests for the login page."""
 
 import json
-from unittest.mock import patch
 
 from reflex_base.registry import RegistrationContext
 
@@ -19,7 +18,6 @@ class TestLoginView:
         rendered = str(login_view())
         assert "--aq-splash-background" in rendered
         assert "alloq_icon.svg" in rendered
-        assert "data-tauri-drag-region" in rendered
 
     def test_password_form_submits_to_login_state(self) -> None:
         rendered = str(login_view())
@@ -43,11 +41,3 @@ def test_registers_route_and_clears_token_on_load() -> None:
             assert LoginState.clear_session_storage_token.fn in handlers
             return
     raise AssertionError("login page not registered")
-
-
-def test_desktop_variant_signs_in_with_microsoft_only() -> None:
-    with patch("app.pages.login.is_desktop", return_value=True):
-        rendered = str(login_view())
-    assert "sign_in_with_microsoft" in rendered
-    assert "aq-splash" in rendered
-    assert 'name:"password"' not in rendered

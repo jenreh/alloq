@@ -5,8 +5,6 @@ source_paths:
   - configuration/config.yaml
   - configuration/config.local.yaml
   - configuration/config.prod.yaml
-  - configuration/config.desktop.yaml
-  - configuration/config.desktop_fake.yaml
   - configuration/config.devcontainer.yaml
   - configuration/config.docker_test.yaml
   - configuration/logging.yaml
@@ -14,8 +12,6 @@ source_paths:
   - app/__init__.py
   - app/configuration.py
   - app/public_url.py
-  - app/desktop/profile.py
-  - app/desktop/config.py
   - rxconfig.py
   - tests/test_configuration_profiles.py
   - tests/test_public_url.py
@@ -37,15 +33,13 @@ The app loads the configuration once, when the `app` package is imported:
 
 1. [app/__init__.py](../../app/__init__.py) imports `appkit_commons`, which loads
    the `.env` file into the environment.
-2. `activate_desktop_profile()` in [app/desktop/profile.py](../../app/desktop/profile.py)
-   adds the desktop profiles to `PROFILES` when the app runs as the desktop app.
-3. `configure()` in [app/configuration.py](../../app/configuration.py) builds a
+2. `configure()` in [app/configuration.py](../../app/configuration.py) builds a
    `Configuration[AppConfig]` and registers it, and each nested part, in the
    service registry.
-4. `configure()` applies the public URL from `PUBLIC_BASE_URL` and
+3. `configure()` applies the public URL from `PUBLIC_BASE_URL` and
    `PUBLIC_PATH_PREFIX`. Without `PUBLIC_BASE_URL`, it raises a `RuntimeError` when
    `app.environment` is `production`.
-5. [rxconfig.py](../../rxconfig.py) looks up `DatabaseConfig` and `ReflexConfig`
+4. [rxconfig.py](../../rxconfig.py) looks up `DatabaseConfig` and `ReflexConfig`
    in the registry and builds the Reflex `rx.Config` from them.
 
 ### Profiles
@@ -107,14 +101,14 @@ These are the secret names that the YAML files refer to:
 
 | Secret | Used for | Profiles |
 | --- | --- | --- |
-| `alloq-db-user` | `app.database.username` | base, `desktop_fake` |
-| `alloq-db-password` | `app.database.password` | base, `desktop_fake` |
-| `alloq-db-host` | `app.database.host` | base, `desktop` |
-| `alloq-db-name` | `app.database.name` | base, `desktop` |
-| `common-db-encryption-key` | `app.database.encryption_key` (Fernet key) | base, `desktop_fake` |
-| `common-oauth-azure-client-id` | Azure OAuth `client_id`, and `app.desktop.client_id` | base, `desktop` |
+| `alloq-db-user` | `app.database.username` | base |
+| `alloq-db-password` | `app.database.password` | base |
+| `alloq-db-host` | `app.database.host` | base |
+| `alloq-db-name` | `app.database.name` | base |
+| `common-db-encryption-key` | `app.database.encryption_key` (Fernet key) | base |
+| `common-oauth-azure-client-id` | Azure OAuth `client_id` | base |
 | `common-oauth-azure-client-secret` | Azure OAuth `client_secret` | base |
-| `common-oauth-azure-tenant-id` | Azure OAuth `tenant_id`, and `app.desktop.tenant_id` | base, `desktop` |
+| `common-oauth-azure-tenant-id` | Azure OAuth `tenant_id` | base |
 
 `.env.example` and `docker-compose.yml` still use older names (`mn-db-user`,
 `MN_DB_USER`, `avui-db-encryption-key`). They do not match the references above.
@@ -128,14 +122,6 @@ These are the secret names that the YAML files refer to:
 | `config.prod.yaml` | `prod` | `PROFILES=prod` | Production. `environment: production`, `logging.prod.yaml`, backend port `3030`, two workers |
 | `config.devcontainer.yaml` | `devcontainer` | `PROFILES=devcontainer` | VS Code dev container. Frontend port `8080`, database `alloq-db` on host `db` with user and password `postgres` |
 | `config.docker_test.yaml` | `docker_test` | `PROFILES=docker_test` in `docker-compose.yml` | Compose stack. Ports `8080` and `3030`, three workers, 300 second timeouts, database `alloq-db` on host `db`, no OAuth providers |
-| `config.desktop.yaml` | `desktop` | added by `activate_desktop_profile()` | Desktop app with embedded backend. Backend port `18442`, no `frontend_path`, empty database user and password, `ssl_mode: require`, no OAuth providers, Entra settings under `app.desktop` |
-| `config.desktop_fake.yaml` | `desktop_fake` | added when `ALLOQ_FAKE_ENTRA_EMAIL` is set outside the app bundle | Development only. Local database credentials from secrets, `ssl_mode: disable`, frontend port `18443` |
-
-`config.desktop.yaml` ships inside the desktop app, so it must not contain secrets.
-Its `secret:` references are allowed only for public values (`tenant_id`,
-`client_id`, `host`, `name`), and `scripts/desktop.py` resolves them on the build
-machine. `config.desktop_fake.yaml` is never bundled. See
-[Desktop app](../architecture/desktop.md).
 
 ## Keys
 
@@ -184,7 +170,6 @@ These keys fill `AppConfig` in [app/configuration.py](../../app/configuration.py
 | `trusted_proxies` | Addresses that may set `X-Forwarded-Proto`. Unset means every peer is trusted. It is commented out in `config.yaml` |
 | `database` | Database settings, see below |
 | `authentication` | Sign-in settings, see below |
-| `desktop` | Entra settings of the desktop app, see below |
 
 `config.yaml` also sets `app.backend_timeout: 180`. `AppConfig` has no field with
 that name, and the loader ignores unknown keys, so this value has no effect.
@@ -217,17 +202,6 @@ These keys fill `AuthenticationConfiguration` from appkit_user.
 appkit_user has more keys with defaults that Alloq does not set, e.g.
 `public_routes`, `session_cookie_secure`, `email_provider` and `password_reset`.
 
-### `app.desktop`
-
-These keys fill `DesktopConfig` in [app/desktop/config.py](../../app/desktop/config.py).
-
-| Key | Default | Meaning |
-| --- | --- | --- |
-| `tenant_id`, `client_id` | empty | App registration of the desktop app |
-| `db_scope` | Azure OSSRDBMS scope | Token scope for Azure Database for PostgreSQL |
-| `db_role` | empty | Postgres role to log in as. Empty means the user's own principal |
-| `sign_in_timeout` | `300` | Seconds the browser sign-in may take |
-
 ## Serving below a path prefix
 
 In production a reverse proxy serves the app below a path such as `/alloq`. Two
@@ -257,9 +231,6 @@ The README also names `REFLEX_FRONTEND_PATH`, `REFLEX_BACKEND_PATH` and
 | `PROFILES` | appkit_commons | Extra profiles, see above |
 | `SECRET_PROVIDER` | appkit_commons | `local` or `azure` |
 | `AZURE_KEY_VAULT_URL` | appkit_commons | Key Vault address when `SECRET_PROVIDER=azure` |
-| `ALLOQ_DESKTOP` | `app/desktop/profile.py`, `rxconfig.py` | `1` turns on the desktop profile and the Tauri plugin |
-| `REFLEX_DESKTOP_APP_ROOT` | `app/desktop/profile.py` | Set by the Tauri host. Marks a run inside the built app |
-| `ALLOQ_FAKE_ENTRA_EMAIL` | `app/desktop/profile.py`, `app/desktop/fake.py` | Fakes the Microsoft sign-in with this email, outside the bundle only |
 | `UV_PROJECT_ENVIRONMENT` | uv | Folder of the virtual environment, `.venv.mac` in `.env.example` |
 | `REFLEX_SOCKET_TIMEOUT` | Reflex | Set to `600` in `.env.example` |
 

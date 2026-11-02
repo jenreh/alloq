@@ -158,7 +158,6 @@ class TestSidebarComponent:
         assert "fixedDecimalScale:true" in rendered
         assert "aq-sidebar" in rendered
         assert "offer_count" in rendered
-        assert "data-tauri-drag-region" in rendered
         assert "LucidePanelLeftClose" in rendered
 
     def test_every_user_sees_the_offers_and_prices_entries(self) -> None:

@@ -2,9 +2,8 @@
 
 All colors live here. Components use the CSS variables (`token("border")`,
 `TEXT`, ...) or the Mantine palette `blue`. `TOKENS` holds the light values,
-`DARK_TOKENS` the dark ones; the system appearance picks them. The desktop
-window draws the sidebar with native vibrancy; the browser shows
-`window-background` instead (see `GLOBAL_CSS`).
+`DARK_TOKENS` the dark ones; the system appearance picks them. The page shows
+`window-background` behind the sidebar (see `GLOBAL_CSS`).
 
 The old `--alloq-*` variables stay as aliases (`LEGACY_ALIASES`) until every
 component uses the tokens directly.
@@ -90,7 +89,7 @@ MANTINE_DARK = [
 """Neutral macOS grays for Mantine's dark scheme (7 = body = `surface`)."""
 
 SPLASH_COLORS = ("#5AC8FA", BLUE[6], "#8E7CC3")
-"""Light blue, accent blue and lavender: the three glows of the splash."""
+"""Light blue, accent blue and lavender: the three glows of the login page."""
 
 WINDOW_BACKGROUND = (
     "radial-gradient(900px 600px at 0% 0%, #ECEBF3 0%, transparent 60%), "
@@ -164,7 +163,6 @@ TOKENS: dict[str, str] = {
         "0 0 0 0.5px rgba(0, 0, 0, 0.14), 0 1px 1.5px rgba(0, 0, 0, 0.06)"
     ),
     "splash-background": SPLASH_BACKGROUND,
-    "splash-track": "rgba(0, 0, 0, 0.08)",
 }
 
 DARK_TOKENS: dict[str, str] = {
@@ -215,7 +213,6 @@ DARK_TOKENS: dict[str, str] = {
         "0 0 0 0.5px rgba(255, 255, 255, 0.14), 0 1px 1.5px rgba(0, 0, 0, 0.3)"
     ),
     "splash-background": SPLASH_BACKGROUND_DARK,
-    "splash-track": "rgba(255, 255, 255, 0.12)",
 }
 """macOS dark appearance: elevated surfaces get lighter, accents brighter."""
 
@@ -308,17 +305,6 @@ NUMERIC = {"fontVariantNumeric": "tabular-nums", "whiteSpace": "nowrap"}
 """Style for numbers: tabular digits."""
 
 
-NATIVE_ATTR = "data-native"
-"""Set on <html> inside the desktop window (see `NATIVE_SCRIPT`)."""
-
-NATIVE_SCRIPT = (
-    "if (window.__TAURI__ || window.__TAURI_INTERNALS__) "
-    f"document.documentElement.setAttribute('{NATIVE_ATTR}', '');"
-)
-
-HEAD_SCRIPTS = (NATIVE_SCRIPT,)
-
-
 def _variables(tokens: dict[str, str]) -> str:
     return "".join(f"--aq-{name}:{value};" for name, value in tokens.items())
 
@@ -336,14 +322,10 @@ GLOBAL_CSS = (
     + f"html,body{{background:{token('window-background')};color:{TEXT};"
     + f"font-family:{FONT_FAMILY};-webkit-font-smoothing:antialiased;"
     + "letter-spacing:-0.005em;overscroll-behavior:none;}"
-    # Radix paints its root; the window material must show through.
+    # Radix paints its root; the window background must show through.
     + ".radix-themes{background:transparent !important;"
     + f"--default-font-family:{FONT_FAMILY};}}"
-    # The desktop window is transparent: native vibrancy replaces the page
-    # background.
-    + f"html[{NATIVE_ATTR}],html[{NATIVE_ATTR}] body"
-    + "{background:transparent !important;}"
-    # Desktop apps don't select UI text on click; inputs and cells still do.
+    # UI text is not selected on click; inputs and cells still are.
     + "nav,header,button{-webkit-user-select:none;user-select:none;}"
 )
 

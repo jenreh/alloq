@@ -36,9 +36,6 @@ At the end you can sign in, change code and run the same checks as the CI.
 - **ty**, the type checker, for `task typecheck`. It is not a dependency in
   `pyproject.toml`, so install it yourself and make sure it is on your `PATH`.
 - **Node.js**, only if you build these docs or run the JavaScript tests.
-- **Rust and the Xcode command line tools**, only if you work on the desktop app.
-  The comments in [taskfiles/Taskfile.reflex.yml](../../taskfiles/Taskfile.reflex.yml)
-  list them.
 
 ## 1. Create the `.env` file
 
@@ -134,8 +131,8 @@ task init
 `task init` runs these steps from [Taskfile.dist.yml](../../Taskfile.dist.yml):
 
 1. It installs and pins the Python version from `pyproject.toml`.
-2. It runs `uv sync`. This installs the dev and desktop dependency groups, because
-   `pyproject.toml` sets them as default groups.
+2. It runs `uv sync`. This installs the dev dependency group, because
+   `pyproject.toml` sets it as the default group.
 3. It installs pre-commit if it is missing and runs `pre-commit install`.
 4. It runs `alembic upgrade head`, so the database must be reachable at this point.
 
@@ -209,12 +206,10 @@ uv run pytest components/alloq-commons/tests/test_departments.py -q
 [Testing](../reference/testing.md) explains the test layout, the guard tests and how
 to write a state test.
 
-## Optional: desktop app and docs
+## Optional: docs
 
-- `task desktop:dev` starts the desktop app with hot reload and a faked Microsoft
-  sign-in against your local database. See [Desktop app](../architecture/desktop.md).
-- `task docs:install` and then `task docs:dev` start this documentation site with
-  live reload.
+`task docs:install` and then `task docs:dev` start this documentation site with
+live reload.
 
 ## Next steps
 

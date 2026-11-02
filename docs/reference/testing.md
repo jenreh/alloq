@@ -13,8 +13,6 @@ source_paths:
   - tests/test_handler_authorization.py
   - tests/test_migrations.py
   - tests/test_configuration_profiles.py
-  - tests/test_desktop_login.py
-  - app/desktop/schema.py
   - components/alloq-commons/tests/js/grid_logic.test.mjs
   - components/alloq-commons/tests/test_departments.py
   - components/alloq-commons/tests/test_roles.py
@@ -96,7 +94,6 @@ way the neighbouring tests do.
 | Guard tests | [test_handler_authorization.py](../../tests/test_handler_authorization.py), [test_component_boundaries.py](../../tests/test_component_boundaries.py), [test_configuration_profiles.py](../../tests/test_configuration_profiles.py), [test_migrations.py](../../tests/test_migrations.py) |
 | App, pages and sidebar | [test_app.py](../../tests/test_app.py), [test_sidebar.py](../../tests/test_sidebar.py), [test_login_page.py](../../tests/test_login_page.py), [test_users_page.py](../../tests/test_users_page.py) |
 | Configuration and URLs | [test_configuration.py](../../tests/test_configuration.py), [test_rxconfig.py](../../tests/test_rxconfig.py), [test_public_url.py](../../tests/test_public_url.py) |
-| Desktop app | [test_desktop_login.py](../../tests/test_desktop_login.py), [test_desktop_entra.py](../../tests/test_desktop_entra.py), [test_desktop_fake.py](../../tests/test_desktop_fake.py), [test_desktop_db_access.py](../../tests/test_desktop_db_access.py) |
 
 ### `components/alloq-commons/tests/`
 
@@ -213,7 +210,6 @@ Each handler must be in exactly one of these groups:
 - It is listed in `UI_ONLY_HANDLERS`. It must not reach the database, directly or
   through a `self.` helper. The test looks for markers such as
   `get_asyncdb_session`, `_repo.` and `aggregation.`.
-- It is listed in `PRE_AUTH_HANDLERS`. These are the desktop sign-in and sign-out.
 
 Other tests in the file check that:
 
@@ -286,13 +282,6 @@ A migration that only changes the schema needs no own test. A migration that mov
 or fixes data gets a test that checks the rows after `upgrade` and again after
 `downgrade`. Column changes on existing tables go through `op.batch_alter_table`, so
 they run on SQLite.
-
-Every migration also changes the Alembic history.
-`TestSchema.test_known_revisions_are_the_alembic_history` in
-[`tests/test_desktop_login.py`](../../tests/test_desktop_login.py) compares that
-history with `KNOWN_REVISIONS` in [`app/desktop/schema.py`](../../app/desktop/schema.py).
-The newest revision comes first. When you add a migration, put its revision at the
-start of `KNOWN_REVISIONS`.
 
 ## Recipes
 

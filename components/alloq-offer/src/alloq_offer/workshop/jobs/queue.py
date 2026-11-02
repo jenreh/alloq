@@ -1,8 +1,7 @@
 """Persistent job queue: enqueue, claim with lease, finish, retry.
 
-Own queue on purpose: jobs belong to an offer, carry idempotency keys and revision
-fences, and must run on server and desktop. appkit's PGQueuer scheduler is
-cron-style and does not cover that.
+Own queue on purpose: jobs belong to an offer and carry idempotency keys and
+revision fences. appkit's PGQueuer scheduler is cron-style and does not cover that.
 """
 
 import logging

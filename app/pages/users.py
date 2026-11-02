@@ -1,10 +1,7 @@
-from collections.abc import Callable
-
 import reflex as rx
 from alloq_commons import theme
 from alloq_commons.components.shell import app_page
 from alloq_commons.components.toolbar import window_toolbar
-from alloq_commons.desktop import is_desktop
 from alloq_commons.state.department_states import DepartmentState
 
 import appkit_mantine as mn
@@ -18,19 +15,10 @@ from appkit_user.user_management.components.user import (
 )
 from appkit_user.user_management.states.user_states import UserState
 
-from app.components.db_access_button import database_access_button
-from app.desktop.db_access_state import DatabaseAccessState
-
 
 def user_toolbar() -> list[rx.Component]:
     """Toolbar actions of the users page."""
     return [search_user_input(), add_user_button()]
-
-
-def row_actions() -> list[Callable[..., rx.Component]]:
-    """Extra row buttons. Only the desktop app connects to the database as the
-    signed-in person, so only there an admin can grant database access."""
-    return [database_access_button] if is_desktop() else []
 
 
 def create_users_page(
@@ -50,11 +38,7 @@ def create_users_page(
             actions=user_toolbar(),
         ),
         admin_only=True,
-        on_load=[
-            DepartmentState.load_user_roles,
-            UserState.load_users,
-            DatabaseAccessState.load,
-        ],
+        on_load=[DepartmentState.load_user_roles, UserState.load_users],
     )
     def _users_page() -> rx.Component:
         return requires_admin(
@@ -66,12 +50,7 @@ def create_users_page(
                 add_user_modal(),
                 edit_user_modal(),
                 mn.box(
-                    user_table_view(
-                        additional_components=[
-                            *row_actions(),
-                            *(additional_components or []),
-                        ]
-                    ),
+                    user_table_view(additional_components=additional_components or []),
                     style=theme.CARD,
                     p="xs",
                     w="100%",

@@ -879,3 +879,61 @@ def test_layout_clean_replaces_an_old_seed_blob(templates: ModuleType) -> None:
     assert [sha for _, sha in blobs] == [digest]
     assert used == draft == blobs[0][0]
     assert again == 0
+
+
+@pytest.fixture(scope="module")
+def drop_app_role() -> ModuleType:
+    return _load("2026_11_02_drop_desktop_database_role.py")
+
+
+def _executed_sql(migration: ModuleType, direction: str, dialect: str) -> list[str]:
+    """SQL a role migration sends through a fake bind of the given dialect."""
+    fake_op = MagicMock()
+    bind = fake_op.get_bind.return_value
+    bind.dialect.name = dialect
+    with patch.object(migration, "op", fake_op):
+        getattr(migration, direction)()
+    return [str(call.args[0]) for call in bind.execute.call_args_list]
+
+
+def test_drop_app_role_follows_the_layout_clean(drop_app_role: ModuleType) -> None:
+    assert drop_app_role.down_revision == "e2f3a4b5c6d7"
+
+
+@pytest.mark.parametrize("direction", ["upgrade", "downgrade"])
+def test_drop_app_role_does_nothing_without_postgres(
+    drop_app_role: ModuleType, direction: str
+) -> None:
+    assert _executed_sql(drop_app_role, direction, "sqlite") == []
+
+
+def test_drop_app_role_revokes_before_it_drops(drop_app_role: ModuleType) -> None:
+    [sql] = _executed_sql(drop_app_role, "upgrade", "postgresql")
+
+    assert "IF EXISTS (SELECT 1 FROM pg_roles" in sql
+    assert sql.index("REVOKE ALL ON ALL TABLES") < sql.index("DROP ROLE")
+    assert sql.index("REVOKE ALL ON DATABASE") < sql.index("DROP ROLE")
+
+
+def test_drop_app_role_failure_does_not_block_the_deployment(
+    drop_app_role: ModuleType,
+) -> None:
+    [sql] = _executed_sql(drop_app_role, "upgrade", "postgresql")
+
+    assert sql.index("FOREACH") < sql.index("REVOKE ALL ON ALL TABLES")
+    handler = sql[sql.index("EXCEPTION") :]
+    assert "dependent_objects_still_exist" in handler
+    assert "insufficient_privilege" in handler
+    assert "RAISE WARNING" in handler
+
+
+def test_drop_app_role_downgrade_restores_grants_and_revokes(
+    drop_app_role: ModuleType,
+) -> None:
+    [sql] = _executed_sql(drop_app_role, "downgrade", "postgresql")
+
+    assert "CREATE ROLE %I NOLOGIN" in sql
+    assert sql.index("ALTER DEFAULT PRIVILEGES") < sql.index(
+        "REVOKE UPDATE, DELETE ON offer_template_versions"
+    )
+    assert "REVOKE DELETE ON offer_prompts" in sql

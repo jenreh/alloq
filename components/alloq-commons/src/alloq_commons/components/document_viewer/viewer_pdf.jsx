@@ -2,8 +2,8 @@
  *
  * Two overrides must stay: the wasm comes from the bundle through Vite's
  * `?url` instead of the default CDN, and the font fallback is off, which the
- * library documents as "no external font requests". The desktop app is
- * offline, so a CDN fetch would break it.
+ * library documents as "no external font requests". The viewer needs no
+ * access to an outside server.
  */
 
 import { useCallback, useMemo } from "react";

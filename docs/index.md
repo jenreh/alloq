@@ -23,7 +23,7 @@ features:
     details: Set up a local environment, run the app and change the code the way the project expects.
     link: /guide/getting-started
   - title: Architecture
-    details: Read how the packages, layers, data model, access rules, calculations and the desktop app fit together.
+    details: Read how the packages, layers, data model, access rules and calculations fit together.
     link: /architecture/overview
   - title: Features
     details: Start at the story map and read the user stories of each feature with links to the code and the tests.
@@ -35,16 +35,15 @@ features:
 
 ## What Alloq is
 
-Alloq is a web app that helps a software team plan which people work on which project in each week. It counts the free capacity of each person after absences, public holidays, part time and internal work. It also shows the state of all projects on one page. Alloq runs in the browser, and there is also a macOS desktop app that works on the same central database.
+Alloq is a web app that helps a software team plan which people work on which project in each week. It counts the free capacity of each person after absences, public holidays, part time and internal work. It also shows the state of all projects on one page. Alloq runs in the browser.
 
 ## Who uses Alloq
 
-Alloq has four personas:
+Alloq has three personas:
 
 - **Administrator.** An administrator decides who can sign in and what each person may read or change. The administrator also keeps the roles, daily rates, departments and public holidays.
 - **Project manager.** A project manager plans people on projects week by week and keeps the data, status and risks of each project current.
 - **Employee.** An employee reads the planning and the projects without changing them and keeps their own account up to date.
-- **Desktop user.** A desktop user works in the macOS app and signs in with a Microsoft account.
 
 The [story map](/features/story-map) describes the goals of each persona in more detail.
 

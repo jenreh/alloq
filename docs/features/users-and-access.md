@@ -7,9 +7,7 @@ source_paths:
   - app/configuration.py
   - app/public_url.py
   - app/pages/users.py
-  - app/components/db_access_button.py
   - app/components/sidebar.py
-  - app/desktop/db_access_state.py
   - components/alloq-commons/src/alloq_commons/access.py
   - components/alloq-commons/src/alloq_commons/roles.py
   - components/alloq-commons/src/alloq_commons/models/department.py
@@ -41,18 +39,16 @@ Administrator · Manage users / Manage users · priority 1 · core · v0.2.0
 
 ### Acceptance criteria
 
-1. **Given** a signed-in admin, **when** the admin opens `/admin/users` with the title "Benutzer" [users], **then** the page loads the role choices (`DepartmentState.load_user_roles`), the users (`UserState.load_users`) and the database access list for the desktop app (`DatabaseAccessState.load`).
+1. **Given** a signed-in admin, **when** the admin opens `/admin/users` with the title "Benutzer" [users], **then** the page loads the role choices (`DepartmentState.load_user_roles`) and the users (`UserState.load_users`).
 2. **Given** the users page, **when** it renders, **then** the toolbar shows the title "Benutzer", the subtitle "Administration · Benutzer anlegen, bearbeiten und löschen" [administration, create, edit and delete users], the user search and the add button. The page mounts the add and edit dialogs itself, because it builds its own table view. (no test)
-3. **Given** the app runs as the desktop app, **when** the user table renders, **then** each row has a button "Datenbankzugriff" [database access]. In the web app the button is missing. The rules of this button are in the story [DESK-07](./desktop.md#desk-07).
-4. **Given** a user who is not an admin, **when** the user opens the users page, **then** the page shows the no-permission content of `appkit_user` instead of the table. See [AUTH-08](#auth-08).
+3. **Given** a user who is not an admin, **when** the user opens the users page, **then** the page shows the no-permission content of `appkit_user` instead of the table. See [AUTH-08](#auth-08).
 
 ### Evidence
 
-- [app/pages/users.py](../../app/pages/users.py): `create_users_page`, `user_toolbar`, `row_actions`
-- [app/components/db_access_button.py](../../app/components/db_access_button.py): `database_access_button`
+- [app/pages/users.py](../../app/pages/users.py): `create_users_page`, `user_toolbar`
 - `appkit_user.user_management.components.user`: `user_table_view`, `add_user_modal`, `edit_user_modal`, `search_user_input`, `add_user_button`
 - `appkit_user.user_management.states.user_states`: `UserState`
-- Tests: [tests/test_users_page.py](../../tests/test_users_page.py) `TestUsersPage.test_on_load_loads_users`, `test_on_load_loads_database_access`, `test_database_access_button_only_in_the_desktop_app`
+- Tests: [tests/test_users_page.py](../../tests/test_users_page.py) `TestUsersPage.test_on_load_loads_users`
 
 ### Open questions
 
@@ -164,14 +160,13 @@ The decorators and how they work are described in [Guard decorators](../architec
 3. **Given** a handler with `@requires_editor` or `@requires_viewer`, **when** a signed-in user without the right calls it, **then** the handler does not run. A toast "Sie haben keine Berechtigung für diese Aktion." appears at the top right, and a warning with the user id is logged.
 4. **Given** a guarded handler, **when** a caller without a session calls it, **then** the caller is redirected to the login page.
 5. **Given** a guarded handler, **when** it is wrapped, **then** the wrapper keeps the name of the handler and stores its level, `viewer` or `editor`, in the attribute `alloq_access_level`.
-6. **Given** an administration handler, e.g. `DatabaseAccessState.load`, **when** it is decorated, **then** it uses `@requires_admin` of `appkit_user`, which lets only users with the `is_admin` flag run it.
+6. **Given** an administration handler, e.g. in `RoleState`, **when** it is decorated, **then** it uses `@requires_admin` of `appkit_user`, which lets only users with the `is_admin` flag run it.
 
 ### Evidence
 
 - [components/alloq-commons/src/alloq_commons/access.py](../../components/alloq-commons/src/alloq_commons/access.py): `requires_editor`, `requires_viewer`, `_guard`, `_NOT_AUTHORIZED_MSG`, `ACCESS_LEVEL_ATTR`
-- [app/desktop/db_access_state.py](../../app/desktop/db_access_state.py): `DatabaseAccessState.load`
 - `appkit_user.authentication.decorators`: `requires_admin`
-- Tests: [components/alloq-commons/tests/test_access.py](../../components/alloq-commons/tests/test_access.py) `TestRequiresEditor.test_admins_and_project_managers_run_the_handler`, `TestRequiresEditor.test_readers_and_others_are_denied`, `TestRequiresEditor.test_anonymous_users_are_redirected`, `TestRequiresEditor.test_keeps_the_handler_name`, `TestRequiresViewer.test_allowed_users_run_the_handler`; [tests/test_desktop_db_access.py](../../tests/test_desktop_db_access.py) `TestDatabaseAccessState.test_load_needs_an_alloq_admin`
+- Tests: [components/alloq-commons/tests/test_access.py](../../components/alloq-commons/tests/test_access.py) `TestRequiresEditor.test_admins_and_project_managers_run_the_handler`, `TestRequiresEditor.test_readers_and_others_are_denied`, `TestRequiresEditor.test_anonymous_users_are_redirected`, `TestRequiresEditor.test_keeps_the_handler_name`, `TestRequiresViewer.test_allowed_users_run_the_handler`
 
 ## AUTH-10 Test that every handler is guarded {#auth-10}
 
@@ -185,19 +180,19 @@ The test and its lists are described in [The handler authorization test](../arch
 
 ### Acceptance criteria
 
-1. **Given** all states in the packages `alloq_commons`, `alloq_dashboard`, `alloq_project` and `alloq_team`, plus the sidebar, database access and desktop login states, **when** the test collects their handlers, **then** each handler must have a guard, be a listed viewer handler, check rights inside the handler, be a UI handler or be a listed handler that runs before sign-in. Any other handler fails the test.
-2. **Given** the administration states `DailyRateState`, `DepartmentState`, `RoleState`, `HolidayState` and `DatabaseAccessState`, **when** the test checks them, **then** none of their handlers may use `@requires_editor` or `@requires_viewer`.
+1. **Given** all states in the packages `alloq_commons`, `alloq_dashboard`, `alloq_project` and `alloq_team`, plus the sidebar state, **when** the test collects their handlers, **then** each handler must have a guard, be a listed viewer handler, check rights inside the handler, or be a UI handler. Any other handler fails the test.
+2. **Given** the administration states `DailyRateState`, `DepartmentState`, `RoleState` and `HolidayState`, **when** the test checks them, **then** none of their handlers may use `@requires_editor` or `@requires_viewer`.
 3. **Given** the states in `alloq_dashboard`, `alloq_project` and `alloq_team` and the `SidebarState`, **when** the test checks them, **then** none of their handlers may use `@requires_admin`, so project managers can run them.
 4. **Given** the list `VIEWER_HANDLERS` with the loads of `ProjectState`, `ProjectResourceState` and `PlanningStore`, **when** the test checks it, **then** the handlers with `@requires_viewer` are exactly the handlers in the list.
 5. **Given** a handler in `VIEWER_HANDLERS`, **when** the test reads its code, **then** the code contains no write call such as `.commit(` or `.add(`.
-6. **Given** a handler in `UI_ONLY_HANDLERS`, e.g. `SplashState.finish` or `SidebarState.invalidate`, **when** the test reads its code and the helpers it calls, **then** the code must not reach the database.
+6. **Given** a handler in `UI_ONLY_HANDLERS`, e.g. `SidebarState.invalidate`, **when** the test reads its code and the helpers it calls, **then** the code must not reach the database.
 7. **Given** a background handler, **when** the test checks it, **then** it must not have a guard decorator.
 8. **Given** a card load in `INLINE_ADMIN_CHECK`, **when** the test reads `_run_card_load`, **then** the code takes `async with self:`, then calls `await _can_edit(self`, and only then calls `await loader()`.
-9. **Given** an entry in `UI_ONLY_HANDLERS`, `INLINE_ADMIN_CHECK` or `PRE_AUTH_HANDLERS` whose handler was removed or now has a guard, **when** the test runs, **then** it fails because the entry is stale.
+9. **Given** an entry in `UI_ONLY_HANDLERS` or `INLINE_ADMIN_CHECK` whose handler was removed or now has a guard, **when** the test runs, **then** it fails because the entry is stale.
 
 ### Evidence
 
-- [tests/test_handler_authorization.py](../../tests/test_handler_authorization.py): `PACKAGES`, `EXTRA_MODULES`, `ADMIN_STATES`, `EDITOR_PACKAGES`, `EDITOR_STATES`, `INLINE_ADMIN_CHECK`, `PRE_AUTH_HANDLERS`, `VIEWER_HANDLERS`, `UI_ONLY_HANDLERS`, `WRITE_MARKERS`
+- [tests/test_handler_authorization.py](../../tests/test_handler_authorization.py): `PACKAGES`, `EXTRA_MODULES`, `ADMIN_STATES`, `EDITOR_PACKAGES`, `EDITOR_STATES`, `INLINE_ADMIN_CHECK`, `VIEWER_HANDLERS`, `UI_ONLY_HANDLERS`, `WRITE_MARKERS`
 - Tests: [tests/test_handler_authorization.py](../../tests/test_handler_authorization.py) `test_every_handler_is_admin_guarded_or_ui_only`, `test_administration_handlers_stay_admin_only`, `test_planning_handlers_are_open_to_project_managers`, `test_viewer_handlers_are_exactly_the_allowlist`, `test_viewer_handler_does_not_write`, `test_ui_only_handler_does_not_reach_database`, `test_guards_are_not_used_on_background_handlers`, `test_background_handlers_check_edit_rights_inside_state_lock`, `test_allowlists_have_no_stale_entries`
 
 ### Open questions

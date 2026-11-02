@@ -25,7 +25,7 @@ Access is controlled by a **new permission role `offer_editor`** (label "Angebot
 - Roles and access: `alloq_commons/roles.py` (`PROJECT_MANAGER_ROLE` id 1, `EMPLOYEE_ROLE` id 2, `ALL_ROLES`), `alloq_commons/access.py` (`CAN_EDIT`, `editor_only`, `_guard`, `requires_editor`, `ACCESS_LEVEL_ATTR`). The word "editor" is already used there for admin + project manager, so the new role is named `offer_editor`.
 - Sidebar: `app/components/sidebar.py` (`PLANNING_ITEMS`, `VIEWER_ROUTES`, `_guarded_nav_item`). Registration: `app/app.py`.
 - Guards: `tests/test_handler_authorization.py` (`PACKAGES`, `EDITOR_PACKAGES`, `UI_ONLY_HANDLERS`, access-level checks), `tests/test_component_boundaries.py`.
-- Migrations: current head is `bd91ef12ac34` (`alembic/versions/2026_10_19_department_highlight.py`); `alembic/env.py` imports `alloq_commons.entities` to register tables; new revisions go first in `KNOWN_REVISIONS` in `app/desktop/schema.py`.
+- Migrations: current head is `bd91ef12ac34` (`alembic/versions/2026_10_19_department_highlight.py`); `alembic/env.py` imports `alloq_commons.entities` to register tables.
 - Root `pyproject.toml` lists every package in `dependencies`, `[tool.uv.sources]`, `[[tool.bumpversion.files]]`, pytest `testpaths` and coverage `source`.
 
 ## Requirements
@@ -58,7 +58,7 @@ Access is controlled by a **new permission role `offer_editor`** (label "Angebot
 6. Pydantic `Offer` read model and `OfferCreate` write model with `Field` limits matching the columns; `sharepoint_url` must be empty or start with `http://` or `https://`; `ciu` and `state` validated against the enums; strings stripped and non-empty where required.
 7. `OfferRepository(BaseRepository[OfferEntity, AsyncSession])` with `find_all_ordered()` (newest `updated` first) and module singleton `offer_repo`. No delete method is used anywhere.
 8. Make the table known to Alembic: `alloq_offer` must register `OfferEntity` on `Base.metadata`, and `alembic/env.py` imports `alloq_offer.entities` next to `alloq_commons.entities`. Make sure the SQLite test setup also sees the table.
-9. Hand-written migration `alembic/versions/2026_10_21_offers.py`: new revision id, `down_revision = "bd91ef12ac34"`, `op.create_table("offers", ...)` with all columns and an index on `state`; real `downgrade()` dropping the table. Add the revision as first entry of `KNOWN_REVISIONS` in `app/desktop/schema.py`.
+9. Hand-written migration `alembic/versions/2026_10_21_offers.py`: new revision id, `down_revision = "bd91ef12ac34"`, `op.create_table("offers", ...)` with all columns and an index on `state`; real `downgrade()` dropping the table.
 
 ### 3. Pure services (`alloq_offer/services/`)
 10. `apply_state_change(state: str, sent_date: date | None, new_state: str, today: date) -> date | None`: when `new_state` is `Versendet` and `sent_date` is empty, return `today`; otherwise return `sent_date` unchanged (moving back to Neu/In Bearbeitung keeps the date). Used by create, edit and the inline status select.
@@ -107,7 +107,7 @@ Access is controlled by a **new permission role `offer_editor`** (label "Angebot
 ## Deliverables
 
 - `components/alloq-offer/` package with `pyproject.toml`, source modules above, `tests/`.
-- Edits: root `pyproject.toml`, `alembic/env.py`, `alembic/versions/2026_10_21_offers.py`, `app/desktop/schema.py`, `alloq_commons/roles.py`, `alloq_commons/access.py`, `app/app.py`, `app/components/sidebar.py`, `tests/test_handler_authorization.py`.
+- Edits: root `pyproject.toml`, `alembic/env.py`, `alembic/versions/2026_10_21_offers.py`, `alloq_commons/roles.py`, `alloq_commons/access.py`, `app/app.py`, `app/components/sidebar.py`, `tests/test_handler_authorization.py`.
 - Tests in `components/alloq-offer/tests/`:
   - `test_offer_model.py`: `to_dict()` keys; `OfferCreate` rejects empty title/customer, negative numbers, unknown CIU/state, non-http SharePoint URL.
   - `test_offer_services.py`: `apply_state_change` (empty date set on Versendet, existing date kept, date kept when moving back), totals, margin incl. VK = 0, search/filter/grouping/sorting.

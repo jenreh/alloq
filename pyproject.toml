@@ -17,15 +17,10 @@ dependencies = [
     "appkit-ui==1.17.0",
     "psycopg[binary,pool]==3.3.6",
     "reflex==0.10.0",
-    "msal==1.39.0",
-    "msal-extensions==1.3.1",
     "sqlmodel>=0.0.48",
 ]
 
 [dependency-groups]
-desktop = [
-    "reflex-desktop==0.1.0",
-]
 dev = [
     "aiosqlite==0.22.1",
     "bump-my-version==1.6.7",
@@ -45,8 +40,6 @@ packages = ["app"]
 
 [tool.uv]
 cache-dir = ".cache/uv_cache"
-# The desktop group (reflex-desktop) stays installed, so `uv run` does not drop it.
-default-groups = ["dev", "desktop"]
 # Security floors for transitive deps (Dependabot #13-#31); raise, never remove
 constraint-dependencies = [
     "anyio>=4.14.2",

@@ -1,8 +1,7 @@
 """Window toolbar of the content pane and its controls (macOS style).
 
 Title and one line of context on the left, a segmented control in the middle,
-search, icon buttons and at most one blue primary button on the right. The
-toolbar drags the desktop window (`DRAG`).
+search, icon buttons and at most one blue primary button on the right.
 """
 
 from collections.abc import Sequence
@@ -13,9 +12,6 @@ from reflex.event import EventType
 
 import appkit_mantine as mn
 from alloq_commons import theme
-
-DRAG: dict[str, Any] = {"data-tauri-drag-region": ""}
-"""Marks an element as window title bar (Tauri drags the window from it)."""
 
 SIDEBAR_TOGGLE_SCRIPT = "window.aqToggleSidebar && window.aqToggleSidebar()"
 
@@ -35,7 +31,7 @@ def sidebar_reveal_button() -> rx.Component:
 def _heading(
     title: str | rx.Var[str], subtitle: str | rx.Var[str] | None
 ) -> rx.Component:
-    """Title and one line of context, both dragging the window."""
+    """Title and one line of context."""
     return mn.stack(
         mn.title(
             title,
@@ -46,7 +42,6 @@ def _heading(
             lh="1.2",
             c=theme.TEXT,
             line_clamp=1,
-            custom_attrs=DRAG,
         ),
         mn.text(
             subtitle,
@@ -54,13 +49,11 @@ def _heading(
             lh="1.3",
             c=theme.TEXT_MUTED,
             truncate="end",
-            custom_attrs=DRAG,
         )
         if subtitle is not None
         else rx.fragment(),
         gap=1,
         miw=0,
-        custom_attrs=DRAG,
     )
 
 
@@ -75,15 +68,14 @@ def window_toolbar(
     heading = _heading(title, subtitle)
     return mn.box(
         sidebar_reveal_button(),
-        mn.box(heading, class_name="aq-toolbar-title", custom_attrs=DRAG),
+        mn.box(heading, class_name="aq-toolbar-title"),
         mn.box(
             center if center is not None else rx.fragment(),
             class_name="aq-toolbar-center",
-            custom_attrs=DRAG,
         ),
         mn.group(*actions, gap=6, wrap="nowrap", class_name="aq-toolbar-actions"),
         class_name="aq-toolbar",
-        custom_attrs={**DRAG, "role": "toolbar"},
+        custom_attrs={"role": "toolbar"},
     )
 
 

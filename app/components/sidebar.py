@@ -1,6 +1,6 @@
 """Source-list sidebar of the app window (macOS style).
 
-Top row free for the native traffic lights, then logo, planning, role capacity,
+Top row with the collapse button, then logo, planning, role capacity,
 administration (admins only), and the signed-in user at the bottom.
 """
 
@@ -10,8 +10,7 @@ import reflex as rx
 from alloq_commons import theme
 from alloq_commons.access import editor_only, offer_admin_only, viewer_only
 from alloq_commons.components.formatters import de_number
-from alloq_commons.components.toolbar import DRAG, SIDEBAR_TOGGLE_SCRIPT, icon_button
-from alloq_commons.desktop import is_desktop
+from alloq_commons.components.toolbar import SIDEBAR_TOGGLE_SCRIPT, icon_button
 from alloq_dashboard.models import FreeCapacityKpi
 from alloq_dashboard.states import RoleCapacityState
 from reflex.style import set_color_mode
@@ -26,7 +25,6 @@ from appkit_user.authentication.states import LoginState
 
 from app.components.sidebar_state import SidebarState
 from app.configuration import configure
-from app.desktop.login_state import DesktopLoginState
 
 PROJECTS_ROUTE: Final = "/projects"
 TEAM_ROUTE: Final = "/team"
@@ -81,9 +79,6 @@ ROW: Final = {
     "cursor": "default",
     "fontSize": "13px",
 }
-SIGN_OUT: Final = DesktopLoginState.sign_out if is_desktop() else LoginState.logout
-"""`logout` ends the session; the desktop app also forgets the Microsoft
-account and its DB connections."""
 NO_HOVER: Final = {"color": theme.SIDEBAR_TEXT}
 """Source lists don't recolor on hover; rx.link would turn the text blue."""
 
@@ -102,9 +97,9 @@ def is_route_active(url: str) -> rx.Var[bool]:
 
 
 def _window_row() -> rx.Component:
-    """Free space for the native window buttons, plus the collapse button."""
+    """Top row with the collapse button on the right."""
     return mn.group(
-        mn.box(flex="1", h=20, custom_attrs=DRAG),
+        mn.box(flex="1", h=20),
         icon_button(
             "panel-left-close",
             "Seitenleiste ausblenden (⌃⌘S)",
@@ -113,7 +108,6 @@ def _window_row() -> rx.Component:
         h=20,
         gap=0,
         wrap="nowrap",
-        custom_attrs=DRAG,
     )
 
 
@@ -141,7 +135,6 @@ def _brand() -> rx.Component:
         gap=10,
         px=6,
         wrap="nowrap",
-        custom_attrs=DRAG,
     )
 
 
@@ -327,7 +320,7 @@ def _user_menu() -> rx.Component:
             mn.menu.item(
                 "Abmelden",
                 left_section=rx.icon("log-out", size=14),
-                on_click=SIGN_OUT,
+                on_click=LoginState.logout,
             ),
         ),
         position="top-start",

@@ -11,7 +11,6 @@ from appkit_commons.configuration.configuration import (
 from appkit_commons.registry import service_registry
 from appkit_user.configuration import AuthenticationConfiguration
 
-from app.desktop.config import DesktopConfig
 from app.public_url import PUBLIC_BASE_URL_ENV, PublicUrl, apply_public_url
 
 logger = logging.getLogger(__name__)
@@ -22,8 +21,6 @@ class AppConfig(ApplicationConfig):
     # Peer addresses allowed to set X-Forwarded-Proto. None trusts every peer,
     # so set it wherever the backend port is reachable without the proxy.
     trusted_proxies: set[str] | None = None
-    # Entra ID sign-in of the desktop app (configuration/config.desktop.yaml).
-    desktop: DesktopConfig | None = None
     # Background worker and Azure OpenAI access of the offer workshop.
     offer_workshop: WorkshopConfig = WorkshopConfig()
 

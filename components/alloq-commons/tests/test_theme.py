@@ -66,19 +66,6 @@ class TestMantineTheme:
         assert "-apple-system" in theme.FONT_FAMILY
 
 
-class TestNativeWindow:
-    def test_native_script_marks_tauri_window(self) -> None:
-        assert "__TAURI__" in theme.NATIVE_SCRIPT
-        assert theme.NATIVE_SCRIPT in theme.HEAD_SCRIPTS
-
-    def test_native_window_is_transparent(self) -> None:
-        assert f"html[{theme.NATIVE_ATTR}] body" in theme.GLOBAL_CSS
-        assert "background:transparent !important" in theme.GLOBAL_CSS
-
-    def test_does_not_override_saved_color_mode(self) -> None:
-        assert theme.HEAD_SCRIPTS == (theme.NATIVE_SCRIPT,)
-
-
 def test_global_css_is_balanced() -> None:
     assert theme.GLOBAL_CSS.count("{") == theme.GLOBAL_CSS.count("}")
     assert not re.search(r";;", theme.GLOBAL_CSS)

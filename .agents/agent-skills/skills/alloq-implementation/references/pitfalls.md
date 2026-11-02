@@ -48,8 +48,6 @@ sessions; search memory for more detail.
   the module constant, or use `json.dumps(label)[1:-1]` like `tests/test_sidebar.py`.
 - **Stale allowlist entry.** Renaming or guarding a handler without updating
   `UI_ONLY_HANDLERS` fails `test_allowlists_have_no_stale_entries`.
-- **New migration without `KNOWN_REVISIONS`.** `tests/test_desktop_login.py`
-  compares `app/desktop/schema.py` with the Alembic history; prepend the new revision.
 
 ## Migrations
 

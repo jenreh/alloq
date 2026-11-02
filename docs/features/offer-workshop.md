@@ -67,7 +67,7 @@ Withdrawing a source (trash button in the source list) blocks its use at once. T
 | Admin | `alloq_offer/admin/`, `services/template_drafts.py`, `services/chapter_blocks.py`, `services/prompts.py` | Page `/admin/offers` with the tabs Vorlagen, Kapitelbausteine and Prompts |
 | States and components | `workshop/states/`, `workshop/components/` | One state per tab |
 
-Jobs run in the worker task started with the app when `app.offer_workshop.worker_enabled` is true. Without it, uploaded sources stay "hochgeladen" and no draft or export is made. Server and desktop can both run it, because jobs are claimed with `FOR UPDATE SKIP LOCKED`.
+Jobs run in the worker task started with the app when `app.offer_workshop.worker_enabled` is true. Without it, uploaded sources stay "hochgeladen" and no draft or export is made. Several workers can run it at once, because jobs are claimed with `FOR UPDATE SKIP LOCKED`.
 
 The chain of the first draft lives in `services/draft_pipeline.py`. Each stage is its own job, so a failed stage is retried alone and the stages before it stay saved.
 

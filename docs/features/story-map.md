@@ -15,8 +15,7 @@ story_ids: [
   PLAN-21, PLAN-22, PROJ-18, PROJ-19, TEAM-12, TEAM-13, PLAN-23, PLAN-24,
   PLAN-25, PLAN-26, PLAN-27, DASH-01, DASH-02, DASH-03, DASH-04, DASH-05,
   DASH-06, DASH-07, DASH-08, DASH-09, DASH-10, DASH-11, DASH-12, DASH-15,
-  DASH-16, DASH-13, DESK-09, DESK-10, DESK-08, DESK-01, DESK-02, DESK-03,
-  DESK-05, DESK-06, DESK-04, DESK-07, DESK-11, DESK-12, OFF-01, OFF-02,
+  DASH-16, DASH-13, OFF-01, OFF-02,
   OFF-03, OFF-04, OFF-05, OFF-06, OFF-07, OFF-08
 ]
 source_paths:
@@ -30,7 +29,6 @@ source_paths:
   - components/alloq-project/src/alloq_project/pages.py
   - components/alloq-dashboard/src/alloq_dashboard/pages.py
   - components/alloq-offer/src/alloq_offer/pages.py
-  - tauri/src-tauri/src/main.rs
 last_verified_commit: "cb9d5b0 (v2.0.4)"
 ---
 
@@ -42,13 +40,12 @@ This page lists all 126 user stories of Alloq on one map. The stories come from 
 
 Alloq helps a software team plan which people work on which project in each week. It counts the free capacity of each person after absences, public holidays, part time and internal work, and it shows the state of the project portfolio. It also keeps the offers that the company sends to customers.
 
-Alloq has five personas. Their goals come from the README and from the "so that" part of the stories.
+Alloq has four personas. Their goals come from the README and from the "so that" part of the stories.
 
 **Administrator.**
 
 - Decide who can sign in and what each person may read or change.
 - Keep the roles, daily rates, departments and public holidays that the planning and the prices use.
-- Give desktop users access to the central database.
 
 **Project manager.**
 
@@ -66,10 +63,6 @@ Alloq has five personas. Their goals come from the README and from the "so that"
 - Keep all customer offers with their person days, cost and price in one list.
 - Record when an offer was sent, and archive offers that are no longer relevant.
 - Work on offers without access to the planning, the projects or the team.
-
-**Desktop user.**
-
-- Use Alloq as a macOS app with the Microsoft account, on the same central database, with no secret stored in the app.
 
 ## How to read the map
 
@@ -107,7 +100,6 @@ People do not always follow this order:
 - Project managers can staff a new project with the wizard or the tab "Ressourcen" (PLAN-19, PROJ-18) instead of typing into the grid.
 - A project can be created in the middle of an assignment (PROJ-21), so "Create and track projects" can come after planning has started.
 - Absences can be recorded at any time, from the team page or from the planning page (TEAM-12, PLAN-26).
-- Desktop users start at the last activity. They open the desktop app, sign in with Microsoft and then use the same pages as in the browser.
 
 ## The map
 
@@ -182,14 +174,6 @@ Feature pages: [Portfolio overview](./portfolio.md), [Portfolio staffing and cap
 | v0.3.0 |  | [DASH-16 Background load with cache](./portfolio-capacity.md#dash-16) \* |
 | v2.0.0 |  | [DASH-15 Free capacity in the sidebar](./portfolio-capacity.md#dash-15) |
 | v2.0.4 | [DASH-01 Open the portfolio overview](./portfolio.md#dash-01)<br>[DASH-04 Schedule and budget chart](./portfolio.md#dash-04)<br>[DASH-06 Risk grid](./portfolio.md#dash-06)<br>[DASH-02 Placeholders and load error](./portfolio.md#dash-02)<br>[DASH-05 Project side panel](./portfolio.md#dash-05)<br>[DASH-07 Risks in a grid cell](./portfolio.md#dash-07)<br>[DASH-03 Department or my scope](./portfolio.md#dash-03) | [DASH-08 Projects with low staffing buffer](./portfolio-capacity.md#dash-08)<br>[DASH-11 Capacity per role for 13 weeks](./portfolio-capacity.md#dash-11)<br>[DASH-13 Person side panel](./portfolio-capacity.md#dash-13)<br>[DASH-09 Buffer per project role](./portfolio-capacity.md#dash-09)<br>[DASH-10 Person to look at and reason](./portfolio-capacity.md#dash-10)<br>[DASH-12 Role side panel](./portfolio-capacity.md#dash-12) |
-
-### Use the desktop app
-
-Feature pages: [Desktop app](./desktop.md).
-
-| Slice | Start the desktop app | Sign in on the desktop | Work with the central database | Set up desktop access |
-| --- | --- | --- | --- | --- |
-| v2.0.0 | [DESK-09 Native window with embedded backend](./desktop.md#desk-09)<br>[DESK-10 Desktop configuration profile](./desktop.md#desk-10)<br>[DESK-08 Splash screen](./desktop.md#desk-08) | [DESK-01 Microsoft sign-in only](./desktop.md#desk-01)<br>[DESK-06 Sign out on the desktop](./desktop.md#desk-06)<br>[DESK-02 Only known, active users](./desktop.md#desk-02)<br>[DESK-03 Refuse a wrong schema version](./desktop.md#desk-03)<br>[DESK-05 Restore the account from the Keychain](./desktop.md#desk-05) | [DESK-04 Own Entra token per connection](./desktop.md#desk-04) | [DESK-07 Grant database access](./desktop.md#desk-07) \*<br>[DESK-11 Ship no secrets](./desktop.md#desk-11)<br>[DESK-12 Run locally with a faked sign-in](./desktop.md#desk-12) |
 
 ## Walking skeleton
 

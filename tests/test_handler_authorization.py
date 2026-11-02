@@ -30,11 +30,7 @@ PACKAGES = (
     "alloq_project",
     "alloq_team",
 )
-EXTRA_MODULES = (
-    "app.components.sidebar_state",
-    "app.desktop.db_access_state",
-    "app.desktop.login_state",
-)
+EXTRA_MODULES = ("app.components.sidebar_state",)
 OWN_PACKAGES = frozenset({*PACKAGES, "app"})
 
 # Administration needs the admin switch; project managers may not run these.
@@ -48,7 +44,6 @@ ADMIN_STATES = frozenset(
         "IndustryState",
         "RoleState",
         "HolidayState",
-        "DatabaseAccessState",
     }
 )
 # The offer configuration (templates, chapter blocks, prompts) is open to admins
@@ -80,13 +75,6 @@ INLINE_ADMIN_CHECK: dict[str, frozenset[str]] = {
     )
 }
 
-# Sign-in and sign-out run without a session by nature (like appkit's
-# LoginState). The desktop login checks the user itself: Entra ID decides who
-# reaches the database, the alloq account decides who gets a session.
-PRE_AUTH_HANDLERS: dict[str, frozenset[str]] = {
-    "DesktopLoginState": frozenset({"sign_in_with_microsoft", "sign_out"}),
-}
-
 # Loads that only read; the employee role may run them (``@requires_viewer``).
 VIEWER_HANDLERS: dict[str, frozenset[str]] = {
     "ProjectState": frozenset(
@@ -103,7 +91,6 @@ SIGNED_IN_HANDLERS: dict[str, frozenset[str]] = {
 }
 
 UI_ONLY_HANDLERS: dict[str, frozenset[str]] = {
-    "SplashState": frozenset({"finish"}),
     "SidebarState": frozenset({"invalidate"}),
     "DashboardState": frozenset({"close_drill_down", "open_drill_down"}),
     "BlockAdminState": frozenset(
@@ -520,7 +507,6 @@ def test_every_handler_is_admin_guarded_or_ui_only() -> None:
         and not _is_allowed_reader(state_name, name, handler.fn)
         and name not in INLINE_ADMIN_CHECK.get(state_name, frozenset())
         and name not in UI_ONLY_HANDLERS.get(state_name, frozenset())
-        and name not in PRE_AUTH_HANDLERS.get(state_name, frozenset())
     )
     assert unguarded == [], (
         "Guard these handlers with @requires_editor (@requires_admin in the "
@@ -645,7 +631,7 @@ def test_viewer_handler_does_not_write(state_name: str, name: str) -> None:
 
 def test_allowlists_have_no_stale_entries() -> None:
     stale = []
-    for allowlist in (UI_ONLY_HANDLERS, INLINE_ADMIN_CHECK, PRE_AUTH_HANDLERS):
+    for allowlist in (UI_ONLY_HANDLERS, INLINE_ADMIN_CHECK):
         for state_name, names in allowlist.items():
             handlers = _handlers(STATES[state_name]) if state_name in STATES else {}
             stale += [

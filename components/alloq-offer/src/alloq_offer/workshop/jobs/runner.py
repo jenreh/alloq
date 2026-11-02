@@ -43,7 +43,7 @@ def _context(job: JobEntity) -> JobContext:
 
 
 class JobRunner:
-    """Runs queued jobs; several runners (server and desktop) may share one queue."""
+    """Runs queued jobs; several runners may share one queue."""
 
     def __init__(
         self,

@@ -28,8 +28,7 @@ last_verified_commit: "cb9d5b0 (v2.0.4)"
 
 Alloq uses the library appkit-user for users, sign-in and sessions. Alloq adds its
 own access levels on top. This page explains both parts and the tests that keep
-them in place. The desktop sign-in with Entra ID is on the
-[desktop page](./desktop.md).
+them in place.
 
 ## Overview
 
@@ -51,10 +50,9 @@ the websocket regardless.
 
 [`create_login_page`](../../app/pages/login.py) registers the route `/login` with
 the title "Anmelden" [sign in]. Its `on_load` runs
-`LoginState.clear_session_storage_token`. On the desktop, `desktop_handlers` adds
-`SplashState.finish`.
+`LoginState.clear_session_storage_token`.
 
-The web variant of `login_view` shows:
+`login_view` shows:
 
 - A form with "E-Mail" and "Passwort" [password]. The button "Anmelden" submits it
   to `LoginState.login_with_password` of appkit-user.
@@ -65,13 +63,9 @@ The web variant of `login_view` shows:
   `LoginState.enable_github_oauth`). The divider "oder" [or] shows when at least
   one is enabled.
 
-The desktop variant (`_desktop_sign_in`) shows only "Mit Microsoft anmelden", which
-calls `DesktopLoginState.sign_in_with_microsoft`.
-
 Tests: [`tests/test_login_page.py`](../../tests/test_login_page.py)
 (`test_password_form_submits_to_login_state`, `test_single_sign_on_buttons`,
-`test_registers_route_and_clears_token_on_load`,
-`test_desktop_variant_signs_in_with_microsoft_only`).
+`test_registers_route_and_clears_token_on_load`).
 
 ### OAuth
 
@@ -219,7 +213,7 @@ Handlers that read or write business data must carry a guard. There are three:
 
 - `requires_admin` from `appkit_user.authentication.decorators`. Only admins pass.
   The administration states use it: `DailyRateState`, `DepartmentState`,
-  `RoleState`, `HolidayState` and `DatabaseAccessState`.
+  `RoleState` and `HolidayState`.
 - `requires_editor` from `access.py`. Admins and project managers pass. Every
   handler in `alloq_dashboard`, `alloq_project` and `alloq_team` that touches data
   uses it, and so does `SidebarState.load`. The exceptions are the read-only loads
@@ -264,8 +258,7 @@ from `access.py` and logs a warning on a denied load.
 
 [`tests/test_handler_authorization.py`](../../tests/test_handler_authorization.py)
 imports every module of `alloq_commons`, `alloq_dashboard`, `alloq_project`,
-`alloq_team` and three host modules (`app.components.sidebar_state`,
-`app.desktop.db_access_state`, `app.desktop.login_state`). It then finds every
+`alloq_team` and the host module `app.components.sidebar_state`. It then finds every
 Reflex state class of these packages. Mixins are skipped, because their handlers
 are checked through the states they are mixed into.
 
@@ -277,7 +270,6 @@ Every handler must fall into one of these groups:
 | `VIEWER_HANDLERS` | `requires_viewer`, and the handler is in the list |
 | `INLINE_ADMIN_CHECK` | Background `load` of the dashboard cards that calls `_run_card_load` |
 | `UI_ONLY_HANDLERS` | Changes UI state only and does not reach the database |
-| `PRE_AUTH_HANDLERS` | `DesktopLoginState.sign_in_with_microsoft` and `sign_out` |
 
 Reflex's own `setvar` is ignored.
 

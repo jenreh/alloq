@@ -19,7 +19,6 @@ All snippets are copied from the repo. Paths under `commons/` mean
 | `app/app.py` | entry point; calls every page factory with `sidebar()` |
 | `app/pages/*.py` | admin pages of the host app (users, roles, departments, holidays, profile, login) |
 | `app/components/sidebar.py` | navigation entries `(route, label, icon)` |
-| `app/desktop/` | Tauri desktop app: Entra sign-in, DB access, `schema.py` revision check |
 | `commons/entities/` | SQLAlchemy entities, exported from `entities/__init__.py` |
 | `commons/models/` | Pydantic read models and `*Create` write models, exported from `models/__init__.py` |
 | `commons/repositories/` | one repository plus singleton per entity, exported from `repositories/__init__.py` |
@@ -154,9 +153,7 @@ the toolbar is a list of `toolbar_search(...)` and `primary_button(...)`.
 
 Migration: hand-written, `batch_alter_table` for column changes on existing tables,
 data moves with `op.execute`, a `downgrade()` that undoes all of it. The file header
-holds `revision` and `down_revision`; the newest revision goes first into
-`KNOWN_REVISIONS` in `app/desktop/schema.py` (`tests/test_desktop_login.py` compares
-it with the Alembic history).
+holds `revision` and `down_revision`.
 
 ## 3. Large states: mixins
 

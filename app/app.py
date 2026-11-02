@@ -1,7 +1,6 @@
 import reflex as rx
 from alloq_commons import theme
 from alloq_commons.components.shell import SIDEBAR_SCRIPT
-from alloq_commons.desktop import is_desktop
 from alloq_dashboard.pages import create_dashboard_page
 from alloq_offer.admin.pages import create_offer_admin_page
 from alloq_offer.pages import create_offers_page
@@ -27,8 +26,6 @@ from appkit_user.user_management.pages import (
 
 from app.components.sidebar import sidebar
 from app.configuration import configure
-from app.desktop.entra import EntraSignIn, install_db_auth
-from app.desktop.login_state import get_sign_in
 from app.pages.daily_rates import create_daily_rates_page
 from app.pages.departments import create_departments_page
 from app.pages.holidays import create_holidays_page
@@ -40,10 +37,6 @@ from app.pages.users import create_users_page
 from app.styles import base_style, base_stylesheets
 
 am.set_app_theme(theme.MANTINE_THEME)
-
-if is_desktop() and isinstance(sign_in := get_sign_in(), EntraSignIn):
-    # Every database connection signs in with the user's Entra token.
-    install_db_auth(sign_in)
 
 
 def auth_page_logos() -> dict[str, str]:
@@ -98,7 +91,7 @@ app = rx.App(
     head_components=[
         rx.el.link(rel="icon", href=rx.asset("favicon.ico"), type="image/x-icon"),
         rx.el.style(theme.GLOBAL_CSS),
-        *(rx.script(script) for script in (*theme.HEAD_SCRIPTS, SIDEBAR_SCRIPT)),
+        rx.script(SIDEBAR_SCRIPT),
     ],
     stylesheets=base_stylesheets,
     style=base_style,

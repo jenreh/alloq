@@ -90,7 +90,6 @@ export default withMermaid(
               link: "/architecture/security-and-access",
             },
             { text: "Calculations", link: "/architecture/calculations" },
-            { text: "Desktop app", link: "/architecture/desktop" },
           ],
         },
         {
@@ -122,7 +121,6 @@ export default withMermaid(
               text: "Portfolio staffing and capacity",
               link: "/features/portfolio-capacity",
             },
-            { text: "Desktop app", link: "/features/desktop" },
           ],
         },
         {
