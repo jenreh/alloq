@@ -9,3 +9,6 @@ reflex:
 app:
   logging: logging.prod.yaml
   environment: production
+
+  authentication:
+    session_cookie_secure: true

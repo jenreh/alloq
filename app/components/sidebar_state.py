@@ -64,12 +64,7 @@ class SidebarState(UserSession):
             self.employee_count = await count_employees(session)
             self.offer_count = await count_open_offers(session)
         self._loaded_at = time.monotonic()
-        logger.debug(
-            "Sidebar loaded: %d projects, %d employees, %d offers",
-            self.project_count,
-            self.employee_count,
-            self.offer_count,
-        )
+        logger.debug("Sidebar loaded")
         yield
 
     @rx.event
