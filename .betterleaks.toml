@@ -15,3 +15,21 @@ paths = [
     '''(^|/)node_modules/''',
     '''(^|/)__pycache__/''',
 ]
+
+# Config values like `password: secret:mn-db-password` name a secret in the secret provider,
+# they never contain one. Only the whole kebab-case reference is ignored, so a real value
+# that merely contains "secret:" is still reported.
+[[allowlists]]
+description = "References to the secret provider, which hold no secret value"
+regexes = ['''^secret:[a-z0-9]+(-[a-z0-9]+)*$''']
+
+# generic-password also matches these values in the git history. None is a real
+# credential: the local Postgres default, `secret:` references that the config
+# resolves at runtime, and test fixtures. Regexes match the whole secret.
+[[allowlists]]
+description = "Placeholder values, not credentials"
+targetRules = ["generic-password"]
+regexes = [
+    '''^postgres$''',
+    '''^(db-token|from-keychain)$''',
+]
