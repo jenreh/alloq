@@ -167,7 +167,7 @@ These keys fill `AppConfig` in [app/configuration.py](../../app/configuration.py
 | `name` | App name, `Alloq` |
 | `logging` | File name of the logging setup in `configuration/`, e.g. `logging.yaml` |
 | `environment` | One of `devcontainer`, `development`, `production`, `test`, `stage`, `docker`, `local`, `ci` |
-| `trusted_proxies` | Addresses that may set `X-Forwarded-Proto`. Unset means every peer is trusted. It is commented out in `config.yaml` |
+| `trusted_proxies` | Addresses that may set `X-Forwarded-Proto`. Unset means every peer is trusted, and production logs a warning. A string is split at commas. `config.prod.yaml` reads it from `secret:common-allowed-proxies`; it is commented out in `config.yaml` |
 | `database` | Database settings, see below |
 | `authentication` | Sign-in settings, see below |
 
@@ -198,9 +198,18 @@ These keys fill `AuthenticationConfiguration` from appkit_user.
 | `auth_token_refresh_delta` | `10` | Minutes before the end when the token is refreshed |
 | `server_url`, `server_port` | per profile | Public address used for links and OAuth callbacks |
 | `oauth_providers` | Azure in `config.yaml` | List of OAuth providers. The GitHub entry is commented out |
+| `public_routes` | login, password reset, OAuth callback | Routes reachable without a session. Everything else is denied |
+| `login_rate_limit` | `5` per email, `20` per client, `15` minute window and lockout | Throttle for failed password logins |
+| `password_reset` | `30` minute token, `3` requests per hour, `./assets/email-templates` | Reset link lifetime, request limit and email templates. The templates state the lifetime as fixed text, so change both together |
+| `email_provider` | Azure in `config.prod.yaml`, mock in the other profiles | Sends the password reset emails. Without it, none are sent. Production needs the secrets `common-email-azure-connection-string` and `common-email-from-address` |
 
-appkit_user has more keys with defaults that Alloq does not set, e.g.
-`public_routes`, `session_cookie_secure`, `email_provider` and `password_reset`.
+`session_cookie_secure` is `true` in `config.yaml`. The profiles `local`, `devcontainer` and
+`docker_test` set it to `false` because they serve plain http. Production refuses to
+start with `false`.
+
+`reflex.trusted_proxy_hops` is the number of reverse proxies in front of the backend.
+`config.yaml` sets `0`, which ignores `X-Forwarded-For`, and `config.prod.yaml` sets
+`1`. The login throttle uses the resulting client address.
 
 ## Serving below a path prefix
 

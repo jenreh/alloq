@@ -15,6 +15,22 @@ class BlobTooLargeError(ValueError):
     """The file exceeds the configured size limit."""
 
 
+class _Readable(Protocol):
+    async def read(self, size: int = -1, /) -> bytes: ...
+
+
+async def read_limited(file: _Readable, max_bytes: int) -> bytes:
+    """Read an upload, but never more than ``max_bytes`` into memory.
+
+    The size a client reports can be wrong, so the limit is enforced while
+    reading. Raises ``BlobTooLargeError`` when the file is larger.
+    """
+    data = await file.read(max_bytes + 1)
+    if len(data) > max_bytes:
+        raise BlobTooLargeError(len(data))
+    return data
+
+
 class BlobNotFoundError(LookupError):
     """No blob with this id."""
 

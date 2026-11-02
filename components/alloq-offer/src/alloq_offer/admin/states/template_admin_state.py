@@ -11,7 +11,11 @@ from alloq_offer.workshop.configuration import WorkshopConfig
 from alloq_offer.workshop.services import chapter_blocks, template_drafts
 from alloq_offer.workshop.services.template_drafts import DraftError, TemplateDraft
 from alloq_offer.workshop.states.helpers import browser_int, current_user_name
-from alloq_offer.workshop.storage import DbBlobStore
+from alloq_offer.workshop.storage import (
+    BlobTooLargeError,
+    DbBlobStore,
+    read_limited,
+)
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
 
@@ -171,8 +175,9 @@ class TemplateAdminState(rx.State):
         if file.size is not None and file.size > config.max_blob_bytes:
             yield rx.toast.error(template_drafts.TOO_LARGE, position="top-right")
             return
-        data = await file.read()
-        if len(data) > config.max_blob_bytes:
+        try:
+            data = await read_limited(file, config.max_blob_bytes)
+        except BlobTooLargeError:
             yield rx.toast.error(template_drafts.TOO_LARGE, position="top-right")
             return
         name = file.name or ""

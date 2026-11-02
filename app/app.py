@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from starlette.types import ASGIApp
 
 import appkit_mantine as am
-from appkit_commons.middleware import ForceHTTPSMiddleware
+from appkit_commons.middleware import ForceHTTPSMiddleware, SecurityHeadersMiddleware
 from appkit_user.authentication import add_session_guard, install_session_filter
 from appkit_user.authentication.pages import (  # noqa: F401
     azure_oauth_callback_page,
@@ -76,6 +76,11 @@ def add_https_middleware(asgi_app: ASGIApp) -> ASGIApp:
     return ForceHTTPSMiddleware(asgi_app, trusted_hosts=configure().app.trusted_proxies)
 
 
+def add_security_headers(asgi_app: ASGIApp) -> ASGIApp:
+    """Add the security response headers (inside the HTTPS scheme fix)."""
+    return SecurityHeadersMiddleware(asgi_app)
+
+
 def create_rest_api() -> FastAPI:
     """REST routes; Reflex mounts its own backend below them.
 
@@ -96,7 +101,12 @@ app = rx.App(
     stylesheets=base_stylesheets,
     style=base_style,
     toaster=rx.toast.provider(close_button=True),
-    api_transformer=[create_rest_api(), add_session_guard, add_https_middleware],
+    api_transformer=[
+        create_rest_api(),
+        add_session_guard,
+        add_security_headers,
+        add_https_middleware,
+    ],
 )
 
 install_session_filter(app)

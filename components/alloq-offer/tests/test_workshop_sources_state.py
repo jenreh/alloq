@@ -133,7 +133,9 @@ def _state() -> SourcesState:
 def _file(name: str, data: bytes = b"x") -> MagicMock:
     file = MagicMock(content_type="text/plain", size=len(data))
     file.name = name
-    file.read = AsyncMock(return_value=data)
+    file.read = AsyncMock(
+        side_effect=lambda size=-1: data[:size] if size >= 0 else data
+    )
     return file
 
 
@@ -255,6 +257,25 @@ async def test_upload_adds_files_and_names_rejected_ones() -> None:
     assert "Makros" in toasts
     assert add.await_count == 3
     assert [row["id"] for row in state.sources] == [1]
+
+
+@pytest.mark.usefixtures("repo")
+async def test_upload_larger_than_reported_is_refused_before_storing() -> None:
+    state = _state()
+    add = AsyncMock()
+    file = _file("lie.txt", b"x" * 20)
+    file.size = None
+    config = MagicMock(max_blob_bytes=10, max_attempts=3)
+    with (
+        _as_offer_editor(state),
+        patch(f"{SERVICE}.add_source", add),
+        patch("alloq_offer.workshop.states.sources_state.service_registry") as registry,
+    ):
+        registry.return_value.get.return_value = config
+        toasts = await _run(state.handle_upload, [file])
+
+    assert TOO_LARGE in toasts
+    add.assert_not_called()
 
 
 @pytest.mark.usefixtures("repo")

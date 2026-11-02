@@ -37,7 +37,9 @@ the tables below do not repeat:
 
 The same database also holds the appkit-user tables (`auth_users`,
 `auth_sessions`, `auth_oauth_accounts`, `auth_oauth_states` and others). They
-belong to appkit-user and are not described here. Alloq stores its app roles
+belong to appkit-user and are not described here, but Alloq's migrations create them.
+`tests/test_migrations_auth.py` compares the password and throttle tables with the
+appkit-user entities. Alloq stores its app roles
 `project_manager` and `employee` in the roles list of the appkit user, not in the
 `roles` table below. See [security and access](./security-and-access.md).
 
@@ -333,9 +335,5 @@ holidays for NRW.
 
 ## Open questions
 
-- The appkit-user tables `auth_password_reset_tokens`, `auth_password_history` and
-  `auth_password_reset_requests` are defined in appkit-user, but no migration in
-  `alembic/versions/` creates them. It is not checked here whether password reset
-  works on a database that was set up only by the migrations.
 - The default `impact = 0` in `RiskEntity` is outside the range 1 to 5 of
   `RiskCreate`. It is not clear whether rows with impact 0 can exist.

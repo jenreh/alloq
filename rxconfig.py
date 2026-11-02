@@ -67,12 +67,18 @@ def _port_settings(reflex: ReflexConfig | None) -> _PortSettings:
     return settings
 
 
+def _trusted_proxy_hops(reflex: ReflexConfig | None) -> int:
+    """Proxies in front of the backend; 0 ignores X-Forwarded-For."""
+    return reflex.trusted_proxy_hops if reflex else 0
+
+
 database = _require_database()
 reflex = _lookup(ReflexConfig)
 
 config = rx.Config(
     app_name="app",
     frontend_path=reflex.frontend_path if reflex else "",
+    trusted_proxy_hops=_trusted_proxy_hops(reflex),
     **_port_settings(reflex),
     db_url=database.url,
     async_db_url=database.url,

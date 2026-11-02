@@ -2,12 +2,16 @@
 ARG PYTHON_VERSION=3.14-slim-bookworm
 ARG UV_VERSION=0.12.19
 ARG BUN_VERSION=1.4.0
+# Image digests (multi-arch index); update them together with the versions.
+ARG PYTHON_DIGEST=sha256:516b51cb9db2ef061e465c803e50f64361b82cefd91e525b889b967b83e83527
+ARG UV_DIGEST=sha256:04d046b13e60d6bcec73cbc5e1cad25d680dea90c8573340950a0ac2d1aef424
+ARG BUN_DIGEST=sha256:5ff609364c049b54eb0ff560ec96319729a972078ef2c755d758f0c6ef89c2d6
 
-FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
-FROM oven/bun:${BUN_VERSION} AS bun
+FROM ghcr.io/astral-sh/uv:${UV_VERSION}@${UV_DIGEST} AS uv
+FROM oven/bun:${BUN_VERSION}@${BUN_DIGEST} AS bun
 
 # ────────────────────────────  Stage 1 ─ Builder  ────────────────────────────
-FROM python:${PYTHON_VERSION} AS builder
+FROM python:${PYTHON_VERSION}@${PYTHON_DIGEST} AS builder
 
 COPY --from=uv /uv /usr/local/bin/uv
 
@@ -35,7 +39,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     && chmod +x start.sh
 
 # ───────────────────────────  Stage 2 ─ Runtime  ────────────────────────────
-FROM python:${PYTHON_VERSION} AS final
+FROM python:${PYTHON_VERSION}@${PYTHON_DIGEST} AS final
 
 # Frontend and backend share one port (reflex run --env prod --single-port).
 ARG PORT=8080

@@ -1,7 +1,9 @@
 import logging
 from functools import lru_cache
+from typing import Any
 
 from alloq_offer.workshop.configuration import WorkshopConfig
+from pydantic import field_validator
 
 from appkit_commons.configuration.configuration import (
     ApplicationConfig,
@@ -24,6 +26,27 @@ class AppConfig(ApplicationConfig):
     # Background worker and Azure OpenAI access of the offer workshop.
     offer_workshop: WorkshopConfig = WorkshopConfig()
 
+    @field_validator("trusted_proxies", mode="before")
+    @classmethod
+    def _split_trusted_proxies(cls, value: Any) -> Any:
+        """A secret resolves to one string: comma-separated addresses."""
+        if isinstance(value, str):
+            return {host.strip() for host in value.split(",") if host.strip()}
+        return value
+
+
+def check_production_security(app: AppConfig) -> None:
+    """Refuse insecure session settings in production; warn about open proxies."""
+    if app.environment != Environment.production:
+        return
+    if not app.authentication.session_cookie_secure:
+        msg = "authentication.session_cookie_secure must be true in production"
+        raise RuntimeError(msg)
+    if app.trusted_proxies is None:
+        logger.warning(
+            "trusted_proxies is not set: X-Forwarded-Proto is trusted from every peer"
+        )
+
 
 @lru_cache(maxsize=1)
 def configure() -> Configuration[AppConfig]:
@@ -38,4 +61,5 @@ def configure() -> Configuration[AppConfig]:
     elif config.app.environment == Environment.production:
         msg = f"{PUBLIC_BASE_URL_ENV} must be set in production"
         raise RuntimeError(msg)
+    check_production_security(config.app)
     return config

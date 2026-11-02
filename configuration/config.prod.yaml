@@ -5,10 +5,17 @@ reflex:
   backend_port: 3030
   workers: 2
   frontend_path: /alloq
+  trusted_proxy_hops: 1 # Caddy in the same container
 
 app:
   logging: logging.prod.yaml
   environment: production
+  trusted_proxies: secret:common-allowed-proxies # comma-separated addresses
 
   authentication:
     session_cookie_secure: true
+    email_provider:
+      provider: azure
+      connection_string: secret:common-email-azure-connection-string
+      from_email: secret:common-email-from-address
+      from_name: Alloq

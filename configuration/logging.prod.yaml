@@ -17,7 +17,7 @@ loggers:
     handlers: [console]
     propagate: 0
   rxconfig:
-    level: DEBUG
+    level: INFO
     handlers: [console]
     propagate: 0
   app:

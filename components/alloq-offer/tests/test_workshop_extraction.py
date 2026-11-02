@@ -1,6 +1,7 @@
 """Tests of the source parsers."""
 
 import io
+import zipfile
 from email.message import EmailMessage
 
 import httpx
@@ -8,6 +9,7 @@ import pytest
 from alloq_offer.workshop.configuration import AzureOpenAiConfig
 from alloq_offer.workshop.extraction import (
     ExtractionError,
+    archive,
     parse_docx,
     parse_eml,
     parse_html,
@@ -284,3 +286,66 @@ def test_html_keeps_text_and_drops_markup_scripts_and_styles() -> None:
         "Wir brauchen Hilfe.",
         "Zweiter & letzter Absatz",
     ]
+
+
+def _zip(parts: dict[str, bytes]) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as out:
+        for name, data in parts.items():
+            out.writestr(name, data)
+    return buffer.getvalue()
+
+
+def test_archive_guard_accepts_a_small_zip() -> None:
+    archive.check_archive(_zip({"a.xml": b"<a/>"}), "unlesbar")
+
+
+def test_archive_guard_names_a_file_that_is_no_zip() -> None:
+    with pytest.raises(ExtractionError, match="unlesbar"):
+        archive.check_archive(b"nope", "unlesbar")
+
+
+def test_archive_guard_refuses_too_many_parts(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(archive, "MAX_PARTS", 2)
+    data = _zip({"a.bin": b"1", "b.bin": b"2", "c.bin": b"3"})
+
+    with pytest.raises(ExtractionError, match=archive.TOO_LARGE):
+        archive.check_archive(data, "unlesbar")
+
+
+def test_archive_guard_refuses_a_large_xml_part(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(archive, "MAX_XML_PART_BYTES", 10)
+
+    with pytest.raises(ExtractionError, match=archive.TOO_LARGE):
+        archive.check_archive(_zip({"a.xml": b"x" * 11}), "unlesbar")
+
+
+def test_archive_guard_refuses_a_large_unpacked_size(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(archive, "MAX_UNPACKED_BYTES", 10)
+
+    with pytest.raises(ExtractionError, match=archive.TOO_LARGE):
+        archive.check_archive(_zip({"a.bin": b"x" * 11}), "unlesbar")
+
+
+def test_docx_and_pptx_run_the_archive_guard(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(archive, "MAX_PARTS", 1)
+    document = io.BytesIO()
+    Document().save(document)
+    deck = io.BytesIO()
+    Presentation().save(deck)
+
+    with pytest.raises(ExtractionError, match=archive.TOO_LARGE):
+        parse_docx(document.getvalue())
+    with pytest.raises(ExtractionError, match=archive.TOO_LARGE):
+        parse_pptx(deck.getvalue())
+
+
+def test_pdf_refuses_too_many_pages(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("alloq_offer.workshop.extraction.pdf.MAX_PAGES", 1)
+
+    with pytest.raises(ExtractionError, match="zu viele Seiten"):
+        parse_pdf(_text_pdf("a", "b"))

@@ -14,3 +14,9 @@ app:
     port: 5432
     echo: False
     name: alloq-db
+
+  authentication:
+    session_cookie_secure: false # plain http, reached by hostname
+    email_provider:
+      provider: mock
+      from_name: Alloq

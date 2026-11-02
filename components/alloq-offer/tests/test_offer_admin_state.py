@@ -108,8 +108,8 @@ class _Upload:
         self.size = len(data)
         self._data = data
 
-    async def read(self) -> bytes:
-        return self._data
+    async def read(self, size: int = -1) -> bytes:
+        return self._data if size < 0 else self._data[:size]
 
 
 async def test_non_admins_are_refused(db) -> None:  # noqa: ANN001

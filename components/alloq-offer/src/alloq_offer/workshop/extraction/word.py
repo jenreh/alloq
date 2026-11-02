@@ -6,6 +6,7 @@ from docx import Document
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 
+from alloq_offer.workshop.extraction.archive import check_archive
 from alloq_offer.workshop.extraction.models import (
     KIND_PARAGRAPH,
     KIND_TABLE,
@@ -14,6 +15,8 @@ from alloq_offer.workshop.extraction.models import (
     ExtractionResult,
 )
 
+UNREADABLE = "Das Word-Dokument konnte nicht gelesen werden."
+
 
 def _table_text(table: Table) -> str:
     rows = (" | ".join(cell.text.strip() for cell in row.cells) for row in table.rows)
@@ -21,10 +24,11 @@ def _table_text(table: Table) -> str:
 
 
 def parse_docx(data: bytes) -> ExtractionResult:
+    check_archive(data, UNREADABLE)
     try:
         document = Document(io.BytesIO(data))
     except Exception as exc:  # noqa: BLE001 - python-docx raises many types
-        raise ExtractionError("Das Word-Dokument konnte nicht gelesen werden.") from exc
+        raise ExtractionError(UNREADABLE) from exc
     blocks: list[ExtractedBlock] = []
     paragraphs = tables = 0
     for child in document.element.body.iterchildren():

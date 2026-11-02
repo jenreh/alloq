@@ -1,0 +1,39 @@
+name: Dependency audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - uv.lock
+      - pyproject.toml
+      - components/*/pyproject.toml
+  schedule:
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: pip-audit (uv.lock)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.3
+        with:
+          version: "0.13.6"
+
+      - name: Export locked requirements
+        run: >-
+          uv export --frozen --no-hashes --all-packages
+          --no-emit-workspace --no-emit-project -o audit-requirements.txt
+
+      - name: Audit against known vulnerabilities
+        run: >-
+          uvx --from pip-audit==2.9.0 pip-audit
+          -r audit-requirements.txt --no-deps --disable-pip --strict

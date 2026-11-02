@@ -79,6 +79,13 @@ When a task touches one of them:
 Run `python .claude/skills/alloq-implementation/scripts/check_file_sizes.py` for the
 current list.
 
+## Shared infrastructure
+
+- **Generic ASGI middleware in `app/`.** Response headers and proxy scheme handling
+  are not Alloq-specific. `ForceHTTPSMiddleware` and `SecurityHeadersMiddleware`
+  come from `appkit_commons.middleware`; fix or extend them in appkit-commons, not
+  with a local copy. `app/app.py` only wires them into `api_transformer`.
+
 ## Folders
 
 - `alloq_commons/state/` and `alloq_commons/states/` both exist. Follow the folder of

@@ -23,8 +23,8 @@ JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 20
 
 
 def _file(data: bytes, name: str = "bild.png") -> SimpleNamespace:
-    async def read() -> bytes:
-        return data
+    async def read(size: int = -1) -> bytes:
+        return data if size < 0 else data[:size]
 
     return SimpleNamespace(name=name, size=len(data), content_type="", read=read)
 

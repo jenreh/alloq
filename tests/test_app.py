@@ -12,7 +12,7 @@ from appkit_user.authentication import add_session_guard
 from appkit_user.authentication.session_filter import SessionFilter
 
 from app import app as app_module
-from app.app import add_https_middleware, auth_page_logos
+from app.app import add_https_middleware, add_security_headers, auth_page_logos
 from app.configuration import AppConfig
 from app.styles import base_stylesheets
 
@@ -93,6 +93,13 @@ class TestAppWiring:
         transformers = app_module.app.api_transformer
         assert isinstance(transformers, Sequence)
         assert add_https_middleware in transformers
+
+    def test_security_headers_inside_https_middleware(self) -> None:
+        transformers = list(app_module.app.api_transformer)  # type: ignore[arg-type]
+
+        assert transformers.index(add_security_headers) < transformers.index(
+            add_https_middleware
+        )
 
     def test_session_filter_installed(self) -> None:
         middlewares = app_module.app._middlewares

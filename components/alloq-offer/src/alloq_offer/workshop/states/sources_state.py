@@ -25,7 +25,7 @@ from alloq_offer.workshop.services.sources import (
     SourceRejectedError,
 )
 from alloq_offer.workshop.states.helpers import current_user_name, open_offer_id
-from alloq_offer.workshop.storage import BlobTooLargeError, DbBlobStore
+from alloq_offer.workshop.storage import BlobTooLargeError, DbBlobStore, read_limited
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
 
@@ -334,7 +334,7 @@ class SourcesState(rx.State):
                     title=name,
                     filename=name,
                     mime=file.content_type or "application/octet-stream",
-                    data=await file.read(),
+                    data=await read_limited(file, config.max_blob_bytes),
                     user=user,
                     now=datetime.now(UTC),
                     max_attempts=config.max_attempts,

@@ -9,6 +9,7 @@ from pptx.shapes.base import BaseShape
 from pptx.shapes.graphfrm import GraphicFrame
 from pptx.shapes.group import GroupShape
 
+from alloq_offer.workshop.extraction.archive import check_archive
 from alloq_offer.workshop.extraction.models import (
     KIND_NOTE,
     KIND_PARAGRAPH,
@@ -20,6 +21,7 @@ from alloq_offer.workshop.extraction.models import (
 )
 
 IMAGE_NOT_READ = "Bildinhalt nicht ausgewertet"
+UNREADABLE = "Die Präsentation konnte nicht gelesen werden."
 
 
 def _shape_blocks(
@@ -48,10 +50,11 @@ def _shape_blocks(
 
 
 def parse_pptx(data: bytes) -> ExtractionResult:
+    check_archive(data, UNREADABLE)
     try:
         presentation = Presentation(io.BytesIO(data))
     except Exception as exc:  # noqa: BLE001 - python-pptx raises many types
-        raise ExtractionError("Die Präsentation konnte nicht gelesen werden.") from exc
+        raise ExtractionError(UNREADABLE) from exc
     blocks: list[ExtractedBlock] = []
     for slide_no, slide in enumerate(presentation.slides, 1):
         for shape_no, shape in enumerate(slide.shapes, 1):

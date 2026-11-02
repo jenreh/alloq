@@ -21,7 +21,7 @@ from alloq_offer.workshop.content.schema import (
 from alloq_offer.workshop.content.text import Content
 from alloq_offer.workshop.services import images
 from alloq_offer.workshop.states.helpers import browser_int
-from alloq_offer.workshop.storage import BlobStore, BlobTooLargeError
+from alloq_offer.workshop.storage import BlobStore, BlobTooLargeError, read_limited
 
 MAX_CAPTION = 500
 UPLOAD_ID = "aq-image-upload"
@@ -70,7 +70,7 @@ class ImageMixin(rx.State, mixin=True):
         try:
             if file.size is not None and file.size > images.MAX_IMAGE_BYTES:
                 raise images.ImageError(images.TOO_LARGE)
-            data = await file.read()
+            data = await read_limited(file, images.MAX_IMAGE_BYTES)
             mime = images.check_image(data)
             blob_id = await self._blob_store().put(data, mime)
         except images.ImageError as exc:
