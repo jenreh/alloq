@@ -83,9 +83,7 @@ def _upload(*children: rx.Component, class_name: str) -> rx.Component:
         max_files=1,
         no_keyboard=False,
         disabled=ChapterState.chapter_locked,
-        on_drop=ChapterState.upload_image(  # ty: ignore[no-matching-overload]
-            rx.upload_files(upload_id=UPLOAD_ID)
-        ),
+        on_drop=ChapterState.upload_image(rx.upload_files(upload_id=UPLOAD_ID)),
         class_name=class_name,
     )
 

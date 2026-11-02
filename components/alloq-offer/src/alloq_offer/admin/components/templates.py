@@ -168,7 +168,7 @@ def _layout() -> rx.Component:
             },
             multiple=False,
             no_keyboard=False,
-            on_drop=TemplateAdminState.handle_upload(  # ty: ignore[no-matching-overload]
+            on_drop=TemplateAdminState.handle_upload(
                 rx.upload_files(upload_id=UPLOAD_ID)
             ),
             border=f"1px dashed {theme.BORDER}",

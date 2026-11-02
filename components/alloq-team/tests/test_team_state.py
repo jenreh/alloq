@@ -519,7 +519,9 @@ class TestEmployeeFormDepartment:
     def test_add_uses_given_default(self) -> None:
         state = EmployeeValidationState()
         state.department_id = "9"
-        state.initialize(default_department_id="3")
+        state.initialize(
+            default_department_id="3"  # ty: ignore[unknown-argument]
+        )
         assert state.department_id == "3"
 
     def test_add_without_default_is_empty(self) -> None:

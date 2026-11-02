@@ -110,9 +110,7 @@ def _drop_area() -> rx.Component:
         accept=UPLOAD_ACCEPT,
         multiple=True,
         no_keyboard=False,
-        on_drop=SourcesState.handle_upload(  # ty: ignore[no-matching-overload]
-            rx.upload_files(upload_id=UPLOAD_ID)
-        ),
+        on_drop=SourcesState.handle_upload(rx.upload_files(upload_id=UPLOAD_ID)),
         border=f"1px dashed {theme.BORDER}",
         border_radius="10px",
         padding="14px",
