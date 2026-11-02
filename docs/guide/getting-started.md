@@ -145,7 +145,7 @@ The pre-commit hook scans every commit for secrets with
 [betterleaks](https://github.com/betterleaks/betterleaks). Pre-commit builds the
 hook by itself, so you do not need to install anything for commits. Install the
 `betterleaks` program only if you want to run `task betterleaks`, which scans the
-whole git history.
+git history of all branches and tags.
 
 ::: code-group
 

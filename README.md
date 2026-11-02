@@ -68,7 +68,7 @@ The full walkthrough is in [Getting started](docs/guide/getting-started.md). The
 
 #### Installing betterleaks
 
-Pre-commit builds its own copy for the commit hook. Install the program only to scan the whole git history with `task betterleaks`. The project uses version 1.9.0.
+Pre-commit builds its own copy for the commit hook. Install the program only to scan the git history of all branches and tags with `task betterleaks`. The project uses version 1.9.0.
 
 | System | Command |
 | ------ | ------- |

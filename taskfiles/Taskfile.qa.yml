@@ -41,5 +41,6 @@ tasks:
     cmd: uv audit --frozen
 
   betterleaks:
-    desc: Scan the git history for leaked secrets
-    cmd: betterleaks git --no-banner --redact --verbose
+    desc: Scan the git history of branches and tags for leaked secrets
+    # Same scope as CI: a plain run also walks local refs/entire and refs/agents.
+    cmd: betterleaks git --no-banner --redact --verbose --log-opts="--branches --tags"
