@@ -64,6 +64,18 @@ The full walkthrough is in [Getting started](docs/guide/getting-started.md). The
 - PostgreSQL 15+ (or the `db` service in Docker Compose)
 - [ty](https://github.com/astral-sh/ty) on your `PATH` for `task typecheck`
 - Node.js, only for the docs and the JavaScript tests
+- [betterleaks](https://github.com/betterleaks/betterleaks) on your `PATH`, only for `task betterleaks` (see below)
+
+#### Installing betterleaks
+
+Pre-commit builds its own copy for the commit hook. Install the program only to scan the whole git history with `task betterleaks`. The project uses version 1.9.0.
+
+| System | Command |
+| ------ | ------- |
+| macOS | `brew install betterleaks` |
+| Linux (Fedora) | `sudo dnf install betterleaks` |
+| Linux (other) | Download `betterleaks_1.9.0_linux_x64.tar.gz` (or `linux_arm64`) from the [releases page](https://github.com/betterleaks/betterleaks/releases), then `tar -xzf` it and `sudo install betterleaks /usr/local/bin/betterleaks` |
+| Windows | Download `betterleaks_1.9.0_windows_x64.zip` (or `windows_arm64`) from the releases page, unzip it with `Expand-Archive` and add the folder to your `PATH` |
 
 ### Configuration
 
@@ -137,6 +149,7 @@ task test       # Run tests with coverage
 task lint       # Lint with ruff
 task format     # Auto-format with ruff
 task typecheck  # Type check app/ with ty
+task betterleaks # Scan the git history for secrets
 task db:upgrade # Apply pending migrations
 task db:revision -- "description"  # Create new migration
 ```

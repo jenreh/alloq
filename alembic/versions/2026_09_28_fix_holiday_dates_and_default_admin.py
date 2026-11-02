@@ -37,7 +37,7 @@ DEFAULT_ADMIN_EMAIL = "admin"
 # The public hash already committed in the baseline, used only to recognise an
 # account whose password was never rotated.
 DEFAULT_ADMIN_PASSWORD_HASH = (
-    "scrypt:32768:8:1$bIA8HVQhPyudwZyV$76d044d2322d395a3a9c95b29337c0c4d24e2426d86d"  # noqa: S105  # pragma: allowlist secret  # gitleaks:allow
+    "scrypt:32768:8:1$bIA8HVQhPyudwZyV$76d044d2322d395a3a9c95b29337c0c4d24e2426d86d"  # noqa: S105  # pragma: allowlist secret  # gitleaks:allow  # betterleaks:allow
     "246cc72095fe2455be0540590ecea3c4d433262ea9d9aaa44eaa285363eed568451895ef2565"
     "2911a2dc"
 )

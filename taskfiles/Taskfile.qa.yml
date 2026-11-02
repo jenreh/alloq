@@ -33,9 +33,13 @@ tasks:
       - task: typecheck
 
   pre-commit:
-    desc: Run all pre-commit hooks (incl. gitleaks) on every file
+    desc: Run all pre-commit hooks (incl. betterleaks) on every file
     cmd: "{{.RUNNER}} pre-commit run --all-files"
 
   audit:
     desc: Check the locked dependencies for known vulnerabilities
     cmd: uv audit --frozen
+
+  betterleaks:
+    desc: Scan the git history for leaked secrets
+    cmd: betterleaks git --no-banner --redact --verbose

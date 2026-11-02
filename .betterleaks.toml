@@ -1,0 +1,17 @@
+title = "Alloq betterleaks config"
+
+[extend]
+useDefault = true
+
+# Keep this list narrow: every allowlisted path is a blind spot.
+# Single findings belong in a `betterleaks:allow` comment or a fingerprint instead.
+[[allowlists]]
+description = "Lockfiles (integrity hashes) and local-only dirs for `betterleaks dir` runs"
+paths = [
+    '''(^|/)uv\.lock$''',
+    '''(^|/)package-lock\.json$''',
+    '''(^|/)\.venv(\.mac)?/''',
+    '''(^|/)\.web/''',
+    '''(^|/)node_modules/''',
+    '''(^|/)__pycache__/''',
+]

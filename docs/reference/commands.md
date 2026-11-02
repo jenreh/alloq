@@ -86,6 +86,7 @@ see [Testing](./testing.md).
 | `lint` | Runs `uv run ruff check .`. | Reports findings and changes nothing. |
 | `format` | Runs `uv run ruff check --fix .` and then `uv run ruff format .`. | Changes files in place. |
 | `typecheck` | Runs `uv run ty check app`. | ty is not in the `dev` dependency group or in `uv.lock`. `uv run` then falls back to a `ty` on your `PATH`, so you must install ty yourself, e.g., with `uv tool install ty`. |
+| `betterleaks` | Runs `betterleaks git --no-banner --redact --verbose`. | Scans the whole git history. Needs the `betterleaks` program on your `PATH`. See [Getting started](../guide/getting-started.md#install-betterleaks-optional). |
 
 ## Reflex tasks (`reflex`, flattened)
 

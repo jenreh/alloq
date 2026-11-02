@@ -139,6 +139,43 @@ task init
 Later, when dependencies change, `task sync` is enough. To apply new migrations, run
 `task db:upgrade`.
 
+### Install betterleaks (optional)
+
+The pre-commit hook scans every commit for secrets with
+[betterleaks](https://github.com/betterleaks/betterleaks). Pre-commit builds the
+hook by itself, so you do not need to install anything for commits. Install the
+`betterleaks` program only if you want to run `task betterleaks`, which scans the
+whole git history.
+
+::: code-group
+
+```bash [macOS]
+brew install betterleaks
+```
+
+```bash [Linux]
+# Fedora
+sudo dnf install betterleaks
+
+# Any distribution: download the archive for your CPU
+# (linux_x64 or linux_arm64) from the releases page, then
+tar -xzf betterleaks_1.9.0_linux_x64.tar.gz betterleaks
+sudo install betterleaks /usr/local/bin/betterleaks
+```
+
+```powershell [Windows]
+# Download betterleaks_1.9.0_windows_x64.zip from the releases page
+# (windows_arm64 for ARM), then
+Expand-Archive betterleaks_1.9.0_windows_x64.zip -DestinationPath $HOME\betterleaks
+# Add $HOME\betterleaks to your PATH
+```
+
+:::
+
+The archives are on the
+[releases page](https://github.com/betterleaks/betterleaks/releases). This project
+uses version 1.9.0, the same version as the pre-commit hook and the CI job.
+
 ## 4. Run the app
 
 ```bash
