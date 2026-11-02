@@ -12,7 +12,7 @@ reflex:
   trusted_proxy_hops: 0
 
 app:
-  version: 2.1.2
+  version: 2.2.0
   name: Alloq
   logging: logging.prod.yaml
   environment: production
