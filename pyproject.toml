@@ -5,34 +5,34 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "alembic>=1.20.0",
+    "alembic>=1.20.1",
     "alloq-commons",
     "alloq-dashboard",
     "alloq-offer",
     "alloq-project",
     "alloq-team",
-    "appkit-user==1.17.0",
-    "appkit-mantine==1.17.0",
-    "appkit-commons[azure]==1.17.0",
-    "appkit-ui==1.17.0",
+    "appkit-user==1.17.2",
+    "appkit-mantine==1.17.2",
+    "appkit-commons[azure]==1.17.2",
+    "appkit-ui==1.17.2",
     "psycopg[binary,pool]==3.3.6",
-    "reflex==0.10.0",
+    "reflex==0.10.1",
     "sqlmodel>=0.0.48",
 ]
 
 [dependency-groups]
 dev = [
     "aiosqlite==0.22.1",
-    "bump-my-version==1.6.7",
+    "bump-my-version==1.8.1",
     "detect-secrets==1.5.0",
-    "faker==40.43.0",
+    "faker==40.44.0",
     "pre-commit==4.7.0",
-    "pytest_asyncio==1.4.1",
+    "pytest_asyncio==1.4.1.post1",
     "pytest-cov==7.1.0",
-    "pytest==9.1.1",
-    "ruff==0.17.2",
-    "ty==0.0.92",
-    "virtualenv==21.14.13",
+    "pytest==9.2.0",
+    "ruff==0.17.3",
+    "ty==0.0.95",
+    "virtualenv==21.15.2",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -43,11 +43,12 @@ cache-dir = ".cache/uv_cache"
 # Security floors for transitive deps (Dependabot #13-#31); raise, never remove
 constraint-dependencies = [
     "anyio>=4.14.2",
+    "certifi>=2026.10.18",
     "oauthlib>=4.0.0",
     "python-engineio>=4.13.2",
     "python-socketio>=5.16.2",
     "urllib3>=2.8.0",
-    "virtualenv>=21.7.13",
+    "virtualenv>=21.14.9",
 ]
 
 [tool.uv.workspace]

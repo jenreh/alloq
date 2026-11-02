@@ -199,9 +199,8 @@ class TestSidebarComponent:
         assert "is_admin" in rendered
         assert PROJECT_MANAGER_ROLE.name not in rendered
 
-    def test_offer_admins_see_only_the_offer_configuration(self) -> None:
+    def test_offer_configuration_needs_admin_and_offer_admin_role(self) -> None:
         role = f'"{OFFER_ADMIN_ROLE.name}"'
-        assert role in str(_admin_section())
         for item in ADMIN_ITEMS:
             rendered = str(_admin_item(item))
             assert (role in rendered) is (item[0] == OFFER_ADMIN_ROUTE)

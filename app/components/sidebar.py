@@ -8,7 +8,7 @@ from typing import Any, Final, cast
 
 import reflex as rx
 from alloq_commons import theme
-from alloq_commons.access import editor_only, offer_admin_only, viewer_only
+from alloq_commons.access import editor_only, offer_admin_menu_only, viewer_only
 from alloq_commons.components.formatters import de_number
 from alloq_commons.components.toolbar import SIDEBAR_TOGGLE_SCRIPT, icon_button
 from alloq_dashboard.models import FreeCapacityKpi
@@ -26,12 +26,11 @@ from appkit_user.authentication.states import LoginState
 from app.components.sidebar_state import SidebarState
 from app.configuration import configure
 
-PROJECTS_ROUTE: Final = "/projects"
-TEAM_ROUTE: Final = "/team"
-
 PLAN_ROUTE: Final = "/plan"
+PROJECTS_ROUTE: Final = "/projects"
 OFFERS_ROUTE: Final = "/offers"
 PRICES_ROUTE: Final = "/daily-rates"
+TEAM_ROUTE: Final = "/team"
 
 PLANNING_ITEMS: Final[list[tuple[str, str, str]]] = [
     (PLAN_ROUTE, "Ressourcenplanung", "calendar-range"),
@@ -43,11 +42,11 @@ PLANNING_ITEMS: Final[list[tuple[str, str, str]]] = [
 OFFER_ADMIN_ROUTE: Final = "/admin/offers"
 ADMIN_ITEMS: Final[list[tuple[str, str, str]]] = [
     ("/admin/users", "Benutzer", "user-cog"),
-    ("/admin/roles", "Rollen", "shield"),
     ("/admin/departments", "Abteilungen", "building-2"),
-    ("/admin/industries", "Branchen", "factory"),
     (OFFER_ADMIN_ROUTE, "Angebote", "file-text"),
+    ("/admin/industries", "Branchen", "factory"),
     ("/admin/holidays", "Feiertage", "calendar-days"),
+    ("/admin/roles", "Rollen", "shield"),
 ]
 VIEWER_ROUTES: Final = frozenset({PLAN_ROUTE, PROJECTS_ROUTE})
 """Pages the employee role may read; the other planning pages need edit rights
@@ -244,15 +243,15 @@ def _capacity_section() -> rx.Component:
 
 
 def _admin_item(item: tuple[str, str, str]) -> rx.Component:
-    """Admin pages need the admin switch; the offer configuration also opens to
-    the offer admin role."""
-    guard = offer_admin_only if item[0] == OFFER_ADMIN_ROUTE else requires_admin
+    """Admin pages need the admin switch; the offer configuration also needs the
+    offer admin role."""
+    guard = offer_admin_menu_only if item[0] == OFFER_ADMIN_ROUTE else requires_admin
     return guard(_nav_item(*item))
 
 
 def _admin_section() -> rx.Component:
-    """Administration for admins; offer admins see only the offer configuration."""
-    return offer_admin_only(
+    """Administration for admins."""
+    return requires_admin(
         _section("Administration", *(_admin_item(item) for item in ADMIN_ITEMS))
     )
 

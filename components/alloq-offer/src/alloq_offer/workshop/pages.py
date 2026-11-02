@@ -1,9 +1,10 @@
 """Page factory of the offer workshop."""
 
 import reflex as rx
+from alloq_commons.access import NO_ACCESS_MSG
 from alloq_commons.components.shell import app_page
 from alloq_commons.components.toolbar import window_toolbar
-from alloq_commons.roles import OFFER_EDITOR_ROLE
+from alloq_commons.roles import OFFER_ADMIN_ROLE
 
 import appkit_mantine as mn
 from alloq_offer.workshop.components.workshop_view import (
@@ -24,7 +25,6 @@ from alloq_offer.workshop.states.workshop_state import WorkshopState
 from appkit_user.authentication.components.components import requires_role
 
 BACK_LABEL = "Angebote"
-NO_ACCESS = "Die Werkstatt ist nur für Angebotsbearbeiter verfügbar."
 
 
 def create_offer_workshop_page(
@@ -68,8 +68,8 @@ def create_offer_workshop_page(
     def _workshop_page() -> rx.Component:
         return requires_role(
             workshop_body(),
-            role=OFFER_EDITOR_ROLE.name,
-            fallback=mn.box(mn.text(NO_ACCESS), p=20),
+            role=OFFER_ADMIN_ROLE.name,
+            fallback=mn.box(mn.text(NO_ACCESS_MSG), p=20),
         )
 
     return _workshop_page

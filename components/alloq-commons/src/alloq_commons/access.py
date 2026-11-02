@@ -44,6 +44,11 @@ CAN_MANAGE_OFFERS: Final = UserSession.user.is_admin | UserSession.user.roles.co
 )
 """Frontend Var: the signed-in user may manage the offer configuration."""
 
+SEES_OFFER_ADMIN_MENU: Final = UserSession.user.is_admin & (
+    UserSession.user.roles.contains(OFFER_ADMIN_ROLE.name)
+)
+"""Frontend Var: the sidebar lists the offer configuration (admin and offer admin)."""
+
 
 def has_role(user: User, role: Role) -> bool:
     """Whether ``user`` holds ``role``; the admin switch does not count."""
@@ -89,6 +94,13 @@ def offer_admin_only(
 ) -> rx.Component:
     """Render ``children`` for admins and the offer admin role."""
     return rx.cond(CAN_MANAGE_OFFERS, rx.fragment(*children), fallback)
+
+
+def offer_admin_menu_only(
+    *children: Any, fallback: rx.Component | None = None
+) -> rx.Component:
+    """Render ``children`` for admins who also hold the offer admin role."""
+    return rx.cond(SEES_OFFER_ADMIN_MENU, rx.fragment(*children), fallback)
 
 
 def _holds(role: Role) -> Callable[[User], bool]:
