@@ -32,6 +32,10 @@ tasks:
       - task: format
       - task: typecheck
 
+  pre-commit:
+    desc: Run all pre-commit hooks (incl. gitleaks) on every file
+    cmd: "{{.RUNNER}} pre-commit run --all-files"
+
   audit:
     desc: Check the locked dependencies for known vulnerabilities
     cmd: uv audit --frozen
