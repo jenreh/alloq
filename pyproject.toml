@@ -15,9 +15,13 @@ dependencies = [
     "appkit-mantine==1.18.0",
     "appkit-commons[azure]==1.18.0",
     "appkit-ui==1.18.0",
-    "psycopg[binary,pool]==3.3.6",
+    "psycopg[binary,pool]==3.3.7",
     "reflex==0.10.1",
     "sqlmodel>=0.0.48",
+    "certifi>=2026.10.19",
+    "mako>=1.4.2",
+    "filelock>=4.2.1",
+    "virtualenv>=21.14.9",
 ]
 
 [dependency-groups]
