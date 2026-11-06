@@ -41,6 +41,23 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # ───────────────────────────  Stage 2 ─ Runtime  ────────────────────────────
 FROM python:${PYTHON_VERSION}@${PYTHON_DIGEST} AS final
 
+ARG POSTGRES_MAJOR=16
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
+    && install -d /usr/share/postgresql-common/pgdg \
+    && curl --fail --silent --show-error \
+       https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+       -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+    && gpg --show-keys --with-colons \
+       /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+       | grep -q 'B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8' \
+    && echo 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main' \
+       > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends postgresql-client-${POSTGRES_MAJOR} \
+    && apt-get purge -y --auto-remove curl gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
 # Frontend and backend share one port (reflex run --env prod --single-port).
 ARG PORT=8080
 ARG API_URL

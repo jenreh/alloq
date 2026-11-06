@@ -19,6 +19,7 @@ import reflex as rx
 
 import appkit_mantine as mn
 from alloq_commons.roles import (
+    DATABASE_BACKUP_ROLE,
     EMPLOYEE_ROLE,
     OFFER_ADMIN_ROLE,
     OFFER_EDITOR_ROLE,
@@ -58,6 +59,21 @@ def has_role(user: User, role: Role) -> bool:
 def can_manage_offers(user: User) -> bool:
     """Whether ``user`` may manage templates, chapter blocks and prompts."""
     return user.is_admin or has_role(user, OFFER_ADMIN_ROLE)
+
+
+def can_manage_backups(user: User) -> bool:
+    """Backups require the administrator switch AND explicit permission."""
+    return user.is_admin and has_role(user, DATABASE_BACKUP_ROLE)
+
+
+def backup_only(*children: Any, fallback: rx.Component | None = None) -> rx.Component:
+    """Show backup controls only when both permissions are present."""
+    return rx.cond(
+        UserSession.user.is_admin
+        & UserSession.user.roles.contains(DATABASE_BACKUP_ROLE.name),
+        rx.fragment(*children),
+        fallback,
+    )
 
 
 NO_ACCESS_MSG: Final = (

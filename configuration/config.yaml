@@ -51,6 +51,16 @@ app:
       chat_deployment: ""
       transcription_deployment: ""
 
+  database_backup:
+    enabled: false # enable only after configuring an independent random signing key
+    signing_key: "" # secret:alloq-backup-signing-key, or APP__DATABASE_BACKUP__SIGNING_KEY
+    verification_keys: [] # previous signing keys retained for trusted older backups
+    max_archive_bytes: 536870912 # 512 MiB
+    max_dump_bytes: 1073741824 # 1 GiB, also bounds rendered restore SQL
+    timeout_seconds: 300
+    lock_timeout_seconds: 30
+    max_password_attempts: 5 # per account, durable 15-minute window
+
   authentication:
     # Placeholders. Production derives the public address, the OAuth callback
     # URLs and the Reflex URLs from PUBLIC_BASE_URL and PUBLIC_PATH_PREFIX

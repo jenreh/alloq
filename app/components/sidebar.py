@@ -8,7 +8,12 @@ from typing import Any, Final, cast
 
 import reflex as rx
 from alloq_commons import theme
-from alloq_commons.access import editor_only, offer_admin_menu_only, viewer_only
+from alloq_commons.access import (
+    backup_only,
+    editor_only,
+    offer_admin_menu_only,
+    viewer_only,
+)
 from alloq_commons.components.formatters import de_number
 from alloq_commons.components.toolbar import SIDEBAR_TOGGLE_SCRIPT, icon_button
 from alloq_dashboard.models import FreeCapacityKpi
@@ -40,6 +45,7 @@ PLANNING_ITEMS: Final[list[tuple[str, str, str]]] = [
     (TEAM_ROUTE, "Team", "users"),
 ]
 OFFER_ADMIN_ROUTE: Final = "/admin/offers"
+BACKUP_ROUTE: Final = "/admin/backups"
 ADMIN_ITEMS: Final[list[tuple[str, str, str]]] = [
     ("/admin/users", "Benutzer", "user-cog"),
     ("/admin/departments", "Abteilungen", "building-2"),
@@ -47,6 +53,7 @@ ADMIN_ITEMS: Final[list[tuple[str, str, str]]] = [
     ("/admin/industries", "Branchen", "factory"),
     ("/admin/holidays", "Feiertage", "calendar-days"),
     ("/admin/roles", "Rollen", "shield"),
+    (BACKUP_ROUTE, "Datenbanksicherung", "database-backup"),
 ]
 VIEWER_ROUTES: Final = frozenset({PLAN_ROUTE, PROJECTS_ROUTE})
 """Pages the employee role may read; the other planning pages need edit rights
@@ -245,7 +252,10 @@ def _capacity_section() -> rx.Component:
 def _admin_item(item: tuple[str, str, str]) -> rx.Component:
     """Admin pages need the admin switch; the offer configuration also needs the
     offer admin role."""
-    guard = offer_admin_menu_only if item[0] == OFFER_ADMIN_ROUTE else requires_admin
+    guard = {
+        OFFER_ADMIN_ROUTE: offer_admin_menu_only,
+        BACKUP_ROUTE: backup_only,
+    }.get(item[0], requires_admin)
     return guard(_nav_item(*item))
 
 

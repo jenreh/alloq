@@ -5,6 +5,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        POSTGRES_MAJOR: "15"
     # Optional local overrides (gitignored). It must provide the Fernet key:
     #   AVUI_DB_ENCRYPTION_KEY=<python -c "from cryptography.fernet import Fernet;
     #                          print(Fernet.generate_key().decode())">

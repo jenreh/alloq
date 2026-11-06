@@ -33,6 +33,7 @@ __pypackages__/
 .web
 .webassets-cache
 *.bak
+alloq-backup*.zip
 *.cover
 *.db
 *.egg

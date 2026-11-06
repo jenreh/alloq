@@ -26,6 +26,8 @@ Alloq helps software teams plan which people work on which project in each week.
 - **Team** — Employees, roles, seniority levels, departments and absences
 - **Master Data** — Roles, departments, region-aware public holidays and daily rates with margin-based pricing
 - **Authentication** — Email and password sign-in and Microsoft sign-in (Entra ID)
+- **Database backup** — Encrypted, password-confirmed PostgreSQL export/import for
+  administrators with the backup role. [Setup and restore](docs/operations/database-backups.md).
 - **Role-Based Access** — Administrators can do everything, project managers edit planning, employees only read, the Angebote role (`offer_editor`) edits offers only, and the Angebotsverwaltung role (`offer_admin`) manages offer templates, chapter blocks and AI prompts
 
 ## Documentation

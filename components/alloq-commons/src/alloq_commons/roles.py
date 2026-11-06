@@ -31,11 +31,19 @@ OFFER_ADMIN_ROLE = Role(
     description="Vorlagen, Kapitelbausteine und KI-Prompts der Angebote verwalten",
 )
 
+DATABASE_BACKUP_ROLE = Role(
+    id=5,
+    name="database_backup",
+    label="Datenbanksicherung",
+    description="Datenbank sichern und wiederherstellen; nur für Administratoren",
+)
+
 ALL_ROLES: list[Role] = [
     PROJECT_MANAGER_ROLE,
     EMPLOYEE_ROLE,
     OFFER_EDITOR_ROLE,
     OFFER_ADMIN_ROLE,
+    DATABASE_BACKUP_ROLE,
 ]
 
 DEPARTMENT_ROLE_GROUP = "Abteilungen"

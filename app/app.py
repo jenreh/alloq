@@ -4,9 +4,9 @@ from alloq_commons.components.shell import SIDEBAR_SCRIPT
 from alloq_dashboard.pages import create_dashboard_page
 from alloq_offer.admin.pages import create_offer_admin_page
 from alloq_offer.pages import create_offers_page
+from alloq_offer.workshop import worker as _workshop_worker  # noqa: F401 - register jobs
 from alloq_offer.workshop.image_api import router as offer_image_router
 from alloq_offer.workshop.pages import create_offer_workshop_page
-from alloq_offer.workshop.worker import offer_workshop_worker
 from alloq_project.pages import create_planning_page, create_projects_overview_page
 from alloq_team.pages import create_team_overview_page
 from fastapi import FastAPI
@@ -14,7 +14,7 @@ from starlette.types import ASGIApp
 
 import appkit_mantine as am
 from appkit_commons.middleware import ForceHTTPSMiddleware, SecurityHeadersMiddleware
-from appkit_user.authentication import add_session_guard, install_session_filter
+from appkit_user.authentication import add_session_guard
 from appkit_user.authentication.pages import (  # noqa: F401
     azure_oauth_callback_page,
     github_oauth_callback_page,
@@ -24,8 +24,17 @@ from appkit_user.user_management.pages import (
     create_password_reset_request_page,
 )
 
+from app.backup_api import router as backup_router
 from app.components.sidebar import sidebar
 from app.configuration import configure
+from app.database_backup.maintenance import install_maintenance_guard
+from app.database_backup.runtime import (
+    BackupApp,
+    BackupSessionFilter,
+    backup_aware_worker,
+)
+from app.database_backup.storage import backup_cleanup_worker
+from app.pages.backups import create_backups_page
 from app.pages.daily_rates import create_daily_rates_page
 from app.pages.departments import create_departments_page
 from app.pages.holidays import create_holidays_page
@@ -37,6 +46,7 @@ from app.pages.users import create_users_page
 from app.styles import base_style, base_stylesheets
 
 am.set_app_theme(theme.MANTINE_THEME)
+install_maintenance_guard()
 
 
 def auth_page_logos() -> dict[str, str]:
@@ -56,6 +66,7 @@ create_profile_page(sidebar())
 create_password_reset_request_page(**auth_page_logos())
 create_password_reset_confirm_page(**auth_page_logos())
 create_users_page(sidebar())
+create_backups_page(sidebar())
 create_roles_page(sidebar())
 create_daily_rates_page(sidebar())
 create_departments_page(sidebar())
@@ -89,10 +100,11 @@ def create_rest_api() -> FastAPI:
     """
     api = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     api.include_router(offer_image_router, prefix=rx.config.get_config().backend_path)
+    api.include_router(backup_router, prefix=rx.config.get_config().backend_path)
     return api
 
 
-app = rx.App(
+app = BackupApp(
     head_components=[
         rx.el.link(rel="icon", href=rx.asset("favicon.ico"), type="image/x-icon"),
         rx.el.style(theme.GLOBAL_CSS),
@@ -109,5 +121,6 @@ app = rx.App(
     ],
 )
 
-install_session_filter(app)
-app.register_lifespan_task(offer_workshop_worker)
+app.add_middleware(BackupSessionFilter())
+app.register_lifespan_task(backup_aware_worker)
+app.register_lifespan_task(backup_cleanup_worker)
