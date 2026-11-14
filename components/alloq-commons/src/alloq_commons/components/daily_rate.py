@@ -14,7 +14,7 @@ from alloq_commons.models.daily_rate import (
     MAX_PRICE,
 )
 from alloq_commons.state.daily_rate_states import DailyRateState
-from appkit_ui.styles import sticky_header_style
+from appkit_mantine.patterns import sticky_header_style
 
 COST_LABEL = "Herstellkosten"
 SALES_LABEL = "Empf. Verkaufspreis"

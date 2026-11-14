@@ -94,8 +94,8 @@ and a `pages.py` with a page factory. The host app calls every page factory once
 
 All packages also use the appkit libraries from PyPI: `appkit-commons` (database
 session, base repository, configuration, service registry), `appkit-user` (users,
-sign-in, sessions, `requires_admin`), `appkit-mantine` (UI components) and
-`appkit-ui`. Their versions are pinned in `pyproject.toml`.
+sign-in, sessions, `requires_admin`), and `appkit-mantine` (UI components). Their
+versions are pinned in `pyproject.toml`.
 
 ### Dependency direction
 

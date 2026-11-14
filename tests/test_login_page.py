@@ -2,11 +2,13 @@
 
 import json
 
+import reflex as rx
 from reflex_base.registry import RegistrationContext
 
+import appkit_mantine as mn
 from appkit_user.authentication.states import LoginState
 
-from app.pages.login import create_login_page, login_view
+from app.pages.login import create_login_page, login_view, splash_layout
 
 
 def _text(value: str) -> str:
@@ -41,3 +43,18 @@ def test_registers_route_and_clears_token_on_load() -> None:
             assert LoginState.clear_session_storage_token.fn in handlers
             return
     raise AssertionError("login page not registered")
+
+
+def test_splash_layout_registers_page_on_splash_background() -> None:
+    @splash_layout(route="/test/splash", title="Splash")
+    def _content() -> rx.Component:
+        return mn.text("Inhalt")
+
+    for page, kwargs in RegistrationContext.ensure_context().decorated_pages:
+        if kwargs.get("route") == "/test/splash":
+            assert kwargs["title"] == "Splash"
+            rendered = str(page())
+            assert "splash-container" in rendered
+            assert "Inhalt" in rendered
+            return
+    raise AssertionError("splash page not registered")

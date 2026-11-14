@@ -16,8 +16,7 @@ from alloq_commons.components.modal_layout import (
 from alloq_commons.components.toolbar import primary_button, toolbar_search
 from alloq_commons.models.public_holiday import PublicHoliday
 from alloq_commons.states.holiday_state import HolidayState
-from appkit_ui.components.form_inputs import hidden_field
-from appkit_ui.styles import sticky_header_style
+from appkit_mantine.patterns import sticky_header_style
 
 
 def holiday_form_fields(
@@ -27,7 +26,9 @@ def holiday_form_fields(
     is_edit_mode = holiday is not None
 
     return mn.flex(
-        hidden_field(
+        mn.form.input(
+            type="hidden",
+            display="none",
             name="holiday_id",
             default_value=(
                 holiday.id.to_string() if is_edit_mode else ""  # type: ignore[union-attr]

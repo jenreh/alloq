@@ -17,7 +17,7 @@ from reflex.vars import ObjectVar
 import appkit_mantine as mn
 from alloq_offer.models import Industry
 from alloq_offer.states.industry_state import IndustryState
-from appkit_ui.styles import sticky_header_style
+from appkit_mantine.patterns import sticky_header_style
 
 NAME_HINT = "Wird im Angebot unter „Branche“ zur Auswahl angeboten."
 

@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import reflex as rx
 from alloq_offer.workshop.ai.schemas import (
     ProposedActivity,
     ProposedMap,
@@ -35,6 +36,7 @@ from alloq_offer.workshop.states.map_state import (
     SAVE_ERROR,
     MapState,
 )
+from reflex_components_core.core.foreach import Foreach
 
 from appkit_user.authentication.states import LoginState
 
@@ -567,6 +569,24 @@ def test_archive_button_and_dialog_render() -> None:
     assert "set_archive_search" in dialog
     assert archive_dialog.EMPTY.split()[0] in dialog
     assert "archive_open" in str(map_view.map_section())
+
+
+def _foreach_keys(component: rx.Component) -> list[tuple[str, str]]:
+    """``(item key, index name)`` of every foreach in the subtree."""
+    found = []
+    if isinstance(component, Foreach):
+        [item] = component.children
+        found.append((str(item.key), component._render().index_var_name))
+    for child in component.children:
+        if isinstance(child, rx.Component):
+            found += _foreach_keys(child)
+    return found
+
+
+def test_map_grid_keys_columns_rows_and_cells_by_id() -> None:
+    keys = _foreach_keys(map_view._grid())
+    assert len(keys) >= 4
+    assert all(key != index for key, index in keys)
 
 
 def test_map_and_drawer_render_constants() -> None:

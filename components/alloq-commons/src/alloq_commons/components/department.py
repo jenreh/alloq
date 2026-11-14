@@ -15,7 +15,7 @@ from alloq_commons.components.modal_layout import (
 from alloq_commons.components.toolbar import primary_button, toolbar_search
 from alloq_commons.models import Department
 from alloq_commons.state.department_states import DepartmentState
-from appkit_ui.styles import sticky_header_style
+from appkit_mantine.patterns import sticky_header_style
 
 
 def department_form_fields(

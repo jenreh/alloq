@@ -15,8 +15,7 @@ from alloq_commons.components.modal_layout import (
 from alloq_commons.components.toolbar import primary_button, toolbar_search
 from alloq_commons.models import Role
 from alloq_commons.state.role_states import RoleState
-from appkit_ui.components.form_inputs import hidden_field
-from appkit_ui.styles import sticky_header_style
+from appkit_mantine.patterns import sticky_header_style
 
 
 def role_form_fields(role: ObjectVar[Role] | None = None) -> rx.Component:
@@ -24,7 +23,9 @@ def role_form_fields(role: ObjectVar[Role] | None = None) -> rx.Component:
     is_edit_mode = role is not None
 
     return mn.flex(
-        hidden_field(
+        mn.form.input(
+            type="hidden",
+            display="none",
             name="role_id",
             default_value=(
                 role.id.to_string() if is_edit_mode else ""  # type: ignore[union-attr]

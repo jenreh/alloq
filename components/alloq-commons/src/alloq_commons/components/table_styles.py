@@ -1,4 +1,4 @@
-from appkit_ui.styles import sticky_header_style
+from appkit_mantine.patterns import sticky_header_style
 
 TABLE_HEADER_STYLE = {
     **sticky_header_style,

@@ -22,7 +22,7 @@ from alloq_project.states.project_state import ProjectState
 from reflex.vars import ArrayVar, ObjectVar
 
 import appkit_mantine as mn
-from appkit_ui.global_states import LoadingState
+from appkit_mantine.patterns import LoadingState
 
 TEMPLATE = "minmax(160px, 2fr) 124px 160px 96px minmax(90px, 1fr) 52px"
 COLUMNS: list[tuple[str, str, bool]] = [

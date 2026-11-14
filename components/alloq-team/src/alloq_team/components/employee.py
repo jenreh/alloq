@@ -23,7 +23,6 @@ from reflex.event import EventType
 from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
-from appkit_ui.components.form_inputs import hidden_field
 
 
 class _AbsenceDatePickerInput(mn.DatePickerInput):
@@ -37,7 +36,9 @@ def employee_form_fields(is_edit: bool = False) -> rx.Component:
     """Reusable form fields for employee add/edit dialogs."""
 
     return mn.flex(
-        hidden_field(
+        mn.form.input(
+            type="hidden",
+            display="none",
             name="employee_id",
             default_value=rx.cond(
                 TeamState.selected_employee,

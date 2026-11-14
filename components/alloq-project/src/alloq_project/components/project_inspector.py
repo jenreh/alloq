@@ -21,7 +21,7 @@ from alloq_project.states.project_state import ProjectState
 from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
-from appkit_ui.global_states import LoadingState
+from appkit_mantine.patterns import LoadingState
 
 MAX_TEAM = 6
 

@@ -53,7 +53,7 @@ from alloq_project.states.project_validation_state import (
 from sqlalchemy.exc import IntegrityError
 
 from appkit_commons.database.session import get_asyncdb_session
-from appkit_ui.global_states import LoadingState
+from appkit_mantine.patterns import LoadingState
 from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)

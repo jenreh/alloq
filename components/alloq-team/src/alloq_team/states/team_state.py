@@ -40,7 +40,7 @@ from alloq_team.states.employee_form import (
 )
 from alloq_team.states.team_list_state import TeamListState
 from appkit_commons.database.session import get_asyncdb_session
-from appkit_ui.global_states import LoadingState
+from appkit_mantine.patterns import LoadingState
 from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)

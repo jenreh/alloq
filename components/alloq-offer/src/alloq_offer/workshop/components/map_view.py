@@ -70,6 +70,7 @@ def _story_card(story: Row) -> rx.Component:
         on_click=MapState.select_story(story["id"]),
         custom_attrs={"data-selected": MapState.selected_id == story["id"].to_string()},
         class_name="aq-story-card",
+        key=story["id"].to_string(),
     )
 
 
@@ -80,6 +81,7 @@ def _cell(cell: Row, slice_id: rx.Var) -> rx.Component:
         gap=8,
         p=10,
         style={"borderLeft": COLUMN_LINE},
+        key=cell["activity_id"].to_string(),
     )
 
 
@@ -195,6 +197,7 @@ def _row(row: Row) -> rx.Component:
                 class_name="aq-map-row",
             ),
         ),
+        key=row["slice_id"].to_string(),
     )
 
 
@@ -276,6 +279,7 @@ def _column(column: Row) -> rx.Component:
         p=10,
         pos="relative",
         style={"borderLeft": COLUMN_LINE},
+        key=column["id"].to_string(),
     )
 
 

@@ -18,7 +18,7 @@ from reflex.vars import ObjectVar
 from reflex_base.constants import LiteralColorMode
 
 import appkit_mantine as mn
-from appkit_ui.global_states import LoadingState
+from appkit_mantine.patterns import LoadingState
 from appkit_user.authentication.backend.models import User
 from appkit_user.authentication.components.components import requires_admin
 from appkit_user.authentication.states import LoginState

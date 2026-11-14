@@ -8,7 +8,7 @@ from alloq_team.states.team_state import TeamState
 from reflex.vars import ArrayVar, ObjectVar
 
 import appkit_mantine as mn
-from appkit_ui.global_states import LoadingState
+from appkit_mantine.patterns import LoadingState
 
 
 def _card_header(

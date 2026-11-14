@@ -5,7 +5,8 @@ password and the single sign-on buttons. The sign-in itself is appkit's
 `LoginState`.
 """
 
-from typing import Final
+from collections.abc import Callable
+from typing import Final, cast
 
 import reflex as rx
 from alloq_commons import theme
@@ -162,6 +163,30 @@ def login_view() -> rx.Component:
             "background": theme.token("splash-background"),
         },
     )
+
+
+def splash_layout(
+    *,
+    route: str | None = None,
+    title: str | None = None,
+    on_load: rx.EventHandler | list[rx.EventHandler] | None = None,
+) -> Callable[[Callable[[], rx.Component]], rx.Component]:
+    """Public page centered on the splash background (appkit's ``PageLayout``)."""
+
+    def decorator(page_content: Callable[[], rx.Component]) -> rx.Component:
+        def _page() -> rx.Component:
+            return mn.center(
+                page_content(),
+                w="100%",
+                mih="100dvh",
+                class_name="splash-container",
+            )
+
+        rx.page(route=route, title=title, on_load=on_load)(_page)
+        # appkit's PageLayout types the registered page function as rx.Component.
+        return cast("rx.Component", _page)
+
+    return decorator
 
 
 def create_login_page(route: str = LOGIN_ROUTE, title: str = "Anmelden") -> None:

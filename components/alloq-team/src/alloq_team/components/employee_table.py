@@ -25,7 +25,7 @@ from alloq_team.states.team_state import TeamState
 from reflex.vars import ArrayVar, ObjectVar
 
 import appkit_mantine as mn
-from appkit_ui.global_states import LoadingState
+from appkit_mantine.patterns import LoadingState
 
 TEMPLATE = "minmax(200px, 2fr) 110px 48px minmax(130px, 1fr) 70px 64px"
 COLUMNS: list[tuple[str, str, bool]] = [

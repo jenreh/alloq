@@ -1,11 +1,11 @@
-"""Typed wrappers around appkit_ui dialogs."""
+"""Typed wrappers around appkit_mantine dialogs."""
 
 from typing import Any, cast
 
 import reflex as rx
 from reflex.event import EventType
 
-from appkit_ui.components.dialogs import delete_dialog as _appkit_delete_dialog
+from appkit_mantine.patterns import delete_dialog as _appkit_delete_dialog
 
 
 def delete_dialog(
@@ -16,7 +16,7 @@ def delete_dialog(
 ) -> rx.Component:
     """Delete confirmation dialog.
 
-    appkit_ui annotates ``content`` as ``str`` and ``on_click`` as
+    appkit_mantine annotates ``content`` as ``str`` and ``on_click`` as
     ``EventHandler``, but renders Vars/components and bound event specs fine.
     """
     return _appkit_delete_dialog(

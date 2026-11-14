@@ -13,7 +13,7 @@ import reflex as rx
 from reflex.event import EventType
 
 import appkit_mantine as mn
-from appkit_ui.global_states import LoadingState
+from appkit_mantine.patterns import LoadingState
 from appkit_user.authentication.templates import authenticated_page
 
 NARROW_PX = 768

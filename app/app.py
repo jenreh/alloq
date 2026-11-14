@@ -30,7 +30,7 @@ from app.pages.daily_rates import create_daily_rates_page
 from app.pages.departments import create_departments_page
 from app.pages.holidays import create_holidays_page
 from app.pages.industries import create_industries_page
-from app.pages.login import create_login_page
+from app.pages.login import create_login_page, splash_layout
 from app.pages.profile import create_profile_page
 from app.pages.roles import create_roles_page
 from app.pages.users import create_users_page
@@ -53,8 +53,8 @@ def auth_page_logos() -> dict[str, str]:
 
 create_login_page()
 create_profile_page(sidebar())
-create_password_reset_request_page(**auth_page_logos())
-create_password_reset_confirm_page(**auth_page_logos())
+create_password_reset_request_page(splash_layout, **auth_page_logos())
+create_password_reset_confirm_page(splash_layout, **auth_page_logos())
 create_users_page(sidebar())
 create_roles_page(sidebar())
 create_daily_rates_page(sidebar())

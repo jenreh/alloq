@@ -16,7 +16,6 @@ from reflex.event import EventType
 from reflex.vars import ObjectVar
 
 import appkit_mantine as mn
-from appkit_ui.components.form_inputs import hidden_field
 
 
 def project_form_fields() -> rx.Component:
@@ -150,7 +149,9 @@ def _color_picker() -> rx.Component:
                 gap="8px",
                 wrap="wrap",
             ),
-            hidden_field(
+            mn.form.input(
+                type="hidden",
+                display="none",
                 name="color",
                 default_value=ProjectValidationState.color,
             ),

@@ -11,12 +11,11 @@ dependencies = [
     "alloq-offer",
     "alloq-project",
     "alloq-team",
-    "appkit-user==1.18.0",
-    "appkit-mantine==1.18.0",
-    "appkit-commons[azure]==1.18.0",
-    "appkit-ui==1.18.0",
-    "psycopg[binary,pool]==3.3.6",
-    "reflex==0.10.1",
+    "appkit-user==1.19.1",
+    "appkit-mantine==1.19.1",
+    "appkit-commons[azure]==1.19.1",
+    "psycopg[binary,pool]==3.3.9",
+    "reflex==0.11.0",
     "sqlmodel>=0.0.48",
 ]
 
@@ -25,14 +24,14 @@ dev = [
     "aiosqlite==0.22.1",
     "bump-my-version==1.8.1",
     "detect-secrets==1.5.0",
-    "faker==40.44.0",
+    "faker==40.54.0",
     "pre-commit==4.7.0",
-    "pytest_asyncio==1.4.1.post1",
+    "pytest_asyncio==1.5.0",
     "pytest-cov==7.1.0",
     "pytest==9.2.0",
-    "ruff==0.17.3",
-    "ty==0.0.95",
-    "virtualenv==21.15.2",
+    "ruff==0.17.5",
+    "ty==0.0.104",
+    "virtualenv==21.15.6",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -66,7 +65,6 @@ alloq-team = { workspace = true }
 #appkit-mantine = { path = "../appkit/components/appkit-mantine", editable = true }
 #appkit-user = { path = "../appkit/components/appkit-user", editable = true }
 #appkit-commons = { path = "../appkit/components/appkit-commons", editable = true }
-#appkit-ui = { path = "../appkit/components/appkit-ui", editable = true }
 
 
 [tool.bumpversion]
