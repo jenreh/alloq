@@ -1,6 +1,6 @@
 [project]
 name = "Alloq"
-version = "2.2.0"
+version = "2.2.1"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
@@ -17,6 +17,10 @@ dependencies = [
     "psycopg[binary,pool]==3.3.9",
     "reflex==0.11.0",
     "sqlmodel>=0.0.48",
+    "certifi>=2026.10.19",
+    "mako>=1.4.2",
+    "filelock>=4.2.1",
+    "virtualenv>=21.14.9",
 ]
 
 [dependency-groups]
@@ -69,7 +73,7 @@ alloq-team = { workspace = true }
 
 [tool.bumpversion]
 commit = false
-current_version = "2.2.0"
+current_version = "2.2.1"
 tag = false
 allow-dirty = false
 
