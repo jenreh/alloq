@@ -75,6 +75,11 @@ tasks:
       - git rev-parse --git-dir >/dev/null 2>&1 || git init -b main
       - uv run pre-commit install --install-hooks
       - uv run alembic upgrade head
+      - task: agents:plugins
+
+  agents:plugins:
+    desc: Install the agent plugins from .claude/settings.json (Claude, Copilot, Codex)
+    cmd: bash scripts/install_agent_plugins.sh
 
   sync:
     desc: Install dependencies using uv

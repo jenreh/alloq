@@ -28,17 +28,17 @@ your machine.
 The Alloq skills live in `.agents/skills/`, and `.claude/skills` links to that
 folder. The general skills for Python, Reflex, design and tools come from the
 [jenreh/agent-skills](https://github.com/jenreh/agent-skills) plugin marketplace.
-`.claude/settings.json` lists that marketplace and its plugins, so Claude Code
-offers to install them when you trust the project folder.
-`.github/copilot/settings.json` holds the same list for GitHub Copilot in VS Code,
-and `.vscode/settings.json` turns on agent plugins (`chat.plugins.enabled`). Keep
-the plugin lists in both files the same.
+`.claude/settings.json` is the only place that lists that marketplace and its
+plugins (`extraKnownMarketplaces` and `enabledPlugins`). Claude Code offers to
+install them when you trust the project folder. GitHub Copilot in VS Code reads the
+same file, and `.vscode/settings.json` turns on agent plugins
+(`chat.plugins.enabled`).
 
-Copilot and Claude Code install plugins into `~/.copilot` and `~/.claude`, which are
-empty in a new dev container. The dev container includes both CLIs, and
-`.devcontainer/post-attach.sh` uses them to install the marketplaces and plugins
-listed in `.github/copilot/settings.json` and `.claude/settings.json` each time you
-attach. Entries that are already installed are skipped without an error.
+The CLIs install plugins into their home folders (`~/.claude`, `~/.copilot`,
+`~/.codex`). Run `task agents:plugins` to install the marketplaces and plugins from
+`.claude/settings.json` into every agent CLI on your PATH: Claude Code, GitHub
+Copilot CLI and Codex. `task init` runs it, and the dev container runs it each time
+you attach. Entries that are already installed are skipped without an error.
 
 ## The workflow for every change
 

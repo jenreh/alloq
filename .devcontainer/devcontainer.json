@@ -75,6 +75,6 @@
 	},
 	"postAttachCommand": {
 		"install dependencies": "uv sync",
-		"install agent plugins": "bash ./.devcontainer/post-attach.sh"
+		"install agent plugins": "task agents:plugins"
 	}
 }
