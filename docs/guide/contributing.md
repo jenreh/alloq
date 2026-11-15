@@ -34,6 +34,12 @@ offers to install them when you trust the project folder.
 and `.vscode/settings.json` turns on agent plugins (`chat.plugins.enabled`). Keep
 the plugin lists in both files the same.
 
+Copilot and Claude Code install plugins into `~/.copilot` and `~/.claude`, which are
+empty in a new dev container. The dev container includes both CLIs, and
+`.devcontainer/post-attach.sh` uses them to install the marketplaces and plugins
+listed in `.github/copilot/settings.json` and `.claude/settings.json` each time you
+attach. Entries that are already installed are skipped without an error.
+
 ## The workflow for every change
 
 1. **Look for earlier decisions.** Search the team memory for the feature words

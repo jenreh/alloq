@@ -22,6 +22,7 @@
 			"extensions": [
 				"-dbaeumer.vscode-eslint",
 				"-ms-python.autopep8", // disabled because we are using ruff
+				"Anthropic.claude-code",
 				"charliermarsh.ruff",
 				"esbenp.prettier-vscode",
 				"fill-labs.dependi",
@@ -45,26 +46,23 @@
 				"vscode-icons-team.vscode-icons",
 				"yzhang.markdown-all-in-one",
 				"taskfile.taskfile"
-				//				"ms-azuretools.vscode-containers",
 			]
 		}
 	},
 	"features": {
-		"ghcr.io/devcontainers/features/common-utils:2.5.8": {
+		"ghcr.io/devcontainers/features/common-utils:2.7.1": {
 			"configureZshAsDefaultShell": true,
+			"installOhMyZsh": false,
+			"installOhMyZshConfig": false,
 			"username": "vscode"
 		},
-		"ghcr.io/devcontainers/features/git:1.3.5": {},
-		// "ghcr.io/devcontainers/features/git-lfs:1.2.5": {},
-		"ghcr.io/devcontainers/features/docker-outside-of-docker:1.9.1": {},
-		"ghcr.io/devcontainers/features/github-cli:1.1.0": {},
-		// "ghcr.io/devcontainers/features/azure-cli:1.2.8": {},
-		// "ghcr.io/devcontainers/features/terraform:1.4.2": {
-		//    "installTerraformDocs": "true",
-		//	  "installTFsec": "true"
-		// },
+		"ghcr.io/devcontainers/features/git:1.3.8": {},
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1.10.2": {},
+		"ghcr.io/devcontainers/features/github-cli:1.1.3": {},
+		"ghcr.io/devcontainers/features/copilot-cli:1.1.4": {},
+		"ghcr.io/anthropics/devcontainer-features/claude-code:1.0.5": {},
 		"ghcr.io/jsburckhardt/devcontainer-features/uv:1": {},
-		"ghcr.io/devcontainers/features/node:2": {
+		"ghcr.io/devcontainers/features/node:2.1.2": {
 			"version": "24"
 		}
 	},
@@ -72,6 +70,7 @@
 		"initialize environment": "bash ./.devcontainer/post-create.sh"
 	},
 	"postAttachCommand": {
-		"install dependencies": "uv sync"
+		"install dependencies": "uv sync",
+		"install agent plugins": "bash ./.devcontainer/post-attach.sh"
 	}
 }

@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run *)",
+      "Bash(lsof -iTCP -sTCP:LISTEN -P)",
+      "Bash(cp /Users/jens/.claude/plans/compiled-mapping-salamander.md spec/plans/angebote.md && head -3 spec/plans/angebote.md)",
+      "Bash(cp /Users/jens/.claude/plans/nested-booping-cat.md /Users/jens/Workspace/work/alloq/spec/plans/ki-angebotswerkstatt.md && ls -l /Users/jens/Workspace/work/alloq/spec/plans/)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(export UV_PROJECT_ENVIRONMENT=.venv.mac)",
+      "Bash(cd /Users/jens/Workspace/work/alloq/components/alloq-offer/tests; grep -n -i \"scope\\\\|Scope\\\\b\\\\|offered\\\\|confirm_skeleton\\\\|angeboten\\\\|\\\\\"option\\\\\"\\\\|ausgeschlossen\\\\|SCOPE\" *.py ../../../tests/test_handler_authorization.py | grep -v \"scope_bar\\\\|aq-scopebar\\\\|workshop_scope\")",
+      "Bash(cp /Users/jens/.claude/plans/modular-sleeping-newt.md /Users/jens/Workspace/work/alloq/spec/plans/angebot-kapitel-und-vorlagen.md && grep -n \"^# \\\\|^## Context\\\\|^## Load first\" /Users/jens/Workspace/work/alloq/spec/plans/angebot-kapitel-und-vorlagen.md)",
+      "Bash(ls spec/plans spec/architecture | head -30; cp /Users/jens/.claude/plans/lovely-noodling-patterson.md spec/plans/offer-workshop-confluence-editor.md && ls spec/plans)",
+      "Bash(sed -i '' 's/numbers = outline_numbers\\(\\\\[c.level for c in chapters\\\\]\\)/numbers = outline_numbers\\(\\\\n            [c.level for c in chapters], [c.chapter_type for c in chapters]\\\\n        \\)/' services/chapters.py)",
+      "Bash(sed -i '' 's/numbers = outline_numbers\\(\\\\[row.level for row in rows\\\\]\\)/numbers = outline_numbers\\(\\\\n        [row.level for row in rows], [row.chapter_type for row in rows]\\\\n    \\)/' services/export_snapshot.py)"
+    ]
+  }
+}

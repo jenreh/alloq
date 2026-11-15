@@ -7,9 +7,10 @@ git config --global --add safe.directory "$WORKSPACE"
 
 echo "Setting up zsh"
 mkdir -p /home/vscode/.mcp
-mkdir -p /home/vscode/.antigen/bundles/robbyrussell/oh-my-zsh/cache/completions
-cp "$WORKSPACE"/.devcontainer/.p10k.zsh "$HOME"/.p10k.zsh
+cp "$WORKSPACE"/.devcontainer/.zsh_plugins.txt "$HOME"/.zsh_plugins.txt
 cp "$WORKSPACE"/.devcontainer/.zshrc "$HOME"/.zshrc
+# Clone the plugins now, so the first terminal opens without a delay
+zsh -i -c exit
 
 echo "Initializing project"
 task init

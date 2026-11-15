@@ -1,0 +1,36 @@
+# antidote plugin list, loaded by ~/.zshrc. After editing, a new shell regenerates
+# ~/.zsh_plugins.zsh automatically. The order matters; the comments say why.
+# Zephyr (mattmc3/zephyr) provides the shell basics, jenreh/zsh-utils the rest.
+
+# Settings for the Zephyr modules (must come first)
+jenreh/zsh-utils path:plugins/zephyr-config
+
+# Shell basics from Zephyr: options, history, directory stack, colors, key bindings,
+# URL quoting when pasting; then Zephyr defaults changed back (`>` may overwrite)
+mattmc3/zephyr path:plugins/environment
+mattmc3/zephyr path:plugins/history
+mattmc3/zephyr path:plugins/directory
+mattmc3/zephyr path:plugins/color
+mattmc3/zephyr path:plugins/editor
+mattmc3/zephyr path:plugins/utility
+jenreh/zsh-utils path:plugins/overrides
+
+# Completion: everything that adds to fpath first, then compinit (Zephyr, immediately)
+zsh-users/zsh-completions path:src kind:fpath
+jenreh/zsh-autoswitch-virtualenv
+jenreh/zsh-utils path:plugins/completion
+mattmc3/zephyr path:plugins/completion
+
+# Line editor: fzf-tab after compinit and before the plugins that wrap widgets;
+# suggestions, highlighting, ↑/↓ history search
+Aloxaf/fzf-tab
+zsh-users/zsh-autosuggestions
+zsh-users/zsh-syntax-highlighting
+mattmc3/zephyr path:plugins/history-search
+
+# Prompt: starship via Zephyr (config: ~/.config/starship.toml), transient prompt
+mattmc3/zephyr path:plugins/prompt
+jenreh/zsh-utils path:plugins/transient-prompt
+
+# pyenv, fzf (after fzf-tab), iTerm2 integration, zoxide (last)
+jenreh/zsh-utils path:plugins/tools

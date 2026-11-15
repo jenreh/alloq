@@ -1,44 +1,41 @@
-if command -v pyenv 1>/dev/null 2>&1; then
-    eval "$(pyenv init -)"
-fi
+# ~/.zshrc in the dev container. Same setup as on the Mac: antidote loads the plugins
+# from ~/.zsh_plugins.txt (Zephyr for the basics, jenreh/zsh-utils for the rest) and
+# the prompt is starship with the transient prompt.
 
-if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
-  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
-fi
+typeset -U path
+path=(~/bin ~/.local/bin $path)
 
-export PATH=$HOME/bin:/usr/local/bin:$PATH
-# Disable oh-my-zsh auto-update
-export DISABLE_AUTO_UPDATE="true"
-export DISABLE_UPDATE_PROMPT="true"
+# Plugins
+export AUTOSWITCH_SILENT=1    # zsh-autoswitch-virtualenv: no message when switching
+export ANTIDOTE_HOME=~/.cache/antidote
+# zsh-utils writes these completions to ~/.zfunc and refreshes them on tool updates
+zstyle ':zsh-utils:completion' generate 'ngrok completion' 'task --completion zsh'
+source /usr/local/share/antidote/antidote.zsh
+antidote load ~/.zsh_plugins.txt
 
-# Load Antigen
-source $WORKSPACE/.devcontainer/antigen.zsh
+# fzf-tab group headers: _description prefers Zephyr's ':completion:*' format over the
+# '[%d]' descriptions format zsh-utils sets, and fzf-tab shows its %F escapes literally
+# (e.g. in `git <Tab>`). Runs after the zsh-utils hook, which also uses post_zshrc.
+function _fzf-tab-plain-headers {
+  zstyle -d ':completion:*' format
+  zstyle -d ':completion:*:corrections' format
+}
+add-post-zshrc-hook _fzf-tab-plain-headers
 
-# Use oh-my-zsh
-antigen use oh-my-zsh
-
-# Bundles
-antigen bundle command-not-found
-antigen bundle common-aliases
-antigen bundle docker
-antigen bundle git
-antigen bundle git-extras
-antigen bundle npm
-antigen bundle agkozak/zsh-z
-antigen bundle chitoku-k/fzf-zsh-completions
-antigen bundle greymd/docker-zsh-completion
-antigen bundle history-substring-search
-antigen bundle jenreh/zsh-autoswitch-virtualenv
-antigen bundle zsh-interactive-cd
-antigen bundle zsh-users/zsh-autosuggestions
-antigen bundle zsh-users/zsh-completions
-antigen bundle zsh-users/zsh-syntax-highlighting
-
-# Theme
-antigen theme romkatv/powerlevel10k
-
-# Apply changes
-antigen apply
-
-# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+# Aliases
+alias ll='ls -lh'
+alias la='ls -lAh'
+alias l='ls -CF'
+alias lt='ls -lAht'            # newest first
+alias mkdir='mkdir -p'
+alias df='df -h'
+alias du='du -h'
+alias c='clear'
+alias path='print -l $path'
+alias reload='exec zsh'
+alias g='git'
+alias gst='git status -sb'
+alias gdf='git diff'
+alias glg='git log --oneline --graph --decorate -20'
+alias gp='git pull'
+alias gco='git checkout'
