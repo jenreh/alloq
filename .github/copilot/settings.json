@@ -1,0 +1,17 @@
+{
+  "extraKnownMarketplaces": {
+    "jenreh": {
+      "source": {
+        "source": "github",
+        "repo": "jenreh/agent-skills"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "jenreh-core@jenreh": true,
+    "jenreh-design@jenreh": true,
+    "jenreh-python@jenreh": true,
+    "jenreh-reflex@jenreh": true,
+    "jenreh-tools@jenreh": true
+  }
+}

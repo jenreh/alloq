@@ -1,4 +1,19 @@
 {
+  "extraKnownMarketplaces": {
+    "jenreh": {
+      "source": {
+        "source": "github",
+        "repo": "jenreh/agent-skills"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "jenreh-core@jenreh": true,
+    "jenreh-design@jenreh": true,
+    "jenreh-python@jenreh": true,
+    "jenreh-reflex@jenreh": true,
+    "jenreh-tools@jenreh": true
+  },
   "hooks": {
     "PostToolUse": [
       {
@@ -188,9 +203,8 @@
       "Bash(grep *)",
       "Bash(find *)",
       "Bash(ls *)",
-      "Skill(create-readme:*)",
-      "Skill(writing-python-code:*)",
-      "Skill(frontend-design:*)"
+      "Skill(jenreh-tools:create-readme)",
+      "Skill(jenreh-design:frontend-design)"
     ],
     "defaultMode": "acceptEdits"
   }

@@ -92,6 +92,10 @@
     ".venv"
   ],
   "chat.agent.maxRequests": 100,
+  "chat.plugins.enabled": true,
+  "chat.plugins.marketplaces": [
+    "jenreh/agent-skills"
+  ],
   "[jsonc]": {
     "editor.defaultFormatter": "vscode.json-language-features"
   },

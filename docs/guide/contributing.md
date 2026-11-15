@@ -23,6 +23,17 @@ which AI agents load before every code change. The rules are the same for people
 Read [Getting started](./getting-started.md) first, so the app and the tests run on
 your machine.
 
+## Agent skills
+
+The Alloq skills live in `.agents/skills/`, and `.claude/skills` links to that
+folder. The general skills for Python, Reflex, design and tools come from the
+[jenreh/agent-skills](https://github.com/jenreh/agent-skills) plugin marketplace.
+`.claude/settings.json` lists that marketplace and its plugins, so Claude Code
+offers to install them when you trust the project folder.
+`.github/copilot/settings.json` holds the same list for GitHub Copilot in VS Code,
+and `.vscode/settings.json` turns on agent plugins (`chat.plugins.enabled`). Keep
+the plugin lists in both files the same.
+
 ## The workflow for every change
 
 1. **Look for earlier decisions.** Search the team memory for the feature words
