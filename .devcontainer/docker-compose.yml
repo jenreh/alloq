@@ -3,12 +3,16 @@ services:
     container_name: alloq-dev
     image: alloq/ui-dev
     build:
-      context: ..
-      dockerfile: .devcontainer/Dockerfile
+      # The Dockerfile copies nothing, so only send this folder as build context
+      context: .
+      dockerfile: Dockerfile
       args:
         VARIANT: 3.14-bookworm
     volumes:
       - ../..:/workspaces:rw,cached
+      # Survives rebuilds: uv, pre-commit and antidote caches, uv-managed Python and
+      # tools, Claude Code and Copilot login and plugins (symlinked, see Dockerfile)
+      - dev-state:/home/vscode/.persist
     command: sleep infinity
     networks:
       - alloq-network
@@ -31,6 +35,8 @@ services:
 volumes:
   postgres-data:
     name: alloq-postgres-data
+  dev-state:
+    name: alloq-dev-state
 
 networks:
   alloq-network:

@@ -24,3 +24,18 @@ RUN curl -fsSL "https://github.com/junegunn/fzf/releases/download/v${FZF_VERSION
         | sh -s -- --yes --bin-dir /usr/local/bin --version "v${STARSHIP_VERSION}" \
     && git clone --quiet --depth 1 --branch "v${ANTIDOTE_VERSION}" \
         https://github.com/mattmc3/antidote.git /usr/local/share/antidote
+
+# State that survives rebuilds lives in the alloq-dev-state volume, mounted at
+# ~/.persist (docker-compose.yml). A new volume copies the image's folders and their
+# owner, so the subfolders exist on first start; the home paths are symlinks into it.
+ARG PERSIST=/home/vscode/.persist
+RUN mkdir -p ${PERSIST}/cache ${PERSIST}/uv ${PERSIST}/claude ${PERSIST}/copilot \
+        /home/vscode/.local/share \
+    && rm -rf /home/vscode/.cache /home/vscode/.local/share/uv /home/vscode/.claude \
+        /home/vscode/.copilot \
+    && ln -s ${PERSIST}/cache /home/vscode/.cache \
+    && ln -s ${PERSIST}/uv /home/vscode/.local/share/uv \
+    && ln -s ${PERSIST}/claude /home/vscode/.claude \
+    && ln -s ${PERSIST}/copilot /home/vscode/.copilot \
+    && chown -R vscode:vscode ${PERSIST} /home/vscode/.local \
+    && chown -h vscode:vscode /home/vscode/.cache /home/vscode/.claude /home/vscode/.copilot

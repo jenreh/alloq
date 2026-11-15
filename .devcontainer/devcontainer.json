@@ -8,7 +8,11 @@
 	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
 	"containerEnv": {
 		"WORKSPACE": "/workspaces/${localWorkspaceFolderBasename}",
-		"UV_PROJECT_ENVIRONMENT": ".venv"
+		"UV_PROJECT_ENVIRONMENT": ".venv",
+		// The uv cache volume and the workspace are different filesystems
+		"UV_LINK_MODE": "copy",
+		// Keep .claude.json inside the persisted ~/.claude volume
+		"CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
 	},
 	"mounts": [
 		"source=${localEnv:HOME}${env:USERPROFILE}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached"
